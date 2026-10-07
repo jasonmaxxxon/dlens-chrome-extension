@@ -1906,7 +1906,7 @@ test("LibraryView renders a saved analyses section on the home surface", () => {
   assert.doesNotMatch(html, />3 群組</);
 });
 
-test("CollectView keeps the preview card and compact collect controls visible with current Chinese copy", () => {
+test("CollectView keeps collection context while removing hover selection and preview save controls", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: buildDescriptor(),
@@ -1921,19 +1921,14 @@ test("CollectView keeps the preview card and compact collect controls visible wi
   );
 
   assert.match(html, /data-mode-header="collect"/);
-  assert.match(html, /指向貼文預覽，按 S 儲存。/);
-  assert.doesNotMatch(html, /decision surface/);
+  assert.match(html, /點按貼文按鈕收藏，按住或拖動選擇工作區。/);
   assert.match(html, /Signals/);
-  assert.match(html, /儲存到資料庫/);
   assert.match(html, /data-archive-no-ai-notice="collect"/);
   assert.match(html, /儲存為原文記錄，不跑 AI 分析/);
   assert.match(html, /data-collector-panel-header="true"/);
   assert.match(html, /data-collector-stage="hero"[^>]*data-dlens-presence="card"/);
-  assert.match(html, /data-collector-mode-toggle="true"/);
-  assert.match(html, /data-collector-key-hints="true"/);
-  assert.match(html, /採集中/);
-  assert.match(html, /關閉/);
-  assert.doesNotMatch(html, /收集模式：開啟/);
+  assert.doesNotMatch(html, /data-collector-mode-toggle|data-collector-key-hints|data-collector-viewfinder/);
+  assert.doesNotMatch(html, /採集中|關閉採集|開啟採集|儲存到資料庫/);
 });
 
 test("CollectView renders saved-post metrics in recent captures instead of duplicating the hover preview", () => {
@@ -1989,11 +1984,11 @@ test("CollectView uses product inbox language in product mode", () => {
 
   assert.match(html, /收藏貼文/);
   assert.match(html, /產品訊號收件匣/);
-  assert.match(html, /加入產品訊號/);
+  assert.doesNotMatch(html, /加入產品訊號/);
   assert.doesNotMatch(html, /資料夾/);
 });
 
-test("CollectView blocks PR Evidence saves until a campaign exists", () => {
+test("CollectView leaves PR collection to the inline wheel without a legacy save gate", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: buildDescriptor(),
@@ -2010,9 +2005,8 @@ test("CollectView blocks PR Evidence saves until a campaign exists", () => {
   );
 
   assert.match(html, /收藏貼文/);
-  assert.match(html, /data-collect-disabled-reason="true"/);
-  assert.match(html, /先在 PR 頁建立 campaign/);
-  assert.match(html, /disabled=""/);
+  assert.doesNotMatch(html, /data-collect-disabled-reason|先在 PR 頁建立 campaign|disabled=""/);
+  assert.match(html, /PR evidence ledger/);
 });
 
 test("PrEvidenceView renders campaign setup and compact evidence ledger", () => {

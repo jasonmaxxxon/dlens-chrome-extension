@@ -112,7 +112,7 @@ test("CollectView omits untriaged delete controls when onSignalDeleted is absent
   assert.doesNotMatch(html, /data-untriaged-delete-selected/);
 });
 
-test("CollectView folds collect mode controls into the collector panel header and footer", () => {
+test("CollectView replaces hover selection controls with inline button guidance", () => {
   const html = renderToStaticMarkup(
     React.createElement(CollectView, {
       preview: descriptor(),
@@ -126,15 +126,10 @@ test("CollectView folds collect mode controls into the collector panel header an
     })
   );
 
-  assert.match(html, /data-collector-panel-header="true"/);
-  assert.match(html, /data-collector-status="capturing"/);
   assert.match(html, /data-collector-target-chip="true"/);
-  assert.match(html, /data-collector-mode-toggle="true"/);
-  assert.match(html, /data-collector-key-hints="true"/);
-  assert.match(html, /採集中/);
-  assert.doesNotMatch(html, /收集模式：開啟/);
-  // The masthead owns the wordmark; the collector hero must not restate it.
-  assert.doesNotMatch(html, /DLens/);
+  assert.match(html, /點按貼文按鈕收藏，按住或拖動選擇工作區。/);
+  assert.doesNotMatch(html, /data-collector-mode-toggle|data-collector-viewfinder|data-collector-key-hints/);
+  assert.doesNotMatch(html, /採集中|關閉採集|開啟採集|儲存到資料庫|DLens/);
 });
 
 test("CollectView renders recent captures with real descriptor metrics and missing markers", () => {

@@ -1,125 +1,20 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { defineContentScript } from "wxt/utils/define-content-script";
-import { buildTargetDescriptor, canSubmitDescriptor, findCardCandidate, type CandidateStrength } from "../src/targeting/threads";
-import { createHoverFrameController } from "../src/targeting/hover-geometry";
-import { createLocationChangeChecker, HOVER_INTENT_DELAY_MS } from "../src/targeting/navigation-reset";
+import { createLocationChangeChecker } from "../src/targeting/navigation-reset";
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages";
-import { appendExternalPipelineTraceEntry, createPipelineRequestId, emitPipelineEvent, isQaTraceEnabled } from "../src/state/pipeline-trace";
-import type { FolderMode } from "../src/state/types";
-import {
-  buildSelectionModeMessage,
-  resolveSelectionModeFromSnapshot,
-  type SelectionModeExitReason
-} from "../src/state/selection-mode-messages";
+import { appendExternalPipelineTraceEntry, isQaTraceEnabled } from "../src/state/pipeline-trace";
 import { InPageCollectorApp } from "../src/ui/InPageCollectorApp";
 import { buildWorkspaceCrashMarkup, getWorkspaceCrashMessage, isExtensionRuntimeError } from "../src/ui/runtime-guard";
 import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../src/ui/motion";
-import {
-  dispatchPageLocationChange,
-  getLiveCollectionTarget,
-  HOVER_RECT_EVENT,
-  OPTIMISTIC_SAVE_CONFIRMED_EVENT,
-  OPTIMISTIC_SAVE_EVENT,
-  OPTIMISTIC_SAVE_FAILED_EVENT,
-  setLiveHoverDescriptor
-} from "../src/ui/inpage-helpers";
+import { dispatchPageLocationChange } from "../src/ui/inpage-helpers";
+import { startInlineCollectRuntime } from "../src/content/inline-collect-runtime";
+import { DLENS_INLINE_COLLECT_CSS } from "../src/content/inline-collect-wheel-styles";
 
-const OVERLAY_ID = "__dlens_extension_v0_overlay__";
 const ROOT_ID = "__dlens_extension_v0_root__";
 const QA_TRACE_VERSION = "full-live-trace-v2";
-
-let selectionMode = false;
-let hoverCard: HTMLElement | null = null;
-let hoverStrength: CandidateStrength | null = null;
-let hoverDescriptor: ReturnType<typeof buildTargetDescriptor> | null = null;
-let hoverIntentHandle: number | null = null;
-let previousBodyCursor = "";
-let previousDocumentCursor = "";
+let inlineCollect: ReturnType<typeof startInlineCollectRuntime> | null = null;
 let removeSpaNavigationReset: (() => void) | null = null;
-let activeSelectionMode: FolderMode = "archive";
-
-const SELECTION_MODE_THEMES: Record<FolderMode, {
-  accent: string;
-  accentMid: string;
-  borderStrong: string;
-  borderSoft: string;
-  surfaceStrong: string;
-  surfaceSoft: string;
-  shadowStrong: string;
-  shadowSoft: string;
-}> = {
-  archive: {
-    accent: "#1a2e4f",
-    accentMid: "#2b4a80",
-    borderStrong: "rgba(26,46,79,0.55)",
-    borderSoft: "rgba(26,46,79,0.26)",
-    surfaceStrong: "rgba(26,46,79,0.04)",
-    surfaceSoft: "rgba(26,46,79,0.02)",
-    shadowStrong: "rgba(26,46,79,0.13)",
-    shadowSoft: "rgba(26,46,79,0.07)"
-  },
-  topic: {
-    accent: "#3f5a3b",
-    accentMid: "#527648",
-    borderStrong: "rgba(63,90,59,0.58)",
-    borderSoft: "rgba(63,90,59,0.28)",
-    surfaceStrong: "rgba(63,90,59,0.05)",
-    surfaceSoft: "rgba(63,90,59,0.025)",
-    shadowStrong: "rgba(63,90,59,0.15)",
-    shadowSoft: "rgba(63,90,59,0.08)"
-  },
-  product: {
-    accent: "#234f7a",
-    accentMid: "#2f6a96",
-    borderStrong: "rgba(35,79,122,0.58)",
-    borderSoft: "rgba(35,79,122,0.28)",
-    surfaceStrong: "rgba(35,79,122,0.045)",
-    surfaceSoft: "rgba(35,79,122,0.025)",
-    shadowStrong: "rgba(35,79,122,0.14)",
-    shadowSoft: "rgba(35,79,122,0.07)"
-  },
-  "pr-evidence": {
-    accent: "#7a2030",
-    accentMid: "#9b3a49",
-    borderStrong: "rgba(122,32,48,0.56)",
-    borderSoft: "rgba(122,32,48,0.26)",
-    surfaceStrong: "rgba(122,32,48,0.045)",
-    surfaceSoft: "rgba(122,32,48,0.025)",
-    shadowStrong: "rgba(122,32,48,0.13)",
-    shadowSoft: "rgba(122,32,48,0.07)"
-  }
-};
-
-function selectionTheme() {
-  return SELECTION_MODE_THEMES[activeSelectionMode] ?? SELECTION_MODE_THEMES.archive;
-}
-
-function isControlSurface(node: EventTarget | Node | null): boolean {
-  const element = node instanceof Element ? node : node instanceof Node ? node.parentElement : null;
-  return Boolean(element?.closest('[data-dlens-control="true"]'));
-}
-
-function ensureOverlay(): HTMLDivElement {
-  let overlay = document.getElementById(OVERLAY_ID) as HTMLDivElement | null;
-  if (!overlay) {
-    const theme = selectionTheme();
-    overlay = document.createElement("div");
-    overlay.id = OVERLAY_ID;
-    overlay.setAttribute("data-dlens-control", "true");
-    overlay.style.position = "fixed";
-    overlay.style.pointerEvents = "none";
-    overlay.style.border = `1.5px solid ${theme.borderStrong}`;
-    overlay.style.borderRadius = "16px";
-    overlay.style.background = theme.surfaceStrong;
-    overlay.style.boxShadow = `0 0 0 1px rgba(255,255,255,0.5), 0 8px 24px ${theme.shadowStrong}`;
-    overlay.style.transition = "transform 120ms ease-out, top 120ms ease-out, left 120ms ease-out, width 120ms ease-out, height 120ms ease-out, opacity 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out";
-    overlay.style.zIndex = "2147483645";
-    overlay.style.display = "none";
-    document.documentElement.appendChild(overlay);
-  }
-  return overlay;
-}
 
 function ensureRoot(): HTMLDivElement {
   let root = document.getElementById(ROOT_ID) as HTMLDivElement | null;
@@ -146,196 +41,25 @@ function ensureRoot(): HTMLDivElement {
   // Inject the single keyframe registry + reduced-motion safety net once (idempotent,
   // shared guard id across every mount context).
   ensureDlensKeyframes(document);
+  if (!document.getElementById("__dlens_inline_collect_style__")) {
+    const style = document.createElement("style");
+    style.id = "__dlens_inline_collect_style__";
+    style.textContent = DLENS_INLINE_COLLECT_CSS;
+    document.head.appendChild(style);
+  }
   return root;
 }
 
+
 function renderWorkspaceCrashFallback(root: HTMLDivElement, error: unknown) {
-  const message = getWorkspaceCrashMessage(error);
-  root.innerHTML = buildWorkspaceCrashMarkup(message);
-}
-
-function emitHoverRect(rect: DOMRect | null) {
-  const detail = rect ? rect.toJSON() : null;
-  window.dispatchEvent(new CustomEvent(HOVER_RECT_EVENT, { detail }));
-}
-
-function renderOverlay(card: HTMLElement | null, strength: CandidateStrength | null, rect: DOMRect | null) {
-  const overlay = ensureOverlay();
-  if (!card || !rect) {
-    overlay.style.display = "none";
-    emitHoverRect(null);
-    emitPipelineEvent({
-      phase: "hover.detected",
-      step: "content.overlay.hide",
-      target: {},
-      result: "ok"
-    });
-    return;
-  }
-
-  const theme = selectionTheme();
-  overlay.style.display = "block";
-  overlay.style.top = `${rect.top - 3}px`;
-  overlay.style.left = `${rect.left - 3}px`;
-  overlay.style.width = `${rect.width + 6}px`;
-  overlay.style.height = `${rect.height + 6}px`;
-  overlay.style.borderColor = strength === "soft" ? theme.borderSoft : theme.borderStrong;
-  overlay.style.background = strength === "soft" ? theme.surfaceSoft : theme.surfaceStrong;
-  overlay.style.boxShadow =
-    strength === "soft"
-      ? `0 0 0 1px rgba(255,255,255,0.35), 0 6px 16px ${theme.shadowSoft}`
-      : `0 0 0 1px rgba(255,255,255,0.5), 0 10px 24px ${theme.shadowStrong}`;
-  emitHoverRect(rect);
-  emitPipelineEvent({
-    phase: "hover.detected",
-    step: "content.overlay.render",
-    target: {},
-    result: "ok",
-    detail: {
-      strength,
-      rect: {
-        top: Math.round(rect.top),
-        left: Math.round(rect.left),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
-      }
-    }
-  });
-}
-
-function clearHoverIntent() {
-  if (hoverIntentHandle !== null) {
-    window.clearTimeout(hoverIntentHandle);
-    hoverIntentHandle = null;
-  }
-}
-
-function setCollectCursor(enabled: boolean) {
-  if (enabled) {
-    previousBodyCursor = document.body.style.cursor;
-    previousDocumentCursor = document.documentElement.style.cursor;
-    document.body.style.cursor = "crosshair";
-    document.documentElement.style.cursor = "crosshair";
-    return;
-  }
-
-  document.body.style.cursor = previousBodyCursor;
-  document.documentElement.style.cursor = previousDocumentCursor;
-}
-
-function publishHoveredDescriptor(descriptor: ReturnType<typeof buildTargetDescriptor> | null) {
-  setLiveHoverDescriptor(descriptor);
-  emitPipelineEvent({
-    phase: "hover.detected",
-    step: "content.hover.publish",
-    target: {},
-    result: descriptor ? "ok" : "pending",
-    detail: {
-      hasDescriptor: Boolean(descriptor),
-      postUrl: descriptor?.post_url ?? null,
-      author: descriptor?.author_hint ?? null,
-      strength: hoverStrength
-    }
-  });
-  chrome.runtime
-    .sendMessage({ type: "selection/hovered", descriptor, strength: hoverStrength } satisfies ExtensionMessage)
-    .catch(() => undefined);
-}
-
-function readSubmittableDescriptor(card: HTMLElement): ReturnType<typeof buildTargetDescriptor> | null {
-  const descriptor = buildTargetDescriptor(card, window.location.href);
-  if (!descriptor || !canSubmitDescriptor(descriptor)) {
-    return null;
-  }
-  return descriptor;
-}
-
-/** Fingerprint a card by its permalink to detect SPA-reused DOM nodes */
-function cardFingerprint(card: HTMLElement): string {
-  const link = card.querySelector<HTMLAnchorElement>('a[href*="/post/"]');
-  return link?.getAttribute("href") || "";
-}
-
-let lastCardFingerprint = "";
-
-function setHoverCard(card: HTMLElement | null, strength: CandidateStrength | null, rect: DOMRect | null) {
-  const cardId = card ? cardFingerprint(card) : null;
-
-  // The frame controller already suppresses stable card/strength/geometry.
-  // A same-card publish therefore means only strength or measured geometry moved.
-  if (hoverCard === card && (cardId ?? "") === lastCardFingerprint) {
-    hoverStrength = strength;
-    renderOverlay(card, strength, rect);
-    return;
-  }
-
-  hoverCard = card;
-  hoverStrength = strength;
-  hoverDescriptor = null;
-  lastCardFingerprint = cardId ?? "";
-  renderOverlay(card, strength, rect);
-  clearHoverIntent();
-  emitPipelineEvent({
-    phase: "hover.detected",
-    step: "content.hover.card-change",
-    target: {},
-    result: card ? "pending" : "ok",
-    detail: {
-      hasCard: Boolean(card),
-      strength,
-      fingerprint: cardId || null,
-      delayMs: card ? strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS : null
-    }
-  });
-
-  if (!card) {
-    publishHoveredDescriptor(null);
-    return;
-  }
-
-  const delayMs = strength === "hard" ? 0 : HOVER_INTENT_DELAY_MS;
-  hoverIntentHandle = window.setTimeout(() => {
-    const startedAt = performance.now();
-    const descriptor = readSubmittableDescriptor(card);
-    hoverDescriptor = descriptor;
-    emitPipelineEvent({
-      phase: "hover.detected",
-      step: "content.hover.intent-fired",
-      target: {},
-      result: descriptor ? "ok" : "error",
-      detail: {
-        hasDescriptor: Boolean(descriptor),
-        postUrl: descriptor?.post_url ?? null,
-        readMs: Math.round((performance.now() - startedAt) * 10) / 10
-      }
-    });
-    publishHoveredDescriptor(descriptor);
-  }, delayMs);
-}
-
-const hoverFrameController = createHoverFrameController<
-  EventTarget | null,
-  HTMLElement,
-  CandidateStrength,
-  DOMRect
->({
-  requestFrame: (callback) => window.requestAnimationFrame(callback),
-  cancelFrame: (handle) => window.cancelAnimationFrame(handle),
-  resolveCandidate: (target) => findCardCandidate(target),
-  getCardId: (card) => cardFingerprint(card),
-  readRect: (card) => card.getBoundingClientRect(),
-  publish: (card, strength, rect) => setHoverCard(card, strength, rect)
-});
-
-function clearHoverStateForNavigation() {
-  hoverFrameController.cancel();
+  root.innerHTML = buildWorkspaceCrashMarkup(getWorkspaceCrashMessage(error));
 }
 
 function installSpaNavigationReset() {
   const checkLocationChange = createLocationChangeChecker(window.location.href);
   const handlePotentialNavigation = () => {
     checkLocationChange(window.location.href, (href) => {
-      clearHoverStateForNavigation();
+      inlineCollect?.reset();
       dispatchPageLocationChange(href);
     });
   };
@@ -375,316 +99,47 @@ function installSpaNavigationReset() {
   };
 }
 
-function stopSelectionMode(reason: SelectionModeExitReason = "manual-cancel") {
-  selectionMode = false;
-  setCollectCursor(false);
-  hoverFrameController.cancel();
-  dropKeepAlive();
-  const message = buildSelectionModeMessage(false, reason);
-  emitPipelineEvent({
-    phase: "signal.saved",
-    step: "content.selection.stop",
-    target: {},
-    result: "ok",
-    detail: { reason }
-  });
-  if (!message) {
-    return;
-  }
-  chrome.runtime.sendMessage(message satisfies ExtensionMessage).catch(() => undefined);
-}
-
-function startSelectionMode(mode: FolderMode = "archive", notify = true) {
-  activeSelectionMode = mode;
-  selectionMode = true;
-  setCollectCursor(true);
-  ensureKeepAlive();
-  emitPipelineEvent({
-    phase: "signal.saved",
-    step: "content.selection.start",
-    target: {},
-    result: "ok",
-    detail: { mode, notify }
-  });
-  if (!notify) {
-    return;
-  }
-  const message = buildSelectionModeMessage(true);
-  if (message) {
-    chrome.runtime.sendMessage(message satisfies ExtensionMessage).catch(() => undefined);
-  }
-}
-
-function syncSelectionModeFromSnapshot() {
-  emitPipelineEvent({
-    phase: "signal.saved",
-    step: "content.selection.sync.request",
-    target: {},
-    result: "pending"
-  });
-  chrome.runtime
-    .sendMessage({ type: "state/get-active-tab" } satisfies ExtensionMessage)
-    .then((response: ExtensionResponse) => {
-      emitPipelineEvent({
-        phase: "signal.saved",
-        step: "content.selection.sync.response",
-        target: {},
-        result: response.ok ? "ok" : "error",
-        detail: {
-          ok: response.ok,
-          hasSnapshot: Boolean(response.ok && response.snapshot)
-        }
-      });
-      if (!response.ok || !response.snapshot) {
-        return;
-      }
-      const mode = resolveSelectionModeFromSnapshot(response.snapshot);
-      if (mode) {
-        startSelectionMode(mode, false);
-        return;
-      }
-      if (selectionMode) {
-        stopSelectionMode("remote-sync");
-      }
-    })
-    .catch(() => undefined);
-}
-
-function onPointerMove(event: MouseEvent) {
-  if (!selectionMode || isControlSurface(event.target)) {
-    return;
-  }
-  hoverFrameController.enqueue(event.target);
-}
-
-function onClick(event: MouseEvent) {
-  if (!selectionMode || isControlSurface(event.target)) {
-    return;
-  }
-
-  const candidate = findCardCandidate(event.target);
-  const card = candidate.root;
-  if (!card) {
-    emitPipelineEvent({
-      phase: "preview.confirmed",
-      step: "content.collect.click.pass-through",
-      target: {},
-      result: "error",
-      detail: { reason: "no-card", strength: candidate.strength }
-    });
-    return;
-  }
-
-  const descriptor = hoverCard === card && hoverDescriptor ? hoverDescriptor : readSubmittableDescriptor(card);
-  if (!descriptor) {
-    emitPipelineEvent({
-      phase: "preview.confirmed",
-      step: "content.collect.click.pass-through",
-      target: {},
-      result: "error",
-      detail: { reason: "no-descriptor", strength: candidate.strength }
-    });
-    return;
-  }
-
-  event.preventDefault();
-  event.stopPropagation();
-  emitPipelineEvent({
-    phase: "preview.confirmed",
-    step: "content.collect.click.capture",
-    target: {},
-    result: "ok",
-    detail: {
-      postUrl: descriptor.post_url,
-      author: descriptor.author_hint,
-      strength: candidate.strength
-    }
-  });
-  window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_EVENT, { detail: descriptor }));
-
-  // Read the folder/topic the popup is showing right now so the click saves to the
-  // intended target instead of whatever the background's activeSessionId happens to be.
-  const target = getLiveCollectionTarget();
-  const requestId = createPipelineRequestId("content-collect-save");
-
-  void (async () => {
-    const saveStartedAt = performance.now();
-    await chrome.runtime
-      .sendMessage({ type: "selection/hovered", descriptor, strength: candidate.strength } satisfies ExtensionMessage)
-      .catch(() => undefined);
-    if (!target.sessionId) {
-      emitPipelineEvent({
-        phase: "signal.saved",
-        step: "content.collect.save.response",
-        target: {},
-        result: "error",
-        requestId,
-        detail: {
-          ok: false,
-          elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,
-          hasSnapshot: false
-        }
-      });
-      window.dispatchEvent(
-        new CustomEvent(OPTIMISTIC_SAVE_FAILED_EVENT, {
-          detail: descriptor.post_url
-        })
-      );
-      return;
-    }
-    emitPipelineEvent({
-      phase: "signal.saved",
-      step: "content.collect.save.request",
-      target: { sessionId: target.sessionId },
-      result: "pending",
-      requestId,
-      detail: {
-        postUrl: descriptor.post_url,
-        topicId: target.topicId
-      }
-    });
-    const response = await chrome.runtime
-      .sendMessage({
-        type: "session/save-current-preview",
-        requestId,
-        target: {
-          sessionId: target.sessionId,
-          topicId: target.topicId
-        },
-        descriptor
-      } satisfies ExtensionMessage)
-      .catch(() => null);
-    emitPipelineEvent({
-      phase: "signal.saved",
-      step: "content.collect.save.response",
-      target: { sessionId: target.sessionId },
-      result: response?.ok ? "ok" : "error",
-      requestId,
-      detail: {
-        ok: Boolean(response?.ok),
-        elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10,
-        hasSnapshot: Boolean(response?.ok && response.snapshot)
-      }
-    });
-    if (response?.ok) {
-      window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_CONFIRMED_EVENT, { detail: response.snapshot ?? null }));
-      return;
-    }
-    if (!response || !response.ok) {
-      window.dispatchEvent(
-        new CustomEvent(OPTIMISTIC_SAVE_FAILED_EVENT, {
-          detail: descriptor.post_url
-        })
-      );
-    }
-  })();
-}
-
-function onKeyDown(event: KeyboardEvent) {
-  if (!selectionMode) {
-    return;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    event.stopPropagation();
-    stopSelectionMode("manual-cancel");
-  }
-}
-
-window.addEventListener("mousemove", onPointerMove, true);
-window.addEventListener("click", onClick, true);
-window.addEventListener("keydown", onKeyDown, true);
-
-/** Keep MV3 service worker alive while selection mode is active */
-let keepAlivePort: chrome.runtime.Port | null = null;
-
-function ensureKeepAlive() {
-  if (keepAlivePort) return;
-  keepAlivePort = chrome.runtime.connect({ name: "dlens-keepalive" });
-  keepAlivePort.onDisconnect.addListener(() => {
-    keepAlivePort = null;
-    // Reconnect if still in selection mode
-    if (selectionMode) {
-      setTimeout(ensureKeepAlive, 500);
-    }
-  });
-}
-
-function dropKeepAlive() {
-  if (keepAlivePort) {
-    keepAlivePort.disconnect();
-    keepAlivePort = null;
-  }
-}
-
-function enableBackgroundPipelineTraceMirror(): void {
-  if (!isQaTraceEnabled()) {
-    return;
-  }
-  void chrome.runtime
-    .sendMessage({ type: "pipeline-trace/enable-background" } satisfies ExtensionMessage)
-    .catch(() => undefined);
-}
 
 export default defineContentScript({
   matches: ["*://*.threads.net/*", "*://*.threads.com/*"],
   main() {
-    ensureOverlay();
+    const root = ensureRoot();
+    // React owns only the workspace child. Wheel nodes share the fixed overlay
+    // host but cannot be removed by a workspace rerender or error fallback.
+    const workspace = document.createElement("div");
+    workspace.setAttribute("data-dlens-control", "true");
+    workspace.style.isolation = "isolate";
+    root.appendChild(workspace);
+    const reactRoot = ReactDOM.createRoot(workspace);
+    inlineCollect?.destroy();
+    inlineCollect = startInlineCollectRuntime(root);
     removeSpaNavigationReset?.();
     removeSpaNavigationReset = installSpaNavigationReset();
-
-    const root = ensureRoot();
     const extensionOrigin = chrome.runtime.getURL("");
-    const reactRoot = ReactDOM.createRoot(root);
-
     const onWindowError = (event: ErrorEvent) => {
       const candidate = event.error || event.message || event.filename;
-      if (!isExtensionRuntimeError(candidate, extensionOrigin)) {
-        return;
-      }
-      console.error("DLens runtime error", candidate);
-      renderWorkspaceCrashFallback(root, candidate);
+      if (isExtensionRuntimeError(candidate, extensionOrigin)) renderWorkspaceCrashFallback(workspace, candidate);
     };
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (!isExtensionRuntimeError(event.reason, extensionOrigin)) {
-        return;
-      }
-      console.error("DLens unhandled rejection", event.reason);
-      renderWorkspaceCrashFallback(root, event.reason);
+      if (isExtensionRuntimeError(event.reason, extensionOrigin)) renderWorkspaceCrashFallback(workspace, event.reason);
     };
-
     window.addEventListener("error", onWindowError);
     window.addEventListener("unhandledrejection", onUnhandledRejection);
-
     reactRoot.render(React.createElement(InPageCollectorApp));
-    syncSelectionModeFromSnapshot();
-    enableBackgroundPipelineTraceMirror();
-
+    if (isQaTraceEnabled()) void chrome.runtime.sendMessage({ type: "pipeline-trace/enable-background" } satisfies ExtensionMessage).catch(() => undefined);
     chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
-      void (async () => {
-        switch (message.type) {
-          case "selection/start-tab":
-            startSelectionMode(message.mode ?? "archive", false);
-            sendResponse({ ok: true } satisfies ExtensionResponse);
-            return;
-          case "selection/cancel-tab":
-            stopSelectionMode("remote-sync");
-            sendResponse({ ok: true } satisfies ExtensionResponse);
-            return;
-          case "pipeline-trace/background-event":
-            appendExternalPipelineTraceEntry(message.event);
-            sendResponse({ ok: true } satisfies ExtensionResponse);
-            return;
-          default:
-            sendResponse({ ok: false, error: "unsupported content message" } satisfies ExtensionResponse);
-        }
-      })();
-      return true;
+      if (message.type === "pipeline-trace/background-event") {
+        appendExternalPipelineTraceEntry(message.event);
+        sendResponse({ ok: true } satisfies ExtensionResponse);
+      }
+      // Retired selection-tab messages intentionally have no click interception.
+      return false;
     });
-
     window.addEventListener("pagehide", () => {
       window.removeEventListener("error", onWindowError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      inlineCollect?.destroy();
+      removeSpaNavigationReset?.();
     }, { once: true });
   }
 });

@@ -5,7 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
-import { InPageCollectorOverlays, inPageCollectorOverlaysTestables } from "../src/ui/InPageCollectorOverlays.tsx";
+import { InPageCollectorOverlays } from "../src/ui/InPageCollectorOverlays.tsx";
 
 function descriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -58,7 +58,7 @@ test("InPageCollectorOverlays renders a saved-post success popup with metric str
   assert.match(html, /dlens-success-pop/);
 });
 
-test("InPageCollectorOverlays renders the hover preview with the collector metric strip", () => {
+test("InPageCollectorOverlays ignores legacy hover preview snapshots after inline collection replaces selection", () => {
   const html = renderToStaticMarkup(
     React.createElement(InPageCollectorOverlays, {
       app: {
@@ -85,15 +85,12 @@ test("InPageCollectorOverlays renders the hover preview with the collector metri
     })
   );
 
-  assert.match(html, /data-collector-metric-strip="hover-preview"/);
-  assert.match(html, /data-collector-metric="likes"/);
-  assert.match(html, /data-collector-metric="comments"/);
-  assert.match(html, /data-collector-metric="reposts"/);
-  assert.match(html, /data-collector-metric="forwards"/);
-  assert.match(html, /保存成功後應該顯示這篇貼文/);
+  assert.doesNotMatch(html, /data-collector-metric-strip="hover-preview"/);
+  assert.doesNotMatch(html, /保存成功後應該顯示這篇貼文/);
+  assert.match(html, /__dlens_extension_v0_launcher__/);
 });
 
-test("InPageCollectorOverlays renders topic destination chips inside the hover preview", () => {
+test("InPageCollectorOverlays does not duplicate wheel destinations in a legacy topic hover card", () => {
   const html = renderToStaticMarkup(
     React.createElement(InPageCollectorOverlays, {
       app: {
@@ -135,14 +132,8 @@ test("InPageCollectorOverlays renders topic destination chips inside the hover p
     })
   );
 
-  assert.match(html, /data-collector-topic-picker="true"/);
-  assert.match(html, /data-collector-topic-chip="untriaged"/);
-  assert.match(html, /data-collector-topic-chip="topic-1"/);
-  assert.match(html, /data-collector-topic-chip="topic-2"/);
-  assert.match(html, /data-collector-topic-chip-selected="topic-2"/);
-  assert.match(html, /存入 · 機票促銷/);
-  assert.match(html, /未分流/);
-  assert.match(html, /＋新議題/);
+  assert.doesNotMatch(html, /data-collector-topic-picker|data-collector-topic-chip/);
+  assert.doesNotMatch(html, /存入 ·|＋新議題/);
 });
 
 test("InPageCollectorOverlays does not render topic destination chips outside topic mode", () => {
@@ -182,7 +173,7 @@ test("InPageCollectorOverlays does not render topic destination chips outside to
   assert.doesNotMatch(html, /data-collector-topic-picker="true"/);
 });
 
-test("InPageCollectorOverlays honors an explicit untriaged destination over a stale snapshot topic", () => {
+test("InPageCollectorOverlays does not revive legacy destination controls from a stale topic selection", () => {
   const html = renderToStaticMarkup(
     React.createElement(InPageCollectorOverlays, {
       app: {
@@ -217,37 +208,20 @@ test("InPageCollectorOverlays honors an explicit untriaged destination over a st
     })
   );
 
-  assert.match(html, /data-collector-topic-chip-selected="untriaged"/);
-  assert.match(html, /存入 · 未分流/);
-  assert.doesNotMatch(html, /data-collector-topic-chip-selected="topic-2"/);
+  assert.doesNotMatch(html, /data-collector-topic-chip-selected|存入 · 未分流/);
 });
 
-test("InPageCollectorOverlays preview card can render the inline saved success state", () => {
-  const html = renderToStaticMarkup(
-    inPageCollectorOverlaysTestables.renderFlashPreviewCard({
-      descriptor: descriptor(),
-      hoverSaved: false,
-      mode: "topic",
-      topics: [{ id: "topic-1", name: "航班爭議", signalIds: ["signal-1"] }],
-      signals: [],
-      selectedTopicId: "topic-1",
-      collectionTopicId: null,
-      success: {
-        targetName: "航班爭議",
-        detail: "已加入議題，下一步可在 Casebook 排程分析。"
-      },
-      onSave: () => undefined,
-      onOpen: () => undefined,
-      onSelectTopicTarget: () => undefined,
-      onCreateTopic: () => undefined
-    })
-  );
-
-  assert.match(html, /data-collector-success-flip="true"/);
-  assert.match(html, /✓ 已存入 · 航班爭議/);
-  assert.match(html, /已加入議題/);
-  assert.match(html, /data-collector-metric-strip="success-inline"/);
-  assert.doesNotMatch(html, /data-collector-topic-picker="true"/);
+test("InPageCollectorOverlays removes the old selection banner and hovered-post badge", () => {
+  const html = renderToStaticMarkup(React.createElement(InPageCollectorOverlays, {
+    app: {
+      snapshot: { tab: { selectionMode: true, collectModeBannerVisible: true } },
+      hoverRect: { top: 50, right: 300 }, hoverSaved: true,
+      flashPreview: descriptor(), flashStyle: { position: "fixed", left: 0, top: 0 },
+      displayToast: null, popupOpen: false, onTogglePopup: () => undefined
+    } as never
+  }));
+  assert.doesNotMatch(html, /Hover to preview|Preview only|>Saved<|>Ready<|data-collector-success-flip/);
+  assert.match(html, /Open DLens popup/);
 });
 
 test("InPageCollectorOverlays offers undo inside the save toast while the window is open", () => {

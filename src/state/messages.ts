@@ -38,7 +38,10 @@ import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
 import type { PipelineTraceEntry } from "./pipeline-trace";
 
+import type { InlineCollectMessage, InlineCollectState } from "./inline-collect";
+
 export type ExtensionMessagePayload =
+  | InlineCollectMessage
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
   | { type: "storage/get-usage" }
@@ -159,6 +162,7 @@ export interface BackendHealth {
 
 export type ExtensionSuccessResponse = {
   ok: true;
+  inlineCollect?: InlineCollectState;
   tabId?: number;
   snapshot?: ExtensionSnapshot;
   backendHealth?: BackendHealth | null;

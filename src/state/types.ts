@@ -524,6 +524,8 @@ export interface ExtensionGlobalState {
   schemaVersion?: number;
   settings: ExtensionSettings;
   sessions: SessionRecord[];
+  /** Last inline save destination; stored in the existing global snapshot. */
+  lastCollectMode?: FolderMode;
   activeSessionId: string | null;
   updatedAt: string | null;
 }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migratedSources = [
-  "entrypoints/threads.content.ts",
+  "src/content/inline-collect-runtime.ts",
   "src/ui/useInPageCollectorAppState.ts",
   "src/ui/useTopicState.ts",
   "src/ui/useProcessingCoordinator.ts"

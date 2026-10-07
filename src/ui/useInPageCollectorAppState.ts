@@ -1437,9 +1437,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       return;
     }
     const onPointerDown = (event: MouseEvent) => {
-      if (snapshot.tab.selectionMode) {
-        return;
-      }
       const target = event.target as Node | null;
       if (popupRef.current?.contains(target)) {
         return;
@@ -1452,7 +1449,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     };
     document.addEventListener("mousedown", onPointerDown, true);
     return () => document.removeEventListener("mousedown", onPointerDown, true);
-  }, [sendAndSync, snapshot?.tab.popupOpen, snapshot?.tab.selectionMode, tabId]);
+  }, [sendAndSync, snapshot?.tab.popupOpen, tabId]);
 
   useEffect(() => {
     const listener = (event: Event) => {
@@ -1604,88 +1601,6 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       window.removeEventListener(OPTIMISTIC_SAVE_FAILED_EVENT, onOptimisticFailure as EventListener);
     };
   }, [activeFolder?.name, activeFolderMode, savedToastMessage, sendAndSync, topicState.activeTopic?.name]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const isEditable =
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.isContentEditable;
-      if (!snapshot?.tab.selectionMode || isEditable) {
-        return;
-      }
-
-      if (event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        const message = buildPreviewSaveMessage({
-          activeFolderMode,
-          sessionId: activeFolder?.id,
-          selectedTopicId: topicState.selectedTopicId,
-          collectionTopicId: topicState.collectTargetTopicId,
-          preview: snapshot.tab.currentPreview
-        });
-        if (!message) {
-          setDisplayToast({
-            id: `folder-required-${Date.now()}`,
-            kind: "saved",
-            message: "先選擇資料夾"
-          });
-          return;
-        }
-        const targetName = activeFolderMode === "topic"
-          ? topicDestinationName(topicState.topics, message.target.topicId)
-          : activeFolder?.name;
-        const requestId = createPipelineRequestId("popup-collect-save");
-        emitPipelineEvent({
-          phase: "preview.confirmed",
-          step: "popup.collect.save.request",
-          target: { sessionId: message.target.sessionId },
-          result: "pending",
-          requestId,
-          detail: {
-            via: "keyboard",
-            postUrl: message.descriptor?.post_url ?? null,
-            topicId: message.target.topicId
-          }
-        });
-        const saveStartedAt = performance.now();
-        void sendAndSync({ ...message, requestId }).then((response) => {
-          emitPipelineEvent({
-            phase: "signal.saved",
-            step: "popup.collect.save.response",
-            target: { sessionId: message.target.sessionId },
-            result: response.ok ? "ok" : "error",
-            requestId,
-            detail: {
-              via: "keyboard",
-              ok: response.ok,
-              elapsedMs: Math.round((performance.now() - saveStartedAt) * 10) / 10
-            }
-          });
-          if (response.ok && message.descriptor) {
-            setSuccessToastDescriptor(message.descriptor);
-            if (targetName) {
-              setDisplayToast({
-                id: `saved-${Date.now()}`,
-                kind: "saved",
-                message: activeFolderMode === "topic" ? `已儲存到：${targetName}` : savedToastMessage(targetName)
-              });
-            }
-          } else if (!response.ok) {
-            setSuccessToastDescriptor(null);
-          }
-        });
-      }
-
-      if (event.key.toLowerCase() === "o" && snapshot.tab.currentPreview?.post_url) {
-        event.preventDefault();
-        window.open(snapshot.tab.currentPreview.post_url, "_blank", "noopener,noreferrer");
-      }
-    };
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [activeFolder?.id, activeFolder?.name, activeFolderMode, sendAndSync, snapshot?.tab.selectionMode, snapshot?.tab.currentPreview, topicState.collectTargetTopicId, topicState.selectedTopicId, topicState.topics]);
 
   // Publish the folder/topic the popup is showing so the content-script click path
   // and keyboard save always target it, instead of the background's activeSessionId.

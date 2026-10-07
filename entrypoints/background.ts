@@ -1,4 +1,6 @@
 import { defineBackground } from "wxt/utils/define-background";
+import { getInlineCollectDestination, getInlineCollectLastMode, inlineCollectPostKey, INLINE_COLLECT_MODE_NAMES, isInlineCollectMode, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../src/state/inline-collect";
+import { recordInlineCollectRemoval } from "../src/state/inline-collect-storage";
 import { IS_PR_ONLY_BUILD } from "../src/build-variant";
 import {
   fetchBackendHealth,
@@ -414,6 +416,7 @@ function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState
     ...state,
     sessions,
     activeSessionId,
+    ...(isInlineCollectMode(state?.lastCollectMode) ? { lastCollectMode: state.lastCollectMode } : { lastCollectMode: undefined }),
     settings: normalizeExtensionSettings(state?.settings)
   };
 }
@@ -1724,6 +1727,48 @@ async function closePopup(tabId: number): Promise<ExtensionSnapshot> {
   }));
 }
 
+type InlineRemovalUndo = {
+  tabId: number;
+  postKey: string;
+  version: number;
+  sessionId: string;
+  item: SessionItem;
+  index: number;
+  restore: () => Promise<void>;
+};
+const inlineMutationVersions = new Map<string, number>();
+const inlineRemovalUndos = new Map<string, InlineRemovalUndo>();
+let inlineUndoSerial = 0;
+
+function invalidateInlineCollectUndo(descriptor: TargetDescriptor): number {
+  const postKey = inlineCollectPostKey(descriptor);
+  const version = (inlineMutationVersions.get(postKey) ?? 0) + 1;
+  inlineMutationVersions.set(postKey, version);
+  for (const [token, undo] of inlineRemovalUndos) {
+    if (undo.postKey === postKey) inlineRemovalUndos.delete(token);
+  }
+  return version;
+}
+
+/** One save implementation shared by preview, create-with-save and inline collection. */
+async function saveDescriptorAndDerived(
+  global: ExtensionGlobalState,
+  session: SessionRecord,
+  descriptor: TargetDescriptor,
+  topicId?: string
+): Promise<ReturnType<typeof saveDescriptorToSession>> {
+  const saved = saveDescriptorToSession(global, session.id, descriptor);
+  if (session.mode === "pr-evidence") {
+    const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+    if (!campaign) throw new Error("Create a PR campaign before collecting evidence.");
+    await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+  } else {
+    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, topicId);
+  }
+  invalidateInlineCollectUndo(descriptor);
+  return saved;
+}
+
 async function saveCurrentPreviewToSession(
   tabId: number,
   target: SaveCurrentPreviewActionTarget,
@@ -1761,16 +1806,7 @@ async function saveCurrentPreviewToSession(
     }
 
     const collectionTopicId = session.mode === "topic" ? target.topicId ?? undefined : undefined;
-    const saved = saveDescriptorToSession(current.global, target.sessionId, current.tab.currentPreview);
-    if (session.mode === "pr-evidence") {
-      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-      if (!campaign) {
-        throw new Error("Create a PR campaign before collecting evidence.");
-      }
-      await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-    } else {
-      await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, collectionTopicId);
-    }
+    const saved = await saveDescriptorAndDerived(current.global, session, current.tab.currentPreview, collectionTopicId);
     return {
       snapshot: {
         global: saved.globalState,
@@ -1798,6 +1834,60 @@ async function saveCurrentPreviewToSession(
  * record the save wrote (signal, product analysis, signal tags, PR evidence row)
  * is removed with the item so undo cannot leave an orphan behind.
  */
+async function removeSavedItemFromSnapshot(
+  current: ExtensionSnapshot,
+  sessionId: string,
+  itemId: string,
+  storageArea: StorageAreaLike,
+  derivedRef: { signals: Signal[]; topics: Topic[] }
+): Promise<ExtensionSnapshot> {
+  const session = getSessionById(current.global, sessionId);
+  if (!session) {
+    throw new Error("Target folder not found.");
+  }
+  const item = session.items.find((entry) => entry.id === itemId);
+  if (!item) {
+    throw new Error("Saved post is already gone.");
+  }
+
+  if (session.mode === "pr-evidence") {
+    const campaign = await loadActivePrCampaign(storageArea, session.id);
+    if (campaign) {
+      await deletePrEvidenceRowsByItemId(storageArea, campaign.id, itemId);
+    }
+  } else if (session.mode !== "archive") {
+    const signals = await loadSignals(storageArea, session.id);
+    const signal = signals.find((entry) => entry.itemId === itemId);
+    if (signal) {
+      const deletion = await deleteSignalStorageRecords(storageArea, signal.id);
+      await deleteProductSignalAnalysis(storageArea, signal.id);
+      derivedRef.signals = deletion.signals.filter((entry) => entry.sessionId === session.id);
+      derivedRef.topics = deletion.topics.filter((entry) => entry.sessionId === session.id);
+    }
+  }
+  await deleteSignalTagsByItemId(storageArea, itemId);
+
+  invalidateInlineCollectUndo(item.descriptor);
+  const globalState = removeSessionItem(current.global, sessionId, itemId);
+  const nextSession = getSessionById(globalState, sessionId);
+  const nextActiveItemId = current.tab.activeItemId === itemId
+    ? (nextSession ? ensureActiveItemId(nextSession, null) : null)
+    : current.tab.activeItemId;
+  const nextActiveItem = nextSession?.items.find((entry) => entry.id === nextActiveItemId) ?? null;
+  return {
+    global: globalState,
+    tab: {
+      ...current.tab,
+      activeItemId: nextActiveItemId,
+      currentPreview: current.tab.activeItemId === itemId
+        ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget
+        : current.tab.currentPreview,
+      lastSavedToast: null,
+      error: null
+    }
+  };
+}
+
 async function undoSavedItem(
   tabId: number,
   sessionId: string,
@@ -1805,50 +1895,7 @@ async function undoSavedItem(
 ): Promise<{ snapshot: ExtensionSnapshot; signals: Signal[]; topics: Topic[] }> {
   const derivedRef: { signals: Signal[]; topics: Topic[] } = { signals: [], topics: [] };
   const snapshot = await mutateSnapshot(tabId, async (current) => {
-    const session = getSessionById(current.global, sessionId);
-    if (!session) {
-      throw new Error("Target folder not found.");
-    }
-    const item = session.items.find((entry) => entry.id === itemId);
-    if (!item) {
-      throw new Error("Saved post is already gone.");
-    }
-
-    if (session.mode === "pr-evidence") {
-      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-      if (campaign) {
-        await deletePrEvidenceRowsByItemId(chrome.storage.local, campaign.id, itemId);
-      }
-    } else if (session.mode !== "archive") {
-      const signals = await loadSignals(chrome.storage.local, session.id);
-      const signal = signals.find((entry) => entry.itemId === itemId);
-      if (signal) {
-        const deletion = await deleteSignalStorageRecords(chrome.storage.local, signal.id);
-        await deleteProductSignalAnalysis(chrome.storage.local, signal.id);
-        derivedRef.signals = deletion.signals.filter((entry) => entry.sessionId === session.id);
-        derivedRef.topics = deletion.topics.filter((entry) => entry.sessionId === session.id);
-      }
-    }
-    await deleteSignalTagsByItemId(chrome.storage.local, itemId);
-
-    const globalState = removeSessionItem(current.global, sessionId, itemId);
-    const nextSession = getSessionById(globalState, sessionId);
-    const nextActiveItemId = current.tab.activeItemId === itemId
-      ? (nextSession ? ensureActiveItemId(nextSession, null) : null)
-      : current.tab.activeItemId;
-    const nextActiveItem = nextSession?.items.find((entry) => entry.id === nextActiveItemId) ?? null;
-    return {
-      global: globalState,
-      tab: {
-        ...current.tab,
-        activeItemId: nextActiveItemId,
-        currentPreview: current.tab.activeItemId === itemId
-          ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget
-          : current.tab.currentPreview,
-        lastSavedToast: null,
-        error: null
-      }
-    };
+    return removeSavedItemFromSnapshot(current, sessionId, itemId, chrome.storage.local, derivedRef);
   });
   return { snapshot, signals: derivedRef.signals, topics: derivedRef.topics };
 }
@@ -1897,17 +1944,8 @@ async function createSession(
       if (!current.tab.currentPreview) {
         throw new Error("No current post preview to save.");
       }
-      const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
+      const saved = await saveDescriptorAndDerived(globalState, session, current.tab.currentPreview);
       globalState = saved.globalState;
-      if (session.mode === "pr-evidence") {
-        const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-        if (!campaign) {
-          throw new Error("Create a PR campaign before collecting evidence.");
-        }
-        await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-      } else {
-        await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
-      }
       activeItemId = saved.item.id;
       popupPage = "library";
       currentMainPage = "library";
@@ -1933,6 +1971,85 @@ async function createSession(
       },
       saveOptions: { persistActiveSessionId: true }
     };
+  });
+}
+
+async function collectInline(
+  tabId: number,
+  message: InlineCollectMessage
+): Promise<{ snapshot: ExtensionSnapshot; inlineCollect: InlineCollectState }> {
+  if (message.action === "snapshot") {
+    const snapshot = await loadSnapshot(tabId);
+    return { snapshot, inlineCollect: projectInlineCollectState(snapshot.global) };
+  }
+  return withSnapshotLock(async () => {
+    let changed = false;
+    let undoToken: string | undefined;
+    const current = await loadSnapshot(tabId);
+    const next = await (async (): Promise<ExtensionSnapshot> => {
+      if (message.action === "save") {
+        if (message.mode !== undefined && !isInlineCollectMode(message.mode)) throw new Error("Unknown collection mode.");
+        if (!inlineCollectPostKey(message.descriptor)) throw new Error("Missing post identity.");
+        const mode = message.mode ?? getInlineCollectLastMode(current.global);
+        let session = getInlineCollectDestination(current.global, mode);
+        let global = current.global;
+        if (!session) {
+          session = createSessionRecord(INLINE_COLLECT_MODE_NAMES[mode], new Date().toISOString(), mode);
+          global = { ...global, sessions: [...global.sessions, session] };
+        }
+        if (mode === "pr-evidence" && !await loadActivePrCampaign(chrome.storage.local, session.id)) {
+          await savePrCampaignDraft(chrome.storage.local, {
+            sessionId: session.id, name: session.name, briefText: "",
+            criteria: ["c1", "c2", "c3", "c4", "c5", "c6"].map(id => ({ id, label: "" })) as PrCampaign["criteria"]
+          });
+        }
+        const saved = await saveDescriptorAndDerived(global, session, message.descriptor);
+        changed = true;
+        return { global: { ...saved.globalState, lastCollectMode: mode }, tab: current.tab };
+      }
+      if (message.action === "remove") {
+        const session = getSessionById(current.global, message.sessionId);
+        const item = session?.items.find(entry => entry.id === message.itemId);
+        if (!session || !item || inlineCollectPostKey(item.descriptor) !== inlineCollectPostKey(message.descriptor)) {
+          return current;
+        }
+        const recorded = recordInlineCollectRemoval(chrome.storage.local);
+        const removed = await removeSavedItemFromSnapshot(current, session.id, item.id, recorded.storage, { signals: [], topics: [] });
+        const postKey = inlineCollectPostKey(item.descriptor);
+        for (const [token, previous] of inlineRemovalUndos) {
+          if (previous.tabId === tabId) inlineRemovalUndos.delete(token);
+        }
+        undoToken = `inline-undo-${++inlineUndoSerial}`;
+        inlineRemovalUndos.set(undoToken, {
+          tabId, postKey, version: inlineMutationVersions.get(postKey)!, sessionId: session.id,
+          item: structuredClone(item), index: session.items.indexOf(item), restore: recorded.restore
+        });
+        changed = true;
+        return { global: removed.global, tab: current.tab };
+      }
+      const undo = inlineRemovalUndos.get(message.token);
+      if (!undo || inlineMutationVersions.get(undo.postKey) !== undo.version) return current;
+      const session = getSessionById(current.global, undo.sessionId);
+      if (!session || session.items.some(item => inlineCollectPostKey(item.descriptor) === undo.postKey)) {
+        inlineRemovalUndos.delete(message.token);
+        return current;
+      }
+      await undo.restore();
+      const items = [...session.items];
+      items.splice(Math.min(undo.index, items.length), 0, undo.item);
+      invalidateInlineCollectUndo(undo.item.descriptor);
+      changed = true;
+      return {
+        global: {
+          ...current.global,
+          sessions: current.global.sessions.map(entry => entry.id === session.id
+            ? { ...entry, items, updatedAt: new Date().toISOString() } : entry)
+        },
+        tab: current.tab
+      };
+    })();
+    const snapshot = changed ? await saveSnapshot(tabId, next) : current;
+    return { snapshot, inlineCollect: { ...projectInlineCollectState(snapshot.global), changed, ...(undoToken ? { undoToken } : {}) } };
   });
 }
 
@@ -1972,7 +2089,12 @@ async function deleteExistingSession(tabId: number, sessionId: string): Promise<
 
 async function setActiveSessionById(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
   return mutateSnapshot(tabId, (current) => {
-    const globalState = setActiveSession(current.global, sessionId);
+    const activated = setActiveSession(current.global, sessionId);
+    const globalState = {
+      ...activated,
+      sessions: activated.sessions.map(session => session.id === sessionId
+        ? { ...session, updatedAt: new Date().toISOString() } : session)
+    };
     const activeSession = activeSessionWithFallback(globalState);
     const activeItemId = ensureActiveItemId(activeSession, current.tab.activeItemId);
     const activeItem = activeSession.items.find((item) => item.id === activeItemId) || null;
@@ -2256,6 +2378,8 @@ async function refreshAllItems(
 
 function resetBackgroundTestState(): void {
   globalStateCache = null;
+  inlineMutationVersions.clear();
+  inlineRemovalUndos.clear();
   tabStateCache.clear();
   tabHoverCache.clear();
   backgroundRequestReconciler.reset();
@@ -2705,6 +2829,22 @@ export default defineBackground(() => {
             } satisfies ExtensionResponse);
             return;
           }
+          case "session/inline-collect": {
+            const tabId = await resolveTabId(sender);
+            const result = message.action === "snapshot"
+              ? await collectInline(tabId, message)
+              : await traceBackgroundPipeline({
+                phase: "signal.saved",
+                step: "background.session.inline-collect",
+                target: message.action === "remove" ? { tabId, sessionId: message.sessionId, itemId: message.itemId } : { tabId },
+                requestId: message.requestId,
+                detail: { action: message.action, mode: message.action === "save" ? message.mode ?? null : null },
+                responseDetail: (collected) => ({ action: message.action, mode: collected.inlineCollect.lastMode, changed: collected.inlineCollect.changed }),
+                run: () => collectInline(tabId, message)
+              });
+            sendResponse({ ok: true, tabId, ...result } satisfies ExtensionResponse);
+            return;
+          }
           case "session/create": {
             const tabId = await resolveTabId(sender);
             sendResponse({
@@ -2851,6 +2991,8 @@ export default defineBackground(() => {
             } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
               const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
+              const deletedItem = current.global.sessions.flatMap(session => session.items).find(item => item.id === deletion.deleted.itemId);
+              if (deletedItem) invalidateInlineCollectUndo(deletedItem.descriptor);
               resultRef.value = deletion;
               await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
               const applied = applySignalDeletionToGlobalState(current.global, deletion);

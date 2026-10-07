@@ -90,7 +90,7 @@ instrument, **not** a dashboard that happens to contain text.
 - Bottom rebound belongs only to a genuinely scrollable workspace at its real
   end; only its inner track moves. Hover lift is reserved for active surfaces.
 - Ambient shimmer/pulse means work is happening, never decoration.
-- Every animation sits behind a `prefers-reduced-motion` guard (repo contract).
+- Every animation sits behind a `prefers-reduced-motion` guard. The inline collect wheel preserves its accepted gesture, spring, charge and landing sequence; reduced motion removes travel and celebration.
 
 ### spacing
 - Saved-post rows reserve a leading thumbnail slot; missing or expired images leave quiet space to keep text aligned.

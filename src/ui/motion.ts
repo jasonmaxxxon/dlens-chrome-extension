@@ -18,6 +18,22 @@ import { tokens } from "./tokens";
  * "single owner" is literally true.
  */
 export const DLENS_KEYFRAMES_CSS = `
+@keyframes dlens-collect-charge { from { --dlens-collect-charge: 0%; } to { --dlens-collect-charge: 100%; } }
+@keyframes dlens-collect-spin { to { transform: rotate(1turn); } }
+@keyframes dlens-collect-burst {
+  from { transform: scale(${tokens.motion.collectWheel.burstStartScale}); opacity: ${tokens.motion.collectWheel.burstOpacity}; }
+  to { transform: scale(${tokens.motion.collectWheel.burstEndScale}); opacity: 0; }
+}
+@keyframes dlens-collect-pop {
+  0% { transform: scale(1); }
+  ${tokens.motion.collectWheel.popDipAt}% { transform: scale(${tokens.motion.collectWheel.popDipScale}); }
+  ${tokens.motion.collectWheel.popPeakAt}% { transform: scale(${tokens.motion.collectWheel.popPeakScale}); }
+  100% { transform: scale(1); }
+}
+@keyframes dlens-collect-chip-in {
+  from { opacity: 0; transform: translateX(${tokens.motion.collectWheel.chipOffset}px) scale(${tokens.motion.collectWheel.chipScale}); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes dlens-slide-in {
   from { opacity: 0; transform: translateY(-8px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -107,6 +123,7 @@ export const DLENS_KEYFRAMES_CSS = `
  * it ships with the registry injector rather than any one surface.
  */
 export const DLENS_PROPERTY_CSS = `
+@property --dlens-collect-charge { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @property --dlens-reading-beam-angle {
   syntax: "<angle>";
   initial-value: 42deg;

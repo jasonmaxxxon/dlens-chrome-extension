@@ -3586,3 +3586,199 @@ test("signal/delete keeps shared item tags until the last signal reference disap
   assert.deepEqual((response.productSignalAnalyses ?? []).map((analysis) => analysis.signalId), ["signal-2"]);
   assertStateUpdatedBroadcastOnce(harness);
 });
+
+
+test("inline collect picks the newest destination and preserves workspace navigation", async () => {
+  const topic = makeSession("topic-active", "topic");
+  const older = makeSession("product-old", "product");
+  const newer = { ...makeSession("product-new", "product"), updatedAt: "2026-10-06T00:00:00.000Z" };
+  const tab = { ...createEmptyTabState(), popupPage: "topic-detail" as const, collectionTopicId: "keep-topic" };
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, older, newer], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: tab
+  });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "product", descriptor: makeDescriptor("inline-newest") } as unknown as ExtensionMessage);
+  assert.equal(response.ok, true);
+  assert.equal(response.snapshot?.global.sessions.find(s => s.id === newer.id)?.items.length, 1);
+  assert.equal(response.snapshot?.global.activeSessionId, topic.id);
+  assert.equal(response.snapshot?.tab.popupPage, "topic-detail");
+  assert.equal(response.snapshot?.tab.collectionTopicId, "keep-topic");
+  assert.equal(response.inlineCollect?.lastMode, "product");
+});
+
+test("inline collect creates missing mode destinations and tap remembers mode after removing its final post", async () => {
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: createEmptyGlobalState() });
+  const descriptor = makeDescriptor("inline-created");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "archive", descriptor } as unknown as ExtensionMessage);
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  assert.equal(saved.sessionName, "收藏整理");
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId } as unknown as ExtensionMessage);
+  assert.equal(removed.ok, true);
+  assert.equal(removed.inlineCollect?.lastMode, "archive");
+  backgroundTestables.resetBackgroundTestState();
+  const tap = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor: makeDescriptor("inline-tap") } as unknown as ExtensionMessage);
+  assert.equal(tap.ok, true);
+  assert.equal(tap.inlineCollect?.saved[0]?.mode, "archive");
+  assert.equal(tap.snapshot?.global.sessions.length, 1);
+});
+
+test("inline collect remove undo restores original item and signal, but a newer save invalidates undo", async () => {
+  const topic = makeSession("inline-topic", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("inline-undo");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor } as unknown as ExtensionMessage);
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const originalItem = structuredClone(first.snapshot?.global.sessions[0]?.items[0]);
+  const originalSignals = structuredClone(harness.state[SIGNALS_STORAGE_KEY]);
+  const remove = () => harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId } as unknown as ExtensionMessage);
+  const removed = await remove();
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY], []);
+  const undo = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken } as unknown as ExtensionMessage);
+  assert.equal(undo.ok, true);
+  assert.deepEqual(undo.snapshot?.global.sessions[0]?.items[0], originalItem);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY], originalSignals);
+  const removedAgain = await remove();
+  assert.equal(removedAgain.ok, true);
+  assert.ok(removedAgain.inlineCollect?.undoToken);
+  await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "archive", descriptor } as unknown as ExtensionMessage);
+  const writesBeforeStaleUndo = harness.writes.length;
+  const stale = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removedAgain.inlineCollect.undoToken } as unknown as ExtensionMessage);
+  assert.equal(harness.writes.length, writesBeforeStaleUndo, "stale undo must not write any storage");
+  assert.equal(stale.ok, true);
+  assert.equal(stale.inlineCollect?.changed, false);
+  assert.equal(stale.snapshot?.global.sessions.find(s => s.id === topic.id)?.items.length, 0);
+});
+
+test("inline collect creates a PR campaign through the existing campaign seam", async () => {
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: createEmptyGlobalState() });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "pr-evidence", descriptor: makeDescriptor("inline-pr") } as unknown as ExtensionMessage);
+  assert.equal(response.ok, true);
+  assert.equal(response.inlineCollect?.saved[0]?.mode, "pr-evidence");
+  const campaigns = harness.state[PR_CAMPAIGNS_STORAGE_KEY] as PrCampaign[];
+  assert.equal(campaigns.length, 1);
+  assert.deepEqual(campaigns[0]?.criteria.map(c => c.id), ["c1", "c2", "c3", "c4", "c5", "c6"]);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 1);
+});
+
+test("inline collect undo preserves another post saved after removal", async () => {
+  const topic = makeSession("inline-undo-isolated", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("undo-isolated");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor });
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId });
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  const another = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor: makeDescriptor("other-post") });
+  assert.equal(another.ok, true);
+  const restored = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken });
+  assert.equal(restored.ok, true);
+  assert.equal(restored.snapshot?.global.sessions[0]?.items.length, 2);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 2);
+});
+
+test("inline collect undo becomes stale after a legacy preview save of the same post", async () => {
+  const topic = makeSession("inline-legacy-undo", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("legacy-stale");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor });
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId });
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  await harness.dispatch({ type: "session/save-current-preview", target: { sessionId: topic.id, topicId: null }, descriptor });
+  const stale = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken });
+  assert.equal(stale.ok, true);
+  assert.equal(stale.inlineCollect?.changed, false);
+  assert.equal(stale.snapshot?.global.sessions[0]?.items.length, 1);
+});
+
+test("inline collect reuses existing PR campaign without changing its brief or criteria", async () => {
+  const pr = makeSession("inline-existing-pr", "pr-evidence");
+  const campaign = makePrCampaign("existing-campaign", pr.id);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([pr], pr.id),
+    [PR_CAMPAIGNS_STORAGE_KEY]: [campaign]
+  });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "pr-evidence", descriptor: makeDescriptor("existing-pr") });
+  assert.equal(response.ok, true);
+  assert.deepEqual(harness.state[PR_CAMPAIGNS_STORAGE_KEY], [campaign]);
+});
+
+test("inline collect snapshot is read-only and ignores malformed persisted last mode", async () => {
+  const archive = makeSession("inline-fallback", "archive");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...makeGlobal([archive], archive.id), lastCollectMode: "invalid" }
+  });
+  const before = harness.writes.length;
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "snapshot" });
+  assert.equal(response.ok, true);
+  assert.equal(response.inlineCollect?.lastMode, "archive");
+  assert.deepEqual(response.inlineCollect?.destinations.map(destination => destination.mode), ["topic", "product", "pr-evidence", "archive"]);
+  assert.equal(harness.writes.length, before);
+});
+
+test("inline collect treats legacy threads.net and current threads.com URLs as one saved post", async () => {
+  const archive = makeSession("inline-host-identity", "archive");
+  const legacy = createSessionItem(makeDescriptor("same-post-host"));
+  archive.items = [legacy];
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([archive], archive.id) });
+  const descriptor = { ...makeDescriptor("same-post-host"), post_url: "https://www.threads.com/@dlens/post/same-post-host" };
+  const saved = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor, mode: "archive" });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.snapshot?.global.sessions[0]?.items.length, 1);
+  assert.equal(saved.snapshot?.global.sessions[0]?.items[0]?.id, legacy.id);
+});
+
+test("inline collect targets the session most recently opened within a mode", async () => {
+  const older = makeSession("inline-used-old", "product");
+  const newer = { ...makeSession("inline-used-new", "product"), updatedAt: "2026-09-06T00:00:00.000Z" };
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([older, newer], newer.id) });
+  await harness.dispatch({ type: "session/set-active", sessionId: older.id });
+  const saved = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor: makeDescriptor("opened-latest"), mode: "product" });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.snapshot?.global.sessions.find(session => session.id === older.id)?.items.length, 1);
+});
+
+test("inline collect mutation traces preserve requestId for success and error while snapshot reads stay untraced", async () => {
+  enablePipelineTraceForTest();
+  try {
+    const product = makeSession("inline-trace-product", "product");
+    const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id) });
+    const snapshot = await harness.dispatch({ type: "session/inline-collect", action: "snapshot", requestId: "inline-snapshot" });
+    assert.equal(snapshot.ok, true);
+    assert.equal(readPipelineTrace().filter(event => event.step.startsWith("background.session.inline-collect.")).length, 0);
+    const success = await harness.dispatch({
+      type: "session/inline-collect", action: "save", mode: "product", requestId: "inline-success",
+      descriptor: makeDescriptor("inline-traced")
+    });
+    const failure = await harness.dispatch({
+      type: "session/inline-collect", action: "save", mode: "product", requestId: "inline-error",
+      descriptor: { ...makeDescriptor("inline-invalid"), post_url: "" }
+    });
+    assert.equal(success.ok, true);
+    assert.equal(failure.ok, false);
+    const events = readPipelineTrace().filter(event => event.step.startsWith("background.session.inline-collect."));
+    assert.deepEqual(events.map(event => [event.phase, event.step, event.result, event.requestId]), [
+      ["signal.saved", "background.session.inline-collect.request", "pending", "inline-success"],
+      ["signal.saved", "background.session.inline-collect.response", "ok", "inline-success"],
+      ["signal.saved", "background.session.inline-collect.request", "pending", "inline-error"],
+      ["signal.saved", "background.session.inline-collect.response", "error", "inline-error"]
+    ]);
+    assert.deepEqual(events[0].detail, { action: "save", mode: "product" });
+    assert.deepEqual(events[1].detail, { action: "save", mode: "product", changed: true });
+    assert.deepEqual(events.map(event => event.target), Array.from({ length: 4 }, () => ({ tabId: TAB_ID })));
+    assert.match(JSON.stringify(events[3].detail), /Missing post identity/);
+  } finally { disablePipelineTraceForTest(); }
+});

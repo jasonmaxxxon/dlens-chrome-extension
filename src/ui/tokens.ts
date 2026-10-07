@@ -244,7 +244,54 @@ export const tokens = {
     atlasBlur: WORKSPACE_GLASS.blur
   },
 
+  /* Accepted collect-wheel gesture, geometry and material from the owner's v9 mockup.
+   * The inner radius is intentionally rounded by buildWheelGeometry, as in v9. */
+  collectWheel: {
+    hold: 180, radius: 126, flickPx: 12, innerRatio: 0.39, deadRatio: 0.72,
+    jitterPx: 4, canvasPadding: 22, edgePadding: 26, stickyMargin: 30,
+    sectorStroke: 6, sectorGap: 11, sectorInset: 3, labelOffset: 1,
+    sectorShift: 6, sectorPickedShift: 10, glassMargin: 8, centerInset: 4,
+    buttonSize: 36, buttonIconSize: 20, ringMaskOuter: 2.5, ringMaskInner: 2,
+    labelWidth: 78, labelIconSize: 18, labelFont: 12.5, labelWeight: 650,
+    destinationFont: 10, centerTitleFont: 12, centerSubFont: 9.5,
+    chipFont: 11.5, chipPadding: "6px 10px", chipMargin: 2, actionGap: 2,
+    glass: "rgba(255,255,255,.36)", glassBorder: "rgba(255,255,255,.72)",
+    glassFilter: "blur(16px) saturate(1.5)",
+    glassShadow: "0 26px 60px -18px rgba(0,0,0,.36), 0 2px 6px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.8)",
+    centerShadow: "0 3px 10px rgba(0,0,0,.13), 0 0 0 1px rgba(27,26,23,.06)",
+    tintBase: "rgba(255,255,255,.92)", tintPercent: 14,
+    selectedDetail: "rgba(255,255,255,.88)", pointerColor: "#9a978c",
+    pointerInset: 5, pointerHalfAngle: 26, pointerMask: 3,
+    buttonIcon: "#424242", buttonHover: "rgba(0,0,0,.05)", softInk: "#8a877c",
+    chipTintPercent: 10, chipHoverPercent: 16,
+    toastBottom: 26, toastPadding: "8px 8px 8px 16px", toastFont: 13,
+    toastForeground: "#f4f2ec", toastAccent: "#cfe3cb", toastAction: "#cfd8cb",
+    toastShadow: "0 12px 30px -8px rgba(0,0,0,.4)", toastHover: "rgba(255,255,255,.1)",
+    toastMargin: 24, toastGap: 4, toastWeight: 500, toastLineHeight: 1.3,
+    focusWidth: 2, focusOffset: 2, burstInset: 2, burstBorder: 2,
+    pillRadius: 999, wheelLayer: 50, toastLayer: 60, glassBorderWidth: 1,
+    labelGap: 1, labelTracking: ".01em", destinationLineHeight: 1.2,
+    centerPadding: 6, centerTitleWeight: 700, centerTitleLineHeight: 1.25,
+    centerSubLineHeight: 1.35, centerSubMargin: 3, chipWeight: 600, maskBlack: "#000",
+    font: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
+  },
+
   motion: {
+    collectWheel: {
+      spring: "cubic-bezier(.3,1.32,.5,1)", flyEasing: "cubic-bezier(.55,0,.8,.25)",
+      openMs: 240, opacityMs: 110, sectorMs: 230, sectorOpacityMs: 140,
+      staggerMs: 14, settledSectors: 8, pulseMs: 90, landAfterPulseMs: 210,
+      closeMs: 130, closeCleanupMs: 140, flyCleanupMs: 250,
+      glassOpacityMs: 120, buttonTransformMs: 140, buttonFillMs: 160,
+      burstMs: 460, popMs: 420, chipMs: 280, spinMs: 1200,
+      toastTransformMs: 260, toastOpacityMs: 160, toastActionMs: 3600, toastMessageMs: 2400, toastLeaveMs: 1800,
+      reducedOpacityMs: 90, reducedToastMs: 120,
+      openScale: 0.78, closeScale: 0.88, flyScale: 0.14, sectorScale: 0.7,
+      labelScale: 0.6, pickedScale: 1.06, chargingScale: 0.86,
+      burstStartScale: 0.6, burstEndScale: 2.1, burstOpacity: 0.75,
+      popDipAt: 35, popPeakAt: 70, popDipScale: 0.8, popPeakScale: 1.22,
+      chipOffset: 8, chipScale: 0.9, toastOffset: 20
+    },
     /* Primitive durations — pair with easings to build named transitions. */
     duration: {
       instant: "80ms",

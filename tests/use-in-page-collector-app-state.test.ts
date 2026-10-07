@@ -156,14 +156,15 @@ test("buildPreviewSaveMessage refuses to create a save message without an explic
   assert.equal(message, null);
 });
 
-test("popup save paths emit typed collect-save pipeline events for both button and keyboard channels", () => {
+test("legacy explicit preview save retains tracing but cannot intercept wheel keyboard input", () => {
   const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
 
   assert.doesNotMatch(source, /markQaTrace\("popup\.collect\.save\./);
   assert.match(source, /phase:\s*"preview\.confirmed"/);
   assert.match(source, /phase:\s*"signal\.saved"/);
   assert.match(source, /via: "button"/);
-  assert.match(source, /via: "keyboard"/);
+  assert.doesNotMatch(source, /via: "keyboard"/);
+  assert.doesNotMatch(source, /event\.key\.toLowerCase\(\) === "s"/);
 });
 
 test("active-folder workspace switches pass the target session id through the topic state path", () => {

@@ -25,6 +25,7 @@ import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
 import { TopicsListView } from "./TopicsListView";
 import { tokens } from "./tokens";
+import { OPEN_WORKSPACE_EVENT, consumeWorkspaceOpen } from "./inpage-helpers";
 import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
 import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
 import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
@@ -392,7 +393,6 @@ function OpenInPageCollectorPopup({
   async function selectPrimaryTab(tab: CollectionTab) {
     if (navigationPending.current) return;
     setNavigationError(null);
-    if (readingNavigation.collecting && snapshot?.tab.selectionMode) await app.onToggleCollectMode();
     if (tab === "workspaces" && readingNavigation.workspaceOpen && readingNavigation.workspaceSessionId) {
       navigationPending.current = true;
       setNavigationBusy(true);
@@ -427,6 +427,17 @@ function OpenInPageCollectorPopup({
       setNavigationError("未能開啟工作區，請再試。");
     } finally { navigationPending.current = false; setNavigationBusy(false); }
   }
+
+  useEffect(() => {
+    const listener = () => {
+      if (navigationPending.current) return;
+      const sessionId = consumeWorkspaceOpen(snapshot?.global.sessions.map((session) => session.id) ?? []);
+      if (sessionId) void openWorkspace(sessionId);
+    };
+    window.addEventListener(OPEN_WORKSPACE_EVENT, listener);
+    listener();
+    return () => window.removeEventListener(OPEN_WORKSPACE_EVENT, listener);
+  });
 
   async function createWorkspace(name: string, mode: FolderMode) {
     if (navigationPending.current || (IS_PR_ONLY_BUILD && mode !== "pr-evidence")) return { ok: false };
@@ -468,10 +479,7 @@ function OpenInPageCollectorPopup({
     setNavigationBusy(true);
     setNavigationError(null);
     try {
-      // Explicit save action selects the existing archive workspace, creating it
-      // only when absent. Merely browsing the collection never changes context.
-      const result = await app.onSessionModeChange("archive");
-      if (result && !result.ok) throw new Error("collection unavailable");
+      // The inline wheel chooses its destination; opening help keeps the current workspace.
       await app.onNavigate("collect");
       setReadingNavigation((current) => ({ ...current, tab: "collection", collecting: true, settingsOpen: false }));
     } catch { setNavigationError("未能開啟採集，請再試。"); }

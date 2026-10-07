@@ -2,12 +2,12 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-09-29
-> Current source version: `0.4.3` — collection-first navigation, based on `claude/v4-beta` 0.4.1 (`b9a358e`). Work is isolated on `codex/collect-recall-focus`; it is not merged into `main`.
-> Capture: current Threads SVG title / role-button metric controls and legacy aria-label controls are supported. Counts stay within their own controls and post boundaries; missing values stay unknown. Page-wide views/followers fallback is removed.
+> Last updated: 2026-10-07
+> Current source version: `0.4.4` — inline collect wheel slice 1, based on 0.4.3 (`eb23daa`). Work is isolated on `codex/inline-collect-wheel`; it is not merged into `main`.
+> Capture: top-level posts expose a DLens action button. Tap saves to the last-used mode; hold/flick or S opens the fixed mode wheel using the v9 gesture/motion values. Each mode targets its latest workspace; the saved chip opens that workspace, and removal supports version-bound undo. The former hover-selection save steps are removed. Current Threads SVG title / role-button metric controls and legacy aria-label controls are supported. Counts stay within their own controls and post boundaries; missing values stay unknown. Page-wide views/followers fallback is removed.
 > Collection: 收藏 / 工作區 are the two primary entries. Global saved sources are searchable across all existing workspaces without changing ownership; a full-width reader shows captured original text and images, with metrics and membership in details. Query, reader, route and scroll state survive closing/reopening and settings returns. Workspaces retain explicit open/create/rename/delete actions; deletion requires confirmation. Topic starts with sources and one action before Atlas is available.
 > Installation: update the contents of the existing unpacked beta folder to preserve its extension ID and storage. Do not load a newly named folder as a second beta. The currently observed folder is `/Users/tung/Downloads/dlens-v4-beta-0.4.1-chrome-mv3`.
-> Verification: 1530 tests passed, 5 existing skips, zero failures; full and PR-only builds passed. Version 0.4.3 was reloaded in Jason’s original Chrome profile and checked through a real Threads in-page launcher. Coverage, screenshots, backup and capture/image limitations: `docs/handoff/mockup-navigation-paused.md` and `docs/memory/latest-shared-context.md`.
+> Verification: 0.4.4 typecheck, boundary guards, storage seam guard and full build succeeded; the complete suite ran through the existing cached tsx loader with 1587 passing, 5 existing skips and zero failures. The exact `npx tsx` launcher is blocked by sandbox IPC permissions, so that command is not reported as accepted. Real-Threads runtime QA remains pending in the owner’s existing Chrome profile. The PR-only variant is not accepted for this slice: its existing domain restriction conflicts with the fixed four-sector surface and awaits an owner decision.
 
 ## What It Does
 
@@ -52,7 +52,7 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 
 ## Current Features
 
-- Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
+- Inline collect on Threads feeds/post pages. The per-post action button saves to the last-used workspace mode; the wheel chooses a mode and preserves workspace navigation. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
 - Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Popup backend health dot uses the lightweight backend `/health` endpoint for liveness, while `/worker/status` remains the slower work-truth projection for backlog / retry / analysis state. One failed health poll is suppressed, two mark the dot slow, and three mark it unreachable.

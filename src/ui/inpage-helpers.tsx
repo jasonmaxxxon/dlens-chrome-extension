@@ -6,6 +6,21 @@ import type { CompareBrief } from "../compare/brief";
 import { MetricChip } from "./components";
 
 export const HOVER_RECT_EVENT = "dlens:hover-rect";
+export const OPEN_WORKSPACE_EVENT = "dlens:open-workspace";
+const PENDING_WORKSPACE_KEY = "__dlensPendingWorkspaceOpen__";
+export function requestWorkspaceOpen(sessionId: string, targetWindow: Window = window): void {
+  (targetWindow as unknown as Record<string, unknown>)[PENDING_WORKSPACE_KEY] = sessionId;
+  const event = targetWindow.document.createEvent("CustomEvent");
+  event.initCustomEvent(OPEN_WORKSPACE_EVENT, false, false, { sessionId });
+  targetWindow.dispatchEvent(event);
+}
+export function consumeWorkspaceOpen(availableSessionIds: readonly string[], targetWindow: Window = window): string | null {
+  const store = targetWindow as unknown as Record<string, unknown>;
+  const sessionId = store[PENDING_WORKSPACE_KEY];
+  if (typeof sessionId !== "string" || !availableSessionIds.includes(sessionId)) return null;
+  delete store[PENDING_WORKSPACE_KEY];
+  return sessionId;
+}
 export const PAGE_LOCATION_EVENT = "dlens:page-location";
 export const OPTIMISTIC_SAVE_EVENT = "dlens:optimistic-save";
 export const OPTIMISTIC_SAVE_CONFIRMED_EVENT = "dlens:optimistic-save-confirmed";

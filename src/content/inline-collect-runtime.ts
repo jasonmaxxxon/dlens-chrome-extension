@@ -1,0 +1,196 @@
+import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
+import { INLINE_COLLECT_MODES, INLINE_COLLECT_MODE_NAMES, inlineCollectPostKey, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../state/inline-collect";
+import { buildTargetDescriptor } from "../targeting/threads";
+import { getModeHomePage } from "../state/processing-state";
+import { requestWorkspaceOpen, OPTIMISTIC_SAVE_CONFIRMED_EVENT } from "../ui/inpage-helpers";
+import { createInlineCollectInjection, type InlineCollectEntry } from "./inline-collect-injection";
+import { createInlineCollectWheel, INLINE_COLLECT_BUTTON_HTML, updateSavedButton, type InlineCollectPost } from "./inline-collect-wheel";
+import { createEmptyGlobalState, type ExtensionGlobalState, type FolderMode } from "../state/types";
+import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
+import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
+
+/** Side effects live here; the wheel only consumes typed callbacks and data. */
+export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
+  let state: InlineCollectState = {
+    lastMode: "topic",
+    destinations: INLINE_COLLECT_MODES.map((mode) => ({ mode, sessionId: null, sessionName: INLINE_COLLECT_MODE_NAMES[mode] })),
+    saved: [], changed: false
+  };
+  let destroyed = false;
+  let injection: ReturnType<typeof createInlineCollectInjection> | null = null;
+  const pending = new Map<string, number>();
+  const optimistic = new Map<string, { mode: FolderMode; name: string } | null>();
+  let revision = 0;
+  let storageRevision = 0;
+  let optimisticLastMode: FolderMode | null = null;
+  let mutationQueue: Promise<void> = Promise.resolve();
+  const latestMutation = new Map<string, number>();
+  const mutations = new Map<string, Promise<void>>();
+  const saved = (identity: string) => state.saved.find((item) => item.postKey === identity);
+  const send = (message: ExtensionMessage) => chrome.runtime.sendMessage(message) as Promise<ExtensionResponse>;
+  const paint = (post: InlineCollectPost) => {
+    if (pending.has(post.identity)) {
+      const destination = optimistic.get(post.identity);
+      if (optimistic.has(post.identity)) updateSavedButton(post, destination?.mode ?? null, destination?.name, { quiet: true });
+      return;
+    }
+    const destination = saved(post.identity);
+    updateSavedButton(post, destination?.mode ?? null, destination?.sessionName, { quiet: true });
+  };
+  function accept(response: ExtensionResponse, issuedAt: number) {
+    if (!response.ok) throw new Error(response.error || "未能更新收藏");
+    // A later storage event is authoritative even if an earlier request responds last.
+    if (response.inlineCollect && issuedAt === storageRevision) state = response.inlineCollect;
+    if (response.snapshot) window.dispatchEvent(new CustomEvent(OPTIMISTIC_SAVE_CONFIRMED_EVENT, { detail: response.snapshot }));
+    injection?.entries().forEach(paint);
+    return response.inlineCollect;
+  }
+  async function request(message: ExtensionMessage) {
+    const issuedAt = storageRevision;
+    if (message.type !== "session/inline-collect" || message.action === "snapshot") {
+      return accept(await send(message), issuedAt);
+    }
+    const action = message.action;
+    const requestId = message.requestId ?? createPipelineRequestId(`inline-collect-${action}`);
+    const target = message.action === "remove" ? { sessionId: message.sessionId, itemId: message.itemId }
+      : message.action === "save" ? { sessionId: state.destinations.find((entry) => entry.mode === (message.mode ?? state.lastMode))?.sessionId ?? undefined }
+      : {};
+    emitPipelineEvent({
+      phase: "signal.saved", step: "content.inline-collect.request", target: { ...target },
+      result: "pending", requestId, detail: { action }
+    });
+    try {
+      const result = accept(await send({ ...message, requestId }), issuedAt);
+      emitPipelineEvent({
+        phase: "signal.saved", step: "content.inline-collect.response", target: { ...target },
+        result: "ok", requestId, detail: { action, changed: result?.changed ?? false }
+      });
+      return result;
+    } catch (error) {
+      emitPipelineEvent({
+        phase: "signal.saved", step: "content.inline-collect.failure", target: { ...target },
+        result: "error", requestId, detail: { action, error: error instanceof Error ? error.message : String(error) }
+      });
+      throw error;
+    }
+  }
+  function captureDescriptor(post: InlineCollectPost) {
+    const entry = post as InlineCollectEntry;
+    const wrapper = post.button.parentElement;
+    const parent = wrapper?.parentElement;
+    const next = wrapper?.nextSibling ?? null;
+    // Capture fresh native text/metrics without our chip contaminating the source.
+    if (wrapper && parent) wrapper.remove();
+    try {
+      const descriptor = buildTargetDescriptor(entry.card, window.location.href) ?? post.descriptor;
+      return inlineCollectPostKey(descriptor) === post.identity ? descriptor : null;
+    }
+    finally { if (wrapper && parent) parent.insertBefore(wrapper, next); }
+  }
+  function enqueue(post: InlineCollectPost, work: (version: number) => Promise<void>) {
+    const version = ++revision;
+    pending.set(post.identity, version);
+    latestMutation.set(post.identity, version);
+    const next = mutationQueue.catch(() => undefined).then(() => ready).then(() => work(version)).catch(() => {
+      if (!destroyed) wheel.showToast("未能更新收藏，請再試。");
+    }).finally(() => {
+      if (pending.get(post.identity) !== version) return;
+      pending.delete(post.identity);
+      optimistic.delete(post.identity);
+      if (pending.size === 0) optimisticLastMode = null;
+      injection?.entries().filter((entry) => entry.identity === post.identity).forEach(paint);
+    });
+    mutationQueue = next;
+    mutations.set(post.identity, next);
+    void next.finally(() => { if (mutations.get(post.identity) === next) mutations.delete(post.identity); });
+  }
+  function acknowledge(post: InlineCollectPost, mode: FolderMode | null, popDelay = 0) {
+    wheel.hideToast();
+    const name = state.destinations.find((entry) => entry.mode === mode)?.sessionName ?? "";
+    optimistic.set(post.identity, mode ? { mode, name } : null);
+    updateSavedButton(post, mode, name, { popDelay });
+    if (mode) optimisticLastMode = mode;
+  }
+  function undo(post: InlineCollectPost, token: string, mode: FolderMode) {
+    acknowledge(post, mode);
+    enqueue(post, async () => {
+      const result = await request({ type: "session/inline-collect", action: "undo", token });
+      wheel.showToast(result?.changed ? "已復原" : "已有較新的操作");
+    });
+  }
+  async function save(post: InlineCollectPost, mode?: FolderMode) {
+    if (destroyed) return;
+    const message: InlineCollectMessage = { type: "session/inline-collect", action: "save", descriptor: post.descriptor, ...(mode ? { mode } : {}) };
+    await request(message);
+  }
+  async function tap(post: InlineCollectPost, version: number) {
+    const destination = saved(post.identity);
+    if (!destination) { await save(post); return; }
+    const result = await request({ type: "session/inline-collect", action: "remove", descriptor: post.descriptor, sessionId: destination.sessionId, itemId: destination.itemId });
+    if (latestMutation.get(post.identity) !== version) return;
+    wheel.showToast("已移除收藏", result?.undoToken ? () => {
+      if (latestMutation.get(post.identity) === version) undo(post, result.undoToken!, destination.mode);
+    } : undefined);
+  }
+  async function openWorkspace(identity: string) {
+    await mutations.get(identity);
+    const destination = saved(identity);
+    if (!destination) return;
+    try {
+      await request({ type: "session/set-active", sessionId: destination.sessionId });
+      await request({ type: "popup/navigate-active-tab", page: getModeHomePage(destination.mode) });
+      await request({ type: "popup/open-active-tab" });
+      requestWorkspaceOpen(destination.sessionId);
+    } catch { wheel.showToast("未能開啟工作區，請再試。"); }
+  }
+  const wheel = createInlineCollectWheel({
+    overlayRoot,
+    getDestinations: () => state.destinations,
+    getLastMode: () => optimisticLastMode ?? state.lastMode,
+    getSavedMode: (identity) => optimistic.has(identity) ? optimistic.get(identity)?.mode ?? null : saved(identity)?.mode ?? null,
+    getHoveredPost: () => injection?.getHoveredPost() ?? null,
+    onSave: (post, mode, options) => {
+      const descriptor = captureDescriptor(post);
+      if (!descriptor) { injection?.scan(); return; }
+      const mutationPost = { ...post, descriptor };
+      acknowledge(post, mode, options.popDelay);
+      enqueue(post, () => save(mutationPost, mode));
+    },
+    onTap: (post) => {
+      const descriptor = captureDescriptor(post);
+      if (!descriptor) { injection?.scan(); return; }
+      const mutationPost = { ...post, descriptor };
+      const isSaved = optimistic.has(post.identity) ? optimistic.get(post.identity) !== null : Boolean(saved(post.identity));
+      acknowledge(post, isSaved ? null : optimisticLastMode ?? state.lastMode);
+      enqueue(post, (version) => tap(mutationPost, version));
+    }
+  });
+  const ready = request({ type: "session/inline-collect", action: "snapshot" }).then(() => undefined).catch(() => undefined);
+  injection = createInlineCollectInjection({
+    document: overlayRoot.ownerDocument,
+    getPageUrl: () => window.location.href,
+    onAdd(post) {
+      post.button.innerHTML = INLINE_COLLECT_BUTTON_HTML;
+      const unbind = wheel.bindButton(post);
+      const onClick = (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); void openWorkspace(post.identity); };
+      post.chip.addEventListener("click", onClick);
+      paint(post);
+      return () => { unbind(); post.chip.removeEventListener("click", onClick); };
+    }
+  });
+  const storageListener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+    if (area !== "local" || destroyed || !(GLOBAL_STATE_STORAGE_KEY in changes)) return;
+    const global = changes[GLOBAL_STATE_STORAGE_KEY].newValue as ExtensionGlobalState | undefined;
+    if (global && !Array.isArray(global.sessions)) return;
+    storageRevision++;
+    // Every Threads tab observes the shared membership and last mode. Never apply
+    // another tab's navigation state or dispatch its snapshot into this popup.
+    state = projectInlineCollectState(global ?? createEmptyGlobalState());
+    injection?.entries().forEach(paint);
+  };
+  chrome.storage.onChanged.addListener(storageListener);
+  return {
+    reset() { wheel.reset(); injection?.reset(); },
+    destroy() { destroyed = true; chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); }
+  };
+}

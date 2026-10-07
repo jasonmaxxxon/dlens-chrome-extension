@@ -498,6 +498,19 @@ function findMetricElements(card: HTMLElement) {
   });
 }
 
+/** Smallest common parent of this post's action controls, excluding quotes. */
+export function findPostActionBar(card: HTMLElement): HTMLElement | null {
+  const actions = findMetricElements(card).filter(({ key }) => key !== "views" && key !== "followers");
+  if (new Set(actions.map(({ key }) => key)).size < 2) return null;
+  const controls = actions.map(({ element }) => element.closest('button, [role="button"], a') ?? element.parentElement)
+    .filter((element): element is Element => Boolean(element));
+  let row = controls[0]?.parentElement ?? null;
+  while (row && row !== card && !controls.every((control) => row!.contains(control))) row = row.parentElement;
+  // A whole post (or a text/permalink wrapper) is not an action row.
+  if (!row || row === card || row.querySelector('a[href*="/post/"]')) return null;
+  return row;
+}
+
 function readScopedText(element: Element, card: HTMLElement): string {
   if (element.matches("svg, script, style") || !belongsToCurrentPost(element, card)) return "";
   return Array.from(element.childNodes).map((node) => {
