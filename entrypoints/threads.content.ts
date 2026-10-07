@@ -10,6 +10,7 @@ import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../src/ui/motion";
 import { dispatchPageLocationChange } from "../src/ui/inpage-helpers";
 import { startInlineCollectRuntime } from "../src/content/inline-collect-runtime";
 import { DLENS_INLINE_COLLECT_CSS } from "../src/content/inline-collect-wheel-styles";
+import { DLENS_INLINE_CARD_CSS } from "../src/content/inline-collect-card";
 
 const ROOT_ID = "__dlens_extension_v0_root__";
 const QA_TRACE_VERSION = "full-live-trace-v2";
@@ -44,7 +45,7 @@ function ensureRoot(): HTMLDivElement {
   if (!document.getElementById("__dlens_inline_collect_style__")) {
     const style = document.createElement("style");
     style.id = "__dlens_inline_collect_style__";
-    style.textContent = DLENS_INLINE_COLLECT_CSS;
+    style.textContent = DLENS_INLINE_COLLECT_CSS + DLENS_INLINE_CARD_CSS;
     document.head.appendChild(style);
   }
   return root;

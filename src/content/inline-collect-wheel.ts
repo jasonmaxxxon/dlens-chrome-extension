@@ -527,5 +527,10 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     toast.remove();
   }
   buildWheel();
-  return { bindButton, reset, destroy, showToast, hideToast };
+  /** v9 移動: open the wheel in sticky mode on a post's own button. */
+  function openSticky(post: InlineCollectPost) {
+    const r = post.button.getBoundingClientRect();
+    showWheel(post, r.left + r.width / 2, r.top + r.height / 2, true);
+  }
+  return { bindButton, reset, destroy, showToast, hideToast, openSticky };
 }

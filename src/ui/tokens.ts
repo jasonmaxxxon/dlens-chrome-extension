@@ -276,6 +276,18 @@ export const tokens = {
     font: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
   },
 
+  /* The card under a saved post, from the owner's v9 mockup: status line, four entries, one answer at a time. */
+  collectCard: {
+    wash: "#fbfbfa", hair: "rgba(27,26,23,.08)", sub: "#4a4840", soft: "#8a877c", fail: "#a8462e",
+    hover: "rgba(0,0,0,.05)", track: "rgba(27,26,23,.06)", radius: 14, padding: "14px 16px", margin: "10px 0 6px",
+    font: 13, lineHeight: 1.55, headFont: 12, headline: 16, entryLabel: 14, entryFinding: 12.5, quoteFont: 13, citeFont: 11.5,
+    entryPadding: "10px 10px 12px", entryGap: 4, answerTop: 16, barHeight: 8, barGap: 3, dot: 7, iconSize: 15,
+    btnFont: 12, btnRadius: 8, btnPadding: "6px 11px", btnBorder: "rgba(27,26,23,.18)",
+    entryColors: { stance: "#35628a", top: "#b0453a", op: "#4a5d6e", ask: "#7b4a8a" },
+    clusterColors: ["#5a4a72", "#3f8f86", "#a06a17", "#7a7a8a"],
+    askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" }
+  },
+
   motion: {
     collectWheel: {
       spring: "cubic-bezier(.3,1.32,.5,1)", flyEasing: "cubic-bezier(.55,0,.8,.25)",

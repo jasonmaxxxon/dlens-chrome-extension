@@ -8,6 +8,8 @@ import { createInlineCollectWheel, INLINE_COLLECT_BUTTON_HTML, updateSavedButton
 import { createEmptyGlobalState, type ExtensionGlobalState, type FolderMode } from "../state/types";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
+import { buildInlineCardViewModel, type InlineCardEntryKey } from "../viewmodel/inline-card";
+import { renderInlineCard, formatWait } from "./inline-collect-card";
 
 /** Side effects live here; the wheel only consumes typed callbacks and data. */
 export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
@@ -28,7 +30,58 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const mutations = new Map<string, Promise<void>>();
   const saved = (identity: string) => state.saved.find((item) => item.postKey === identity);
   const send = (message: ExtensionMessage) => chrome.runtime.sendMessage(message) as Promise<ExtensionResponse>;
+  // The card under a saved post (v9): shown on save, × hides it, the chip toggles it back.
+  let global: ExtensionGlobalState | null = null;
+  const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null }>();
+  const slots = new Map<string, HTMLElement>();
+  function removeCard(identity: string) { slots.get(identity)?.remove(); slots.delete(identity); }
+  function renderCard(post: InlineCollectPost) {
+    const destination = pending.has(post.identity) ? null : saved(post.identity);
+    const view = cards.get(post.identity);
+    const session = destination && global?.sessions.find((entry) => entry.id === destination.sessionId);
+    const item = session?.items.find((entry) => entry.id === destination!.itemId);
+    if (!destination || !item || view?.hidden) { removeCard(post.identity); return; }
+    const bar = post.button.parentElement?.parentElement;
+    if (!bar) return;
+    let slot = slots.get(post.identity);
+    if (!slot || !slot.isConnected || slot.previousElementSibling !== bar) {
+      slot?.remove();
+      slot = document.createElement("div");
+      slot.className = "dlens-card-slot";
+      slot.setAttribute("data-dlens-control", "true");
+      slot.addEventListener("click", (event) => onCardClick(post, event));
+      bar.insertAdjacentElement("afterend", slot);
+      slots.set(post.identity, slot);
+    }
+    const vm = buildInlineCardViewModel(item, destination.mode, destination.sessionName);
+    const lens = view?.lens && vm.answers[view.lens] ? view.lens : null;
+    slot.innerHTML = renderInlineCard(vm, lens, Date.now());
+  }
+  function onCardClick(post: InlineCollectPost, event: MouseEvent) {
+    // Our card sits inside a Threads post; never let a click reach Threads' own navigation.
+    event.preventDefault(); event.stopPropagation();
+    const target = event.target instanceof Element ? event.target : null;
+    const lens = target?.closest<HTMLElement>("[data-dlens-lens]")?.dataset.dlensLens as InlineCardEntryKey | undefined;
+    const view = cards.get(post.identity) ?? { hidden: false, lens: null };
+    if (lens) { cards.set(post.identity, { ...view, lens: view.lens === lens ? null : lens }); renderCard(post); return; }
+    const act = target?.closest<HTMLElement>("[data-dlens-act]")?.dataset.dlensAct;
+    const destination = saved(post.identity);
+    if (act === "close") { cards.set(post.identity, { ...view, hidden: true }); renderCard(post); }
+    else if (act === "open") void openWorkspace(post.identity);
+    else if (act === "move") wheel.openSticky(post);
+    else if (act === "crawl" && destination) {
+      void send({ type: "session/queue-items-and-start-processing", sessionId: destination.sessionId, itemIds: [destination.itemId] })
+        .catch(() => wheel.showToast("未能開始抓取，請檢查 DLens 後端。"));
+    }
+  }
+  const waitTimer = window.setInterval(() => {
+    for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-wait]").forEach((el) => { el.textContent = formatWait(el.dataset.dlensWait || null, Date.now()); });
+  }, 1000);
   const paint = (post: InlineCollectPost) => {
+    paintButton(post);
+    renderCard(post);
+  };
+  const paintButton = (post: InlineCollectPost) => {
     if (pending.has(post.identity)) {
       const destination = optimistic.get(post.identity);
       if (optimistic.has(post.identity)) updateSavedButton(post, destination?.mode ?? null, destination?.name, { quiet: true });
@@ -172,10 +225,15 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     onAdd(post) {
       post.button.innerHTML = INLINE_COLLECT_BUTTON_HTML;
       const unbind = wheel.bindButton(post);
-      const onClick = (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); void openWorkspace(post.identity); };
+      const onClick = (event: MouseEvent) => {
+        event.preventDefault(); event.stopPropagation();
+        const view = cards.get(post.identity) ?? { hidden: false, lens: null };
+        cards.set(post.identity, { ...view, hidden: !view.hidden });
+        renderCard(post);
+      };
       post.chip.addEventListener("click", onClick);
       paint(post);
-      return () => { unbind(); post.chip.removeEventListener("click", onClick); };
+      return () => { unbind(); post.chip.removeEventListener("click", onClick); removeCard(post.identity); };
     }
   });
   const storageListener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
@@ -186,11 +244,18 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     // Every Threads tab observes the shared membership and last mode. Never apply
     // another tab's navigation state or dispatch its snapshot into this popup.
     state = projectInlineCollectState(global ?? createEmptyGlobalState());
+    latestGlobal(global ?? null);
     injection?.entries().forEach(paint);
   };
+  function latestGlobal(next: ExtensionGlobalState | null) { global = next; }
+  void Promise.resolve(chrome.storage.local?.get?.(GLOBAL_STATE_STORAGE_KEY)).then((stored) => {
+    if (destroyed) return;
+    const next = stored?.[GLOBAL_STATE_STORAGE_KEY] as ExtensionGlobalState | undefined;
+    if (next && Array.isArray(next.sessions)) { global = next; injection?.entries().forEach(paint); }
+  }).catch(() => undefined);
   chrome.storage.onChanged.addListener(storageListener);
   return {
     reset() { wheel.reset(); injection?.reset(); },
-    destroy() { destroyed = true; chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); }
+    destroy() { destroyed = true; window.clearInterval(waitTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
   };
 }
