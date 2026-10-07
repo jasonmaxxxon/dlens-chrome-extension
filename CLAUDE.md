@@ -35,8 +35,9 @@ git diff --check
 - A "done" report from Codex, a subagent, or your own earlier turn is an
   unverified claim. Rerun the gate before merge/push.
 - Runtime QA only counts on: rebuilt `output/chrome-mv3` + Jason's Chrome
-  `Default` profile + opening DLens via the real extension action or in-page
-  launcher on a real Threads page. A direct `chrome-extension://…/sidepanel.html`
+  `Default` profile + a real Threads page, opening the workspace (Chrome side
+  panel) via the real extension action or a saved post's card; since 0.4.4
+  there is no in-page launcher. A direct `chrome-extension://…/sidepanel.html`
   tab or a temp profile is NOT proof.
 - If runtime behavior contradicts source, suspect a stale bundle before
   changing code: check `output/chrome-mv3/manifest.json` version and grep the

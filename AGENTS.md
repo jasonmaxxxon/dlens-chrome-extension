@@ -73,8 +73,9 @@ git diff --check
 - A "done" report from any agent (including your own earlier turn) is an
   unverified claim — rerun the gate before merge/push.
 - Runtime QA only counts on: rebuilt `output/chrome-mv3` + Jason's Chrome
-  `Default` profile + opening DLens via the real extension action or in-page
-  launcher on a real Threads page. A direct
+  `Default` profile + a real Threads page, opening the workspace through the
+  real extension action or a saved post's card (`開啟工作區 ↗`), both of which
+  open Chrome's side panel. Since 0.4.4 there is no in-page launcher. A direct
   `chrome-extension://…/sidepanel.html` tab or temp profile is NOT proof.
 - If runtime contradicts source, suspect a stale bundle first: check the built
   manifest version and grep the bundle for expected `data-*` markers.
@@ -99,6 +100,36 @@ Topic/Product/PR engines remain workspace tools; do not restore permanent mode
 tabs or the old sidebar. Topic pre-result pages show sources and one action,
 without an empty Atlas banner. Real prior Atlas results remain visible while
 regenerating. PR-only builds expose only their existing PR domain.
+
+## Inline collect card (0.4.4, `codex/inline-collect-wheel`; owner's radial-converge v9–v12 mockups, local only)
+
+- Threads pages carry only the per-post button, chip and the card under the
+  post (`src/content/inline-collect-*`). The workspace (`InPageCollectorApp
+  embedded`) lives in Chrome's side panel (`entrypoints/sidepanel/main.tsx`).
+  `sidepanel/open` must call `chrome.sidePanel.open` before any await (user
+  gesture); the panel takes the named workspace once via
+  `sidepanel/take-workspace-open`. Do not re-mount the popup or launcher on
+  Threads pages.
+- Saving into 觀眾反應 / 個人應用 queues the crawl only while the item is
+  `saved`. The card polls `session/refresh-item` (4s) while its item is
+  queued/running, because the workspace polls only while open. A crawl
+  request that never became a job (`!ok`, no `queuedItemIds`, or
+  `processingError`) must read 抓取失敗 with the reason, never a silent card.
+- Waiting shows a 1-second peek (same-origin post-page `thread_items`,
+  memory only, audience replies only) and an ETA that is an estimate
+  (`estimateCrawlSeconds`: 55s + 0.22s per reply, one backend worker); past
+  the estimate it says 比平常久. Never present it as a backend promise.
+- AI 觀眾反應 (`src/compare/inline-reading.ts`): one BYOK pass per item per
+  capture via `inline-reading/ensure` (10+ replies), stored in
+  `dlens:v1:inline-readings`. The model names clusters and writes one-line
+  findings; shares stay the backend's quant percentages and no counts are
+  generated. A method or split side without a valid catalog ref is dropped;
+  a split needs exactly two sides. 大家問咩 stays the question rule plus the
+  reply chain. Without a reading the card keeps the no-AI entries
+  (樣本內最高讚 / 作者回應) and says why (整理中 / 未接 AI / 失敗).
+- 展開證據 renders the replies behind the open answer in Threads' reply shape
+  and never repeats a sentence the card already quotes. There are no
+  per-reply permalinks (the backend drops them), so rows do not link out.
 
 ## Mode contracts (current; history and rationale in the archive)
 

@@ -1,4 +1,14 @@
-## Current handoff — 2026-09-29 collection navigation (0.4.3 installed)
+## Current handoff — 2026-10-07 inline collect card (0.4.4 candidate)
+
+- Branch `codex/inline-collect-wheel` in worktree `~/.config/superpowers/worktrees/dlens-product-latest/inline-collect-wheel`, based on 0.4.3 `eb23daa`; commits `49fd113` (wheel), `875cb18` (v9 card), `6f2c5cd` (crawl on save, peek, ETA, side panel), `692e536` (AI 觀眾反應 + 展開證據). Pushed to origin; no PR, no main merge. Contracts: AGENTS.md "Inline collect card".
+- Removed in this line of work: the 0.4.3 in-page popup/launcher on Threads pages (workspace moved into Chrome's side panel), the old debug `SidepanelApp`, the content-script crash fallback.
+- Verified (source only, 2026-10-07 at `692e536`): typecheck, both boundary guards, storage seam guard, full suite 1611 / 1606 pass / 5 existing skips / 0 fail, build, diff check. Built manifest `DLens v4 beta` 0.4.4.
+- Chrome: the `Default` profile's enabled unpacked entry loads this worktree's `output/chrome-mv3` (ID `kdkcjgmagedoimaedmanpiaaplhgbmkk`, read from Chrome preferences). Earlier today the owner's screenshot showed the `875cb18` card stuck at 未抓取留言; nothing after that has been checked in Chrome. UNVERIFIED: 1-second peek (assumes the logged-in post HTML embeds `thread_items`; only the backend fixture proves it), side panel opening from the card's user gesture, embedded workspace layout, AI reading with the owner's key, 展開證據 layout.
+- Backend: Supabase project `dlens-ingest-core-dev` was INACTIVE (likely the free-tier inactivity pause, cause not read from the dashboard; last crawl 2026-09-21); `/capture-target` returned 500 from 12:53. Owner restored it in the dashboard; `select 1` passed, the launchd API was restarted, `/worker/status` returned idle with 1 historical dead job. No crawl has run since. Crawl auth file: `ds_user_id` cookie expired 2026-10-05, `sessionid` valid to 2027-07-07; whether crawls still authenticate is unverified.
+- Open: PR-only variant decision; 個人應用 card, 活動追蹤 card (mockup uses 3 criteria, the inline save still drafts c1..c6), progress orb, the v9 side-panel discourse layer (including the card's 「屬〈…〉講法」 line), phrase underlines, chip hover hint. `dlens:v1:inline-readings` records are not removed when a post is unsaved.
+- Next: owner reloads the extension and walks one save → crawl → AI reading → 展開證據 on a real Threads post, then decides between the 個人應用 / 活動追蹤 cards.
+
+## Previous handoff — 2026-09-29 collection navigation (0.4.3 installed)
 
 - User resumed the paused 09-21 work. Collection/workspaces navigation, full-width source reader, scroll restoration, explicit workspace management and PR-only guards are implemented on `codex/collect-recall-focus`; no main merge/push.
 - Final root gate: 1535 tests / 1530 pass / 5 existing skips / 0 fail; typecheck, boundaries, storage seam, full and PR-only builds, diff check passed. Independent review resolved two P2 issues and reran 278 related tests plus two independent probes.
@@ -7,7 +17,7 @@
 - Existing Atlas integration failure and old output remain; some historical image URLs are expired with the expected fallback. A fresh saved image loaded. Batch selection is covered by automated tests, not a new live Topic mutation.
 - Follow-up: single-post capture can retain trailing Threads reply UI text. Scope and complete evidence: `docs/handoff/mockup-navigation-paused.md` and the review folder's `verification.md`.
 
-## Previous handoff — 2026-09-21 collection focus (0.4.2)
+## Earlier handoff — 2026-09-21 collection focus (0.4.2)
 
 - User approved a left thumbnail, immediately visible source list and collapsed AI detail on the existing Product signals page. This supersedes earlier instructions to immediately open full Product readings.
 - Source branch: `codex/collect-recall-focus`, based on 0.4.1 `b9a358e`, isolated at `/Users/tung/developer/worktrees/dlens-v4-focus`. No main merge/push.
