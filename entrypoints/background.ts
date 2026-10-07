@@ -112,8 +112,11 @@ import {
   generateProductSignalAnalysis,
   generateSignalTags,
   generateTopicAuditEnvelope,
-  generateTopicSignalReading
+  generateTopicSignalReading,
+  generateInlineReading
 } from "../src/compare/provider";
+import { buildInlineReadingInput, readCrawlComments } from "../src/compare/inline-reading";
+import { loadInlineReadingRecords, saveInlineReadingRecord } from "../src/compare/inline-reading-storage";
 import {
   appendSignalReadingReview,
   getSignalReading,
@@ -2399,6 +2402,37 @@ export const backgroundTestables = {
   tabStorageKey
 };
 
+// 觀眾反應 cards ask for their AI pass; one run per item at a time. A "running" record older than this is a dead worker's.
+const inlineReadingsInFlight = new Set<string>();
+const INLINE_READING_STALE_MS = 3 * 60_000;
+const INLINE_READING_MIN_COMMENTS = 10;
+
+async function ensureInlineReading(tabId: number, sessionId: string, itemId: string, retry: boolean): Promise<"started" | "exists" | "no-key" | "not-ready"> {
+  const current = await loadSnapshot(tabId);
+  const session = getSessionById(current.global, sessionId);
+  const item = session?.items.find((entry) => entry.id === itemId);
+  if (!session || session.mode !== "topic" || !item || item.status !== "succeeded" || readCrawlComments(item).length < INLINE_READING_MIN_COMMENTS) return "not-ready";
+  const input = buildInlineReadingInput(item);
+  if (!input) return "not-ready";
+  const providerConfig = providerKeyForRequest(current.global);
+  if (!providerConfig) return "no-key";
+  const existing = (await loadInlineReadingRecords(chrome.storage.local))[item.id];
+  const stale = existing?.status === "running" && Date.now() - Date.parse(existing.startedAt) > INLINE_READING_STALE_MS;
+  if (inlineReadingsInFlight.has(item.id)) return "exists";
+  if (existing && existing.captureId === input.captureId && !stale && !(retry && existing.status === "failed")) return "exists";
+  inlineReadingsInFlight.add(item.id);
+  const storage = chrome.storage.local;
+  await saveInlineReadingRecord(storage, { status: "running", itemId: item.id, captureId: input.captureId, startedAt: new Date().toISOString() });
+  void generateInlineReading(providerConfig.provider, providerConfig.apiKey, input)
+    .then(
+      (reading) => saveInlineReadingRecord(storage, { status: "complete", itemId: item.id, captureId: input.captureId, reading }),
+      (error) => saveInlineReadingRecord(storage, { status: "failed", itemId: item.id, captureId: input.captureId, error: error instanceof Error ? error.message : String(error), at: new Date().toISOString() })
+    )
+    .catch((error) => console.error("[dlens] inline reading could not be saved:", error))
+    .finally(() => inlineReadingsInFlight.delete(item.id));
+  return "started";
+}
+
 // The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
 let pendingSidePanelWorkspace: { sessionId: string; at: number } | null = null;
 
@@ -2542,6 +2576,12 @@ export default defineBackground(() => {
             const pending = pendingSidePanelWorkspace;
             pendingSidePanelWorkspace = null;
             sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline-reading/ensure": {
+            const tabId = await resolveTabId(sender);
+            const inlineReadingStatus = await ensureInlineReading(tabId, message.sessionId, message.itemId, message.retry === true);
+            sendResponse({ ok: true, tabId, inlineReadingStatus } satisfies ExtensionResponse);
             return;
           }
           case "pipeline-trace/enable-background": {

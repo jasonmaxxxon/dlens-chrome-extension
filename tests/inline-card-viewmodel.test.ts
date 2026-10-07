@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInlineCardViewModel } from "../src/viewmodel/inline-card.ts";
+import { buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
 import { formatEta, renderInlineCard } from "../src/content/inline-collect-card.ts";
 import { parseFirstReplies } from "../src/content/inline-collect-peek.ts";
 import type { SessionItem } from "../src/state/types.ts";
@@ -11,6 +11,7 @@ function item(status: SessionItem["status"], comments: Array<Record<string, unkn
     canonicalTargetUrl: null, latestJob: null, commentsPreview: [], lastStatusAt: "2026-10-07T10:00:10Z", lastErrorKind: null, lastError: null,
     descriptor: { post_url: "https://www.threads.com/@op/post/A", author_hint: "op", text_snippet: "", engagement: { likes: 1, comments: 20, reposts: 0, forwards: 0, views: null } } as unknown as SessionItem["descriptor"],
     latestCapture: {
+      id: "cap-1",
       result: { canonical_post: { author: "op" }, comments },
       analysis: { clusters: [{ cluster_key: 1, size_share: 0.3, like_share: 0.2, keywords: ["通勤", "時間"] }, { cluster_key: 0, size_share: 0.6, like_share: 0.7, keywords: ["生產力", "交付", "坐"] }],
         evidence: [{ cluster_key: 0, comments: [{ comment_id: "c1", text: "返 office 唔等於有生產力", author: "a", like_count: 90 }] }] }
@@ -107,4 +108,85 @@ test("first replies come from thread_items, skipping the post and the author's o
   const html = `<script type="application/json" data-sjs="">${JSON.stringify({ a: { thread_items: [post("ROOT", "op", "原帖", 9, false)] }, b: [{ thread_items: [post("S1", "op", "作者續寫", 5, true)] }, { thread_items: [post("R1", "fan", "讚", 4, true), post("R2", "op", "作者回覆", 1, true)] }, { thread_items: [post("R1", "fan", "讚", 4, true)] }] })}</script><script type="application/json">not json thread_items</script>`;
   assert.deepEqual(parseFirstReplies(html, "ROOT"), [{ text: "讚", author: "fan", likes: 4 }]);
   assert.equal(parseFirstReplies("<html>logged out</html>", "ROOT"), null);
+});
+
+const quoteOf = (id: string, text: string, author: string, likes: number) => ({ commentId: id, text, author, likes });
+function aiReading(extra: Record<string, unknown> = {}): InlineCardAiInput {
+  return { status: "complete", itemId: "i1", captureId: "cap-1", reading: {
+    itemId: "i1", captureId: "cap-1", promptVersion: "v1", model: "google:test", generatedAt: "2026-10-07T10:00:00Z",
+    gist: "多數人質疑返 office 帶來的生產力", find: { stance: "質疑生產力", method: "用數據爭取 hybrid", split: "新人學習有爭議", ask: "可唔可以拒絕 WFO" },
+    clusterNames: { "0": "生產力質疑" },
+    methods: [
+      { name: "用數據爭取 hybrid", fit: "有交付紀錄的團隊", quote: quoteOf("c5", "我覺得 hybrid 好啲", "e", 30) },
+      { name: "同 HR 傾", fit: "公司有彈性政策", quote: quoteOf("c9", "通勤好辛苦", "i", 25) }
+    ],
+    split: { agree: "大家都想要彈性", sides: [] },
+    ...extra
+  } } as InlineCardAiInput;
+}
+
+test("a finished AI reading swaps in 有咩做法 / 有咩分歧 and names the quant clusters, keeping their shares", () => {
+  const vm = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: aiReading() });
+  assert.deepEqual(vm.entries.map((e) => e.key), ["stance", "method", "split", "ask"]);
+  assert.equal(vm.ai?.state, "complete");
+  assert.equal(vm.entries[0].finding, "質疑生產力");
+  assert.equal(vm.entries[0].mark, "60%", "the share stays the backend's percentage");
+  assert.equal(vm.entries[1].mark, "2 種");
+  assert.equal(vm.entries[3].finding, "可唔可以拒絕 WFO");
+  const stance = vm.answers.stance;
+  assert.ok(stance && stance.kind === "clusters");
+  assert.equal(stance.headline, "多數人質疑返 office 帶來的生產力");
+  assert.deepEqual(stance.segments.map((s) => s.label), ["生產力質疑", "通勤 / 時間"], "an unnamed cluster keeps its keywords");
+  const split = vm.answers.split;
+  assert.ok(split && split.kind === "split" && split.sides.length === 0 && split.note?.includes("11"));
+});
+
+test("an AI reading for an older capture, a missing key and a failure all fall back to the no-AI entries", () => {
+  const stale = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { ...aiReading(), captureId: "cap-0" } as InlineCardAiInput });
+  assert.deepEqual(stale.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
+  assert.equal(stale.ai, null, "a stale reading asks again instead of showing old words");
+  const noKey = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "no-key" } });
+  assert.equal(noKey.ai?.state, "no-key");
+  assert.match(renderInlineCard(noKey, null, 0), /未接 AI/);
+  const failed = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "failed", itemId: "i1", captureId: "cap-1", error: "quota <exceeded>", at: "" } });
+  assert.deepEqual(failed.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
+  const html = renderInlineCard(failed, null, 0);
+  assert.match(html, /AI 整理失敗：quota &lt;exceeded&gt;/);
+  assert.match(html, /data-dlens-act="ai-retry"/);
+  const running = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "running", itemId: "i1", captureId: "cap-1", startedAt: "" } });
+  assert.match(renderInlineCard(running, null, 0), /AI 整理中/);
+});
+
+test("展開證據 groups the replies behind the open answer and never repeats what the card quotes", () => {
+  const plain = item("succeeded", many);
+  const vm = buildInlineCardViewModel(plain, "topic", "返工");
+  assert.equal(vm.hasEvidence, true);
+  const all = buildInlineCardEvidence(plain, vm, null)!;
+  assert.equal(all.section, "按關鍵詞分群的原句");
+  assert.equal(all.heading, "@op 的留言證據");
+  assert.equal(all.groups[0].chains[0].row.text, "返 office 唔等於有生產力");
+  const stance = buildInlineCardEvidence(plain, vm, "stance")!;
+  assert.equal(stance.groups.length, 0, "the stance answer already quotes that reply");
+
+  const asks = buildInlineCardEvidence(plain, vm, "ask")!;
+  assert.deepEqual(asks.groups.map((g) => g.tone), ["none", "author", "other"]);
+  assert.equal(asks.groups[0].chains[0].unanswered, true);
+  const authorChain = asks.groups[1].chains[0];
+  assert.equal(authorChain.row.text, "可唔可以拒絕 WFO？");
+  assert.equal(authorChain.reply?.text, "可以同 HR 傾");
+  assert.equal(authorChain.reply?.isAuthor, true);
+  assert.match(renderInlineCard(vm, "ask", 0, asks), /<span class="au">作者<\/span>/);
+
+  const read = buildInlineCardViewModel(plain, "topic", "返工", { ai: aiReading() });
+  const methods = buildInlineCardEvidence(plain, read, "method", aiReading())!;
+  assert.equal(methods.section, "做法：適用情境與原句");
+  assert.deepEqual(methods.groups.map((g) => [g.title, g.context, g.chains.map((ch) => ch.row.text)]), [
+    ["用數據爭取 hybrid", "有交付紀錄的團隊", []],
+    ["同 HR 傾", "公司有彈性政策", ["通勤好辛苦"]]
+  ]);
+  const evil = item("succeeded", [...many, { comment_id: "c12", author: "x", text: "<b>hi</b>", like_count: 99 }]);
+  const evilVm = buildInlineCardViewModel(evil, "topic", "返工");
+  const html = renderInlineCard(evilVm, null, 0, buildInlineCardEvidence(evil, evilVm, "top"));
+  assert.ok(!html.includes("<b>hi</b>"));
+  assert.match(html, /收起證據/);
 });

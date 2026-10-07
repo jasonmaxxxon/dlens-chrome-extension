@@ -65,6 +65,13 @@ import {
   type TopicSignalReadingInput
 } from "./topic-signal-reading.ts";
 import {
+  buildInlineReadingPrompt,
+  INLINE_READING_SYSTEM_PROMPT,
+  parseInlineReadingResponse,
+  type InlineReading,
+  type InlineReadingInput
+} from "./inline-reading.ts";
+import {
   parseAuditPromptEnvelopeResult,
   type AuditPromptEnvelope
 } from "./topic-audit-prompts.ts";
@@ -833,6 +840,24 @@ export async function generateTopicSignalReading(
   const parsed = parseTopicSignalReadingResponse(raw, input, model);
   if (!parsed) {
     throw new Error("Invalid topic signal reading payload");
+  }
+  return parsed;
+}
+
+export async function generateInlineReading(
+  provider: "openai" | "claude" | "google",
+  apiKey: string,
+  input: InlineReadingInput
+): Promise<InlineReading> {
+  const model = provider === "google"
+    ? `google:${GOOGLE_COMPARE_MODEL}`
+    : provider === "openai"
+      ? `openai:${OPENAI_COMPARE_MODEL}`
+      : `claude:${CLAUDE_COMPARE_MODEL}`;
+  const raw = await generateJsonText(provider, apiKey, buildInlineReadingPrompt(input), INLINE_READING_SYSTEM_PROMPT, 1400, "inline-reading");
+  const parsed = parseInlineReadingResponse(raw, input, model, new Date().toISOString());
+  if (!parsed) {
+    throw new Error("AI 回覆格式不對，未能整理。");
   }
   return parsed;
 }

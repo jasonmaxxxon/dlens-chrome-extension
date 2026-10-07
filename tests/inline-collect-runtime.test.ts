@@ -333,3 +333,32 @@ test("the card shows the post page's top first reply while the crawl is pending"
     assert.match(quote, /首批 2 則中最高讚/);
   } finally { s.cleanup(); }
 });
+
+test("a read 觀眾反應 card asks for its AI pass once and opens 展開證據 in place", async () => {
+  const s = fixture();
+  try {
+    await tick();
+    const global = readingGlobal("topic", "succeeded");
+    const item = global.sessions[0].items[0];
+    item.descriptor = { ...item.descriptor, engagement: { comments: 11 } } as typeof item.descriptor;
+    item.latestCapture = {
+      id: "cap-a",
+      result: { canonical_post: { author: "author" }, comments: Array.from({ length: 11 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: `留言 ${i}`, like_count: i })) },
+      analysis: { clusters: [], evidence: [] }
+    } as unknown as typeof item.latestCapture;
+    s.emitGlobal(global);
+    await tick();
+    const ensure = s.calls.filter(({ message }) => message.type === "inline-reading/ensure");
+    assert.equal(ensure.length, 1);
+    ensure[0].resolve({ ok: true, inlineReadingStatus: "no-key" }); await tick();
+    const doc = s.dom.window.document;
+    assert.match(doc.querySelector(".dlens-card .head")!.textContent!, /未接 AI/);
+    s.emitGlobal(global); await tick();
+    assert.equal(s.calls.filter(({ message }) => message.type === "inline-reading/ensure").length, 1, "not asked again on repaint");
+    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="evidence"]')!.click();
+    assert.match(doc.querySelector(".dlens-card .xp")!.textContent!, /@author 的留言證據/);
+    assert.match(doc.querySelector(".dlens-card .xp")!.textContent!, /留言 10/);
+    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="evidence"]')!.click();
+    assert.equal(doc.querySelector(".dlens-card .xp"), null);
+  } finally { s.cleanup(); }
+});

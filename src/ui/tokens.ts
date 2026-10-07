@@ -283,10 +283,13 @@ export const tokens = {
     font: 13, lineHeight: 1.55, headFont: 12, headline: 16, entryLabel: 14, entryFinding: 12.5, quoteFont: 13, citeFont: 11.5,
     entryPadding: "10px 10px 12px", entryGap: 4, answerTop: 16, barHeight: 8, barGap: 3, dot: 7, iconSize: 15,
     btnFont: 12, btnRadius: 8, btnPadding: "6px 11px", btnBorder: "rgba(27,26,23,.18)",
-    entryColors: { stance: "#35628a", top: "#b0453a", op: "#4a5d6e", ask: "#7b4a8a" },
+    entryColors: { stance: "#35628a", method: "#4d7a3a", split: "#a24a2a", top: "#b0453a", op: "#4a5d6e", ask: "#7b4a8a" },
+    sideColors: ["#3f8f86", "#a06a17"],
     clusterColors: ["#5a4a72", "#3f8f86", "#a06a17", "#7a7a8a"],
     askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" },
-    skeleton: ["#eeede9", "#f7f6f3"], skeletonHeight: 9
+    skeleton: ["#eeede9", "#f7f6f3"], skeletonHeight: 9,
+    /* 展開證據 reply rows in Threads' shape: no avatar URL is stored, so a handle-tinted initial stands in. */
+    avatar: 28, avatarSat: 30, avatarLight: 88, avatarInk: 32, threadLine: "rgba(27,26,23,.14)"
   },
 
   motion: {

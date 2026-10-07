@@ -53,6 +53,7 @@ export type ExtensionMessagePayload =
   | { type: "popup/open-active-tab" }
   | { type: "sidepanel/open"; sessionId: string }
   | { type: "sidepanel/take-workspace-open" }
+  | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
   | { type: "popup/close-tab"; tabId: number }
   | { type: "popup/navigate-active-tab"; page: PopupPage }
   | { type: "selection/start-active-tab" }
@@ -177,6 +178,7 @@ export type ExtensionSuccessResponse = {
   oneLiner?: string | null;
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
+  inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
   clusterInterpretations?: ClusterInterpretation[];
   evidenceAnnotations?: EvidenceAnnotation[];
   techniqueReadings?: TechniqueReadingSnapshot[];

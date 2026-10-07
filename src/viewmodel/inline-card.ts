@@ -1,8 +1,14 @@
 import type { FolderMode, SessionItem } from "../state/types";
+import { readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
+import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 
-/** One card under a saved post. Built only from data the crawl and quant analysis already store; no AI. */
+/**
+ * One card under a saved post. Without AI it shows only what the crawl and quant analysis store
+ * (大家點睇 / 樣本內最高讚 / 作者回應 / 大家問咩); with a finished AI reading 有咩做法 / 有咩分歧 replace
+ * the middle two. Shares are always the backend's percentages.
+ */
 export type InlineCardPhase = "saved" | "queued" | "running" | "failed" | "done";
-export type InlineCardEntryKey = "stance" | "top" | "op" | "ask";
+export type InlineCardEntryKey = "stance" | "method" | "split" | "top" | "op" | "ask";
 export interface InlineCardQuote { text: string; author: string; likes: number | null }
 export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark: string; finding: string }
 export type InlineCardAnswer =
@@ -10,7 +16,11 @@ export type InlineCardAnswer =
   | { kind: "quotes"; rows: InlineCardQuote[] }
   | { kind: "op"; rows: { text: string; inReplyTo: string }[] }
   | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" }[] }
+  | { kind: "methods"; rows: { name: string; fit: string }[]; quote: InlineCardQuote }
+  | { kind: "split"; agree: string; sides: { claim: string; why: string; quote: InlineCardQuote }[]; note: string | null }
   | { kind: "empty"; text: string };
+/** The AI pass for this item, or the reason there is none. */
+export type InlineCardAiInput = { status: "no-key" } | InlineReadingRecord;
 /** Replies the post page ships in its own HTML, read on save; the crawl replaces them. */
 export type InlineCardPeekInput = { state: "loading" } | { state: "ready"; replies: InlineCardQuote[] } | { state: "unavailable" };
 export type InlineCardPeek = { state: "loading" } | { state: "ready"; total: number; top: InlineCardQuote | null };
@@ -20,6 +30,7 @@ export interface InlineCardContext {
   peek?: InlineCardPeekInput;
   /** The crawl request itself failed (backend down), so the item never left 「saved」. */
   startError?: string | null;
+  ai?: InlineCardAiInput | null;
 }
 export interface InlineCardViewModel {
   mode: FolderMode;
@@ -34,6 +45,10 @@ export interface InlineCardViewModel {
   few: InlineCardQuote[] | null;
   entries: InlineCardEntry[];
   answers: Partial<Record<InlineCardEntryKey, InlineCardAnswer>>;
+  /** Only for a 觀眾反應 card with enough replies to read. */
+  ai: { state: "running" | "failed" | "complete" | "no-key"; error: string | null } | null;
+  /** 展開證據 has something to show. */
+  hasEvidence: boolean;
 }
 
 export const INLINE_CARD_MIN_COMMENTS = 10;
@@ -42,22 +57,9 @@ export const estimateCrawlSeconds = (item: SessionItem) =>
   Math.round(55 + Math.min(item.descriptor.engagement?.comments ?? 0, 500) * 0.22);
 const QUESTION = /[？?]|點解|點樣|點算|有冇|係咪|會唔會|可唔可以|幾時|邊度|邊個|幾多|\b(what|why|how|when|where|who)\b/i;
 
-interface Comment { id: string; parent: string | null; author: string; text: string; likes: number | null }
-const str = (value: unknown) => (typeof value === "string" ? value : "");
+type Comment = CrawlComment;
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-const handle = (value: unknown) => str(value).replace(/^@/, "").trim().toLowerCase();
-
-function readComments(item: SessionItem): Comment[] {
-  const raw = item.latestCapture?.result?.comments ?? [];
-  return raw.map((c) => ({
-    id: str(c.comment_id) || str(c.source_comment_id),
-    parent: str(c.parent_comment_id) || null,
-    author: str(c.author),
-    text: str(c.text).trim(),
-    likes: num(c.like_count)
-  })).filter((c) => c.text.length > 0);
-}
-const quote = (c: Comment): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes });
+const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes });
 const short = (text: string, max = 24) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
 function phaseOf(item: SessionItem): InlineCardPhase {
@@ -87,6 +89,39 @@ function peekOf(input: InlineCardPeekInput | undefined): InlineCardPeek | null {
   return { state: "ready", total: input.replies.length, top };
 }
 
+/** Everything the card and 展開證據 read from one crawl, derived the same way for both. */
+function readThread(item: SessionItem) {
+  const comments = readCrawlComments(item);
+  const op = readOpHandle(item);
+  const byId = new Map(comments.map((c) => [c.id, c]));
+  const children = new Map<string, Comment[]>();
+  for (const c of comments) if (c.parent) children.set(c.parent, [...(children.get(c.parent) ?? []), c]);
+  const clusters = [...(item.latestCapture?.analysis?.clusters ?? [])].sort((a, b) => b.size_share - a.size_share).slice(0, 4);
+  const evidence = item.latestCapture?.analysis?.evidence ?? [];
+  const ranked = comments.filter((c) => c.likes !== null).sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+  // 作者回應: the author's replies under someone else's comment.
+  const opReplies = comments.filter((c) => op && handle(c.author) === op && c.parent && byId.has(c.parent) && handle(byId.get(c.parent)!.author) !== op);
+  // 大家問咩: a question rule plus the reply chain. A reply is not proof of an answer.
+  const asks = comments.filter((c) => handle(c.author) !== op && QUESTION.test(c.text)).map((c) => {
+    const kids = children.get(c.id) ?? [];
+    const status: "author" | "other" | "none" = kids.some((k) => handle(k.author) === op) ? "author" : kids.length ? "other" : "none";
+    return { c, status, reply: kids.find((k) => handle(k.author) === op) ?? kids[0] ?? null };
+  }).sort((a, b) => (a.status === "none" ? 0 : 1) - (b.status === "none" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0));
+  return { comments, op, byId, clusters, evidence, ranked, opReplies, asks };
+}
+const keywordLabel = (keywords: string[]) => keywords.map((k) => k.trim()).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
+const pct = (share: number) => Math.round(share * 100);
+
+function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined) {
+  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? ai.reading : null;
+}
+function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined): InlineCardViewModel["ai"] {
+  if (!ai) return null;
+  if (ai.status === "no-key") return { state: "no-key", error: null };
+  if (ai.captureId !== item.latestCapture?.id) return null;
+  return { state: ai.status, error: ai.status === "failed" ? ai.error : null };
+}
+
 export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, sessionName: string, context: InlineCardContext = {}): InlineCardViewModel {
   const startError = phaseOf(item) === "saved" ? context.startError ?? null : null;
   const phase = startError ? "failed" : phaseOf(item);
@@ -96,63 +131,135 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     eta: etaOf(item, phase, context.queue ?? []),
     peek: reads && phase !== "done" ? peekOf(context.peek) : null,
     error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
-    countLabel: null, few: null, entries: [], answers: {}
+    countLabel: null, few: null, entries: [], answers: {}, ai: null, hasEvidence: false
   };
   if (phase !== "done" || mode !== "topic") return base;
 
-  const comments = readComments(item);
+  const t = readThread(item);
   const total = num(item.descriptor.engagement?.comments);
-  base.countLabel = `${comments.length} / ${total ?? "?"} 則`;
-  if (comments.length < INLINE_CARD_MIN_COMMENTS) {
-    base.few = comments.slice(0, 9).map(quote);
+  base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
+  if (t.comments.length < INLINE_CARD_MIN_COMMENTS) {
+    base.few = t.comments.slice(0, 9).map(quote);
     return base;
   }
+  base.ai = aiStateOf(item, context.ai);
+  const reading = readingOf(item, context.ai);
+  const nameOf = (cluster: { cluster_key: number; keywords: string[] }) => reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords);
 
-  const op = handle(item.latestCapture?.result?.canonical_post?.author ?? item.descriptor.author_hint);
-  const byId = new Map(comments.map((c) => [c.id, c]));
-  const children = new Map<string, Comment[]>();
-  for (const c of comments) if (c.parent) children.set(c.parent, [...(children.get(c.parent) ?? []), c]);
-
-  // 大家點睇: quant clusters, shares as percentages only.
-  const clusters = [...(item.latestCapture?.analysis?.clusters ?? [])].sort((a, b) => b.size_share - a.size_share);
-  const label = (keywords: string[]) => keywords.map((k) => k.trim()).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
-  if (clusters.length) {
-    const top = clusters[0];
-    const evidence = item.latestCapture?.analysis?.evidence?.find((e) => e.cluster_key === top.cluster_key)?.comments?.[0];
-    const pct = (share: number) => Math.round(share * 100);
-    base.entries.push({ key: "stance", label: "大家點睇", mark: `${pct(top.size_share)}%`, finding: label(top.keywords) });
+  // 大家點睇: quant clusters, shares as percentages only; AI only names them and writes the one-line gist.
+  if (t.clusters.length) {
+    const top = t.clusters[0];
+    const evidence = t.evidence.find((e) => e.cluster_key === top.cluster_key)?.comments?.[0];
+    base.entries.push({ key: "stance", label: "大家點睇", mark: `${pct(top.size_share)}%`, finding: reading?.find.stance ?? nameOf(top) });
     base.answers.stance = {
       kind: "clusters",
-      headline: `最大一群講「${label(top.keywords)}」，佔已讀留言 ${pct(top.size_share)}%。`,
-      segments: clusters.slice(0, 4).map((c) => ({ label: label(c.keywords), pct: pct(c.size_share) })),
+      headline: reading?.gist ?? `最大一群講「${nameOf(top)}」，佔已讀留言 ${pct(top.size_share)}%。`,
+      segments: t.clusters.map((c) => ({ label: nameOf(c), pct: pct(c.size_share) })),
       quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null } : null
     };
   }
 
-  // 樣本內最高讚
-  const ranked = comments.filter((c) => c.likes !== null).sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
-  if (ranked.length) {
-    base.entries.push({ key: "top", label: "樣本內最高讚", mark: `${ranked[0].likes} 讚`, finding: ranked[0].text });
-    base.answers.top = { kind: "quotes", rows: ranked.slice(0, 3).map(quote) };
+  if (reading) {
+    base.entries.push({ key: "method", label: "有咩做法", mark: reading.methods.length ? `${reading.methods.length} 種` : "", finding: reading.find.method });
+    base.answers.method = reading.methods.length
+      ? { kind: "methods", rows: reading.methods.map((m) => ({ name: m.name, fit: m.fit })), quote: quote(reading.methods[0].quote) }
+      : { kind: "empty", text: "留言多是推薦和意見，未見可以照做的方法。" };
+    base.entries.push({ key: "split", label: "有咩分歧", mark: reading.split.sides.length ? "2 邊" : "", finding: reading.find.split });
+    base.answers.split = {
+      kind: "split",
+      agree: reading.split.agree || reading.find.split,
+      sides: reading.split.sides.map((side) => ({ claim: side.claim, why: side.why, quote: quote(side.quote) })),
+      note: reading.split.sides.length ? null : `只根據已讀的 ${t.comments.length} 則留言。`
+    };
+  } else {
+    if (t.ranked.length) {
+      base.entries.push({ key: "top", label: "樣本內最高讚", mark: `${t.ranked[0].likes} 讚`, finding: t.ranked[0].text });
+      base.answers.top = { kind: "quotes", rows: t.ranked.slice(0, 3).map(quote) };
+    }
+    base.entries.push({ key: "op", label: "作者回應", mark: t.opReplies.length ? `${t.opReplies.length} 則` : "", finding: t.opReplies[0]?.text ?? "未有回覆留言" });
+    base.answers.op = t.opReplies.length
+      ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text) })) }
+      : { kind: "empty", text: "作者未有回覆任何留言。" };
   }
 
-  // 作者回應: the author's replies under someone else's comment.
-  const opReplies = comments.filter((c) => op && handle(c.author) === op && c.parent && byId.has(c.parent) && handle(byId.get(c.parent)!.author) !== op);
-  base.entries.push({ key: "op", label: "作者回應", mark: opReplies.length ? `${opReplies.length} 則` : "", finding: opReplies[0]?.text ?? "未有回覆留言" });
-  base.answers.op = opReplies.length
-    ? { kind: "op", rows: opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(byId.get(c.parent!)!.text) })) }
-    : { kind: "empty", text: "作者未有回覆任何留言。" };
-
-  // 大家問咩: a question rule plus the reply chain. A reply is not proof of an answer.
-  const asks = comments.filter((c) => handle(c.author) !== op && QUESTION.test(c.text)).map((c) => {
-    const kids = children.get(c.id) ?? [];
-    const status: "author" | "other" | "none" = kids.some((k) => handle(k.author) === op) ? "author" : kids.length ? "other" : "none";
-    return { c, status };
-  }).sort((a, b) => (a.status === "none" ? 0 : 1) - (b.status === "none" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0));
-  const open = asks.filter((a) => a.status === "none").length;
-  base.entries.push({ key: "ask", label: "大家問咩", mark: asks.length ? (open ? `${open} 未回` : "都有回覆") : "", finding: asks[0]?.c.text ?? "未見提問" });
-  base.answers.ask = asks.length
-    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: asks.slice(0, 5).map((a) => ({ text: a.c.text, status: a.status })) }
+  const open = t.asks.filter((a) => a.status === "none").length;
+  base.entries.push({ key: "ask", label: "大家問咩", mark: t.asks.length ? (open ? `${open} 未回` : "都有回覆") : "", finding: reading?.find.ask ?? t.asks[0]?.c.text ?? "未見提問" });
+  base.answers.ask = t.asks.length
+    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: a.c.text, status: a.status })) }
     : { kind: "empty", text: "已讀留言裡未見提問。" };
+  base.hasEvidence = t.clusters.length > 0 || t.ranked.length > 0;
   return base;
+}
+
+/* ---------- 展開證據: the replies behind the open answer, in Threads' own reply shape ---------- */
+export interface InlineEvidenceRow { author: string; text: string; likes: number | null; replies: number | null; time: string | null; isAuthor: boolean }
+export interface InlineEvidenceChain { row: InlineEvidenceRow; reply: InlineEvidenceRow | null; unanswered: boolean }
+export interface InlineEvidenceGroup {
+  tone: "cluster" | "method" | "side" | "none" | "author" | "other";
+  index: number;
+  title: string;
+  meta: string;
+  context: string | null;
+  chains: InlineEvidenceChain[];
+}
+export interface InlineCardEvidence { heading: string; sub: string; section: string; groups: InlineEvidenceGroup[] }
+
+function shownTexts(answer: InlineCardAnswer | undefined): string[] {
+  if (!answer) return [];
+  if (answer.kind === "clusters" || answer.kind === "methods") return answer.quote ? [answer.quote.text] : [];
+  if (answer.kind === "quotes" || answer.kind === "op") return answer.rows.map((row) => row.text);
+  if (answer.kind === "split") return answer.sides.map((side) => side.quote.text);
+  return [];
+}
+
+export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewModel, lens: InlineCardEntryKey | null, ai?: InlineCardAiInput | null): InlineCardEvidence | null {
+  if (!vm.hasEvidence) return null;
+  const t = readThread(item);
+  const reading = readingOf(item, ai);
+  // The card already quotes these; 展開證據 never repeats them.
+  const shown = new Set(lens === "ask" ? [] : shownTexts(lens ? vm.answers[lens] : undefined));
+  const toRow = (c: Pick<Comment, "author" | "text" | "likes" | "replies" | "time">): InlineEvidenceRow =>
+    ({ author: c.author, text: c.text, likes: c.likes, replies: c.replies, time: c.time, isAuthor: !!t.op && handle(c.author) === t.op });
+  const lookup = (id: string, fallback: { text: string; author?: string; likes: number | null }) =>
+    t.byId.get(id) ?? { id, parent: null, text: fallback.text, author: fallback.author ?? "", likes: fallback.likes, replies: null, time: null };
+  const chains = (list: Comment[]) => list.filter((c) => !shown.has(c.text)).map((c) => ({ row: toRow(c), reply: null, unanswered: false }));
+
+  let section: string;
+  let groups: InlineEvidenceGroup[];
+  if (lens === "method" && reading?.methods.length) {
+    section = "做法：適用情境與原句";
+    groups = reading.methods.map((m, index) => ({ tone: "method", index, title: m.name, meta: "", context: m.fit || null, chains: chains([lookup(m.quote.commentId, m.quote)]) }));
+  } else if (lens === "split" && reading?.split.sides.length) {
+    section = "兩邊的理由與原句";
+    groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, chains: chains([lookup(side.quote.commentId, side.quote)]) }));
+  } else if (lens === "ask" && t.asks.length) {
+    section = "問題與回覆";
+    const NAME = { none: "樣本內未見回覆", author: "作者回覆", other: "有人回覆" } as const;
+    groups = (["none", "author", "other"] as const).flatMap((status, index) => {
+      const asks = t.asks.filter((a) => a.status === status);
+      return asks.length ? [{
+        tone: status, index, title: NAME[status], meta: `${asks.length} 條`, context: null,
+        chains: asks.slice(0, 6).map((a) => ({ row: toRow(a.c), reply: a.reply ? toRow(a.reply) : null, unanswered: status === "none" }))
+      }] : [];
+    });
+  } else if (t.clusters.length) {
+    section = reading ? "按回應類別的原句" : "按關鍵詞分群的原句";
+    groups = t.clusters.map((cluster, index) => ({
+      tone: "cluster", index,
+      title: reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords),
+      meta: `${pct(cluster.size_share)}%`, context: null,
+      chains: chains((t.evidence.find((e) => e.cluster_key === cluster.cluster_key)?.comments ?? [])
+        .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })))
+    }));
+  } else {
+    section = "樣本內最高讚";
+    groups = [{ tone: "cluster", index: 0, title: "最多讚的留言", meta: "", context: null, chains: chains(t.ranked.slice(0, 8)) }];
+  }
+  const total = num(item.descriptor.engagement?.comments);
+  return {
+    heading: `@${t.op || "作者"} 的留言證據`,
+    sub: `已讀 ${t.comments.length} / ${total ?? "?"} 則 · 卡片上已見的句子不重複`,
+    section,
+    groups: groups.filter((group) => group.chains.length || group.context)
+  };
 }

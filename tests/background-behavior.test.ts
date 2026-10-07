@@ -7,6 +7,7 @@ import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY } from "../src/compare/folder-synthesis-storage.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
 import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
+import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords } from "../src/compare/inline-reading-storage.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import { SIGNAL_TAGS_STORAGE_KEY } from "../src/compare/signal-tags-storage.ts";
@@ -1678,6 +1679,55 @@ test("session/refresh-all writes broadcast state/updated exactly once per tab", 
     assert.equal(response.ok, true);
     assert.equal(harness.writes.length, 1);
     assertStateUpdatedBroadcastOnce(harness);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("inline-reading/ensure says when there is no AI key, then runs once and stores a grounded reading", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const base = makeSucceededItem("reading");
+    const comments = Array.from({ length: 12 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: `留言 ${i}`, like_count: 12 - i }));
+    const item = { ...base, latestCapture: { ...base.latestCapture!, result: { ...base.latestCapture!.result!, comments } } };
+    const topic = { ...makeSession("topic-session", "topic"), items: [item] };
+    const ensure = { type: "inline-reading/ensure", sessionId: topic.id, itemId: item.id } as ExtensionMessage;
+    const seed = (global: ExtensionGlobalState) => ({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: global,
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+
+    const keyless = await createHarness(seed(makeGlobal([topic], topic.id)));
+    const noKey = await keyless.dispatch(ensure);
+    assert.ok(noKey.ok);
+    assert.equal(noKey.inlineReadingStatus, "no-key");
+    assert.equal(keyless.writesFor(INLINE_READINGS_STORAGE_KEY).length, 0);
+
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls++;
+      return makeGoogleJsonResponse({
+        gist: "大家都覺得門檻太高", find: { stance: "焦慮最多", method: "大量投遞", split: "暫未見明顯分歧", ask: "未見提問" },
+        cluster_names: [], methods: [{ name: "大量投遞", fit: "冇人脈", ref: "e1" }], split: { agree: "門檻太高", sides: [] }
+      });
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness(seed({ ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "test-google-key" } }));
+    const started = await harness.dispatch(ensure);
+    assert.ok(started.ok);
+    assert.equal(started.inlineReadingStatus, "started");
+    const again = await harness.dispatch(ensure);
+    assert.ok(again.ok);
+    assert.equal(again.inlineReadingStatus, "exists", "one AI run per capture");
+    for (let i = 0; i < 50 && normalizeInlineReadingRecords(harness.state[INLINE_READINGS_STORAGE_KEY])[item.id]?.status !== "complete"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const record = normalizeInlineReadingRecords(harness.state[INLINE_READINGS_STORAGE_KEY])[item.id];
+    assert.ok(record && record.status === "complete");
+    assert.equal(record.captureId, item.latestCapture!.id);
+    assert.deepEqual(record.reading.methods.map((m) => [m.name, m.quote.text]), [["大量投遞", "留言 0"]]);
+    assert.equal(calls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
