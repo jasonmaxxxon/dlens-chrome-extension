@@ -25,7 +25,7 @@ function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[];
   const chrome = { storage: { onChanged: {
     addListener(listener: (changes: Record<string, chrome.storage.StorageChange>, area: string) => void) { storageListeners.add(listener); },
     removeListener(listener: (changes: Record<string, chrome.storage.StorageChange>, area: string) => void) { storageListeners.delete(listener); }
-  } }, runtime: { sendMessage(message: ExtensionMessage) {
+  } }, runtime: { id: "test-extension", sendMessage(message: ExtensionMessage) {
     if (message.type === "session/inline-collect" && message.action === "snapshot") return options.deferSnapshot
       ? new Promise<ExtensionResponse>(resolve => { releaseSnapshot = resolve; }) : Promise.resolve({ ok: true, inlineCollect: base });
     return new Promise<ExtensionResponse>((resolve, reject) => calls.push({ message, resolve, reject }));
@@ -406,5 +406,18 @@ test("the button carries the crawl state and a dot for a result that arrived whi
     assert.ok(s.button.classList.contains("ready") && !s.button.classList.contains("busy"));
     s.chip.click();
     assert.ok(!s.button.classList.contains("ready"), "opening the card clears the unseen dot");
+  } finally { s.cleanup(); }
+});
+
+test("a script cut off by an extension reload removes its controls and asks for a page refresh", async () => {
+  const intervals: (() => void)[] = [];
+  const s = fixture({ intervals });
+  try {
+    await tick();
+    assert.ok(s.dom.window.document.querySelector(".dlens-collect-button"));
+    (globalThis as unknown as { chrome: { runtime: { id?: string } } }).chrome.runtime.id = undefined;
+    intervals.forEach((poll) => poll());
+    assert.equal(s.dom.window.document.querySelector(".dlens-collect-button"), null, "the old build's button is gone");
+    assert.match(s.dom.window.document.querySelector(".dlens-collect-toast.on")!.textContent!, /重新整理此頁/);
   } finally { s.cleanup(); }
 });

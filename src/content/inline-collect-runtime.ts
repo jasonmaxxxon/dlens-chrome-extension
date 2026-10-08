@@ -207,9 +207,21 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const waitTimer = window.setInterval(() => {
     for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-eta]").forEach((el) => { el.textContent = formatEta(el.dataset.dlensEta ?? "", Number(el.dataset.dlensEtaSec), Date.now()); });
   }, 1000);
+  function showReloadNotice() {
+    const notice = document.createElement("div");
+    notice.className = "dlens-collect-toast on";
+    notice.setAttribute("data-dlens-control", "true");
+    notice.setAttribute("role", "status");
+    notice.innerHTML = "<span>DLens 已更新，重新整理此頁即可使用新版本。</span>";
+    document.body.appendChild(notice);
+    window.setTimeout(() => notice.remove(), tokens.motion.collectWheel.toastActionMs * 2);
+  }
   // The workspace popup only refreshes jobs while it is open, so a card polls its own crawl, then the quant analysis, until both settle.
   const refreshing = new Set<string>();
   const pollTimer = window.setInterval(() => {
+    // After the extension reloads, this script stays on the page cut off from it (Chrome injects the new build only on a
+    // page load). Remove its controls so the old build's button, wheel and card do not linger, and say how to get the new one.
+    if (!globalThis.chrome?.runtime?.id) { teardown(); showReloadNotice(); return; }
     for (const identity of slots.keys()) {
       const destination = saved(identity);
       const item = destination && itemOf(destination);
@@ -406,8 +418,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   chrome.storage.onChanged.addListener(storageListener);
   const onResize = () => { const identity = evidenceWindow?.dataset.dlensFor; if (identity) repaintCard(identity); };
   window.addEventListener("resize", onResize);
+  function teardown() {
+    destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
+    try { chrome.storage.onChanged.removeListener(storageListener); } catch { /* the extension context may already be gone */ }
+    injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id);
+  }
   return {
     reset() { wheel.reset(); injection?.reset(); },
-    destroy() { destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize); window.clearInterval(waitTimer); window.clearInterval(pollTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
+    destroy: teardown
   };
 }
