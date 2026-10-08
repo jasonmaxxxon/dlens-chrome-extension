@@ -115,7 +115,8 @@ import {
   generateTopicSignalReading,
   generateInlineReading
 } from "../src/compare/provider";
-import { buildInlineReadingInput, readCrawlComments } from "../src/compare/inline-reading";
+import { buildInlineReadingInput, INLINE_READING_PROMPT_VERSION, readCrawlComments } from "../src/compare/inline-reading";
+import { providerKeyFromSettings } from "../src/state/ai-key";
 import { loadInlineReadingRecords, saveInlineReadingRecord } from "../src/compare/inline-reading-storage";
 import {
   appendSignalReadingReview,
@@ -868,17 +869,7 @@ function findSessionItems(
 }
 
 function providerKeyForRequest(global: ExtensionGlobalState): { provider: "openai" | "claude" | "google"; apiKey: string } | null {
-  const settings = normalizeGlobalState(global).settings;
-  if (settings.oneLinerProvider === "google" && settings.googleApiKey?.trim()) {
-    return { provider: "google", apiKey: settings.googleApiKey.trim() };
-  }
-  if (settings.oneLinerProvider === "openai" && settings.openaiApiKey.trim()) {
-    return { provider: "openai", apiKey: settings.openaiApiKey.trim() };
-  }
-  if (settings.oneLinerProvider === "claude" && settings.claudeApiKey.trim()) {
-    return { provider: "claude", apiKey: settings.claudeApiKey.trim() };
-  }
-  return null;
+  return providerKeyFromSettings(normalizeGlobalState(global).settings);
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -2412,6 +2403,9 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
   const session = getSessionById(current.global, sessionId);
   const item = session?.items.find((entry) => entry.id === itemId);
   if (!session || session.mode !== "topic" || !item || item.status !== "succeeded" || readCrawlComments(item).length < INLINE_READING_MIN_COMMENTS) return "not-ready";
+  // The quant clusters land a few seconds after the crawl; reading before them would leave the clusters unnamed.
+  const analysisStatus = item.latestCapture?.analysis?.status;
+  if (analysisStatus === "pending" || analysisStatus === "running") return "not-ready";
   const input = buildInlineReadingInput(item);
   if (!input) return "not-ready";
   const providerConfig = providerKeyForRequest(current.global);
@@ -2419,7 +2413,8 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
   const existing = (await loadInlineReadingRecords(chrome.storage.local))[item.id];
   const stale = existing?.status === "running" && Date.now() - Date.parse(existing.startedAt) > INLINE_READING_STALE_MS;
   if (inlineReadingsInFlight.has(item.id)) return "exists";
-  if (existing && existing.captureId === input.captureId && !stale && !(retry && existing.status === "failed")) return "exists";
+  const outdated = existing?.status === "complete" && existing.reading.promptVersion !== INLINE_READING_PROMPT_VERSION;
+  if (existing && existing.captureId === input.captureId && !stale && !outdated && !(retry && existing.status === "failed")) return "exists";
   inlineReadingsInFlight.add(item.id);
   const storage = chrome.storage.local;
   await saveInlineReadingRecord(storage, { status: "running", itemId: item.id, captureId: input.captureId, startedAt: new Date().toISOString() });

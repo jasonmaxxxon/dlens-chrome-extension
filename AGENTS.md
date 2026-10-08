@@ -121,14 +121,19 @@ regenerating. PR-only builds expose only their existing PR domain.
   the estimate it says 比平常久. Never present it as a backend promise.
 - AI 觀眾反應 (`src/compare/inline-reading.ts`): one BYOK pass per item per
   capture via `inline-reading/ensure` (10+ replies), stored in
-  `dlens:v1:inline-readings`. The model names clusters and writes one-line
-  findings; shares stay the backend's quant percentages and no counts are
-  generated. A method or split side without a valid catalog ref is dropped;
+  `dlens:v1:inline-readings`. The model names clusters from their sample
+  replies (the backend clusters by character bigrams, so a cluster can mix
+  meanings) and flags spam/off-topic clusters as noise; 大家點睇's number and
+  words always describe the same cluster, the largest non-noise one. Shares
+  stay the backend's quant percentages and no counts are generated. A
+  reading from an older `INLINE_READING_PROMPT_VERSION` is regenerated. A method or split side without a valid catalog ref is dropped;
   a split needs exactly two sides. 大家問咩 stays the question rule plus the
   reply chain. Without a reading the card keeps the no-AI entries
   (樣本內最高讚 / 作者回應) and says why (整理中 / 未接 AI / 失敗).
 - 展開證據 renders the replies behind the open answer in Threads' reply shape
-  and never repeats a sentence the card already quotes. There are no
+  and never repeats a sentence the card already quotes. It opens as one
+  window beside the feed when there is room (else below the card), shows at
+  most 3 replies per group (1 for noise) and each text once. There are no
   per-reply permalinks (the backend drops them), so rows do not link out.
 
 ## Mode contracts (current; history and rationale in the archive)

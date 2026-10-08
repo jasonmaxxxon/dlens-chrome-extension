@@ -252,6 +252,9 @@ export const tokens = {
     sectorStroke: 6, sectorGap: 11, sectorInset: 3, labelOffset: 1,
     sectorShift: 6, sectorPickedShift: 10, glassMargin: 8, centerInset: 4,
     buttonSize: 36, buttonIconSize: 20, ringMaskOuter: 2.5, ringMaskInner: 2,
+    /* Crawl state on the button: a turning arc while crawling, a dim ring while queued, a dot when a result waits unseen. */
+    progArc: 24, progTrackTint: 14, progOpacity: 0.9, queuedOpacity: 0.5, queuedTint: 22,
+    dotSize: 8, dotInset: 4, dotRing: 2, dotRingColor: "#ffffff",
     labelWidth: 78, labelIconSize: 18, labelFont: 12.5, labelWeight: 650,
     destinationFont: 10, centerTitleFont: 12, centerSubFont: 9.5,
     chipFont: 11.5, chipPadding: "6px 10px", chipMargin: 2, actionGap: 2,
@@ -289,7 +292,12 @@ export const tokens = {
     askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" },
     skeleton: ["#eeede9", "#f7f6f3"], skeletonHeight: 9,
     /* 展開證據 reply rows in Threads' shape: no avatar URL is stored, so a handle-tinted initial stands in. */
-    avatar: 28, avatarSat: 30, avatarLight: 88, avatarInk: 32, threadLine: "rgba(27,26,23,.14)"
+    avatar: 28, avatarSat: 30, avatarLight: 88, avatarInk: 32, threadLine: "rgba(27,26,23,.14)",
+    /* Spam / off-topic clusters stay visible but grey, after every real reaction. */
+    noise: "#b9b6ad",
+    /* 展開證據 opens as a window beside the feed when there is room (mockup v12), else below the card. */
+    windowWidth: 340, windowGap: 16, windowMinRoom: 356, windowTopOffset: 40, windowTopMin: 72, windowRadius: 16, windowLayer: 2147483000,
+    windowShadow: "0 18px 44px -16px rgba(27,26,23,.22), 0 2px 6px rgba(27,26,23,.05)", replyLines: 4
   },
 
   motion: {
@@ -306,8 +314,10 @@ export const tokens = {
       labelScale: 0.6, pickedScale: 1.06, chargingScale: 0.86,
       burstStartScale: 0.6, burstEndScale: 2.1, burstOpacity: 0.75,
       popDipAt: 35, popPeakAt: 70, popDipScale: 0.8, popPeakScale: 1.22,
-      chipOffset: 8, chipScale: 0.9, toastOffset: 20
+      chipOffset: 8, chipScale: 0.9, toastOffset: 20, progFadeMs: 300, dotMs: 240
     },
+    /* The card under a post: enters once, results fade up once, the live dot breathes, the peek shimmers. */
+    collectCard: { enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
     /* Primitive durations — pair with easings to build named transitions. */
     duration: {
       instant: "80ms",

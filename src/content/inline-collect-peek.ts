@@ -37,10 +37,12 @@ export function parseFirstReplies(html: string, postCode: string): InlineCardQuo
   return replies;
 }
 
-export async function fetchFirstReplies(postUrl: string, signal?: AbortSignal): Promise<InlineCardQuote[] | null> {
-  const code = postUrl.match(/\/post\/([^/?#]+)/)?.[1];
+/** `origin` is the page's own origin: the same path on threads.net vs threads.com is cross-origin. */
+export async function fetchFirstReplies(postUrl: string, origin: string, signal?: AbortSignal): Promise<InlineCardQuote[] | null> {
+  const path = new URL(postUrl, origin).pathname;
+  const code = path.match(/\/post\/([^/?#]+)/)?.[1];
   if (!code) return null;
-  const response = await fetch(postUrl, { credentials: "include", signal });
+  const response = await fetch(new URL(path, origin).href, { credentials: "include", signal });
   if (!response.ok) return null;
   return parseFirstReplies(await response.text(), code);
 }

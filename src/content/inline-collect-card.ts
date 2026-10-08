@@ -3,6 +3,7 @@ import type { FolderMode } from "../state/types";
 import type { InlineCardAnswer, InlineCardEntryKey, InlineCardEvidence, InlineCardPeek, InlineCardQuote, InlineCardViewModel, InlineEvidenceGroup, InlineEvidenceRow } from "../viewmodel/inline-card";
 
 const c = tokens.collectCard;
+const cm = tokens.motion.collectCard;
 const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
 const accent = (mode: FolderMode) => (mode === "topic" || mode === "product" || mode === "pr-evidence" ? modeThemes[mode] : modeThemes.archive).accent;
 const svg = (d: string) => `<svg viewBox="0 0 24 24" width="${c.iconSize}" height="${c.iconSize}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -31,10 +32,10 @@ function peekHtml(peek: InlineCardPeek | null): string {
 function answerHtml(a: InlineCardAnswer): string {
   if (a.kind === "empty") return `<p class="hl">${esc(a.text)}</p>`;
   if (a.kind === "clusters") {
-    const segs = a.segments.map((s, i) => ({ ...s, color: c.clusterColors[i % c.clusterColors.length] }));
+    const segs = a.segments.map((s, i) => ({ ...s, color: s.noise ? c.noise : c.clusterColors[i % c.clusterColors.length] }));
     return `<p class="hl">${esc(a.headline)}</p>
       <div class="stack">${segs.map((s) => `<i style="flex:${Math.max(1, s.pct)} 1 0;background:${s.color}"></i>`).join("")}</div>
-      <div class="legend">${segs.map((s) => `<span><i style="background:${s.color}"></i><b>${esc(s.label)}</b><em>${s.pct}%</em></span>`).join("")}</div>
+      <div class="legend">${segs.map((s) => `<span${s.noise ? ` class="nz" title="AI 判斷為廣告、洗版或離題"` : ""}><i style="background:${s.color}"></i><b>${esc(s.label)}</b><em>${s.pct}%</em></span>`).join("")}</div>
       ${a.quote ? `<div class="q1"><q>「${esc(a.quote.text)}」</q><cite>${cite(a.quote)}</cite></div>` : ""}`;
   }
   if (a.kind === "quotes") return `<div class="rows">${a.rows.map((q) => `<div class="row top"><span class="n">${q.likes ?? 0} 讚</span><span class="t">「${esc(q.text)}」<small>@${esc(q.author)}</small></span></div>`).join("")}</div>`;
@@ -64,16 +65,25 @@ function replyRow(r: InlineEvidenceRow, threaded: boolean): string {
     <div><div class="rp-h"><b>${esc(name)}</b>${r.isAuthor ? `<span class="au">作者</span>` : ""}${r.time ? `<span>${esc(r.time)}</span>` : ""}</div>
     <p>${esc(r.text)}</p><div class="rp-m"><span>${HEART}${r.likes ?? 0}</span>${r.replies !== null ? `<span>${BUBBLE}${r.replies}</span>` : ""}</div></div></div>`;
 }
-const toneColor = (g: InlineEvidenceGroup) => g.tone === "cluster" ? c.clusterColors[g.index % c.clusterColors.length]
+const toneColor = (g: InlineEvidenceGroup) => g.tone === "noise" ? c.noise : g.tone === "cluster" ? c.clusterColors[g.index % c.clusterColors.length]
   : g.tone === "method" ? c.entryColors.method : g.tone === "side" ? c.sideColors[g.index % c.sideColors.length] : c.askColors[g.tone];
-function evidenceHtml(e: InlineCardEvidence): string {
-  const groups = e.groups.map((g) => `<div class="ty" style="--c:${toneColor(g)}"><div class="ty-h"><i></i><b>${esc(g.title)}</b>${g.meta ? `<span>${esc(g.meta)}</span>` : ""}</div>${g.context ? `<p class="xp-ctx">${esc(g.context)}</p>` : ""}${g.chains.map((ch) =>
-    replyRow(ch.row, !!ch.reply) + (ch.reply ? replyRow(ch.reply, false) : ch.unanswered ? `<p class="rp-none">樣本內未見回覆</p>` : "")).join("")}</div>`).join("");
-  return `<div class="xp"><div class="xp-h">${esc(e.heading)}</div><div class="xp-sub">${esc(e.sub)}</div><div class="xp-k">${esc(e.section)}</div>${groups || `<p class="note">卡片上已列出全部證據。</p>`}</div>`;
+function evidenceHtml(e: InlineCardEvidence, floating: boolean): string {
+  const groups = e.groups.map((g) => `<div class="ty${g.tone === "noise" ? " nz" : ""}" style="--c:${toneColor(g)}"><div class="ty-h"><i></i><b>${esc(g.title)}</b>${g.meta ? `<span>${esc(g.meta)}</span>` : ""}</div>${g.context ? `<p class="xp-ctx">${esc(g.context)}</p>` : ""}${g.chains.map((ch) =>
+    replyRow(ch.row, !!ch.reply) + (ch.reply ? replyRow(ch.reply, false) : ch.unanswered ? `<p class="rp-none">樣本內未見回覆</p>` : "")).join("")}${g.more ? `<p class="xp-more">另有 ${g.more} 則</p>` : ""}</div>`).join("");
+  const close = floating ? `<button class="x" data-dlens-act="evidence" aria-label="關閉">×</button>` : "";
+  return `<div class="xp"><div class="xp-h"><b>${esc(e.heading)}</b>${close}</div><div class="xp-sub">${esc(e.sub)}</div><div class="xp-k">${esc(e.section)}</div>${groups || `<p class="note">卡片上已列出全部證據。</p>`}</div>`;
+}
+/** The window beside the feed (mockup v12); the runtime positions it. */
+export function renderInlineEvidenceWindow(e: InlineCardEvidence, mode: FolderMode, enter: boolean): string {
+  return `<div class="dlens-card dlens-xp-window${enter ? " enter" : ""}" style="--acc:${accent(mode)}">${evidenceHtml(e, true)}</div>`;
 }
 
-/** Card markup; actions are data attributes the runtime handles. `evidence` is passed only while 展開證據 is open. */
-export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, evidence: InlineCardEvidence | null = null): string {
+/**
+ * Card markup; actions are data attributes the runtime handles. `evidence` is passed only while 展開證據 is open.
+ * `enter` plays once when the card first appears; `fresh` once when its results first arrive.
+ */
+export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, evidence: InlineCardEvidence | null = null, motion: { enter?: boolean; fresh?: boolean; evidenceOpen?: boolean } = {}): string {
+  const evidenceOpen = !!evidence || !!motion.evidenceOpen;
   const isRead = vm.mode === "topic" || vm.mode === "product";
   let status: string, dot = "";
   if (vm.phase === "failed") { status = `<span class="bad">抓取失敗</span>`; dot = "fail"; }
@@ -85,9 +95,10 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   else if (vm.phase === "saved") status = isRead ? "未抓取留言" : vm.mode === "archive" ? "已放好" : "已加入";
   else {
     status = vm.countLabel ?? "已抓取";
-    if (vm.ai?.state === "running") { status += " · AI 整理中"; dot = "live"; }
+    if (vm.analysisPending) { status += " · 分群整理中"; dot = "live"; }
+    else if (vm.ai?.state === "running") { status += " · AI 整理中"; dot = "live"; }
   }
-  const tag = vm.ai?.state === "no-key" ? `<span class="tag">未接 AI</span>` : "";
+  const tag = vm.ai?.state === "no-key" ? `<button class="tag" data-dlens-act="ai-key" title="${esc(vm.ai.error ?? "")}">未接 AI</button>` : "";
   const head = `<div class="head"><span class="dt ${dot}"></span><span class="nm">${esc(vm.sessionName)}</span><span>· ${status}</span>${tag}<button class="x" data-dlens-act="close" aria-label="收起">×</button></div>`;
   let body = peekHtml(vm.peek);
   if (vm.phase === "failed") body += `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
@@ -99,12 +110,12 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
       return `<button class="entry${e.key === open ? " on" : ""}" style="--ec:${color}" role="tab" aria-selected="${e.key === open}" aria-expanded="${e.key === open}" data-dlens-lens="${e.key}"><span class="q"><span class="ei">${ICON[e.key]}</span>${esc(e.label)}</span><span class="f">${e.mark ? `<em>${esc(e.mark)}</em>` : ""}${esc(e.finding)}</span></button>`;
     }).join("")}</div>${open && vm.answers[open] ? `<div class="answer" style="--acc:${c.entryColors[open]}">${answerHtml(vm.answers[open]!)}</div>` : ""}`;
     if (vm.ai?.state === "failed") body += `<p class="note">AI 整理失敗：${esc(vm.ai.error ?? "原因不明")}</p><div class="acts"><button class="btn" data-dlens-act="ai-retry">再整理</button></div>`;
-    if (evidence) body += evidenceHtml(evidence);
+    if (evidence) body += evidenceHtml(evidence, false);
   }
   const foot = vm.phase === "done" && vm.hasEvidence
-    ? `<div class="foot"><button class="ln" data-dlens-act="open">開啟工作區 ↗</button><button class="ln open${evidence ? " on" : ""}" data-dlens-act="evidence" aria-expanded="${!!evidence}">${evidence ? "收起證據" : "展開證據 ↗"}</button></div>`
+    ? `<div class="foot"><button class="ln" data-dlens-act="open">開啟工作區 ↗</button><button class="ln open${evidenceOpen ? " on" : ""}" data-dlens-act="evidence" aria-expanded="${evidenceOpen}">${evidenceOpen ? "收起證據" : "展開證據 ↗"}</button></div>`
     : `<div class="foot">${vm.mode === "archive" || vm.mode === "pr-evidence" ? `<button class="ln" data-dlens-act="move">移動</button>` : ""}<button class="ln open" data-dlens-act="open">開啟${vm.mode === "pr-evidence" ? "活動" : "工作區"} ↗</button></div>`;
-  return `<div class="dlens-card" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
+  return `<div class="dlens-card${motion.enter ? " enter" : ""}${motion.fresh ? " fresh" : ""}" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
 }
 
 export const DLENS_INLINE_CARD_CSS = `
@@ -120,7 +131,8 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .x {margin-left:auto;border:0;background:none;color:${c.soft};cursor:pointer;font-size:15px;line-height:1;padding:2px 5px;border-radius:6px}
 .dlens-card .x:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .note {margin:8px 0 0;font-size:12.5px;color:${c.soft}}
-.dlens-card .tag {font-size:10.5px;line-height:1.4;padding:0 6px;border-radius:4px;border:1px solid ${c.hair};color:${c.soft}}
+.dlens-card .tag {font:inherit;font-size:10.5px;line-height:1.4;padding:0 6px;border-radius:4px;border:1px solid ${c.hair};background:none;color:${c.soft};cursor:pointer}
+.dlens-card .tag:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .row.meth {grid-template-columns:minmax(0,1fr)}
 .dlens-card .row.meth .t {white-space:normal}
 .dlens-card .row.meth .t b {font-weight:600;color:${tokens.color.ink}}
@@ -129,7 +141,13 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .ctx {margin:0;font-size:${c.quoteFont}px;color:${c.sub}}
 .dlens-card .ctx b {color:${tokens.color.ink};font-weight:600}
 .dlens-card .xp {margin-top:16px;padding-top:12px;border-top:1px solid ${c.hair}}
-.dlens-card .xp-h {font-size:13px;font-weight:650}
+.dlens-card .xp-h {display:flex;align-items:baseline;gap:8px;font-size:13px}
+.dlens-card .xp-h b {font-weight:650}
+.dlens-card .xp-more {margin:6px 0 0 ${c.avatar + 10}px;font-size:12px;color:${c.soft}}
+.dlens-card .ty.nz .rp {opacity:.7}
+.dlens-card .legend .nz b,.dlens-card .legend .nz em {color:${c.soft};font-weight:400}
+.dlens-card.dlens-xp-window {position:absolute;z-index:${c.windowLayer};width:${c.windowWidth}px;margin:0;border-radius:${c.windowRadius}px;background:${tokens.color.inverse};box-shadow:${c.windowShadow};pointer-events:auto}
+.dlens-card.dlens-xp-window .xp {margin:0;padding:0;border:0}
 .dlens-card .xp-sub {margin-top:2px;font-size:${c.citeFont}px;color:${c.soft}}
 .dlens-card .xp-k {margin:14px 0 2px;font-size:${c.citeFont}px;font-weight:600;color:${c.sub}}
 .dlens-card .ty {margin-top:12px}
@@ -146,14 +164,16 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .rp-h b {font-weight:600}
 .dlens-card .rp-h span {font-size:12px;color:${c.soft}}
 .dlens-card .rp-h .au {font-size:10.5px;padding:0 5px;border-radius:4px;background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc)}
-.dlens-card .rp p {margin:3px 0 0;font-size:${c.quoteFont}px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.dlens-card .rp p {margin:3px 0 0;font-size:${c.quoteFont}px;line-height:1.5;white-space:pre-wrap;word-break:break-word;display:-webkit-box;-webkit-line-clamp:${c.replyLines};-webkit-box-orient:vertical;overflow:hidden}
 .dlens-card .rp-m {display:flex;gap:14px;margin-top:6px;font-size:12px;color:${c.soft}}
 .dlens-card .rp-m span {display:inline-flex;align-items:center;gap:4px}
 .dlens-card .rp-none {margin:4px 0 0 ${c.avatar + 10}px;font-size:12px;color:${c.askColors.none}}
 .dlens-card .sk {margin-top:12px}
-.dlens-card .sk i {display:block;height:${c.skeletonHeight}px;border-radius:5px;background:linear-gradient(90deg,${c.skeleton[0]} 0,${c.skeleton[1]} 40%,${c.skeleton[0]} 80%);background-size:200% 100%;animation:dlens-card-shimmer 1.1s linear infinite}
+.dlens-card .sk i {display:block;height:${c.skeletonHeight}px;border-radius:5px;background:linear-gradient(90deg,${c.skeleton[0]} 0,${c.skeleton[1]} 40%,${c.skeleton[0]} 80%);background-size:200% 100%;animation:dlens-card-shimmer ${cm.shimmerMs}ms linear infinite}
 .dlens-card .sk i + i {width:58%;margin-top:8px}
-@keyframes dlens-card-shimmer {from {background-position:100% 0} to {background-position:-100% 0}}
+.dlens-card.enter {animation:dlens-card-in ${cm.enterMs}ms ${tokens.motion.collectWheel.spring}}
+.dlens-card.fresh .entries,.dlens-card.fresh > .note,.dlens-card.fresh > .reply {animation:dlens-card-fresh ${cm.freshMs}ms ease-out}
+.dlens-card .dt.live {animation:dlens-card-breathe ${cm.breatheMs}ms ease-in-out infinite}
 .dlens-card .acts {display:flex;gap:8px;margin-top:10px}
 .dlens-card .btn {font:600 ${c.btnFont}px ${tokens.collectWheel.font};border-radius:${c.btnRadius}px;padding:${c.btnPadding};border:1px solid ${c.hair};background:${tokens.color.inverse};color:${tokens.color.ink};cursor:pointer}
 .dlens-card .btn.primary {background:var(--acc);border-color:transparent;color:${tokens.color.inverse}}
@@ -198,5 +218,5 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .ln:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .ln.open {margin-left:auto;color:var(--acc);font-weight:600}
 .dlens-card .ln.open.on {background:${c.hover}}
-@media (prefers-reduced-motion: reduce) {.dlens-card * {transition:none !important;animation:none !important}}
+@media (prefers-reduced-motion: reduce) {.dlens-card,.dlens-card * {transition:none !important;animation:none !important}}
 `;

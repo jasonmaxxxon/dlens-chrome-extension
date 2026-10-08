@@ -20,6 +20,13 @@ export const DLENS_INLINE_COLLECT_CSS = `
 .dlens-collect-button.charging svg {transform:scale(${m.chargingScale})}
 .dlens-collect-button .ring {position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:0;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - ${g.ringMaskOuter}px),${g.maskBlack} calc(100% - ${g.ringMaskInner}px));mask:radial-gradient(farthest-side,transparent calc(100% - ${g.ringMaskOuter}px),${g.maskBlack} calc(100% - ${g.ringMaskInner}px));background:conic-gradient(var(--ring,${modeThemes.topic.accent}) var(--dlens-collect-charge),transparent 0)}
 .dlens-collect-button.charging .ring {opacity:1;animation:dlens-collect-charge var(--hold,${g.hold}ms) linear forwards}
+.dlens-collect-button .prog {position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:0;-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - ${g.ringMaskOuter}px),${g.maskBlack} calc(100% - ${g.ringMaskInner}px));mask:radial-gradient(farthest-side,transparent calc(100% - ${g.ringMaskOuter}px),${g.maskBlack} calc(100% - ${g.ringMaskInner}px));background:conic-gradient(var(--acc,${modeThemes.topic.accent}) 0 ${g.progArc}%,color-mix(in srgb,var(--acc,${modeThemes.topic.accent}) ${g.progTrackTint}%,transparent) 0);transition:opacity ${m.progFadeMs}ms}
+.dlens-collect-button.busy .prog {opacity:${g.progOpacity};animation:dlens-collect-spin ${m.spinMs}ms linear infinite}
+.dlens-collect-button.busy.queued .prog {opacity:${g.queuedOpacity};animation:none;background:color-mix(in srgb,var(--acc,${modeThemes.topic.accent}) ${g.queuedTint}%,transparent)}
+.dlens-collect-button.charging .prog {opacity:0}
+.dlens-collect-button .dot {position:absolute;top:${g.dotInset}px;right:${g.dotInset}px;width:${g.dotSize}px;height:${g.dotSize}px;border-radius:50%;background:var(--acc,${modeThemes.topic.accent});box-shadow:0 0 0 ${g.dotRing}px ${g.dotRingColor};transform:scale(0);transition:transform ${m.dotMs}ms var(--ease);pointer-events:none}
+.dlens-collect-button.ready .dot {transform:scale(1)}
+.dlens-collect-button.failed .dot {background:${tokens.collectCard.fail};transform:scale(1)}
 .dlens-collect-button .burst {position:absolute;inset:${g.burstInset}px;border-radius:50%;border:${g.burstBorder}px solid var(--acc,${modeThemes.topic.accent});opacity:0;pointer-events:none}
 .dlens-collect-button.pop .burst {animation:dlens-collect-burst ${m.burstMs}ms ease-out}
 .dlens-collect-button.pop svg {animation:dlens-collect-pop ${m.popMs}ms var(--ease)}
@@ -71,7 +78,8 @@ export const DLENS_INLINE_COLLECT_CSS = `
   .dlens-collect-wheel[data-dlens-control] .sector,.dlens-collect-wheel[data-dlens-control] .lbl {transition:opacity ${m.reducedOpacityMs}ms linear,color ${m.reducedOpacityMs}ms !important;transition-delay:0s !important}
   .dlens-collect-wheel[data-dlens-control] .sector {transform:none}
   .dlens-collect-wheel[data-dlens-control] .lbl {transform:translate(-50%,-50%)}
-  .dlens-collect-button[data-dlens-control].pop svg,.dlens-collect-button[data-dlens-control].pop .burst,.dlens-collect-chip[data-dlens-control] {animation:none !important}
+  .dlens-collect-button[data-dlens-control].pop svg,.dlens-collect-button[data-dlens-control].pop .burst,.dlens-collect-chip[data-dlens-control],.dlens-collect-button[data-dlens-control].busy .prog {animation:none !important}
+  .dlens-collect-button[data-dlens-control] .dot {transition:none !important}
   .dlens-collect-button[data-dlens-control].charging .ring {animation-duration:${g.hold}ms !important;animation-iteration-count:1 !important}
   .dlens-collect-button[data-dlens-control] svg {transition:transform ${m.buttonTransformMs}ms ease !important}
   .dlens-collect-button[data-dlens-control] .bm {transition:fill ${m.buttonFillMs}ms,stroke ${m.buttonFillMs}ms !important}

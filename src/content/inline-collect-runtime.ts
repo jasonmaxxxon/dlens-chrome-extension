@@ -6,9 +6,13 @@ import { createInlineCollectWheel, INLINE_COLLECT_BUTTON_HTML, updateSavedButton
 import { createEmptyGlobalState, type ExtensionGlobalState, type FolderMode } from "../state/types";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
-import { buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
+import { awaitingAnalysis, buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
+import { aiKeyGap } from "../state/ai-key";
+import type { SessionItem } from "../state/types";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
-import { renderInlineCard, formatEta } from "./inline-collect-card";
+import { renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
+import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
+import { tokens } from "../ui/tokens";
 import { fetchFirstReplies } from "./inline-collect-peek";
 
 const INLINE_CARD_POLL_MS = 4000;
@@ -36,7 +40,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null; evidence: boolean }>();
   const closedView = { hidden: false, lens: null, evidence: false };
   const slots = new Map<string, HTMLElement>();
-  function removeCard(identity: string) { slots.get(identity)?.remove(); slots.delete(identity); }
+  function removeCard(identity: string) {
+    slots.get(identity)?.remove(); slots.delete(identity);
+    if (evidenceWindow?.dataset.dlensFor === identity) closeEvidenceWindow();
+  }
   const itemOf = (destination: InlineCollectSavedPost) =>
     global?.sessions.find((entry) => entry.id === destination.sessionId)?.items.find((entry) => entry.id === destination.itemId) ?? null;
   const repaintCard = (identity: string) => injection?.entries().filter((entry) => entry.identity === identity).forEach(renderCard);
@@ -61,20 +68,42 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const peeks = new Map<string, InlineCardPeekInput>();
   function startPeek(identity: string, postUrl: string) {
     peeks.set(identity, { state: "loading" });
-    void fetchFirstReplies(postUrl).then(
+    // Fetch through the page's own origin: saved URLs are normalized to threads.net, and a cross-origin fetch from threads.com is blocked.
+    void fetchFirstReplies(postUrl, window.location.origin).then(
       (replies) => peeks.set(identity, replies ? { state: "ready", replies } : { state: "unavailable" }),
       () => peeks.set(identity, { state: "unavailable" })
     ).then(() => { if (!destroyed) repaintCard(identity); });
+  }
+  // Mockup motion: the card enters once, results fade up once, and the button carries the crawl state.
+  const lastStatus = new Map<string, SessionItem["status"]>();
+  const unseen = new Set<string>();
+  function paintCrawlState(post: InlineCollectPost, item: SessionItem | null, reads: boolean, hidden: boolean): boolean {
+    const previous = lastStatus.get(post.identity);
+    const status = item?.status;
+    if (status) lastStatus.set(post.identity, status); else lastStatus.delete(post.identity);
+    const arrived = !!previous && previous !== "succeeded" && status === "succeeded";
+    if (arrived && hidden) unseen.add(post.identity);
+    if (!hidden || !item) unseen.delete(post.identity);
+    const live = reads && !!item && (item.status === "queued" || item.status === "running" || awaitingAnalysis(item, Date.now())
+      || (readings[item.id]?.status === "running" && readings[item.id]?.captureId === item.latestCapture?.id));
+    post.button.classList.toggle("busy", live);
+    post.button.classList.toggle("queued", live && item?.status === "queued");
+    post.button.classList.toggle("failed", reads && !!item && (item.status === "failed" || startErrors.has(post.identity)));
+    post.button.classList.toggle("ready", unseen.has(post.identity));
+    return arrived;
   }
   function renderCard(post: InlineCollectPost) {
     const destination = pending.has(post.identity) ? null : saved(post.identity);
     const view = cards.get(post.identity);
     const item = destination && itemOf(destination);
+    const arrived = paintCrawlState(post, item ?? null, destination?.mode === "topic" || destination?.mode === "product", !!view?.hidden);
     if (!destination || !item || view?.hidden) { removeCard(post.identity); return; }
     const bar = post.button.parentElement?.parentElement;
     if (!bar) return;
-    let slot = slots.get(post.identity);
-    if (!slot || !slot.isConnected || slot.previousElementSibling !== bar) {
+    const existing = slots.get(post.identity);
+    const enter = !existing || !existing.isConnected || existing.previousElementSibling !== bar;
+    let slot = existing;
+    if (!slot || enter) {
       slot?.remove();
       slot = document.createElement("div");
       slot.className = "dlens-card-slot";
@@ -89,25 +118,66 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       queue: global?.sessions.flatMap((session) => session.items) ?? [],
       peek: peeks.get(post.identity),
       startError: startErrors.get(post.identity) ?? null,
-      ai: aiOf(item.id)
+      ai: aiOf(item),
+      now: Date.now()
     });
-    // A read 觀眾反應 card asks the background for its AI pass once per capture; the result arrives through storage.
-    if (vm.phase === "done" && vm.mode === "topic" && vm.entries.length && !vm.ai) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
+    // A read 觀眾反應 card asks the background for its AI pass once per capture (after the quant clusters land); the result arrives through storage.
+    if (vm.phase === "done" && vm.mode === "topic" && vm.entries.length && !vm.ai && !vm.analysisPending) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
     const lens = view?.lens && vm.answers[view.lens] ? view.lens : null;
-    const evidence = view?.evidence ? buildInlineCardEvidence(item, vm, lens, aiOf(item.id)) : null;
-    slot.innerHTML = renderInlineCard(vm, lens, Date.now(), evidence);
+    const evidence = view?.evidence ? buildInlineCardEvidence(item, vm, lens, aiOf(item)) : null;
+    // 展開證據 opens beside the feed when there is room (mockup v12), else below the card.
+    const card = (post as InlineCollectEntry).card ?? bar;
+    const right = card.getBoundingClientRect().right;
+    const floating = !!evidence && window.innerWidth - right - tokens.collectCard.windowGap >= tokens.collectCard.windowMinRoom;
+    slot.innerHTML = renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence });
+    if (evidence && floating) showEvidenceWindow(post.identity, (enter: boolean) => renderInlineEvidenceWindow(evidence, destination.mode, enter), right, slot.getBoundingClientRect().top);
+    else if (evidenceWindow?.dataset.dlensFor === post.identity) closeEvidenceWindow();
   }
+  // One evidence window at a time, in page coordinates so it scrolls with its card.
+  let evidenceWindow: HTMLElement | null = null;
+  function showEvidenceWindow(identity: string, html: (enter: boolean) => string, feedRight: number, cardTop: number) {
+    if (!evidenceWindow) {
+      evidenceWindow = document.createElement("div");
+      evidenceWindow.setAttribute("data-dlens-control", "true");
+      evidenceWindow.addEventListener("click", (event) => {
+        const owner = injection?.entries().find((entry) => entry.identity === evidenceWindow?.dataset.dlensFor);
+        if (owner) onCardClick(owner, event);
+      });
+      document.body.appendChild(evidenceWindow);
+    }
+    const enter = evidenceWindow.dataset.dlensFor !== identity;
+    evidenceWindow.dataset.dlensFor = identity;
+    evidenceWindow.innerHTML = html(enter);
+    const box = evidenceWindow.firstElementChild as HTMLElement | null;
+    if (box) {
+      box.style.left = `${feedRight + tokens.collectCard.windowGap + window.scrollX}px`;
+      box.style.top = `${Math.max(cardTop - tokens.collectCard.windowTopOffset, tokens.collectCard.windowTopMin) + window.scrollY}px`;
+    }
+  }
+  function closeEvidenceWindow() { evidenceWindow?.remove(); evidenceWindow = null; }
   let readings: Record<string, InlineReadingRecord> = {};
+  // Background said no key although local settings looked usable; cleared on the next settings/global change.
   const noKey = new Set<string>();
   const ensured = new Set<string>();
-  const aiOf = (itemId: string): InlineCardAiInput | null => readings[itemId] ?? (noKey.has(itemId) ? { status: "no-key" } : null);
+  const keyGap = () => (global ? aiKeyGap(global.settings ?? {}) : null);
+  function aiOf(item: SessionItem): InlineCardAiInput | null {
+    const record = readings[item.id];
+    // A reading from an older prompt is stale like one from an older capture: ask again.
+    const current = record && record.captureId === item.latestCapture?.id && (record.status !== "complete" || record.reading.promptVersion === INLINE_READING_PROMPT_VERSION);
+    if (record && current) return record;
+    const gap = keyGap();
+    if (gap) return { status: "no-key", reason: gap };
+    if (noKey.has(item.id)) return { status: "no-key", reason: "背景判斷未有可用的 AI key" };
+    return null;
+  }
   function ensureReading(destination: InlineCollectSavedPost, itemId: string, captureId: string, retry: boolean) {
     const key = `${itemId}:${captureId}`;
     if (!retry && ensured.has(key)) return;
     ensured.add(key);
     void send({ type: "inline-reading/ensure", sessionId: destination.sessionId, itemId, retry }).then((response) => {
-      if (response.ok && response.inlineReadingStatus === "no-key") { noKey.add(itemId); repaintCard(destination.postKey); }
-    }).catch(() => undefined);
+      if (!response.ok || response.inlineReadingStatus === "not-ready") { ensured.delete(key); return; }
+      if (response.inlineReadingStatus === "no-key") { ensured.delete(key); noKey.add(itemId); repaintCard(destination.postKey); }
+    }).catch(() => ensured.delete(key));
   }
   function onCardClick(post: InlineCollectPost, event: MouseEvent) {
     // Our card sits inside a Threads post; never let a click reach Threads' own navigation.
@@ -122,7 +192,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     else if (act === "open") openWorkspace(post.identity);
     else if (act === "move") wheel.openSticky(post);
     else if (act === "crawl" && destination) crawl(destination);
-    else if (act === "evidence") { cards.set(post.identity, { ...view, evidence: !view.evidence }); renderCard(post); }
+    else if (act === "evidence") {
+      // Opening one post's evidence closes any other.
+      if (!view.evidence) for (const [identity, other] of cards) if (identity !== post.identity && other.evidence) { cards.set(identity, { ...other, evidence: false }); repaintCard(identity); }
+      cards.set(post.identity, { ...view, evidence: !view.evidence });
+      renderCard(post);
+    }
+    else if (act === "ai-key") wheel.showToast(`${keyGap() ?? "背景判斷未有可用的 AI key"}。到 DLens 側欄 ⋯ → 設定 填好並儲存後，這張卡會自動整理。`);
     else if (act === "ai-retry" && destination) {
       const item = itemOf(destination);
       if (item) ensureReading(destination, item.id, item.latestCapture?.id ?? "", true);
@@ -131,13 +207,14 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const waitTimer = window.setInterval(() => {
     for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-eta]").forEach((el) => { el.textContent = formatEta(el.dataset.dlensEta ?? "", Number(el.dataset.dlensEtaSec), Date.now()); });
   }, 1000);
-  // The workspace popup only refreshes jobs while it is open, so a card polls its own crawl until it settles.
+  // The workspace popup only refreshes jobs while it is open, so a card polls its own crawl, then the quant analysis, until both settle.
   const refreshing = new Set<string>();
   const pollTimer = window.setInterval(() => {
     for (const identity of slots.keys()) {
       const destination = saved(identity);
       const item = destination && itemOf(destination);
-      if (!destination || !item || (item.status !== "queued" && item.status !== "running") || refreshing.has(item.id)) continue;
+      const settling = !!item && (item.status === "queued" || item.status === "running" || awaitingAnalysis(item, Date.now()));
+      if (!destination || !item || !settling || refreshing.has(item.id)) continue;
       refreshing.add(item.id);
       void send({ type: "session/refresh-item", sessionId: destination.sessionId, itemId: destination.itemId })
         .catch(() => undefined).finally(() => refreshing.delete(item.id));
@@ -305,6 +382,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       injection?.entries().forEach(renderCard);
     }
     if (!(GLOBAL_STATE_STORAGE_KEY in changes)) return;
+    noKey.clear();
     const global = changes[GLOBAL_STATE_STORAGE_KEY].newValue as ExtensionGlobalState | undefined;
     if (global && !Array.isArray(global.sessions)) return;
     storageRevision++;
@@ -326,8 +404,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     injection?.entries().forEach(renderCard);
   }).catch(() => undefined);
   chrome.storage.onChanged.addListener(storageListener);
+  const onResize = () => { const identity = evidenceWindow?.dataset.dlensFor; if (identity) repaintCard(identity); };
+  window.addEventListener("resize", onResize);
   return {
     reset() { wheel.reset(); injection?.reset(); },
-    destroy() { destroyed = true; window.clearInterval(waitTimer); window.clearInterval(pollTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
+    destroy() { destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize); window.clearInterval(waitTimer); window.clearInterval(pollTimer); chrome.storage.onChanged.removeListener(storageListener); injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id); }
   };
 }

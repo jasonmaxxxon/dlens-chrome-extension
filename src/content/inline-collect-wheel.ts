@@ -5,7 +5,7 @@ import { buildWheelGeometry, idxFrom, releaseGesture, sectorPath, selectGesture 
 export { DLENS_INLINE_COLLECT_CSS } from "./inline-collect-wheel-styles";
 const g = tokens.collectWheel, m = tokens.motion.collectWheel;
 const svg = (body: string) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-export const INLINE_COLLECT_BUTTON_HTML = svg('<path class="bm" d="M7 3.8h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V4.8a1 1 0 0 1 1-1z"/><circle class="lens" cx="12" cy="9.6" r="2.3"/>') + '<span class="ring"></span><span class="burst"></span>';
+export const INLINE_COLLECT_BUTTON_HTML = svg('<path class="bm" d="M7 3.8h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V4.8a1 1 0 0 1 1-1z"/><circle class="lens" cx="12" cy="9.6" r="2.3"/>') + '<span class="ring"></span><span class="prog"></span><span class="dot"></span><span class="burst"></span>';
 export const COLLECT_WHEEL_TARGETS = [
   { mode: "topic", name: "觀眾反應", desc: "看大家點回應", icon: svg('<circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>') },
   { mode: "product", name: "個人應用", desc: "對我有咩用", icon: svg('<path d="M12 3 4 7.5v9L12 21l8-4.5v-9zM4 7.5 12 12l8-4.5M12 12v9"/>') },

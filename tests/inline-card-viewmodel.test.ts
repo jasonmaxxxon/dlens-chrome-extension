@@ -113,9 +113,9 @@ test("first replies come from thread_items, skipping the post and the author's o
 const quoteOf = (id: string, text: string, author: string, likes: number) => ({ commentId: id, text, author, likes });
 function aiReading(extra: Record<string, unknown> = {}): InlineCardAiInput {
   return { status: "complete", itemId: "i1", captureId: "cap-1", reading: {
-    itemId: "i1", captureId: "cap-1", promptVersion: "v1", model: "google:test", generatedAt: "2026-10-07T10:00:00Z",
-    gist: "多數人質疑返 office 帶來的生產力", find: { stance: "質疑生產力", method: "用數據爭取 hybrid", split: "新人學習有爭議", ask: "可唔可以拒絕 WFO" },
-    clusterNames: { "0": "生產力質疑" },
+    itemId: "i1", captureId: "cap-1", promptVersion: "v2", model: "google:test", generatedAt: "2026-10-07T10:00:00Z",
+    gist: "多數人質疑返 office 帶來的生產力", find: { method: "用數據爭取 hybrid", split: "新人學習有爭議", ask: "可唔可以拒絕 WFO" },
+    clusterNames: { "0": "生產力質疑" }, noiseClusters: [],
     methods: [
       { name: "用數據爭取 hybrid", fit: "有交付紀錄的團隊", quote: quoteOf("c5", "我覺得 hybrid 好啲", "e", 30) },
       { name: "同 HR 傾", fit: "公司有彈性政策", quote: quoteOf("c9", "通勤好辛苦", "i", 25) }
@@ -129,7 +129,7 @@ test("a finished AI reading swaps in 有咩做法 / 有咩分歧 and names the q
   const vm = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: aiReading() });
   assert.deepEqual(vm.entries.map((e) => e.key), ["stance", "method", "split", "ask"]);
   assert.equal(vm.ai?.state, "complete");
-  assert.equal(vm.entries[0].finding, "質疑生產力");
+  assert.equal(vm.entries[0].finding, "生產力質疑", "the entry's words name the same cluster as its number");
   assert.equal(vm.entries[0].mark, "60%", "the share stays the backend's percentage");
   assert.equal(vm.entries[1].mark, "2 種");
   assert.equal(vm.entries[3].finding, "可唔可以拒絕 WFO");
@@ -189,4 +189,45 @@ test("展開證據 groups the replies behind the open answer and never repeats w
   const html = renderInlineCard(evilVm, null, 0, buildInlineCardEvidence(evil, evilVm, "top"));
   assert.ok(!html.includes("<b>hi</b>"));
   assert.match(html, /收起證據/);
+});
+
+test("a finished crawl waits for its quant clusters before reading, for at most five minutes", () => {
+  const crawled = item("succeeded", many, { completedAt: "2026-10-07T10:00:00Z" });
+  crawled.latestCapture!.analysis!.status = "pending";
+  const soon = Date.parse("2026-10-07T10:00:20Z");
+  const vm = buildInlineCardViewModel(crawled, "topic", "返工", { now: soon, ai: aiReading() });
+  assert.equal(vm.analysisPending, true);
+  assert.equal(vm.ai, null, "no AI state while the clusters are still coming");
+  assert.match(renderInlineCard(vm, null, soon).replace(/<[^>]+>/g, ""), /11 \/ 20 則 · 分群整理中/);
+  assert.equal(buildInlineCardViewModel(crawled, "topic", "返工", { now: Date.parse("2026-10-07T10:06:00Z") }).analysisPending, false);
+  crawled.latestCapture!.analysis!.status = "succeeded";
+  assert.equal(buildInlineCardViewModel(crawled, "topic", "返工", { now: soon }).analysisPending, false);
+});
+
+test("the card enters and its results fade up only when asked to", () => {
+  const vm = buildInlineCardViewModel(item("succeeded", many), "topic", "返工");
+  assert.match(renderInlineCard(vm, null, 0, null, { enter: true, fresh: true }), /class="dlens-card enter fresh"/);
+  assert.match(renderInlineCard(vm, null, 0), /class="dlens-card"/);
+});
+
+test("spam or off-topic clusters never lead 大家點睇 and stay grey and short in 展開證據", () => {
+  const plain = item("succeeded", many);
+  plain.latestCapture!.analysis!.evidence = [
+    { cluster_key: 0, comments: [{ comment_id: "s1", text: "加我 TG 有驚喜", author: "bot" }, { comment_id: "s2", text: "加我  TG 有驚喜", author: "bot" }, { comment_id: "s3", text: "另一個廣告", author: "bot2" }] },
+    { cluster_key: 1, comments: [{ comment_id: "c9", text: "通勤好辛苦", author: "i", like_count: 25 }] }
+  ] as never;
+  const ai = aiReading({ clusterNames: { "0": "廣告洗版", "1": "通勤之苦" }, noiseClusters: ["0"] });
+  const vm = buildInlineCardViewModel(plain, "topic", "返工", { ai });
+  assert.equal(vm.entries[0].mark, "30%");
+  assert.equal(vm.entries[0].finding, "通勤之苦");
+  const stance = vm.answers.stance;
+  assert.ok(stance && stance.kind === "clusters");
+  assert.deepEqual(stance.segments.map((s) => [s.label, s.pct, s.noise]), [["通勤之苦", 30, false], ["廣告洗版", 60, true]]);
+  assert.equal(stance.quote?.text, "通勤好辛苦");
+  const evidence = buildInlineCardEvidence(plain, vm, null, ai)!;
+  const noise = evidence.groups.at(-1)!;
+  assert.equal(noise.tone, "noise");
+  assert.equal(noise.chains.length, 1, "repeated spam shows once");
+  assert.equal(noise.more, 1, "the near-duplicate is dropped, the other ad is counted, not shown");
+  assert.match(renderInlineCard(vm, "stance", 0), /class="nz"/);
 });

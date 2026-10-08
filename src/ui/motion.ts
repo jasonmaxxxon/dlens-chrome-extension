@@ -30,6 +30,10 @@ export const DLENS_KEYFRAMES_CSS = `
   ${tokens.motion.collectWheel.popPeakAt}% { transform: scale(${tokens.motion.collectWheel.popPeakScale}); }
   100% { transform: scale(1); }
 }
+@keyframes dlens-card-in { from { opacity: 0; transform: translateY(-${tokens.motion.collectCard.enterOffset}px); } to { opacity: 1; transform: none; } }
+@keyframes dlens-card-fresh { from { opacity: 0; transform: translateY(${tokens.motion.collectCard.freshOffset}px); } to { opacity: 1; transform: none; } }
+@keyframes dlens-card-breathe { 50% { box-shadow: 0 0 0 ${tokens.motion.collectCard.breatheSpread}px color-mix(in srgb, var(--acc) ${tokens.motion.collectCard.breatheTint}%, transparent); } }
+@keyframes dlens-card-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes dlens-collect-chip-in {
   from { opacity: 0; transform: translateX(${tokens.motion.collectWheel.chipOffset}px) scale(${tokens.motion.collectWheel.chipScale}); }
   to { opacity: 1; transform: none; }

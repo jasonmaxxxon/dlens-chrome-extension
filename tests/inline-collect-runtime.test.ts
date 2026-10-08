@@ -292,9 +292,17 @@ test("saving into 觀眾反應 starts the reply crawl and the card polls it whil
     intervals.forEach((poll) => poll()); await tick();
     assert.equal(s.calls.length, 3, "one refresh in flight per item");
     s.calls[2].resolve({ ok: true }); await tick();
-    s.emitGlobal(readingGlobal("topic", "succeeded"));
+    const crawled = readingGlobal("topic", "succeeded");
+    crawled.sessions[0].items[0].lastStatusAt = new Date().toISOString();
+    s.emitGlobal(crawled);
     intervals.forEach((poll) => poll()); await tick();
-    assert.equal(s.calls.length, 3, "a settled crawl is not polled");
+    assert.ok(s.calls[3].message.type === "session/refresh-item", "the quant clusters land after the crawl, so polling continues");
+    s.calls[3].resolve({ ok: true }); await tick();
+    const analysed = readingGlobal("topic", "succeeded");
+    analysed.sessions[0].items[0].latestCapture = { id: "cap-a", result: { comments: [] }, analysis: { status: "succeeded", clusters: [], evidence: [] } } as unknown as SessionItem["latestCapture"];
+    s.emitGlobal(analysed);
+    intervals.forEach((poll) => poll()); await tick();
+    assert.equal(s.calls.length, 4, "a crawl with its analysis settled is not polled");
   } finally { s.cleanup(); }
 });
 
@@ -344,21 +352,59 @@ test("a read 觀眾反應 card asks for its AI pass once and opens 展開證據 
     item.latestCapture = {
       id: "cap-a",
       result: { canonical_post: { author: "author" }, comments: Array.from({ length: 11 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: `留言 ${i}`, like_count: i })) },
-      analysis: { clusters: [], evidence: [] }
+      analysis: { status: "succeeded", clusters: [], evidence: [] }
     } as unknown as typeof item.latestCapture;
+    const ensures = () => s.calls.filter(({ message }) => message.type === "inline-reading/ensure");
+    const doc = s.dom.window.document;
     s.emitGlobal(global);
     await tick();
-    const ensure = s.calls.filter(({ message }) => message.type === "inline-reading/ensure");
-    assert.equal(ensure.length, 1);
-    ensure[0].resolve({ ok: true, inlineReadingStatus: "no-key" }); await tick();
-    const doc = s.dom.window.document;
+    assert.equal(ensures().length, 0, "without a key nothing is sent");
     assert.match(doc.querySelector(".dlens-card .head")!.textContent!, /未接 AI/);
-    s.emitGlobal(global); await tick();
-    assert.equal(s.calls.filter(({ message }) => message.type === "inline-reading/ensure").length, 1, "not asked again on repaint");
-    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="evidence"]')!.click();
-    assert.match(doc.querySelector(".dlens-card .xp")!.textContent!, /@author 的留言證據/);
-    assert.match(doc.querySelector(".dlens-card .xp")!.textContent!, /留言 10/);
-    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="evidence"]')!.click();
-    assert.equal(doc.querySelector(".dlens-card .xp"), null);
+    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="ai-key"]')!.click();
+    assert.match(doc.querySelector(".dlens-collect-toast")!.textContent!, /設定未填 Google API key/);
+    const keyed = { ...global, settings: { ...global.settings, oneLinerProvider: "google" as const, googleApiKey: "test-key" } };
+    s.emitGlobal(keyed); await tick();
+    assert.equal(ensures().length, 1, "saving a key starts the reading without a reload");
+    ensures()[0].resolve({ ok: true, inlineReadingStatus: "started" }); await tick();
+    assert.doesNotMatch(doc.querySelector(".dlens-card .head")!.textContent!, /未接 AI/);
+    s.emitGlobal(keyed); await tick();
+    assert.equal(ensures().length, 1, "not asked again on repaint");
+    const toggle = () => doc.querySelector<HTMLButtonElement>('.dlens-card-slot [data-dlens-act="evidence"]')!.click();
+    toggle();
+    const win = doc.querySelector<HTMLElement>("body > [data-dlens-control] > .dlens-xp-window");
+    assert.ok(win, "with room beside the feed, 展開證據 opens as a window (mockup v12)");
+    assert.equal(doc.querySelector(".dlens-card-slot .xp"), null);
+    assert.match(win!.textContent!, /@author 的留言證據/);
+    assert.match(win!.textContent!, /留言 10/);
+    win!.querySelector<HTMLButtonElement>('[data-dlens-act="evidence"]')!.click();
+    assert.equal(doc.querySelector(".dlens-xp-window"), null, "the window's × closes it");
+    Object.defineProperty(s.dom.window, "innerWidth", { configurable: true, value: 300 });
+    toggle();
+    assert.equal(doc.querySelector(".dlens-xp-window"), null);
+    assert.ok(doc.querySelector(".dlens-card-slot .xp"), "without room it opens below the card");
+    toggle();
+    assert.equal(doc.querySelector(".dlens-card-slot .xp"), null);
+  } finally { s.cleanup(); }
+});
+
+test("the button carries the crawl state and a dot for a result that arrived while the card was closed", async () => {
+  const s = fixture();
+  try {
+    await tick();
+    const doc = s.dom.window.document;
+    s.emitGlobal(readingGlobal("topic", "queued"));
+    assert.ok(s.button.classList.contains("busy") && s.button.classList.contains("queued"));
+    assert.ok(doc.querySelector(".dlens-card.enter"), "the card enters on first appearance");
+    s.emitGlobal(readingGlobal("topic", "running"));
+    assert.ok(s.button.classList.contains("busy") && !s.button.classList.contains("queued"));
+    assert.equal(doc.querySelector(".dlens-card.enter"), null, "a repaint does not replay the entrance");
+    s.chip.click();
+    assert.equal(doc.querySelector(".dlens-card"), null);
+    const done = readingGlobal("topic", "succeeded");
+    done.sessions[0].items[0].latestCapture = { id: "cap-a", result: { comments: [] }, analysis: { status: "succeeded", clusters: [], evidence: [] } } as unknown as SessionItem["latestCapture"];
+    s.emitGlobal(done);
+    assert.ok(s.button.classList.contains("ready") && !s.button.classList.contains("busy"));
+    s.chip.click();
+    assert.ok(!s.button.classList.contains("ready"), "opening the card clears the unseen dot");
   } finally { s.cleanup(); }
 });

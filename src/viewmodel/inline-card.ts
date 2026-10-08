@@ -1,6 +1,7 @@
 import type { FolderMode, SessionItem } from "../state/types";
 import { readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
+import type { InlineReading } from "../compare/inline-reading";
 
 /**
  * One card under a saved post. Without AI it shows only what the crawl and quant analysis store
@@ -12,7 +13,7 @@ export type InlineCardEntryKey = "stance" | "method" | "split" | "top" | "op" | 
 export interface InlineCardQuote { text: string; author: string; likes: number | null }
 export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark: string; finding: string }
 export type InlineCardAnswer =
-  | { kind: "clusters"; headline: string; segments: { label: string; pct: number }[]; quote: InlineCardQuote | null }
+  | { kind: "clusters"; headline: string; segments: { label: string; pct: number; noise: boolean }[]; quote: InlineCardQuote | null }
   | { kind: "quotes"; rows: InlineCardQuote[] }
   | { kind: "op"; rows: { text: string; inReplyTo: string }[] }
   | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" }[] }
@@ -20,7 +21,7 @@ export type InlineCardAnswer =
   | { kind: "split"; agree: string; sides: { claim: string; why: string; quote: InlineCardQuote }[]; note: string | null }
   | { kind: "empty"; text: string };
 /** The AI pass for this item, or the reason there is none. */
-export type InlineCardAiInput = { status: "no-key" } | InlineReadingRecord;
+export type InlineCardAiInput = { status: "no-key"; reason?: string } | InlineReadingRecord;
 /** Replies the post page ships in its own HTML, read on save; the crawl replaces them. */
 export type InlineCardPeekInput = { state: "loading" } | { state: "ready"; replies: InlineCardQuote[] } | { state: "unavailable" };
 export type InlineCardPeek = { state: "loading" } | { state: "ready"; total: number; top: InlineCardQuote | null };
@@ -31,6 +32,8 @@ export interface InlineCardContext {
   /** The crawl request itself failed (backend down), so the item never left 「saved」. */
   startError?: string | null;
   ai?: InlineCardAiInput | null;
+  /** Wall clock from the caller; the viewmodel never reads time itself. */
+  now?: number;
 }
 export interface InlineCardViewModel {
   mode: FolderMode;
@@ -49,9 +52,20 @@ export interface InlineCardViewModel {
   ai: { state: "running" | "failed" | "complete" | "no-key"; error: string | null } | null;
   /** 展開證據 has something to show. */
   hasEvidence: boolean;
+  /** Crawl done, backend quant clusters still being computed. */
+  analysisPending: boolean;
 }
 
 export const INLINE_CARD_MIN_COMMENTS = 10;
+// The backend writes its quant analysis a few seconds after the crawl (18s on 2026-10-07); give up waiting after this.
+const ANALYSIS_WAIT_MS = 5 * 60_000;
+export function awaitingAnalysis(item: SessionItem, now: number): boolean {
+  if (item.status !== "succeeded") return false;
+  const status = item.latestCapture?.analysis?.status;
+  if (status === "succeeded" || status === "failed") return false;
+  const since = Date.parse(item.completedAt ?? item.lastStatusAt ?? "");
+  return Number.isFinite(since) && now - since < ANALYSIS_WAIT_MS;
+}
 // Fitted to the ingest log 2026-08-24 → 09-21 (p50 84s, p90 163s): a fixed overhead plus time per reply.
 export const estimateCrawlSeconds = (item: SessionItem) =>
   Math.round(55 + Math.min(item.descriptor.engagement?.comments ?? 0, 500) * 0.22);
@@ -109,6 +123,10 @@ function readThread(item: SessionItem) {
   }).sort((a, b) => (a.status === "none" ? 0 : 1) - (b.status === "none" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0));
   return { comments, op, byId, clusters, evidence, ranked, opReplies, asks };
 }
+const isNoise = (cluster: { cluster_key: number }, reading: InlineReading | null) => !!reading?.noiseClusters.includes(String(cluster.cluster_key));
+/** Largest first, but noise (spam, ads, off-topic) after every real reaction. */
+const orderClusters = <C extends { cluster_key: number }>(clusters: C[], reading: InlineReading | null) =>
+  [...clusters.filter((c) => !isNoise(c, reading)), ...clusters.filter((c) => isNoise(c, reading))];
 const keywordLabel = (keywords: string[]) => keywords.map((k) => k.trim()).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
 const pct = (share: number) => Math.round(share * 100);
 
@@ -117,7 +135,7 @@ function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined) 
 }
 function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined): InlineCardViewModel["ai"] {
   if (!ai) return null;
-  if (ai.status === "no-key") return { state: "no-key", error: null };
+  if (ai.status === "no-key") return { state: "no-key", error: ai.reason ?? null };
   if (ai.captureId !== item.latestCapture?.id) return null;
   return { state: ai.status, error: ai.status === "failed" ? ai.error : null };
 }
@@ -131,9 +149,10 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     eta: etaOf(item, phase, context.queue ?? []),
     peek: reads && phase !== "done" ? peekOf(context.peek) : null,
     error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
-    countLabel: null, few: null, entries: [], answers: {}, ai: null, hasEvidence: false
+    countLabel: null, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
   };
   if (phase !== "done" || mode !== "topic") return base;
+  base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
 
   const t = readThread(item);
   const total = num(item.descriptor.engagement?.comments);
@@ -142,19 +161,21 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     base.few = t.comments.slice(0, 9).map(quote);
     return base;
   }
-  base.ai = aiStateOf(item, context.ai);
+  base.ai = base.analysisPending ? null : aiStateOf(item, context.ai);
   const reading = readingOf(item, context.ai);
   const nameOf = (cluster: { cluster_key: number; keywords: string[] }) => reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords);
 
-  // 大家點睇: quant clusters, shares as percentages only; AI only names them and writes the one-line gist.
+  // 大家點睇: quant clusters, shares as percentages only; AI only names them, flags spam/off-topic ones and writes the gist.
+  // The entry's number and words always describe the same cluster: the largest one that is not noise.
   if (t.clusters.length) {
-    const top = t.clusters[0];
-    const evidence = t.evidence.find((e) => e.cluster_key === top.cluster_key)?.comments?.[0];
-    base.entries.push({ key: "stance", label: "大家點睇", mark: `${pct(top.size_share)}%`, finding: reading?.find.stance ?? nameOf(top) });
+    const ordered = orderClusters(t.clusters, reading);
+    const lead = ordered[0];
+    const evidence = t.evidence.find((e) => e.cluster_key === lead.cluster_key)?.comments?.[0];
+    base.entries.push({ key: "stance", label: "大家點睇", mark: `${pct(lead.size_share)}%`, finding: nameOf(lead) });
     base.answers.stance = {
       kind: "clusters",
-      headline: reading?.gist ?? `最大一群講「${nameOf(top)}」，佔已讀留言 ${pct(top.size_share)}%。`,
-      segments: t.clusters.map((c) => ({ label: nameOf(c), pct: pct(c.size_share) })),
+      headline: reading?.gist ?? `最大一群講「${nameOf(lead)}」，佔已讀留言 ${pct(lead.size_share)}%。`,
+      segments: ordered.map((c) => ({ label: nameOf(c), pct: pct(c.size_share), noise: isNoise(c, reading) })),
       quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null } : null
     };
   }
@@ -195,13 +216,17 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
 export interface InlineEvidenceRow { author: string; text: string; likes: number | null; replies: number | null; time: string | null; isAuthor: boolean }
 export interface InlineEvidenceChain { row: InlineEvidenceRow; reply: InlineEvidenceRow | null; unanswered: boolean }
 export interface InlineEvidenceGroup {
-  tone: "cluster" | "method" | "side" | "none" | "author" | "other";
+  tone: "cluster" | "noise" | "method" | "side" | "none" | "author" | "other";
+  /** Same index as the cluster's segment on the card, so colours match. */
   index: number;
   title: string;
   meta: string;
   context: string | null;
   chains: InlineEvidenceChain[];
+  /** Replies left out to keep the window short. */
+  more: number;
 }
+const EVIDENCE_ROWS = 3;
 export interface InlineCardEvidence { heading: string; sub: string; section: string; groups: InlineEvidenceGroup[] }
 
 function shownTexts(answer: InlineCardAnswer | undefined): string[] {
@@ -222,16 +247,26 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
     ({ author: c.author, text: c.text, likes: c.likes, replies: c.replies, time: c.time, isAuthor: !!t.op && handle(c.author) === t.op });
   const lookup = (id: string, fallback: { text: string; author?: string; likes: number | null }) =>
     t.byId.get(id) ?? { id, parent: null, text: fallback.text, author: fallback.author ?? "", likes: fallback.likes, replies: null, time: null };
-  const chains = (list: Comment[]) => list.filter((c) => !shown.has(c.text)).map((c) => ({ row: toRow(c), reply: null, unanswered: false }));
+  // Spam often repeats one text verbatim; show each text once, and only a few per group.
+  const pick = (list: Comment[], cap = EVIDENCE_ROWS) => {
+    const seen = new Set<string>();
+    const fresh = list.filter((c) => {
+      const key = c.text.replace(/\s+/g, " ").trim();
+      if (shown.has(c.text) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { chains: fresh.slice(0, cap).map((c) => ({ row: toRow(c), reply: null, unanswered: false })), more: Math.max(0, fresh.length - cap) };
+  };
 
   let section: string;
   let groups: InlineEvidenceGroup[];
   if (lens === "method" && reading?.methods.length) {
     section = "做法：適用情境與原句";
-    groups = reading.methods.map((m, index) => ({ tone: "method", index, title: m.name, meta: "", context: m.fit || null, chains: chains([lookup(m.quote.commentId, m.quote)]) }));
+    groups = reading.methods.map((m, index) => ({ tone: "method", index, title: m.name, meta: "", context: m.fit || null, ...pick([lookup(m.quote.commentId, m.quote)]) }));
   } else if (lens === "split" && reading?.split.sides.length) {
     section = "兩邊的理由與原句";
-    groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, chains: chains([lookup(side.quote.commentId, side.quote)]) }));
+    groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, ...pick([lookup(side.quote.commentId, side.quote)]) }));
   } else if (lens === "ask" && t.asks.length) {
     section = "問題與回覆";
     const NAME = { none: "樣本內未見回覆", author: "作者回覆", other: "有人回覆" } as const;
@@ -239,21 +274,25 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
       const asks = t.asks.filter((a) => a.status === status);
       return asks.length ? [{
         tone: status, index, title: NAME[status], meta: `${asks.length} 條`, context: null,
-        chains: asks.slice(0, 6).map((a) => ({ row: toRow(a.c), reply: a.reply ? toRow(a.reply) : null, unanswered: status === "none" }))
+        chains: asks.slice(0, EVIDENCE_ROWS).map((a) => ({ row: toRow(a.c), reply: a.reply ? toRow(a.reply) : null, unanswered: status === "none" })),
+        more: Math.max(0, asks.length - EVIDENCE_ROWS)
       }] : [];
     });
   } else if (t.clusters.length) {
     section = reading ? "按回應類別的原句" : "按關鍵詞分群的原句";
-    groups = t.clusters.map((cluster, index) => ({
-      tone: "cluster", index,
-      title: reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords),
-      meta: `${pct(cluster.size_share)}%`, context: null,
-      chains: chains((t.evidence.find((e) => e.cluster_key === cluster.cluster_key)?.comments ?? [])
-        .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })))
-    }));
+    groups = orderClusters(t.clusters, reading).map((cluster, index) => {
+      const noise = isNoise(cluster, reading);
+      return {
+        tone: noise ? "noise" : "cluster", index,
+        title: reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords),
+        meta: `${pct(cluster.size_share)}%`, context: noise ? "AI 判斷為廣告、洗版或離題，不計作觀眾反應。" : null,
+        ...pick((t.evidence.find((e) => e.cluster_key === cluster.cluster_key)?.comments ?? [])
+          .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })), noise ? 1 : EVIDENCE_ROWS)
+      };
+    });
   } else {
     section = "樣本內最高讚";
-    groups = [{ tone: "cluster", index: 0, title: "最多讚的留言", meta: "", context: null, chains: chains(t.ranked.slice(0, 8)) }];
+    groups = [{ tone: "cluster", index: 0, title: "最多讚的留言", meta: "", context: null, ...pick(t.ranked.slice(0, 8)) }];
   }
   const total = num(item.descriptor.engagement?.comments);
   return {

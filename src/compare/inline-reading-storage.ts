@@ -31,8 +31,9 @@ function normalizeReading(value: unknown): InlineReading | null {
   return {
     itemId: str(raw.itemId), captureId: str(raw.captureId), promptVersion: str(raw.promptVersion), model: str(raw.model), generatedAt: str(raw.generatedAt),
     gist: str(raw.gist),
-    find: { stance: str(find.stance), method: str(find.method), split: str(find.split), ask: str(find.ask) },
+    find: { method: str(find.method), split: str(find.split), ask: str(find.ask) },
     clusterNames: Object.fromEntries(Object.entries(names).filter(([, name]) => typeof name === "string" && name)) as Record<string, string>,
+    noiseClusters: (Array.isArray(raw.noiseClusters) ? raw.noiseClusters : []).filter((key): key is string => typeof key === "string"),
     methods: (Array.isArray(raw.methods) ? raw.methods : []).flatMap((m) => {
       const entry = obj(m); const quote = normalizeQuote(entry?.quote);
       return entry && quote && str(entry.name) ? [{ name: str(entry.name), fit: str(entry.fit), quote }] : [];
