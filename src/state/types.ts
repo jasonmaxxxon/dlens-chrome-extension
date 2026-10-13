@@ -59,6 +59,7 @@ export interface InlineToast {
 }
 
 export interface ExtensionSettings {
+  deepReadingModels?: Partial<Record<"google" | "claude" | "openai", string>>;
   ingestBaseUrl: string;
   oneLinerProvider: "openai" | "claude" | "google" | null;
   openaiApiKey: string;

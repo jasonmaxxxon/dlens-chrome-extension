@@ -1,3 +1,5 @@
+import { DeepReadingView } from "./DeepReadingView";
+import type { DeepReadingModel, DeepCommand } from "../viewmodel/deep-reading";
 import type { CSSProperties } from "react";
 import type { CollectionReaderModel } from "../viewmodel/collection-reader";
 import type { InlineCardAnswer, InlineCardEntryKey, InlineEvidenceRow } from "../viewmodel/inline-card";
@@ -21,7 +23,8 @@ function Reply({ row, threaded = false }: { row: InlineEvidenceRow; threaded?: b
     <div style={{ minWidth: 0 }}><div style={{ ...textStyles.meta }}><b>@{row.author}</b>{row.isAuthor ? " · 作者" : ""}{row.time ? ` · ${row.time}` : ""}</div><p style={{ margin: `${tokens.spacing.xs}px 0`, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{row.text}</p><small style={{ color: c.soft }}>{row.likes !== null ? `♡ ${row.likes}` : ""}{row.replies !== null ? ` · 回覆 ${row.replies}` : ""}</small></div>
   </div>;
 }
-export function CollectionAudienceReading({ model, evidenceOpen, onEvidence, onLens, onAssign, assignmentPending }: {
+export function CollectionAudienceReading({ model, evidenceOpen, onEvidence, onLens, onAssign, assignmentPending, deepReading, onDeepCommand }: {
+  deepReading?: DeepReadingModel | null; onDeepCommand?: (command: DeepCommand) => void;
   assignmentPending?: boolean; model: CollectionReaderModel; evidenceOpen: boolean; onEvidence: () => void; onLens: (key: InlineCardEntryKey) => void;
   onAssign: (signalId: string, topicId: string | null) => void;
 }) {
@@ -36,6 +39,7 @@ export function CollectionAudienceReading({ model, evidenceOpen, onEvidence, onL
     <div data-reader-entries="" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: tokens.spacing.sm }}>
       {model.card.entries.map(entry => <button key={entry.key} type="button" data-reader-entry={entry.key} aria-pressed={model.selected === entry.key} onClick={() => onLens(entry.key)} style={{ ...button, textAlign: "left", minWidth: 0, borderRadius: c.btnRadius, background: c.wash, color: c.entryColors[entry.key], padding: c.entryPadding, boxShadow: model.selected === entry.key ? `inset 0 0 0 1px ${c.entryColors[entry.key]}` : "none" }}><b>{entry.label}</b> <span>{entry.mark}</span><span style={{ display: "block", fontSize: c.entryFinding }}>{entry.finding}</span></button>)}
     </div>
+    {deepReading && onDeepCommand ? <DeepReadingView model={deepReading} onCommand={onDeepCommand} /> : null}
     {model.answer ? <div data-reader-answer="" style={{ color: model.selected ? c.entryColors[model.selected] : c.sub }}><Answer answer={model.answer} /></div> : null}
     {model.card.hasEvidence ? <button type="button" data-reader-evidence-toggle="" aria-expanded={evidenceOpen} onClick={onEvidence} style={{ ...button, background: "transparent", color: theme.accent }}>{evidenceOpen ? "收起證據" : "展開證據"}</button> : null}
     {evidenceOpen && model.evidence ? <div data-reader-evidence=""><p style={{ color: c.soft }}>{model.evidence.sub}</p>{model.evidence.groups.map((group, i) => {

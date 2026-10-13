@@ -1,3 +1,7 @@
+import { buildDeepReadingModel, toggleDeepDisclosure, EMPTY_DEEP_DISCLOSURE, type DeepCommand } from "../viewmodel/deep-reading";
+import { collectionAudienceSource } from "../viewmodel/collection-reader";
+import type { DeepReadingRecord } from "../compare/deep-reading-storage";
+import type { ExtensionSettings } from "../state/types";
 import type { OpenedReadings } from "../state/opened-readings-storage";
 import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 import { buildCollectionReaderModel } from "../viewmodel/collection-reader";
@@ -16,6 +20,11 @@ import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
+  settings?: ExtensionSettings;
+  deepReadings?: Record<string, DeepReadingRecord>;
+  deepPending?: Record<string, boolean>;
+  deepErrors?: Record<string, string>;
+  onDeepRun?: (itemId: string) => void;
   opened?: OpenedReadings;
   openedError?: string | null;
   assignmentPending?: boolean;
@@ -81,9 +90,13 @@ export function CollectionThumbnail({ post, miniature = false }: { post: Collect
   </span>;
 }
 
-function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending }: Pick<CollectionBrowserProps, "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
+function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: Pick<CollectionBrowserProps, "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
   post: CollectionPost; onBack: () => void; onOpenWorkspace: CollectionBrowserProps["onOpenWorkspace"];
 }) {
+  const [disclosure, setDisclosure] = useState(EMPTY_DEEP_DISCLOSURE);
+  const source = collectionAudienceSource(post, sessions);
+  const deepReading = source && settings ? buildDeepReadingModel(source.item, settings, deepReadings?.[source.item.id], new Date(nowMs).toISOString(), deepPending?.[source.item.id], deepErrors?.[source.item.id] || null, disclosure) : null;
+  const onDeepCommand = (command: DeepCommand) => { if (command.type === "run") { setDisclosure(EMPTY_DEEP_DISCLOSURE); onDeepRun?.(command.itemId); } else setDisclosure(current => toggleDeepDisclosure(current, command)); };
   const [lens, setLens] = useState<InlineCardEntryKey | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const reading = buildCollectionReaderModel(post, sessions, topics, signals, readings, nowMs, lens);
@@ -112,7 +125,7 @@ function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = []
         <div data-collection-reader-body="" style={{ ...textStyles.body, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: tokens.color.ink }}>
           {post.body || "沒有已保存的原文文字。"}
         </div>
-        {reading ? <CollectionAudienceReading assignmentPending={assignmentPending} model={reading} evidenceOpen={evidenceOpen} onEvidence={() => setEvidenceOpen(open => !open)} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
+        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} evidenceOpen={evidenceOpen} onEvidence={() => setEvidenceOpen(open => !open)} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
         {post.captureLimit ? <p style={{ ...textStyles.meta, color: tokens.color.softInk, marginTop: tokens.spacing.lg }}>{post.captureLimit}</p> : null}
         <details style={{ borderTop: `1px solid ${tokens.color.line}`, marginTop: tokens.spacing.xl, paddingTop: tokens.spacing.md }}>
           <summary style={{ ...textStyles.meta, color: tokens.color.softInk, cursor: "pointer", padding: tokens.spacing.sm }}>詳情</summary>
@@ -143,14 +156,14 @@ function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = []
 // A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
 const NO_OPENED: OpenedReadings = {};
 
-export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending }: CollectionBrowserProps) {
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
   const [finishedOnly, setFinishedOnly] = useState(false);
   const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, finishedOnly), [posts, readings, opened, nowMs, finishedOnly]);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(arrival.posts, query, sort, nowMs), [arrival.posts, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
+  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>

@@ -119,6 +119,7 @@ regenerating. PR-only builds expose only their existing PR domain.
   memory only, audience replies only) and an ETA that is an estimate
   (`estimateCrawlSeconds`: 55s + 0.22s per reply, one backend worker); past
   the estimate it says 比平常久. Never present it as a backend promise.
+- 深入解讀 runs only on demand in the reader, uses a stronger provider model, grounds every point in reply refs, and is stored per capture.
 - AI 觀眾反應 (`src/compare/inline-reading.ts`): one BYOK pass per item per
   capture via `inline-reading/ensure` (10+ replies), stored in
   `dlens:v1:inline-readings`. The model names clusters from their sample

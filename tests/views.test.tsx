@@ -6682,3 +6682,20 @@ test("InPageCollectorPopup keeps workspace mutations pending and failures visibl
     assert.equal(popupTab(host, "收藏").disabled, false);
   });
 });
+
+
+test("SettingsView deep model field follows the chosen provider and saved override", () => {
+  const base = {
+    sessionMode: "topic", draftBaseUrl: "http://127.0.0.1:8000", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+    draftLayoutPreferences: createDefaultSettings().layoutPreferences, draftProductProfile: { name: "", category: "", audience: "" },
+    onDraftBaseUrlChange: () => {}, onDraftProviderChange: () => {}, onDraftOpenAiKeyChange: () => {}, onDraftClaudeKeyChange: () => {}, onDraftGoogleKeyChange: () => {},
+    onDraftLayoutPreferencesChange: () => {}, onDraftProductProfileChange: () => {}, createContextFileId: () => "id", onSaveSettings: () => {}
+  };
+  for (const [provider, model] of [["google", "gemini-3.8-flash"], ["claude", "claude-sonnet-5-5"], ["openai", "gpt-4.1-mini"]]) {
+    const html=renderToStaticMarkup(React.createElement(SettingsView, {...base,draftProvider:provider} as any));
+    assert.match(html,new RegExp(`data-settings-deep-model="${provider}"`)); assert.match(html,new RegExp(`value="${model}"`));
+    assert.equal((html.match(/data-settings-deep-model=/g)||[]).length,1);
+  }
+  const html=renderToStaticMarkup(React.createElement(SettingsView,{...base,draftProvider:"google",draftDeepReadingModels:{google:"custom-model"}} as any));
+  assert.match(html,/value="custom-model"/);
+});

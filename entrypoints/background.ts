@@ -1,3 +1,4 @@
+import { createDeepReadingRunner } from "../src/state/deep-reading-run";
 import { defineBackground } from "wxt/utils/define-background";
 import { getInlineCollectDestination, getInlineCollectLastMode, inlineCollectPostKey, INLINE_COLLECT_MODE_NAMES, isInlineCollectMode, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../src/state/inline-collect";
 import { recordInlineCollectRemoval } from "../src/state/inline-collect-storage";
@@ -140,6 +141,7 @@ import {
   createEmptyGlobalState,
   createEmptyTabState,
   type ExtensionGlobalState,
+  type ExtensionSettings,
   type ExtensionSnapshot,
   type FolderMode,
   type ProductContext,
@@ -2374,6 +2376,7 @@ async function refreshAllItems(
 
 function resetBackgroundTestState(): void {
   globalStateCache = null;
+  deepReadingRunner = undefined;
   inlineMutationVersions.clear();
   inlineRemovalUndos.clear();
   tabStateCache.clear();
@@ -2396,6 +2399,11 @@ export const backgroundTestables = {
 };
 
 // 觀眾反應 cards ask for their AI pass; one run per item at a time. A "running" record older than this is a dead worker's.
+const runDeepReading = (item: SessionItem, settings: ExtensionSettings) => {
+  deepReadingRunner ??= createDeepReadingRunner(chrome.storage.local);
+  return deepReadingRunner(item, settings);
+};
+let deepReadingRunner: ReturnType<typeof createDeepReadingRunner> | undefined;
 const inlineReadingsInFlight = new Set<string>();
 const INLINE_READING_STALE_MS = 3 * 60_000;
 const INLINE_READING_MIN_COMMENTS = 10;
@@ -2596,6 +2604,15 @@ export default defineBackground(() => {
             sendResponse({ ok: true, tabId, inViewPostKey: inViewPostByTab.get(tabId) ?? null } satisfies ExtensionResponse);
             return;
           }
+          case "deep-reading/run": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const item = current.global.sessions.flatMap(s => s.mode === "topic" ? s.items : []).find(i => i.id === message.itemId);
+            if (!item) throw new Error("找不到已儲存帖子");
+            const deepReading = await runDeepReading(item, current.global.settings);
+            sendResponse({ ok: true, deepReading } satisfies ExtensionResponse);
+            return;
+          }
           case "inline-reading/ensure": {
             const tabId = await resolveTabId(sender);
             const inlineReadingStatus = await ensureInlineReading(tabId, message.sessionId, message.itemId, message.retry === true);
@@ -2734,7 +2751,8 @@ export default defineBackground(() => {
                 provider: message.provider,
                 openaiApiKey: message.openaiApiKey,
                 claudeApiKey: message.claudeApiKey,
-                googleApiKey: message.googleApiKey
+                googleApiKey: message.googleApiKey,
+                deepReadingModels: message.deepReadingModels
               });
               return {
                 global: {

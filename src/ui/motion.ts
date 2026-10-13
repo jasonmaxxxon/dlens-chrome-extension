@@ -18,6 +18,10 @@ import { tokens } from "./tokens";
  * "single owner" is literally true.
  */
 export const DLENS_KEYFRAMES_CSS = `
+@media (prefers-reduced-motion: no-preference) {
+  [data-deep-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
+}
+
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-collection-fold { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
 @keyframes dlens-collection-glide { from { transform: translateY(var(--collection-delta)); } to { transform: none; } }

@@ -10,6 +10,7 @@ export interface OneLinerSettingsPatch {
   openaiApiKey: string;
   claudeApiKey: string;
   googleApiKey: string;
+  deepReadingModels?: ExtensionSettings["deepReadingModels"];
 }
 
 export type LayoutPreferencesPatch = Partial<LayoutPreferences>;
@@ -61,6 +62,11 @@ export function mergeOneLinerSettings(
   return {
     ...current,
     oneLinerProvider: patch.provider,
+    ...(patch.deepReadingModels === undefined ? {} : {
+      deepReadingModels: Object.fromEntries(Object.entries(patch.deepReadingModels)
+        .filter(([key, value]) => ["google", "claude", "openai"].includes(key) && typeof value === "string")
+        .map(([key, value]) => [key, value.trim().slice(0, 120)]))
+    }),
     openaiApiKey: mergeApiKey(current.openaiApiKey, patch.openaiApiKey),
     claudeApiKey: mergeApiKey(current.claudeApiKey, patch.claudeApiKey),
     googleApiKey: mergeApiKey(current.googleApiKey, patch.googleApiKey)

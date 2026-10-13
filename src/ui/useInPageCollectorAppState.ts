@@ -202,6 +202,7 @@ export function buildLocalSettingsOverride({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  draftDeepReadingModels,
   draftLayoutPreferences,
   draftProductProfile
 }: LocalSettingsOverrideInput): ExtensionSettings {
@@ -209,7 +210,8 @@ export function buildLocalSettingsOverride({
     provider: draftProvider || null,
     openaiApiKey: draftOpenAiKey,
     claudeApiKey: draftClaudeKey,
-    googleApiKey: draftGoogleKey
+    googleApiKey: draftGoogleKey,
+    deepReadingModels: draftDeepReadingModels
   });
   const withLayout = mergeLayoutPreferences(withProvider, draftLayoutPreferences);
   return {
@@ -695,6 +697,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
   const [draftProvider, setDraftProvider] = useState<"openai" | "claude" | "google" | "">("google");
   const [draftOpenAiKey, setDraftOpenAiKey] = useState("");
   const [draftClaudeKey, setDraftClaudeKey] = useState("");
+  const [draftDeepReadingModels, setDraftDeepReadingModels] = useState<ExtensionSettings["deepReadingModels"]>({});
   const [draftGoogleKey, setDraftGoogleKey] = useState("");
   const [draftLayoutPreferences, setDraftLayoutPreferences] = useState(createDefaultLayoutPreferences);
   const [draftProductProfile, setDraftProductProfile] = useState(createEmptyProductProfile);
@@ -1142,6 +1145,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     setDraftOpenAiKey(snapshot?.global.settings.openaiApiKey || "");
     setDraftClaudeKey(snapshot?.global.settings.claudeApiKey || "");
     setDraftGoogleKey(snapshot?.global.settings.googleApiKey || "");
+    setDraftDeepReadingModels(snapshot?.global.settings.deepReadingModels ?? {});
     setDraftLayoutPreferences(snapshot?.global.settings.layoutPreferences ?? createDefaultLayoutPreferences());
     setDraftProductProfile(snapshot?.global.settings.productProfile ?? createEmptyProductProfile());
   }, [
@@ -1150,6 +1154,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey,
     snapshot?.global.settings.googleApiKey,
+    snapshot?.global.settings.deepReadingModels,
     snapshot?.global.settings.layoutPreferences,
     snapshot?.global.settings.productProfile
   ]);
@@ -2326,6 +2331,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
         draftOpenAiKey,
         draftClaudeKey,
         draftGoogleKey,
+        draftDeepReadingModels,
         draftLayoutPreferences,
         draftProductProfile
       })) {
@@ -2348,6 +2354,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
         draftOpenAiKey,
         draftClaudeKey,
         draftGoogleKey,
+        draftDeepReadingModels,
         draftLayoutPreferences,
         draftProductProfile
       }));
@@ -3092,6 +3099,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     draftOpenAiKey,
     draftClaudeKey,
     draftGoogleKey,
+    draftDeepReadingModels,
+    setDraftDeepReadingModels,
     hasOpenAiKey,
     hasClaudeKey,
     hasGoogleKey,

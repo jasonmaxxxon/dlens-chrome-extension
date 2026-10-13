@@ -3951,3 +3951,28 @@ test("topic/create persists the optional research question", async () => {
   assert.ok(response.ok);
   assert.equal(response.topics![0].context?.researchQuestion, "額度夠唔夠？");
 });
+
+test('deep-reading/run refuses a key gap and single-flights the stored capture', async () => {
+  const { DEEP_READINGS_STORAGE_KEY } = await import('../src/compare/deep-reading-storage.ts');
+  const topic = makeSession('deep-session', 'topic');
+  const saved = createSessionItem(makeDescriptor('deep-post'));
+  saved.status = 'succeeded';
+  saved.latestCapture = {id:'deep-capture', result:{canonical_post:{author:'op',text:'RAG'},comments:[{comment_id:'q',author:'fan',text:'點樣做？'}]},analysis:{status:'succeeded',clusters:[]}} as any;
+  topic.items = [saved];
+  const seed = { [backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([topic],topic.id), [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]:topic.id, [backgroundTestables.tabStorageKey(TAB_ID)]:createEmptyTabState() };
+  const gapHarness = await createHarness(seed);
+  const gap = await gapHarness.dispatch({type:'deep-reading/run',itemId:saved.id});
+  assert.equal(gap.ok,false);if(!gap.ok)assert.match(gap.error,/設定未填 Google API key/);
+  const global=seed[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  global.settings={...global.settings,oneLinerProvider:'google',googleApiKey:'test-key'};
+  const harness = await createHarness(seed);
+  const previousFetch=globalThis.fetch;let calls=0;
+  const payload={background:'原帖討論方法。留言提出問題。',takeaway:'尚待實證。',terms:[],debates:[],evidence:{strong:[],weak:[]},unanswered:[{question:'點樣做？',refs:['e1']}]};
+  globalThis.fetch=async()=>{calls++; await Promise.resolve();return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(payload)}]}}]}));};
+  try {
+    const results=await Promise.all([harness.dispatch({type:'deep-reading/run',itemId:saved.id}),harness.dispatch({type:'deep-reading/run',itemId:saved.id})]);
+    assert.ok(results.every(r=>r.ok));assert.equal(calls,1);
+    const records=harness.state[DEEP_READINGS_STORAGE_KEY] as Record<string,{status:string;captureId:string}>;
+    assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
+  } finally {globalThis.fetch=previousFetch;}
+});

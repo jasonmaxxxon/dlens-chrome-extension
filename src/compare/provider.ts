@@ -1,3 +1,4 @@
+import { buildDeepReadingPrompt, parseDeepReadingResponse, DEEP_READING_SYSTEM_PROMPT, DEEP_OUTPUT_TOKENS, deepModel, type DeepReadingInput } from "./deep-reading.ts";
 import { buildCompareOneLinerPrompt, type CompareOneLinerRequest } from "./one-liner.ts";
 import {
   buildCompareBriefPrompt,
@@ -107,9 +108,9 @@ function modelForProvider(provider: CompareProvider): string {
   return `claude:${CLAUDE_COMPARE_MODEL}`;
 }
 
-function googleGenerateContentRequest(apiKey: string, body: unknown): { input: string; init: RequestInit } {
+function googleGenerateContentRequest(apiKey: string, body: unknown, model = GOOGLE_COMPARE_MODEL): { input: string; init: RequestInit } {
   return {
-    input: `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_COMPARE_MODEL}:generateContent`,
+    input: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     init: {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -1005,7 +1006,8 @@ async function requestJsonResponse(
   system: string,
   maxOutputTokens: number,
   traceLabel?: string,
-  useTopicAuditSchema = false
+  useTopicAuditSchema = false,
+  modelOverride?: string
 ): Promise<TopicAuditJsonResponse> {
   const label = (base: string) => (traceLabel ? `${base}.${traceLabel}` : base);
   if (provider === "google") {
@@ -1023,7 +1025,7 @@ async function requestJsonResponse(
         maxOutputTokens,
         responseMimeType: "application/json"
       }
-    });
+    }, modelOverride);
     const response = await fetchWithRetry(label("Google"), request.input, request.init);
     if (!response.ok) {
       throwGoogleResponseError(response);
@@ -1037,8 +1039,9 @@ async function requestJsonResponse(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
+        model: modelOverride || OPENAI_COMPARE_MODEL,
         temperature: 0.2,
+        max_tokens: maxOutputTokens,
         response_format: useTopicAuditSchema
           ? {
               type: "json_schema",
@@ -1070,7 +1073,7 @@ async function requestJsonResponse(
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: CLAUDE_COMPARE_MODEL,
+      model: modelOverride || CLAUDE_COMPARE_MODEL,
       max_tokens: maxOutputTokens,
       thinking: { type: "disabled" },
       system,
@@ -1090,9 +1093,10 @@ async function generateJsonText(
   prompt: string,
   system: string,
   maxOutputTokens: number,
-  traceLabel?: string
+  traceLabel?: string,
+  modelOverride?: string
 ): Promise<string> {
-  return (await requestJsonResponse(provider, apiKey, prompt, system, maxOutputTokens, traceLabel)).text;
+  return (await requestJsonResponse(provider, apiKey, prompt, system, maxOutputTokens, traceLabel, false, modelOverride)).text;
 }
 
 export async function generatePrCampaignSetupSuggestion(
@@ -1274,3 +1278,17 @@ export const providerTestables = {
   fetchWithRetry,
   buildProductSignalAnalysisBody
 };
+
+/** Exactly one semantic/JSON repair; transport retries remain the shared provider policy. */
+export async function generateDeepReading(provider: CompareProvider, apiKey: string, input: DeepReadingInput, modelOverride?: string) {
+  const model = modelOverride?.trim() || deepModel(provider);
+  const prompt = buildDeepReadingPrompt(input);
+  const call = (body: string, label: string) => generateJsonText(provider, apiKey, body, DEEP_READING_SYSTEM_PROMPT, DEEP_OUTPUT_TOKENS, label, model);
+  const raw = await call(prompt, "deep-reading");
+  const parsed = parseDeepReadingResponse(raw, input);
+  if (parsed) return parsed;
+  const repaired = await call(`${prompt}\n[修復：上次回應無效；依原資料及 JSON 結構重寫，不加入新事實]\n${raw.slice(0, 24000)}`, "deep-reading.repair");
+  const result = parseDeepReadingResponse(repaired, input);
+  if (!result) throw new Error("深入解讀回應格式無效");
+  return result;
+}

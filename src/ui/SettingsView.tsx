@@ -1,3 +1,4 @@
+import { DEEP_READING_MODELS } from "../compare/deep-reading";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
@@ -20,6 +21,8 @@ interface SettingsViewProps {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
+  draftDeepReadingModels?: ExtensionSettings["deepReadingModels"];
+  onDraftDeepReadingModelsChange?: (provider: "google" | "claude" | "openai", model: string) => void;
   hasOpenAiKey?: boolean;
   hasClaudeKey?: boolean;
   hasGoogleKey?: boolean;
@@ -201,6 +204,8 @@ export function SettingsView({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  draftDeepReadingModels,
+  onDraftDeepReadingModelsChange,
   hasOpenAiKey = false,
   hasClaudeKey = false,
   hasGoogleKey = false,
@@ -370,6 +375,10 @@ export function SettingsView({
                       {isSavingSettings ? "儲存中…" : "儲存並測試"}
                     </PrimaryButton>
                   </span>
+                </label>
+                <label style={{ display: "grid", gap: tokens.spacing.sm, color: tokens.color.subInk }}>
+                  深入解讀模型
+                  <input aria-label={`${chosen.name} 深入解讀模型`} data-settings-deep-model={chosen.id} value={draftDeepReadingModels?.[chosen.id] ?? DEEP_READING_MODELS[chosen.id]} placeholder={DEEP_READING_MODELS[chosen.id]} onChange={event => onDraftDeepReadingModelsChange?.(chosen.id, event.target.value)} style={inputStyle} />
                 </label>
                 <button type="button" onClick={() => onDraftProviderChange("")} style={{ justifySelf: "start", border: 0, background: "none", padding: 0, fontSize: 11, color: tokens.color.softInk, cursor: "pointer" }}>
                   不用 AI

@@ -29,6 +29,11 @@ const WORKSPACE_GLASS = {
 } as const;
 
 export const tokens = {
+  deepReading: {
+    accent: "#7b4a8a", wash: "rgba(123,74,138,.08)",
+    status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },
+    skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10, skeletonBackground: "linear-gradient(90deg, rgba(123,74,138,.04), rgba(123,74,138,.12), rgba(123,74,138,.04))", skeletonBackgroundSize: "200% 100%"
+  },
   collection: {
     modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,

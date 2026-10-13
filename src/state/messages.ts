@@ -1,7 +1,9 @@
+import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
 import type { CompareBrief, CompareBriefRequest } from "../compare/brief";
 import type { CompareOneLinerRequest } from "../compare/one-liner";
 import type {
+  ExtensionSettings,
   ActiveAnalysisResult,
   ActiveCompareDraft,
   FolderSynthesis,
@@ -48,11 +50,12 @@ export type ExtensionMessagePayload =
   | { type: "settings/set-ingest-base-url"; value: string }
   | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
   | { type: "settings/init-product-profile"; description: string }
-  | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string }
+  | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
   | { type: "popup/open-active-tab" }
   | { type: "sidepanel/open"; sessionId: string }
   | { type: "sidepanel/take-workspace-open" }
+  | { type: "deep-reading/run"; itemId: string }
   | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
   /** The post crossing the middle of the Threads viewport; the side panel follows it. */
   | { type: "inline/in-view"; postKey: string | null }
@@ -184,6 +187,7 @@ export type ExtensionSuccessResponse = {
   oneLiner?: string | null;
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
+  deepReading?: DeepReadingRecord;
   inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
   inViewPostKey?: string | null;
   aiKeyTest?: { ok: boolean; message: string };

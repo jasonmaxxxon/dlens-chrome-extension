@@ -1,3 +1,4 @@
+import { useDeepReadings } from "./useDeepReadings";
 import { useOpenedReadings } from "./useOpenedReadings";
 import { collectionAudienceSource } from "../viewmodel/collection-reader";
 import { useCollectionReaderTopics, useCollectionReaderLive } from "./useCollectionReaderTopics";
@@ -186,6 +187,7 @@ function OpenInPageCollectorPopup({
   const workspaceGlass = tokens.material.workspaceGlass;
   // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
   const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
+  const deepReadings = useDeepReadings(true);
   const discourseFeeds = useDiscourseFeeds(domainPage === "topics" || readingNavigation.tab === "collection");
   const openedReadings = useOpenedReadings(!domainPage && readingNavigation.tab === "collection", readingNavigation.selectedKey, snapshot?.global.sessions ?? [], discourseFeeds.readings);
   const readerSource = !domainPage && readingNavigation.tab === "collection"
@@ -642,7 +644,7 @@ function OpenInPageCollectorPopup({
             {readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey }))}
@@ -834,6 +836,8 @@ function OpenInPageCollectorPopup({
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
+                draftDeepReadingModels={app.draftDeepReadingModels}
+                onDraftDeepReadingModelsChange={(provider, model) => app.setDraftDeepReadingModels(current => ({ ...current, [provider]: model }))}
                 hasOpenAiKey={app.hasOpenAiKey}
                 hasClaudeKey={app.hasClaudeKey}
                 hasGoogleKey={app.hasGoogleKey}

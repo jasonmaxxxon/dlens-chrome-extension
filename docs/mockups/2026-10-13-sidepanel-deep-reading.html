@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 深入解讀</title>
+<!--
+  2026-10-13 mockup — side panel reader: 深入解讀. Reference only, not spec.
+  Content is the real crawl of @ai.reality.tw/post/DeZUuqyCeaW (63 of 97 replies, 26 by the author),
+  read by a top model; see reviews/dlens-inline-wheel-2026-10-07/2026-10-13-reading-compare-DeZUuqyCeaW.md.
+  Where it sits: in the round-A reader, under the four entries. It runs only when asked.
+  Model: the user's provider at its stronger tier (Google gemini-3.8-flash by default; Claude Sonnet 5.5 / Opus 5.5 with a Claude key).
+  Input: every crawled reply incl. the author's (marked 作者), question→answer pairs, a rule-based term scan, cluster stats.
+  Output schema: background, terms[], debates[], evidence{strong[],weak[]}, unanswered[], takeaway — every item carries refs;
+  items whose refs don't resolve are dropped by the parser. Stored per capture + prompt version.
+  States: offer (model + cost) → reading (~15s) → result → stale (new crawl) → error.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e; --faint:#a19e93; --hair:rgba(27,26,23,.08); --wash:rgba(27,26,23,.035);
+  --sage:#3f5a3b; --sage-w:rgba(63,90,59,.08); --amber:#a06a17; --amber-w:rgba(160,106,23,.09); --blue:#35628a; --blue-w:rgba(53,98,138,.08); --violet:#7b4a8a; --violet-w:rgba(123,74,138,.08);
+  --paper:#fbfbf9;
+  --sans:'Noto Sans TC',-apple-system,BlinkMacSystemFont,system-ui,sans-serif; --serif:'Instrument Serif',Georgia,serif; --serif-cjk:'Noto Serif TC','Songti TC',serif;
+  --out:cubic-bezier(.16,1,.3,1);
+}
+* { box-sizing:border-box; }
+html,body { margin:0; }
+body { background:#e9e7e1; color:var(--ink); font:13px/1.55 var(--sans); -webkit-font-smoothing:antialiased; }
+button { font:inherit; color:inherit; }
+.stage { display:flex; gap:36px; padding:28px; flex-wrap:wrap; align-items:flex-start; }
+.panel { width:400px; max-width:100%; height:860px; overflow:auto; background:var(--paper); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.12); position:relative; }
+.panel::before { content:""; position:sticky; top:0; display:block; height:0; }
+.head { position:sticky; top:0; z-index:3; height:48px; display:flex; align-items:center; gap:18px; padding:0 16px; background:rgba(251,251,249,.8); backdrop-filter:blur(14px); border-bottom:1px solid var(--hair); }
+.logo { font:21px/1 var(--serif); } .tab { font-size:13.5px; color:var(--soft); } .tab.on { color:var(--ink); font-weight:600; }
+.body { padding:12px 16px 40px; }
+.back { border:0; background:none; color:var(--sage); font-size:12.5px; padding:4px 0; cursor:pointer; }
+.src { margin-top:8px; padding:14px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px var(--hair); }
+.src b { font-size:13px; } .src p { margin:6px 0 0; white-space:pre-line; font-size:13.5px; line-height:1.6; }
+.src small { display:block; margin-top:8px; color:var(--soft); font-size:11.5px; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+.chip { border:0; border-radius:999px; padding:5px 11px; background:var(--wash); font-size:12.5px; color:var(--sub); }
+.chip.on { background:var(--sage); color:#fff; }
+.grid4 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; margin-top:14px; }
+.e { padding:9px 10px; border-radius:10px; font-size:12px; color:var(--soft); }
+.e b { display:block; font-size:12.5px; color:var(--ink); font-weight:600; }
+.e.on { background:var(--blue-w); }
+
+/* 深入解讀 */
+.deep { margin-top:18px; border-radius:16px; background:#fff; box-shadow:0 0 0 1px var(--hair), 0 6px 20px rgba(27,26,23,.05); overflow:hidden; }
+.deep-h { display:flex; align-items:center; gap:10px; padding:14px 14px 10px; }
+.deep-h .ic { width:28px; height:28px; border-radius:9px; background:var(--violet-w); color:var(--violet); display:grid; place-items:center; flex:none; }
+.deep-h b { font-size:14px; } .deep-h small { display:block; font-size:11px; color:var(--soft); }
+.deep-h .meta { margin-left:auto; text-align:right; font-size:11px; color:var(--faint); line-height:1.4; }
+.offer { padding:0 14px 14px; }
+.offer p { margin:0 0 10px; font-size:12.5px; color:var(--sub); }
+.run { width:100%; border:0; border-radius:10px; padding:10px; background:var(--ink); color:#fff; font-weight:600; font-size:13px; cursor:pointer; transition:transform .15s; }
+.run:active { transform:scale(.99); }
+.offer small { display:block; margin-top:8px; font-size:11px; color:var(--faint); text-align:center; }
+.sk { padding:0 14px 16px; display:grid; gap:8px; }
+.sk i { display:block; height:10px; border-radius:5px; background:linear-gradient(90deg, var(--wash), rgba(27,26,23,.08), var(--wash)); background-size:200% 100%; }
+.sk span { font-size:11.5px; color:var(--soft); }
+.sec { padding:12px 14px; border-top:1px solid var(--hair); }
+.sec-k { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; letter-spacing:.04em; color:var(--faint); margin-bottom:8px; }
+.bg { margin:0; font-size:13.5px; line-height:1.7; color:var(--sub); }
+.terms { display:flex; flex-wrap:wrap; gap:6px; }
+.term { border:0; border-radius:8px; padding:4px 9px; background:var(--violet-w); color:var(--violet); font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; }
+.term.on { background:var(--violet); color:#fff; }
+.def { margin-top:8px; padding:10px 12px; border-radius:10px; background:var(--wash); font-size:12.5px; color:var(--sub); }
+.def b { color:var(--ink); } .def a { color:var(--sage); font-size:11.5px; text-decoration:none; white-space:nowrap; }
+.debate { padding:7px 0; } .debate + .debate { border-top:1px dashed var(--hair); }
+.dq { display:flex; gap:8px; align-items:center; width:100%; border:0; background:none; padding:2px 0; text-align:left; cursor:pointer; }
+.dq .chev { color:var(--faint); font-size:10px; }
+.more { border:0; background:none; padding:0; color:var(--soft); font-size:12px; cursor:pointer; }
+.dq b { font-size:13px; font-weight:600; flex:1; } .tag { font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:999px; white-space:nowrap; }
+.tag.agree { background:var(--sage-w); color:var(--sage); } .tag.open { background:var(--amber-w); color:var(--amber); } .tag.heat { background:rgba(168,70,46,.08); color:#a8462e; }
+.side { display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 8px; margin-top:7px; font-size:12.5px; }
+.side .who { color:var(--soft); white-space:nowrap; } .side .claim { color:var(--sub); }
+.side .ev { grid-column:2; font-size:11px; color:var(--faint); }
+.ev .x { color:var(--sage); font-weight:600; } .ev .o { color:var(--amber); font-weight:600; }
+.list { margin:0; padding:0; list-style:none; display:grid; gap:6px; font-size:12.5px; color:var(--sub); }
+.list li { display:grid; grid-template-columns:14px minmax(0,1fr); gap:6px; }
+.list .ok::before { content:"●"; color:var(--sage); font-size:9px; line-height:20px; } .list .meh::before { content:"○"; color:var(--amber); font-size:10px; line-height:20px; }
+.list .q::before { content:"?"; color:var(--violet); font-weight:700; }
+.list a { color:var(--sage); font-size:11px; text-decoration:none; }
+.take { margin:0; font-family:var(--serif-cjk); font-size:14.5px; line-height:1.65; color:var(--ink); }
+.foot { padding:10px 14px 14px; border-top:1px solid var(--hair); display:flex; justify-content:space-between; font-size:11px; color:var(--faint); }
+.foot button { border:0; background:none; color:var(--soft); font-size:11px; cursor:pointer; }
+@media (prefers-reduced-motion:no-preference) {
+  .sk i { animation:shimmer 1.2s linear infinite; }
+  .sec { animation:rise .4s var(--out) both; animation-delay:calc(var(--i,0) * 60ms); }
+}
+@keyframes shimmer { to { background-position:-200% 0; } }
+@keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.notes { width:380px; max-width:100%; font-size:13px; color:var(--sub); }
+.notes h1 { margin:0 0 6px; font-size:18px; } .notes ol { padding-left:18px; display:grid; gap:8px; } .notes b { color:var(--ink); }
+.states { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0; } .states button { border:1px solid var(--hair); background:#fff; border-radius:8px; padding:5px 10px; cursor:pointer; font-size:12px; }
+.states button.on { background:var(--ink); color:#fff; }
+@media (max-width:480px) { .stage { padding:12px; } }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="panel" id="panel">
+    <div class="head"><span class="logo">dlens</span><span class="tab on">收藏</span><span class="tab">工作區</span></div>
+    <div class="body">
+      <button class="back">‹ 返回收藏</button>
+      <div class="src"><b>@ai.reality.tw</b><p>偷偷說個真相
+做RAG的時候
+切片、embedding都不能解決問題
+重點是把資料知識化成特定結構 …</p><small>660 讚 · 97 則回覆 · 已讀 63 則（作者回覆 26）· 原帖 ↗</small></div>
+      <div class="chips"><span class="chip">未分流</span><span class="chip on">AI 工程 3</span><span class="chip">AI 工具額度 9</span></div>
+      <div class="grid4">
+        <div class="e on"><b>大家點睇</b>單一技術唔夠</div><div class="e"><b>有咩做法</b>先定場景再揀架構</div>
+        <div class="e"><b>有咩分歧</b>RAG 過時 vs 仍是核心</div><div class="e"><b>大家問咩</b>99% 點做到？</div>
+      </div>
+      <div id="deep"></div>
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h1>深入解讀</h1>
+    <p>喺側欄閱讀頁四格下面。撳先跑，用強啲嘅模型；內容係 @ai.reality.tw 嗰篇嘅真留言。</p>
+    <div class="states" id="states">
+      <button data-s="offer">未跑</button><button data-s="loading">讀緊</button><button data-s="done" class="on">讀完</button><button data-s="stale">有新留言</button>
+    </div>
+    <ol>
+      <li><b>未跑</b>：講明用咩模型、大約幾錢、讀幾多則，撳先開始。</li>
+      <li><b>一眼睇到</b>：背景兩三句 + 你可以點理解。</li>
+      <li><b>術語</b>：只係一排詞，撳先見解釋同出處。</li>
+      <li><b>爭論</b>：每個一行（問題 + 有共識／未有定論／嗌交為主），撳先展開各方主張。</li>
+      <li><b>更多</b>：證據強弱同冇人答收埋，撳先見。</li>
+      <li>每點都連返原留言；讀完存低，唔重複收費。</li>
+    </ol>
+  </aside>
+</div>
+<script>
+const DEEP = {
+  bg: "原帖講：做 RAG（先搵資料再叫 AI 答）時，文件點切、點轉向量都唔係關鍵；關鍵係按業務先定義好概念同概念之間嘅關係（本體論），將資料整理成呢個結構，AI 先定位得準，出錯亦知道改邊度。留言一半係技術補充，一半係嗌交——作者一句「國內工程師技術落後」點著咗火。",
+  terms: [
+    ["RAG", "先喺資料庫搵相關內容，再交俾 AI 生成答案。", "原帖"],
+    ["Ontology 本體論", "一個領域有咩概念、概念之間點關聯嘅正式定義，即係知識圖譜嘅藍圖。", "@ai.reality.tw（作者）"],
+    ["知識圖譜 KG", "用「實體 + 關係」記錄知識，例如「螺絲 —用於→ 製程 A」。", "@ai.reality.tw（作者）"],
+    ["切片 chunking", "將長文件切成小段方便搜尋；資料少都硬切，反而會失去上下文。", "@wayturn_"],
+    ["Embedding", "將文字轉成數字，用「意思相近」嚟搵。", "原帖"],
+    ["Rerank", "搵到一批結果之後再排一次先後。", "@xiul024ase"],
+    ["Hybrid retrieval", "關鍵字搜尋同向量搜尋一齊用。", "@willliamlo"],
+    ["MCP / agent 搜尋", "由 AI agent 自己用工具搵資料，唔係一次過檢索。", "@afan_0918"],
+    ["GIGO", "Garbage in, garbage out：資料差，點樣反覆修正都冇用。", "@ai.reality.tw（作者）"],
+    ["F1 score", "準確率同召回率嘅綜合分數。", "@tszho_astrophotography"]
+  ],
+  debates: [
+    { q: "RAG 係咪過時？", tag: ["agree", "有共識"], sides: [["@fienna_the_cross", "仲用 RAG 就係落後", "o", "冇講理由"], ["@cab_late · 119 讚", "RAG 已經係統稱，下面有資料層同查詢層一堆技巧；單一技術唔夠", "x", "列出具體做法"]] },
+    { q: "知識化同 LLM-wiki 係咪同一樣嘢？", tag: ["heat", "嗌交為主"], sides: [["@photodesignch", "一年前已經有，大公司都係咁做", "o", "冇證據"], ["作者", "唔同：以本體論做核心、用喺醫療同製程決策", "o", "冇公開案例"]] },
+    { q: "Agent 即時搵，定預先建知識結構？", tag: ["open", "未有定論"], sides: [["@nekomata.saren", "本地模型 + embedding 索引 + API 嘅 ERP agent，已經內部用緊", "x", "有實作"], ["作者", "先分場景：查資料有 API 已夠；填表、報價、決策先要加驗證", "x", "有具體拆解"]] },
+    { q: "結構化等唔等於知識化？", tag: ["open", "作者答咗，冇人跟進"], sides: [["@v_v1150n", "可以結構化嘅話，普通資料庫咪得？", "o", "提問"], ["作者", "唔等於：表格有欄位唔代表有概念關係同業務規則", "x", "@meta.ai 用合約做咗例子"]] }
+  ],
+  strong: [["@cab_late：資料層 + 查詢層技術清單", "@cab_late"], ["@wayturn_：資料少都硬切，效果反而差", "@wayturn_"], ["@smallwhite77889：三個模型互相比對再人手覆核", "@smallwhite77889"]],
+  weak: [["作者嘅「99% 準確」：冇數據或者案例細節", "原帖"], ["「國內工程師技術落後」：冇比較依據", "原帖"]],
+  unanswered: [["有咩方法論或者框架可以試？", "@v_v1150n"], ["知識結構點樣建、成本幾多？", "多人問"]],
+  take: "呢篇唔係新技術，係「RAG 實務派」同「知識工程派」嘅立場之爭。可以帶走嘅係：先定場景同可以容忍幾多錯，再決定用全文、檢索、agent 定本體論。"
+};
+let open = -1, openDebate = -1, more = false, state = "done";
+const ref = (r) => `<a href="#">${r} ↗</a>`;
+function deep() {
+  const head = `<div class="deep-h"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6M11 8v6"/></svg></span><span><b>深入解讀</b><small>解釋呢場討論講緊咩</small></span><span class="meta">${state === "offer" ? "未跑" : "gemini-3.8-flash<br>63 則 · $0.014"}</span></div>`;
+  if (state === "offer") return head + `<div class="offer"><p>用強啲嘅模型讀晒 63 則留言（包括作者 26 則回覆），解釋術語同爭論點。</p><button class="run" data-run>深入解讀（約 $0.015）</button><small>gemini-3.8-flash · 讀完會存低，唔會重複收費</small></div>`;
+  if (state === "loading") return head + `<div class="sk"><span>讀緊 63 則留言，大約 15 秒…</span><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:60%"></i></div>`;
+  const t = DEEP.terms[open];
+  let html = head;
+  if (state === "stale") html += `<div class="offer"><p style="margin:0">爬到 12 則新留言。<button class="term" data-run style="margin-left:6px">重讀</button></p></div>`;
+  html += `<div class="sec" style="--i:0"><p class="bg">${DEEP.bg}</p><p class="take" style="margin-top:10px">${DEEP.take}</p></div>`;
+  html += `<div class="sec" style="--i:1"><div class="sec-k">術語 · 撳嚟睇解釋</div><div class="terms">${DEEP.terms.map((x, i) => `<button class="term${i === open ? " on" : ""}" data-term="${i}">${x[0]}</button>`).join("")}</div>${t ? `<div class="def"><b>${t[0]}</b>：${t[1]} ${ref(t[2])}</div>` : ""}</div>`;
+  html += `<div class="sec" style="--i:2"><div class="sec-k">爭論 · ${DEEP.debates.length}</div>${DEEP.debates.map((d, i) => `<div class="debate"><button class="dq" data-debate="${i}"><b>${d.q}</b><span class="tag ${d.tag[0]}">${d.tag[1]}</span><span class="chev">${i === openDebate ? "▴" : "▾"}</span></button>${i === openDebate ? d.sides.map((s) => `<div class="side"><span class="who">${s[0]}</span><span class="claim">${s[1]}</span><span class="ev"><span class="${s[2]}">${s[2] === "x" ? "有經驗" : "意見"}</span> · ${s[3]}</span></div>`).join("") : ""}</div>`).join("")}</div>`;
+  html += `<div class="sec" style="--i:3"><button class="more" data-more>${more ? "收起" : "更多：證據強弱 · 冇人答"} ${more ? "▴" : "▾"}</button>${more ? `<ul class="list" style="margin-top:10px">${DEEP.strong.map((x) => `<li class="ok"><span>${x[0]} ${ref(x[1])}</span></li>`).join("")}${DEEP.weak.map((x) => `<li class="meh"><span>${x[0]} ${ref(x[1])}</span></li>`).join("")}${DEEP.unanswered.map((x) => `<li class="q"><span>${x[0]} ${ref(x[1])}</span></li>`).join("")}</ul>` : ""}</div>`;
+  html += `<div class="foot"><span>每點都連返原留言 · 冇出處嘅已丟棄</span><button>重讀</button></div>`;
+  return html;
+}
+function render() { document.getElementById("deep").innerHTML = `<section class="deep">${deep()}</section>`; document.querySelectorAll("#states button").forEach((b) => b.classList.toggle("on", b.dataset.s === state)); }
+document.addEventListener("click", (e) => {
+  const s = e.target.closest("[data-s]"); if (s) { state = s.dataset.s; render(); return; }
+  const t = e.target.closest("[data-term]"); if (t) { open = open === +t.dataset.term ? -1 : +t.dataset.term; render(); return; }
+  const dq = e.target.closest("[data-debate]"); if (dq) { openDebate = openDebate === +dq.dataset.debate ? -1 : +dq.dataset.debate; render(); return; }
+  if (e.target.closest("[data-more]")) { more = !more; render(); return; }
+  if (e.target.closest("[data-run]")) { state = "loading"; render(); setTimeout(() => { state = "done"; render(); }, 1800); }
+});
+render();
+</script>
+</body>
+</html>
