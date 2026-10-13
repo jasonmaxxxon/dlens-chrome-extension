@@ -266,6 +266,7 @@ export const tokens = {
   collectWheel: {
     hold: 180, radius: 126, flickPx: 12, innerRatio: 0.39, deadRatio: 0.72,
     jitterPx: 4, canvasPadding: 22, edgePadding: 26, stickyMargin: 30,
+    topicRing: { innerOffset: 12, outerOffset: 56, hitInnerOffset: 6, hitOuterOffset: 74, gap: 7, smallSpan: 40, largeSpan: 36, labelInset: 18, labelHeight: 30, stroke: 4, tint: 16, labelFont: 11.5, countFont: 9.5, hintWidth: 230, hintTop: -30, hintPadding: "6px 10px", hintRadius: 9 },
     sectorStroke: 6, sectorGap: 11, sectorInset: 3, labelOffset: 1,
     sectorShift: 6, sectorPickedShift: 10, glassMargin: 8, centerInset: 4,
     buttonSize: 36, buttonIconSize: 20, ringMaskOuter: 2.5, ringMaskInner: 2,
@@ -329,6 +330,7 @@ export const tokens = {
 
   motion: {
     collectWheel: {
+      topicRestMs: 250, topicStaggerMs: 32, topicLabelDelayMs: 50, topicScale: 0.9,
       spring: "cubic-bezier(.3,1.32,.5,1)", flyEasing: "cubic-bezier(.55,0,.8,.25)",
       openMs: 240, opacityMs: 110, sectorMs: 230, sectorOpacityMs: 140,
       staggerMs: 14, settledSectors: 8, pulseMs: 90, landAfterPulseMs: 210,

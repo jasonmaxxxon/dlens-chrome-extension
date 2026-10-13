@@ -13,7 +13,7 @@ import type { SessionItem, Signal, Topic } from "../state/types";
 import { normalizeSignal, normalizeTopic, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../state/topic-storage";
 import { buildCardTopicLine } from "../viewmodel/topic-discourse";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
-import { renderInlineSaveLine, renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
+import { renderInlineTopicPicker, renderInlineSaveLine, renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
 import { tokens } from "../ui/tokens";
 import { fetchFirstReplies } from "./inline-collect-peek";
@@ -178,9 +178,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const topicLine = destination.mode === "topic"
       ? buildCardTopicLine(item.id, topics, signals, global?.sessions.flatMap((session) => session.items) ?? [], readings)
       : null;
+    const pickingTopic = destination.mode === "topic" && topicPickers.has(post.identity);
+    const pickerTopics = recentTopics(destination.sessionId);
+    const pickerSignal = signals.find(s => s.itemId === item.id && s.sessionId === destination.sessionId);
     const full = destination.mode !== "topic" || view?.expanded;
     const html = (destination.mode === "topic" ? renderInlineSaveLine(line, !!view?.expanded, false) : "")
-      + (full ? renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence, topicLine, naming: naming === post.identity }) : "");
+      + (pickingTopic ? renderInlineTopicPicker(pickerTopics, pickerSignal?.id ?? null) : "")
+      + (full ? renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence, topicLine: pickingTopic ? null : topicLine, naming: naming === post.identity }) : "");
     if (slot.innerHTML !== html) slot.innerHTML = html;
     if (naming === post.identity) slot.querySelector<HTMLInputElement>("[data-dlens-topic-name]")?.focus();
     if (evidence && floating) showEvidenceWindow(post.identity, (enter: boolean) => renderInlineEvidenceWindow(evidence, destination.mode, enter), right, slot.getBoundingClientRect().top);
@@ -212,7 +216,24 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   // 話題 the user sorts posts into by hand; read straight from storage so the card line stays current.
   let topics: Topic[] = [];
   let signals: Signal[] = [];
+  let signalInventoryRevision = 0, topicInventoryRevision = 0;
   let naming: string | null = null;
+  const topicPickers = new Set<string>();
+  const pendingTopics = new Map<string, { post: InlineCollectPost; itemId: string; sessionId: string; topicId: string }>();
+  function recentTopics(sessionId: string | null) {
+    return topics.filter(t => t.sessionId === sessionId).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+  function flushTopicAssignments() {
+    for (const [identity, intent] of pendingTopics) {
+      const destination = saved(identity);
+      if (!destination || destination.itemId !== intent.itemId || destination.sessionId !== intent.sessionId) { pendingTopics.delete(identity); continue; }
+      const signal = signals.find(s => s.itemId === intent.itemId && s.sessionId === intent.sessionId);
+      if (!signal) continue;
+      pendingTopics.delete(identity); // retire before dispatch, including concurrent storage events
+      if (!topics.some(t => t.id === intent.topicId && t.sessionId === intent.sessionId)) { wheel.showToast("話題已變更，貼文保留喺未分流。"); continue; }
+      triage(intent.post, signal.id, { kind: "assign", topicId: intent.topicId });
+    }
+  }
   function topicNameOf(itemId: string) {
     const signal = signals.find(s => s.itemId === itemId);
     return topics.find(t => t.id === signal?.topicId)?.name ?? null;
@@ -286,8 +307,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     else if (act === "crawl" && destination) crawl(destination);
     else if (act === "topic-pick") {
       const button = target!.closest<HTMLElement>("[data-dlens-act]")!;
-      if (button.dataset.signalId && button.dataset.topicId) triage(post, button.dataset.signalId, { kind: "assign", topicId: button.dataset.topicId });
+      if (button.dataset.signalId && button.dataset.topicId) {
+        topicPickers.delete(post.identity);
+        triage(post, button.dataset.signalId, { kind: "assign", topicId: button.dataset.topicId });
+        repaintCard(post.identity);
+      }
     }
+    else if (act === "topic-later") { topicPickers.delete(post.identity); repaintCard(post.identity); }
     else if (act === "topic-new") { naming = post.identity; renderCard(post); }
     else if (act === "topic-side" && destination) {
       // The panel follows the post in view; name this one so it opens on its 話題.
@@ -428,9 +454,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       wheel.showToast(result?.changed ? "已復原" : "已有較新的操作");
     });
   }
-  async function save(post: InlineCollectPost, mode?: FolderMode) {
+  async function save(post: InlineCollectPost, mode?: FolderMode, topicOptions: { topicId?: string; topicSessionId?: string | null; pickTopic?: boolean } = {}) {
     if (destroyed) return;
     const message: InlineCollectMessage = { type: "session/inline-collect", action: "save", descriptor: post.descriptor, ...(mode ? { mode } : {}) };
+    topicPickers.delete(post.identity); pendingTopics.delete(post.identity);
     cards.set(post.identity, { ...closedView });
     returnGlows.delete(post.identity);
     peeks.delete(post.identity);
@@ -439,6 +466,26 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     // v9: saving into a reading workspace starts the reply crawl at once; the card then shows its progress.
     const destination = saved(post.identity);
     if (destination && (destination.mode === "topic" || destination.mode === "product") && itemOf(destination)?.status === "saved") crawl(destination);
+    if (destination?.mode === "topic") {
+      if (topicOptions.pickTopic) { topicPickers.add(post.identity); repaintCard(post.identity); }
+      if (topicOptions.topicId) {
+        if (destination.sessionId !== topicOptions.topicSessionId) wheel.showToast("工作區已變更，貼文保留喺未分流。");
+        else {
+          pendingTopics.set(post.identity, { post, itemId: destination.itemId, sessionId: destination.sessionId, topicId: topicOptions.topicId });
+          flushTopicAssignments();
+          // Save and its storage events may arrive in either order. Refresh signal inventory after acknowledgement.
+          if (pendingTopics.has(post.identity)) {
+            const issuedAt = signalInventoryRevision;
+            try {
+              const stored = await chrome.storage.local.get(SIGNALS_STORAGE_KEY);
+              if (!destroyed && issuedAt === signalInventoryRevision && pendingTopics.has(post.identity)) {
+                signals = readSignals(stored[SIGNALS_STORAGE_KEY]); flushTopicAssignments();
+              }
+            } catch { if (!destroyed) wheel.showToast("已收藏，話題指派等候資料更新。"); }
+          }
+        }
+      }
+    }
   }
   async function tap(post: InlineCollectPost, version: number) {
     const destination = saved(post.identity);
@@ -458,6 +505,11 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const wheel = createInlineCollectWheel({
     overlayRoot,
     getDestinations: () => state.destinations,
+    getTopics: () => {
+      const sessionId = state.destinations.find(d => d.mode === "topic")?.sessionId ?? null;
+      const items = global?.sessions.find(s => s.id === sessionId)?.items ?? [];
+      return recentTopics(sessionId).map(t => ({ id: t.id, name: t.name, count: signals.filter(s => s.sessionId === sessionId && s.topicId === t.id && items.some(i => i.id === s.itemId)).length }));
+    },
     getLastMode: () => optimisticLastMode ?? state.lastMode,
     getSavedMode: (identity) => optimistic.has(identity) ? optimistic.get(identity)?.mode ?? null : saved(identity)?.mode ?? null,
     getHoveredPost: () => injection?.getHoveredPost() ?? null,
@@ -466,7 +518,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       if (!descriptor) { injection?.scan(); return; }
       const mutationPost = { ...post, descriptor };
       acknowledge(post, mode, options.popDelay);
-      enqueue(post, () => save(mutationPost, mode));
+      enqueue(post, () => save(mutationPost, mode, options));
     },
     onTap: (post) => {
       const descriptor = captureDescriptor(post);
@@ -507,8 +559,9 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     if (area !== "local" || destroyed) return;
     if (INLINE_READINGS_STORAGE_KEY in changes || TOPICS_STORAGE_KEY in changes || SIGNALS_STORAGE_KEY in changes) {
       if (INLINE_READINGS_STORAGE_KEY in changes) readings = normalizeInlineReadingRecords(changes[INLINE_READINGS_STORAGE_KEY].newValue);
-      if (TOPICS_STORAGE_KEY in changes) topics = readTopics(changes[TOPICS_STORAGE_KEY].newValue);
-      if (SIGNALS_STORAGE_KEY in changes) signals = readSignals(changes[SIGNALS_STORAGE_KEY].newValue);
+      if (TOPICS_STORAGE_KEY in changes) { topicInventoryRevision++; topics = readTopics(changes[TOPICS_STORAGE_KEY].newValue); }
+      if (SIGNALS_STORAGE_KEY in changes) { signalInventoryRevision++; signals = readSignals(changes[SIGNALS_STORAGE_KEY].newValue); }
+      flushTopicAssignments(); wheel.refreshTopics();
       trackOffscreenReadings();
       injection?.entries().forEach(renderCard);
     }
@@ -521,6 +574,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     // another tab's navigation state or dispatch its snapshot into this popup.
     state = projectInlineCollectState(global ?? createEmptyGlobalState());
     latestGlobal(global ?? null);
+    flushTopicAssignments(); wheel.refreshTopics();
     trackOffscreenReadings();
     injection?.entries().forEach(paint);
   };
@@ -530,11 +584,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const next = stored?.[GLOBAL_STATE_STORAGE_KEY] as ExtensionGlobalState | undefined;
     if (next && Array.isArray(next.sessions)) { global = next; injection?.entries().forEach(paint); }
   }).catch(() => undefined);
+  const initialSignalRevision = signalInventoryRevision, initialTopicRevision = topicInventoryRevision;
   void Promise.resolve(chrome.storage.local?.get?.([INLINE_READINGS_STORAGE_KEY, TOPICS_STORAGE_KEY, SIGNALS_STORAGE_KEY])).then((stored) => {
     if (destroyed || !stored) return;
     readings = normalizeInlineReadingRecords(stored[INLINE_READINGS_STORAGE_KEY]);
-    topics = readTopics(stored[TOPICS_STORAGE_KEY]);
-    signals = readSignals(stored[SIGNALS_STORAGE_KEY]);
+    if (initialTopicRevision === topicInventoryRevision) topics = readTopics(stored[TOPICS_STORAGE_KEY]);
+    if (initialSignalRevision === signalInventoryRevision) signals = readSignals(stored[SIGNALS_STORAGE_KEY]);
+    flushTopicAssignments(); wheel.refreshTopics();
     injection?.entries().forEach(renderCard);
   }).catch(() => undefined);
   // The side panel follows the feed: report the post crossing the middle of the viewport whenever it changes.

@@ -1,7 +1,7 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { FolderMode } from "../state/types";
 import { modeThemes, tokens } from "../ui/tokens";
-import { buildWheelGeometry, idxFrom, releaseGesture, sectorPath, selectGesture as selectionCoordinates, tMid, type GestureMode } from "./inline-collect-wheel-math";
+import { buildTopicRing, hitTopicRing, clampWheelCenter, topicWheelText, type TopicRingSegment, buildWheelGeometry, idxFrom, releaseGesture, sectorPath, selectGesture as selectionCoordinates, tMid, type GestureMode } from "./inline-collect-wheel-math";
 export { DLENS_INLINE_COLLECT_CSS } from "./inline-collect-wheel-styles";
 const g = tokens.collectWheel, m = tokens.motion.collectWheel;
 const svg = (body: string) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
@@ -23,7 +23,9 @@ export interface InlineCollectDestination {
   sessionId: string | null;
   sessionName: string;
 }
+export interface InlineWheelTopic { id: string; name: string; count: number }
 export interface InlineCollectWheelOptions {
+  getTopics?: () => readonly InlineWheelTopic[];
   overlayRoot: HTMLElement;
   getDestinations: () => readonly InlineCollectDestination[];
   getLastMode: () => FolderMode;
@@ -31,6 +33,9 @@ export interface InlineCollectWheelOptions {
   getHoveredPost: () => InlineCollectPost | null;
   onSave: (post: InlineCollectPost, mode: FolderMode, options: {
     popDelay: number;
+    topicId?: string;
+    topicSessionId?: string | null;
+    pickTopic?: boolean;
   }) => void;
   onTap: (post: InlineCollectPost) => void;
 }
@@ -93,7 +98,7 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
   wheel.dataset.dlensWheelRoot = "true";
   wheel.setAttribute("role", "menu");
   wheel.setAttribute("aria-label", "收藏去向");
-  wheel.innerHTML = '<div class="wheel-glass"></div><svg class="wheel-svg" aria-hidden="true"></svg><div class="wheel-labels"></div><div class="wheel-center"><div class="ptr"></div><div class="c-title"></div><div class="c-sub"></div></div>';
+  wheel.innerHTML = '<div class="wheel-glass"></div><svg class="wheel-svg" aria-hidden="true"></svg><div class="wheel-labels"></div><div class="topic-arc"></div><div class="wheel-center"><div class="ptr"></div><div class="c-title"></div><div class="c-sub"></div></div>';
   toast.className = "dlens-collect-toast";
   toast.dataset.dlensControl = "true";
   toast.setAttribute("role", "status");
@@ -121,9 +126,17 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     sticky: boolean;
     sel: number;
     locked?: boolean;
+    arcOpen?: boolean;
+    arcRequested?: boolean;
+    topics?: readonly InlineWheelTopic[];
+    segments?: TopicRingSegment[];
+    topicIndex?: number | null;
+    topicSessionId?: string | null;
+    topicSnapshot?: string;
   };
   let G: Gesture | null = null, W: OpenWheel | null = null;
-  let closeTimer = 0, settledTimer = 0, toastTimer = 0;
+  let closeTimer = 0, settledTimer = 0, toastTimer = 0, arcTimer = 0;
+  let arcHintShown = false;
   let lastMouse = { x: win.innerWidth / 2, y: win.innerHeight / 2 };
   let generation = 0;
   const timers = new Set<number>(), bindings = new Set<() => void>();
@@ -182,11 +195,15 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     if (idx >= 0) {
       const t = COLLECT_WHEEL_TARGETS[idx];
       title.textContent = t.name;
-      sub.textContent = t.desc;
+      sub.textContent = idx === 0 ? topicWheelText(W.topicIndex != null ? { name: W.topics?.[W.topicIndex]?.name ?? "其他話題", more: W.segments?.[W.topicIndex]?.more ?? false } : null).sub : t.desc;
+      // Keep the complete destination within two lines, including unusually long topic names.
+      const available = 2 * (geom.r0 - g.centerInset) - 2 * g.centerPadding;
+      sub.style.fontSize = `${Math.min(g.centerSubFont, 2 * available / Math.max(1, [...sub.textContent].length))}px`;
       wheel.style.setProperty("--c-acc", modeThemes[t.mode].accent);
       return;
     }
     wheel.style.setProperty("--c-acc", "var(--ink)");
+    sub.style.fontSize = "";
     const metrics = W.post.descriptor.engagement;
     title.textContent = W.sticky ? "點一格" : metrics.comments === null ? "選擇工作區" : `${metrics.comments} 則留言`;
     sub.textContent = W.sticky ? "Esc 取消" : metrics.likes === null ? "放開收藏" : `${metrics.likes} 讚`;
@@ -201,19 +218,91 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     wheel.style.setProperty("--pc", idx >= 0 ? modeThemes[COLLECT_WHEEL_TARGETS[idx].mode].accent : g.pointerColor);
     centerText(idx);
   }
-  function updateSel(dx: number, dy: number) {
-    if (!W || W.locked) {
+  function positionWheel() {
+    if (!W) return;
+    wheel.style.left = `${W.cx - geom.S / 2}px`;
+    wheel.style.top = `${W.cy - geom.S / 2}px`;
+  }
+  function showTopicArc() {
+    if (!W || W.locked || W.arcOpen || W.sel !== 0) return;
+    const topics = options.getTopics?.() ?? [];
+    W.arcRequested = true;
+    W.topicSessionId = options.getDestinations().find(d => d.mode === "topic")?.sessionId;
+    W.topicSnapshot = JSON.stringify([W.topicSessionId, topics]);
+    const arc = $(".topic-arc");
+    if (!topics.length) {
+      if (!arcHintShown) {
+        arcHintShown = true;
+        const hint = doc.createElement("div"); hint.className = "arc-hint";
+        hint.style.top = `${Math.max(g.topicRing.hintTop, g.edgePadding - (W.cy - geom.c))}px`;
+        hint.textContent = "喺側欄建話題後，呢度會出現"; arc.append(hint);
+      }
       return;
     }
-    const d = Math.hypot(dx, dy);
+    W.arcOpen = true;
+    W.topics = topics.length > 5 ? topics.slice(0, 4) : topics;
+    W.segments = buildTopicRing(geom.R, topics.length, topics.length > 5);
+    const center = clampWheelCenter({ x: W.cx, y: W.cy }, { x: win.innerWidth, y: win.innerHeight }, geom.R, W.segments);
+    W.cx = center.x; W.cy = center.y; positionWheel();
+    const ringSvg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    ringSvg.setAttribute("viewBox", `0 0 ${geom.S} ${geom.S}`);
+    ringSvg.setAttribute("width", String(geom.S)); ringSvg.setAttribute("height", String(geom.S));
+    arc.replaceChildren(ringSvg);
+    for (const segment of W.segments) {
+      const topic = W.topics[segment.index];
+      const group = doc.createElementNS(ringSvg.namespaceURI, "g");
+      group.setAttribute("class", `arc-seg${segment.more ? " more" : ""}`);
+      group.setAttribute("data-arc-index", String(segment.index));
+      (group as SVGElement).style.setProperty("--i", String(segment.index));
+      const path = doc.createElementNS(ringSvg.namespaceURI, "path");
+      path.setAttribute("d", sectorPath(geom.c, geom.R + g.topicRing.innerOffset, geom.R + g.topicRing.outerOffset, segment.a0, segment.a1, g.topicRing.gap));
+      group.append(path); ringSvg.append(group);
+      const label = doc.createElement("div"); label.className = "arc-lbl";
+      label.dataset.arcIndex = String(segment.index); label.setAttribute("role", "menuitem");
+      label.style.cssText = `--i:${segment.index};--w:${segment.width}px;--rot:${segment.rotation}deg;left:${geom.c + segment.x}px;top:${geom.c + segment.y}px`;
+      const name = doc.createElement("span"), count = doc.createElement("small");
+      name.textContent = segment.more ? "其他話題" : topic.name;
+      label.title = name.textContent;
+      count.textContent = segment.more ? `仲有 ${topics.length - 4} 個` : `${topic.count} 篇`;
+      label.append(name, count); arc.append(label);
+    }
+    arc.classList.add("arc-on");
+  }
+  function updateSel(dx: number, dy: number) {
+    if (!W || W.locked) return;
+    const d = Math.hypot(dx, dy), raw = idxFrom(dx, dy);
     wheel.style.setProperty("--ang", `${Math.atan2(dy, dx) * 180 / Math.PI + 90}deg`);
     wheel.style.setProperty("--po", clamp((d - g.jitterPx) / geom.dead, 0, 1).toFixed(2));
-    setSel(W.sticky && d > geom.R + g.stickyMargin ? -1 : idxFrom(dx, dy));
+    if (raw === 0 && !W.arcOpen) {
+      setSel(0);
+      if (d > geom.R) { clear(arcTimer); arcTimer = 0; showTopicArc(); }
+      else if (!arcTimer) arcTimer = later(() => { arcTimer = 0; showTopicArc(); }, m.topicRestMs);
+    } else if (raw !== 0) { clear(arcTimer); arcTimer = 0; }
+    // Flick retains the original sector aiming contract; ring targets always use the drawn centre.
+    const rx = G ? G.lx - W.cx : lastMouse.x - W.cx, ry = G ? G.ly - W.cy : lastMouse.y - W.cy;
+    const hit = W.arcOpen ? hitTopicRing(geom.R, W.segments ?? [], rx, ry) : null;
+    W.topicIndex = hit;
+    const idx = hit !== null ? 0 : W.sticky && d > geom.R + g.stickyMargin ? -1 : raw;
+    setSel(idx); centerText(idx);
+    wheel.querySelectorAll<HTMLElement>("[data-arc-index]").forEach(el => el.classList.toggle("picked", hit !== null && Number(el.dataset.arcIndex) === hit));
+  }
+  function refreshTopics() {
+    if (!W || W.locked || !W.arcRequested) return;
+    const sessionId = options.getDestinations().find(d => d.mode === "topic")?.sessionId;
+    if (W.topicSnapshot === JSON.stringify([sessionId, options.getTopics?.() ?? []])) return;
+    W.arcOpen = false; W.topicIndex = null;
+    $(".topic-arc").replaceChildren();
+    const sel = W.sel; W.sel = 0; showTopicArc(); W.sel = sel;
+    if (G) selectGesture(false);
+    else updateSel(lastMouse.x - W.cx, lastMouse.y - W.cy);
   }
   function showWheel(post: InlineCollectPost, x: number, y: number, sticky: boolean) {
     clear(closeTimer);
     clear(settledTimer);
-    const { R, S } = geom, cx = clamp(x, R + g.edgePadding, win.innerWidth - R - g.edgePadding), cy = clamp(y, R + g.edgePadding, win.innerHeight - R - g.edgePadding);
+    const { S } = geom;
+    const { x: cx, y: cy } = clampWheelCenter({ x, y }, { x: win.innerWidth, y: win.innerHeight }, geom.R, []);
+    clear(arcTimer); arcTimer = 0;
+    $(".topic-arc").replaceChildren(); $(".topic-arc").classList.remove("arc-on");
     W = { post, cx, cy, sticky, sel: -2 };
     sectors.forEach(el => el.classList.remove("sel", "picked"));
     labels.forEach(el => el.classList.remove("sel", "picked"));
@@ -242,6 +331,7 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
       return;
     }
     const w = W;
+    clear(arcTimer); arcTimer = 0;
     W = null;
     clear(settledTimer);
     if (kind === "commit" && button && !reduced()) {
@@ -310,6 +400,7 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
       return;
     }
     const gesture = G;
+    if (W && !W.locked) { G.lx = x; G.ly = y; selectGesture(false); }
     G = null;
     clear(gesture.timer);
     gesture.post.button.classList.remove("charging");
@@ -354,7 +445,8 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     sectors[idx].classList.add("picked");
     labels[idx].classList.add("picked");
     const pulse = reduced() ? 0 : m.pulseMs, land = reduced() ? 0 : m.pulseMs + m.landAfterPulseMs;
-    options.onSave(post, t.mode, { popDelay: land });
+    const segment = idx === 0 && W.topicIndex != null ? W.segments?.[W.topicIndex] : null;
+    options.onSave(post, t.mode, { popDelay: land, ...(segment ? segment.more ? { pickTopic: true } : { topicId: W.topics?.[segment.index]?.id, topicSessionId: W.topicSessionId } : {}) });
     later(() => closeWheel("commit", post.button), pulse);
   }
   function hideToast() {
@@ -428,7 +520,9 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
       return;
     }
     const dx = e.clientX - W.cx, dy = e.clientY - W.cy, d = Math.hypot(dx, dy);
-    if (d <= geom.R + g.stickyMargin) {
+    lastMouse = { x: e.clientX, y: e.clientY };
+    const hit = W.arcOpen ? hitTopicRing(geom.R, W.segments ?? [], dx, dy) : null;
+    if (hit !== null || d <= geom.R + g.stickyMargin) {
       e.preventDefault();
       e.stopPropagation();
       if (W.locked) {
@@ -438,7 +532,8 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
         closeWheel("cancel");
         return;
       }
-      const idx = idxFrom(dx, dy);
+      updateSel(dx, dy);
+      const idx = W.sel;
       if (idx >= 0) {
         commit(idx);
       }
@@ -489,6 +584,7 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
         G.post.button.classList.remove("charging");
         G = null;
       }
+      W.topicIndex = null;
       commit(Number(e.key) - 1);
       return;
     }
@@ -532,5 +628,5 @@ export function createInlineCollectWheel(options: InlineCollectWheelOptions) {
     const r = post.button.getBoundingClientRect();
     showWheel(post, r.left + r.width / 2, r.top + r.height / 2, true);
   }
-  return { bindButton, reset, destroy, showToast, hideToast, openSticky };
+  return { bindButton, reset, destroy, showToast, hideToast, openSticky, refreshTopics };
 }

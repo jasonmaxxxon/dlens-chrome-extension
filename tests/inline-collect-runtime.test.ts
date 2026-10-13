@@ -523,3 +523,71 @@ test("unfinished saved posts keep polling after Threads removes their card DOM",
     assert.equal(s.calls.filter(c => c.message.type === "inline-reading/ensure").length, 1, "the AI reading starts even without a feed card");
   } finally { s.cleanup(); }
 });
+
+function ringTopics(n = 7) {
+  return Array.from({ length: n }, (_, i) => ({ id: `ring-${i}`, sessionId: "topic", name: `話題${i}`, status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: "2026-10-01T00:00:00Z", updatedAt: `2026-10-${String(13 - i).padStart(2, "0")}T00:00:00Z` }));
+}
+function ringPointer(s: ReturnType<typeof fixture>, type: string, x: number, y: number, target: EventTarget = s.dom.window) {
+  const e = new s.dom.window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 });
+  Object.defineProperty(e, "pointerId", { value: 1 }); target.dispatchEvent(e);
+}
+async function releaseRing(s: ReturnType<typeof fixture>, more: boolean) {
+  ringPointer(s, "pointerdown", 400, 400, s.button);
+  ringPointer(s, "pointermove", 400, 240);
+  const angle = (more ? -18 : -162) * Math.PI / 180;
+  ringPointer(s, "pointermove", 400 + 160 * Math.cos(angle), 400 + 160 * Math.sin(angle));
+  ringPointer(s, "pointerup", 400 + 160 * Math.cos(angle), 400 + 160 * Math.sin(angle));
+  await tick();
+}
+test("ring save precedes exactly one triage assign when signal arrives later", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.emitKey("dlens:v1:topics", ringTopics());
+    await releaseRing(s, false);
+    assert.equal(s.calls[0].message.type, "session/inline-collect");
+    assert.equal(s.calls.some(c => c.message.type === "signal/triage"), false);
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("topic", "running"), tab: createEmptyTabState() } });
+    await tick();
+    const sig = [{ id: "sig-a", sessionId: "topic", itemId: "item-a", source: "threads", inboxStatus: "unprocessed", capturedAt: "" }];
+    s.emitKey("dlens:v1:signals", sig); await tick();
+    const assignments = s.calls.filter(c => c.message.type === "signal/triage");
+    assert.deepEqual(assignments[0]?.message, { type: "signal/triage", signalId: "sig-a", action: { kind: "assign", topicId: "ring-0" } });
+    s.emitKey("dlens:v1:signals", sig); await tick();
+    assert.equal(s.calls.filter(c => c.message.type === "signal/triage").length, 1);
+    assignments[0].resolve({ ok: true }); await tick();
+  } finally { s.cleanup(); }
+});
+for (const later of [false, true]) test(`other topics picker ${later ? "closes on later" : "assigns chip"}`, async () => {
+  const s = fixture();
+  try {
+    await tick(); s.emitKey("dlens:v1:topics", ringTopics());
+    await releaseRing(s, true);
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("topic", "running"), tab: createEmptyTabState() } }); await tick();
+    s.emitKey("dlens:v1:signals", [{ id: "sig-a", sessionId: "topic", itemId: "item-a", source: "threads", inboxStatus: "unprocessed", capturedAt: "" }]);
+    const doc = s.dom.window.document;
+    const chips = [...doc.querySelectorAll<HTMLButtonElement>('.line-pick [data-dlens-act="topic-pick"]')];
+    assert.equal(chips.length, 7);
+    assert.deepEqual(chips.map(c => c.textContent), ringTopics().map(t => t.name));
+    assert.equal(doc.querySelectorAll('.dlens-card [data-dlens-act="topic-pick"]').length, 0);
+    if (later) doc.querySelector<HTMLButtonElement>('[data-dlens-act="topic-later"]')!.click();
+    else chips[6].click();
+    await tick();
+    assert.equal(doc.querySelector(".line-pick"), null);
+    const assign = s.calls.find(c => c.message.type === "signal/triage");
+    if (later) assert.equal(assign, undefined);
+    else { assert.deepEqual(assign?.message, { type: "signal/triage", signalId: "sig-a", action: { kind: "assign", topicId: "ring-6" } }); assign!.resolve({ ok: true }); await tick(); }
+  } finally { s.cleanup(); }
+});
+
+for (const failure of ["save", "workspace"] as const) test(`topic ring avoids assignment on ${failure} failure`, async () => {
+  const s = fixture();
+  try {
+    await tick(); s.emitKey("dlens:v1:topics", [...ringTopics(), { ...ringTopics(1)[0], id: "foreign", sessionId: "other", name: "錯誤工作區", updatedAt: "2026-12-01T00:00:00Z" }]);
+    await releaseRing(s, false);
+    assert.doesNotMatch(s.dom.window.document.querySelector(".topic-arc")!.textContent!, /錯誤工作區/);
+    s.calls[0].resolve(failure === "save" ? { ok: false, error: "write failed" } : { ok: true, inlineCollect: { ...savedState, saved: [{ ...savedState.saved[0], sessionId: "other" }] } });
+    await tick();
+    s.emitKey("dlens:v1:signals", [{ id: "sig-a", sessionId: "other", itemId: "item-a", source: "threads", inboxStatus: "unprocessed", capturedAt: "" }]); await tick();
+    assert.equal(s.calls.some(c => c.message.type === "signal/triage"), false);
+  } finally { s.cleanup(); }
+});

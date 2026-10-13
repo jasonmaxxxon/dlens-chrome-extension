@@ -68,3 +68,50 @@ export function releaseGesture(g: GestureCoordinates, selected: number, source: 
   const nearDrawn = clamped && g.mode !== "flick" && Math.hypot(g.pointer.x - g.center.x, g.pointer.y - g.center.y) < dead;
   return source === "pointer" && (nearPress || nearDrawn) ? "sticky" : "cancel";
 }
+
+export interface TopicRingSegment {
+  index: number; more: boolean; a0: number; a1: number;
+  x: number; y: number; rotation: number; width: number; labelHeight: number;
+}
+/** Annular segments and tangent labels, relative to the drawn wheel centre. */
+export function buildTopicRing(R: number, topicCount: number, more: boolean): TopicRingSegment[] {
+  const n = Math.min(5, Math.max(0, topicCount));
+  const t = tokens.collectWheel.topicRing;
+  const span = n <= 3 ? t.smallSpan : t.largeSpan, start = -90 - span * n / 2;
+  const rl = R + (t.innerOffset + t.outerOffset) / 2;
+  return Array.from({ length: n }, (_, index) => {
+    const a0 = start + index * span, a1 = a0 + span, mid = (a0 + a1) / 2;
+    const a = mid * Math.PI / 180;
+    return { index, more: more && index === n - 1, a0, a1, x: rl * Math.cos(a), y: rl * Math.sin(a), rotation: mid + 90,
+      width: Math.round(2 * Math.PI * rl * span / 360) - t.labelInset, labelHeight: t.labelHeight };
+  });
+}
+export function hitTopicRing(R: number, segments: readonly TopicRingSegment[], dx: number, dy: number): number | null {
+  const t = tokens.collectWheel.topicRing, r = Math.hypot(dx, dy);
+  if (r < R + t.hitInnerOffset || r > R + t.hitOuterOffset) return null;
+  const a = Math.atan2(dy, dx) * 180 / Math.PI;
+  // The physical gap is angular at the inner edge, so it stays empty across the band.
+  const pad = t.gap / 2 / (R + t.innerOffset) * 180 / Math.PI;
+  return segments.find(s => a >= s.a0 + pad && a < s.a1 - pad)?.index ?? null;
+}
+export function topicWheelText(pick: { name: string; more: boolean } | null) {
+  return { title: "觀眾反應", sub: pick ? pick.more ? "放手揀話題" : `放入 ${pick.name}` : "入未分流" };
+}
+export function clampWheelCenter(point: Point, viewport: Point, R: number, segments: readonly TopicRingSegment[]): Point {
+  const t = tokens.collectWheel.topicRing, pad = tokens.collectWheel.edgePadding;
+  let left = R, right = R, top = R, bottom = R;
+  for (const s of segments) {
+    for (const angle of [s.a0, s.a1, Math.max(s.a0, Math.min(s.a1, -90))]) {
+      const a = angle * Math.PI / 180, r = R + t.outerOffset + t.stroke / 2;
+      left = Math.max(left, -r * Math.cos(a)); right = Math.max(right, r * Math.cos(a));
+      top = Math.max(top, -r * Math.sin(a)); bottom = Math.max(bottom, r * Math.sin(a));
+    }
+    const a = s.rotation * Math.PI / 180;
+    const hx = Math.abs(s.width / 2 * Math.cos(a)) + Math.abs(s.labelHeight / 2 * Math.sin(a));
+    const hy = Math.abs(s.width / 2 * Math.sin(a)) + Math.abs(s.labelHeight / 2 * Math.cos(a));
+    left = Math.max(left, hx - s.x); right = Math.max(right, hx + s.x);
+    top = Math.max(top, hy - s.y); bottom = Math.max(bottom, hy + s.y);
+  }
+  const fit = (v: number, lo: number, hi: number, size: number) => lo <= hi ? Math.max(lo, Math.min(hi, v)) : size / 2;
+  return { x: fit(point.x, left + pad, viewport.x - right - pad, viewport.x), y: fit(point.y, top + pad, viewport.y - bottom - pad, viewport.y) };
+}

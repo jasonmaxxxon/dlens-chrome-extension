@@ -97,6 +97,11 @@ function topicLineHtml(line: CardTopicLine | null | undefined, naming: boolean):
   return `<div class="tl"><span class="lbl">未放入話題 ·</span>${picks}${add}</div>`;
 }
 
+/** Full list only for 其他話題; replaces the expanded card's topic slot while open. */
+export function renderInlineTopicPicker(topics: readonly { id: string; name: string }[], signalId: string | null): string {
+  return `<div class="line-pick" style="--acc:${modeThemes.topic.accent}"><span>放入話題</span>${topics.map(t => `<button class="tp-chip" data-dlens-act="topic-pick" data-topic-id="${esc(t.id)}"${signalId ? ` data-signal-id="${esc(signalId)}"` : " disabled"}>${esc(t.name)}</button>`).join("")}<button class="tp-chip later" data-dlens-act="topic-later">遲啲先</button></div>`;
+}
+
 export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, evidence: InlineCardEvidence | null = null, motion: { enter?: boolean; fresh?: boolean; evidenceOpen?: boolean; topicLine?: CardTopicLine | null; naming?: boolean } = {}): string {
   const evidenceOpen = !!evidence || !!motion.evidenceOpen;
   const isRead = vm.mode === "topic" || vm.mode === "product";
@@ -151,13 +156,19 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-save-line .save-status {display:flex;align-items:center;gap:${c.lineGap}px;min-width:0;max-width:${c.lineStatusMax};white-space:nowrap}
 .dlens-save-line .save-text {overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dlens-save-line button {border:0;background:none;color:var(--acc);font:inherit;cursor:pointer;flex:none;padding:${c.lineButtonPadding}}
+.line-pick {display:flex;flex-wrap:wrap;gap:${tokens.discourse.gap}px;align-items:center;margin-top:${tokens.discourse.gap}px;padding:${tokens.discourse.pickPad};border-radius:${tokens.discourse.radius}px;background:${c.wash};font:${tokens.discourse.smallFont}px/${tokens.collectWheel.centerSubLineHeight} ${tokens.collectWheel.font};color:${tokens.discourse.soft}}
+.line-pick .tp-chip {border:0;border-radius:${tokens.collectWheel.pillRadius}px;padding:${tokens.discourse.chipPad};background:${tokens.discourse.chipBg};color:${tokens.color.subInk};font:inherit;cursor:pointer;overflow-wrap:anywhere;max-width:100%}
+.line-pick .tp-chip:hover {background:${c.hover}}
+.line-pick .tp-chip:disabled {cursor:wait}
+.line-pick .tp-chip.later {background:none;color:${tokens.discourse.faint}}
+.line-pick .tp-chip:focus-visible {outline:${tokens.collectWheel.focusWidth}px solid var(--acc);outline-offset:${tokens.collectWheel.focusOffset}px}
 .dlens-save-line button:focus-visible {outline:2px solid var(--acc);outline-offset:2px}
 .dlens-save-line .crawl-arc {width:${c.arcSize}px;height:${c.arcSize}px;flex:none;border:${c.arcBorder}px solid ${c.hair};border-top-color:var(--acc);border-radius:50%;box-sizing:border-box}
 @media (prefers-reduced-motion: no-preference) {
 .dlens-save-line .crawl-arc {animation:dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite}
 .dlens-card-slot.return-glow .dlens-save-line,.dlens-save-line.return-glow {animation:dlens-card-return ${cm.returnMs}ms ease-out}
 }
-.dlens-card {position:relative;margin:${c.margin};padding:${c.padding};border-radius:${c.radius}px;background:${c.wash};border:1px solid ${c.hair};font:400 ${c.font}px/${c.lineHeight} ${tokens.collectWheel.font};color:${tokens.color.ink};container-type:inline-size;text-align:left}
+.dlens-card {position:relative;margin:${c.margin};padding:${c.padding};border-radius:${c.radius}px;background:${c.wash};border:1px solid ${c.hair};font:400 ${c.font}px/${tokens.collectWheel.centerSubLineHeight} ${tokens.collectWheel.font};color:${tokens.color.ink};container-type:inline-size;text-align:left}
 .dlens-card * {box-sizing:border-box}
 .dlens-card .head {display:flex;align-items:center;gap:7px;font-size:${c.headFont}px;line-height:1.3;color:${c.soft};min-height:18px}
 .dlens-card .dt {width:${c.dot}px;height:${c.dot}px;border-radius:50%;background:var(--acc);flex:none}

@@ -24,6 +24,8 @@ export const DLENS_KEYFRAMES_CSS = `
 @keyframes dlens-collection-image { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dlens-collection-mist { to { transform: translate(${tokens.motion.collection.mistX}px, ${tokens.motion.collection.mistY}px); } }
 
+@keyframes dlens-collect-topic-fan { from { opacity: 0; transform: scale(${tokens.motion.collectWheel.topicScale}); } to { opacity: 1; transform: scale(1); } }
+@keyframes dlens-collect-topic-label { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dlens-collect-charge { from { --dlens-collect-charge: 0%; } to { --dlens-collect-charge: 100%; } }
 @keyframes dlens-collect-spin { to { transform: rotate(1turn); } }
 @keyframes dlens-collect-burst {

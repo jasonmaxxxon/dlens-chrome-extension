@@ -72,6 +72,25 @@ export const DLENS_INLINE_COLLECT_CSS = `
 .dlens-collect-toast b {color:${g.toastAccent};font-weight:${g.chipWeight}}
 .dlens-collect-toast button {border:0;background:none;color:${g.toastAction};font:${g.chipWeight} ${g.labelFont}px var(--ui);padding:${g.chipPadding};border-radius:${g.pillRadius}px;cursor:pointer;white-space:nowrap;flex:none}
 .dlens-collect-toast button:hover {background:${g.toastHover}}
+
+.dlens-collect-wheel .topic-arc {position:absolute;inset:0;pointer-events:none}
+.dlens-collect-wheel .topic-arc svg {position:absolute;inset:0;overflow:visible}
+.dlens-collect-wheel .arc-seg {transform-box:view-box;transform-origin:center}
+.dlens-collect-wheel .arc-seg path {fill:color-mix(in srgb,${modeThemes.topic.accent} ${g.topicRing.tint}%,${g.tintBase});stroke:color-mix(in srgb,${modeThemes.topic.accent} ${g.topicRing.tint}%,${g.tintBase});stroke-width:${g.topicRing.stroke};stroke-linejoin:round}
+.dlens-collect-wheel .arc-seg.picked path {fill:${modeThemes.topic.accent};stroke:${modeThemes.topic.accent}}
+.dlens-collect-wheel .arc-seg.more path {fill:${g.tintBase};stroke:${g.tintBase}}
+.dlens-collect-wheel .arc-seg.more.picked path {fill:${tokens.discourse.soft};stroke:${tokens.discourse.soft}}
+.dlens-collect-wheel .arc-lbl {position:absolute;width:var(--w);transform:translate(-50%,-50%) rotate(var(--rot));text-align:center;color:${modeThemes.topic.accent};font:${g.labelWeight} ${g.topicRing.labelFont}px/${g.centerSubLineHeight} var(--ui);pointer-events:none}
+.dlens-collect-wheel .arc-lbl span {display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlens-collect-wheel .arc-lbl small {display:block;font-size:${g.topicRing.countFont}px;font-weight:${g.toastWeight};color:${g.softInk};font-variant-numeric:tabular-nums}
+.dlens-collect-wheel .arc-lbl.picked,.dlens-collect-wheel .arc-lbl.picked small {color:${tokens.color.inverse}}
+.dlens-collect-wheel .arc-hint {position:absolute;left:50%;top:${g.topicRing.hintTop}px;transform:translateX(-50%);max-width:calc(100vw - ${g.toastMargin}px);width:${g.topicRing.hintWidth}px;padding:${g.topicRing.hintPadding};border-radius:${g.topicRing.hintRadius}px;background:${tokens.collectCard.wash};color:${tokens.discourse.soft};font-size:${g.topicRing.labelFont}px;text-align:center}
+.dlens-collect-wheel.commit .topic-arc,.dlens-collect-wheel.closing .topic-arc {visibility:hidden}
+.dlens-collect-wheel .c-sub {max-width:100%;overflow-wrap:anywhere;white-space:normal;text-wrap:balance}
+@media(prefers-reduced-motion:no-preference) {
+ .dlens-collect-wheel .arc-on .arc-seg {animation:dlens-collect-topic-fan ${m.sectorMs}ms var(--ease) both;animation-delay:calc(var(--i) * ${m.topicStaggerMs}ms)}
+ .dlens-collect-wheel .arc-on .arc-lbl {animation:dlens-collect-topic-label ${m.sectorOpacityMs}ms linear both;animation-delay:calc(var(--i) * ${m.topicStaggerMs}ms + ${m.topicLabelDelayMs}ms)}
+}
 @media(prefers-reduced-motion:reduce) {
   .dlens-collect-wheel[data-dlens-control],.dlens-collect-wheel[data-dlens-control].open,.dlens-collect-wheel[data-dlens-control].closing,.dlens-collect-wheel[data-dlens-control].commit {transform:none;transition:opacity ${m.reducedOpacityMs}ms linear !important}
   .dlens-collect-wheel[data-dlens-control].commit {opacity:0}
