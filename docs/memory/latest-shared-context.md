@@ -10,7 +10,7 @@
 
 ## Previous handoff — 2026-10-07 inline collect card
 
-- `49fd113` wheel, `875cb18` card, `6f2c5cd` crawl on save / peek / ETA / side panel, `692e536` AI 觀眾反應; Supabase free-tier pause restored that day. Older handoffs (09-29, 09-21): `docs/archive/latest-shared-context.md.bak-20261014`.
+- `49fd113` wheel, `875cb18` card, `6f2c5cd` crawl on save / peek / ETA / side panel, `692e536` AI 觀眾反應; Supabase free-tier pause restored that day. Older handoffs (09-29, 09-21): `git show 1d3d4cf:docs/memory/latest-shared-context.md`.
 
 ---
 name: latest_shared_context
@@ -60,7 +60,7 @@ This note is the high-signal shared memory for Codex and Claude when working on 
 - 收藏: every saved post, 剛讀完, filter chips, `畫面上`, and one reader per post (觀眾反應 / 個人應用 lenses, 深入解讀 on demand).
 - 工作區: 觀眾反應 → 話題 list → 話題 page (research question, 話題解讀 on demand, 講法, 貼文); 個人應用 and 收藏整理 → their 收藏 chip; 活動追蹤 → PR Evidence (unchanged).
 - AI runs with the user's own key: the quick 觀眾反應 reading per capture (flash-lite tier); 深入解讀 and 話題解讀 only when asked, on the provider's stronger model, every point ref-grounded.
-- History of the removed Compare / Library / Atlas / Product Action surfaces (0.3.x): `docs/archive/latest-shared-context.md.bak-20261014`.
+- History of the removed Compare / Library / Atlas / Product Action surfaces (0.3.x): `git show 1d3d4cf:docs/memory/latest-shared-context.md`.
 
 ## Layout Preference State As Of 2026-05-14
 
