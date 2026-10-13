@@ -1,5 +1,6 @@
 import { modeThemes, tokens } from "../ui/tokens";
 import type { FolderMode } from "../state/types";
+import type { CardTopicLine } from "../viewmodel/topic-discourse";
 import type { InlineCardAnswer, InlineCardEntryKey, InlineCardEvidence, InlineCardPeek, InlineCardQuote, InlineCardViewModel, InlineEvidenceGroup, InlineEvidenceRow } from "../viewmodel/inline-card";
 
 const c = tokens.collectCard;
@@ -82,7 +83,21 @@ export function renderInlineEvidenceWindow(e: InlineCardEvidence, mode: FolderMo
  * Card markup; actions are data attributes the runtime handles. `evidence` is passed only while 展開證據 is open.
  * `enter` plays once when the card first appears; `fresh` once when its results first arrive.
  */
-export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, evidence: InlineCardEvidence | null = null, motion: { enter?: boolean; fresh?: boolean; evidenceOpen?: boolean } = {}): string {
+/** 觀眾反應 cards: pick a 話題 for an unsorted post (side panel A), or say where it sits. */
+function topicLineHtml(line: CardTopicLine | null | undefined, naming: boolean): string {
+  if (!line) return "";
+  if (line.kind === "assigned") {
+    const frame = line.frameName ? `屬〈<b>${esc(line.frameName)}</b>〉講法 · ` : "";
+    return `<div class="tl">${frame}<span>〈${esc(line.topicName)}〉內 ${line.count} 篇</span><button class="ln side" data-dlens-act="topic-side">側欄 ↗</button></div>`;
+  }
+  const picks = line.picks.map((p) => `<button class="tp" data-dlens-act="topic-pick" data-signal-id="${esc(line.signalId)}" data-topic-id="${esc(p.id)}">${esc(p.name)}</button>`).join("");
+  const add = naming
+    ? `<input class="tp-in" data-dlens-topic-name data-signal-id="${esc(line.signalId)}" placeholder="話題名稱，Enter 確認" aria-label="新話題名稱">`
+    : `<button class="tp ghost" data-dlens-act="topic-new">＋ 新話題</button>`;
+  return `<div class="tl"><span class="lbl">未放入話題 ·</span>${picks}${add}</div>`;
+}
+
+export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, evidence: InlineCardEvidence | null = null, motion: { enter?: boolean; fresh?: boolean; evidenceOpen?: boolean; topicLine?: CardTopicLine | null; naming?: boolean } = {}): string {
   const evidenceOpen = !!evidence || !!motion.evidenceOpen;
   const isRead = vm.mode === "topic" || vm.mode === "product";
   let status: string, dot = "";
@@ -100,7 +115,7 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   }
   const tag = vm.ai?.state === "no-key" ? `<button class="tag" data-dlens-act="ai-key" title="${esc(vm.ai.error ?? "")}">未接 AI</button>` : "";
   const head = `<div class="head"><span class="dt ${dot}"></span><span class="nm">${esc(vm.sessionName)}</span><span>· ${status}</span>${tag}<button class="x" data-dlens-act="close" aria-label="收起">×</button></div>`;
-  let body = peekHtml(vm.peek);
+  let body = topicLineHtml(motion.topicLine, !!motion.naming) + peekHtml(vm.peek);
   if (vm.phase === "failed") body += `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
   else if (vm.phase === "saved" && isRead) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
   else if (vm.phase === "done" && vm.few) body = `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
@@ -131,6 +146,14 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .x {margin-left:auto;border:0;background:none;color:${c.soft};cursor:pointer;font-size:15px;line-height:1;padding:2px 5px;border-radius:6px}
 .dlens-card .x:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .note {margin:8px 0 0;font-size:12.5px;color:${c.soft}}
+.dlens-card .tl {display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:${c.headFont}px;color:${c.sub}}
+.dlens-card .tl .lbl {color:${c.soft}}
+.dlens-card .tl b {color:${tokens.color.ink};font-weight:600}
+.dlens-card .tl .side {margin-left:auto;color:var(--acc);font-weight:600}
+.dlens-card .tp {border:0;padding:3px 9px;border-radius:999px;font:inherit;font-size:${c.citeFont}px;cursor:pointer;background:color-mix(in srgb,var(--acc) 10%,transparent);color:var(--acc)}
+.dlens-card .tp:hover {background:color-mix(in srgb,var(--acc) 16%,transparent)}
+.dlens-card .tp.ghost {background:none;box-shadow:inset 0 0 0 1px ${c.hair};color:${c.soft}}
+.dlens-card .tp-in {padding:3px 10px;border-radius:999px;border:1px solid ${c.hair};font:inherit;font-size:${c.citeFont}px;min-width:150px;background:${tokens.color.inverse};color:${tokens.color.ink}}
 .dlens-card .tag {font:inherit;font-size:10.5px;line-height:1.4;padding:0 6px;border-radius:4px;border:1px solid ${c.hair};background:none;color:${c.soft};cursor:pointer}
 .dlens-card .tag:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .row.meth {grid-template-columns:minmax(0,1fr)}

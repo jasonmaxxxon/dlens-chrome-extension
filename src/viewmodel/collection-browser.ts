@@ -1,6 +1,7 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { SessionItem, SessionRecord } from "../state/types";
 import { stripThreadsTranslationChrome } from "../state/source-text";
+import { postedAt } from "./topic-discourse";
 import { parseLibrarySearchTokens } from "./library-search";
 
 export interface CollectionMembership {
@@ -15,6 +16,8 @@ export interface CollectionMembership {
 
 export interface CollectionPost {
   key: string;
+  postedAtMs: number | null;
+  tileCharacter: string;
   descriptor: TargetDescriptor;
   author: string;
   body: string;
@@ -91,11 +94,17 @@ function capturedBody(item: SessionItem): string {
   return text(thread?.assembled_content ?? thread?.assembledContent);
 }
 
+// When the post card has no image, the crawler falls back to every <img> on the
+// page. That sweep always carries avatars (t51.*-19) and Threads' own sticker
+// art (t1.*-9), so a list holding either is the page, not the post's media.
+const PAGE_SWEEP_IMAGE_RE = /\/(t51\.\d+-19|t1\.\d+-9)\//;
+
 function capturedImages(item: SessionItem): string[] {
   const images = item.latestCapture?.result?.canonical_post?.images;
   if (!Array.isArray(images)) return [];
   // The crawler's normalized canonical_post.images contract is string[].
-  return [...new Set(images.map(safeWebUrl).filter((url): url is string => url !== null))];
+  const urls = [...new Set(images.map(safeWebUrl).filter((url): url is string => url !== null))];
+  return urls.some((url) => PAGE_SWEEP_IMAGE_RE.test(url)) ? [] : urls;
 }
 
 /** Read-only source projection across every workspace; never creates stored rows. */
@@ -123,7 +132,7 @@ export function buildCollectionPosts(sessions: SessionRecord[]): CollectionPost[
       || text(bodySource?.item.latestCapture?.result?.canonical_post?.author)
       || sources.map(({ item }) => text(item.descriptor.author_hint)).find(Boolean) || "";
     return {
-      key, descriptor: latest.descriptor, author, body,
+      key, postedAtMs: postedAt(latest), tileCharacter: [...body.trim()][0] || "？", descriptor: latest.descriptor, author, body,
       bodySource: bodySource ? "capture" : body ? "snippet" : "none",
       postUrl: sourceUrl(latest), imageUrls: images ?? (thumbnail ? [thumbnail] : []),
       savedAt: latest.savedAt, capturedAt: bodySource ? captureTime(bodySource) : null,
@@ -143,5 +152,73 @@ export function searchCollectionPosts(posts: CollectionPost[], query: string): C
   return posts.filter((post) => {
     const haystack = `${post.author}\n${post.body}`.toLowerCase();
     return tokens.every((token) => haystack.includes(token));
+  });
+}
+
+
+export type CollectionSort = "saved" | "posted" | "comments";
+export const COLLECTION_SORTS = [
+  { key: "saved", label: "最近收藏" }, { key: "posted", label: "發帖時間" }, { key: "comments", label: "留言最多" }
+] as const;
+
+export function collectionRelativeTime(timeMs: number | null, nowMs: number): string | null {
+  if (timeMs === null || !Number.isFinite(timeMs)) return null;
+  const elapsed = Math.max(0, nowMs - timeMs);
+  return elapsed < 3600000 ? `${Math.floor(elapsed / 60000)}m`
+    : elapsed < 86400000 ? `${Math.floor(elapsed / 3600000)}h` : `${Math.floor(elapsed / 86400000)}d`;
+}
+
+export function collectionSavedTime(value: string): string {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString("zh-HK", { dateStyle: "medium", timeStyle: "short" }) : value;
+}
+
+function collectionDay(timeMs: number | null, nowMs: number): { key: string; label: string } | null {
+  if (timeMs === null || !Number.isFinite(timeMs)) return null;
+  const date = new Date(timeMs), today = new Date(nowMs), yesterday = new Date(nowMs);
+  today.setHours(0, 0, 0, 0);
+  yesterday.setHours(0, 0, 0, 0);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const day = new Date(timeMs); day.setHours(0, 0, 0, 0);
+  return { key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+    label: day.getTime() === today.getTime() ? "今天" : day.getTime() === yesterday.getTime() ? "昨天" : `${date.getMonth() + 1}月${date.getDate()}日` };
+}
+
+export interface CollectionBrowserRow {
+  post: CollectionPost;
+  dayLabel: string | null;
+  postedRelative: string | null;
+  comments: number | null;
+}
+
+export function buildCollectionBrowserModel(posts: CollectionPost[], query: string, sort: CollectionSort, nowMs: number) {
+  const timeOf = (p: CollectionPost) => sort === "posted" ? p.postedAtMs : Number.isFinite(Date.parse(p.savedAt)) ? Date.parse(p.savedAt) : null;
+  const visible = [...searchCollectionPosts(posts, query)].sort((a, b) => {
+    const primary = sort === "comments"
+      ? (b.descriptor.engagement.comments ?? -1) - (a.descriptor.engagement.comments ?? -1)
+      : (timeOf(b) ?? -Infinity) - (timeOf(a) ?? -Infinity);
+    return (Number.isNaN(primary) ? 0 : primary) || timestamp(b.savedAt) - timestamp(a.savedAt) || a.key.localeCompare(b.key);
+  });
+  let previousDay: string | null = null;
+  const rows: CollectionBrowserRow[] = visible.map(post => {
+    const day = sort === "comments" ? null : collectionDay(timeOf(post), nowMs);
+    const dayLabel = day && day.key !== previousDay ? day.label : null;
+    previousDay = day?.key ?? null;
+    return { post, dayLabel, postedRelative: collectionRelativeTime(post.postedAtMs, nowMs), comments: post.descriptor.engagement.comments };
+  });
+  return { rows, count: visible.length };
+}
+
+const WORKSPACE_PURPOSE: Record<SessionRecord["mode"], string> = {
+  topic: "睇大家點講、有咩分歧", product: "收落嚟自己要用嘅做法",
+  "pr-evidence": "核對活動帖子有冇照 brief 講", archive: "未分去工作區嘅收藏"
+};
+
+export function buildWorkspaceCards(sessions: SessionRecord[], nowMs: number) {
+  return sessions.map(session => {
+    const posts = buildCollectionPosts([session]);
+    const saved = posts[0] ? Date.parse(posts[0].savedAt) : null;
+    return { session, purpose: WORKSPACE_PURPOSE[session.mode], count: session.items.length,
+      previews: posts.slice(0, 4), lastSavedRelative: collectionRelativeTime(saved, nowMs) };
   });
 }

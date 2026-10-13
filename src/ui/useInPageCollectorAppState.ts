@@ -2305,9 +2305,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     }
   }
 
-  async function onSaveSettings() {
+  /** Saves every draft setting; resolves true when all writes landed. */
+  async function onSaveSettings(): Promise<boolean> {
     if (isSavingSettings) {
-      return;
+      return false;
     }
     setIsSavingSettings(true);
     setSettingsSaveStatus(null);
@@ -2326,7 +2327,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
         const response = await sendAndSync(message);
         if (!response.ok) {
           setSettingsSaveStatus({ kind: "error", message: response.error });
-          return;
+          return false;
         }
         if ("productContext" in response) {
           latestProductContext = response.productContext ?? null;
@@ -2353,16 +2354,34 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
           kind: "error",
           message: `Settings 已儲存；ProductContext 編譯失敗：${productContextError}`
         });
-        return;
+        return true;
       }
       setSettingsSaveStatus({
         kind: "success",
         message: latestProductContext ? "Settings 已儲存，ProductContext 已編譯。" : "Settings 已儲存。"
       });
+      return true;
     } catch (error) {
       setSettingsSaveStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
+      return false;
     } finally {
       setIsSavingSettings(false);
+    }
+  }
+
+  // Settings' AI group: save, then ask the chosen provider whether the key works.
+  const [aiKeyStatus, setAiKeyStatus] = useState<{ kind: "ok" | "error" | "testing"; message: string } | null>(null);
+  async function onSaveAndTestAi() {
+    setAiKeyStatus(null);
+    if (!await onSaveSettings()) return;
+    setAiKeyStatus({ kind: "testing", message: "測試中…" });
+    try {
+      const response = await sendExtensionMessage<ExtensionResponse>({ type: "settings/test-ai-key" });
+      setAiKeyStatus(response.ok && response.aiKeyTest
+        ? { kind: response.aiKeyTest.ok ? "ok" : "error", message: response.aiKeyTest.message }
+        : { kind: "error", message: response.ok ? "未能測試 key" : response.error });
+    } catch (error) {
+      setAiKeyStatus({ kind: "error", message: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -3161,6 +3180,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     onResetCompareSelection,
     onSavePreview,
     onCreateTopic: topicState.onCreateTopic,
+    onCreateTopicNamed: topicState.onCreateTopicNamed,
     onSelectTopicTarget: topicState.onSelectTopicTarget,
     onNavigateToTopic: topicState.onNavigateToTopic,
     onBackFromTopicDetail: topicState.onBackFromTopicDetail,
@@ -3216,6 +3236,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     onCreateWorkspace,
     onSelectItem,
     onSaveSettings,
+    onSaveAndTestAi,
+    aiKeyStatus,
     onClearProductCache
   };
 }

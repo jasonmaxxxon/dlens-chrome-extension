@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 收藏 B</title>
+<!--
+  2026-10-08 mockup — side panel 收藏 B. Reference only, not spec.
+  Answers the 2026-10-08 feedback on the real side panel:
+    頂部空隙        the header now runs edge to edge; no scrollbar gutter is reserved (bug, fixed in code already)
+    冇圖            a text-only post gets a type tile: the post's first character on a tint drawn from the author handle
+    排序            最近收藏 / 發帖時間 / 留言最多, with day dividers for the two date orders
+    字體            body 13.5px, meta 11.5px, tabs 13.5px (was 16px body, 96×72 thumbnails)
+    背景            paper white with one sage mist at the top that drifts slowly, under a fine grain that keeps the fade free of rings
+    工作區          one card per workspace: purpose line, the latest saved posts as a small stack, count and last save
+    icon            minimal magnifier on a warm ink tile; three variants, 訊號點 recommended
+    動畫            rows rise in on open, the tab underline slides, rows glide to their new place on sort,
+                    search folds non-matching rows away, images fade in, hover lifts the row
+  Every field exists today:
+    收藏時間          SessionItem.savedAt
+    發帖時間          descriptor.time_token_hint read against descriptor.captured_at (same as 觀眾反應 講法)
+    留言數            descriptor.engagement.comments
+    工作區色點        CollectionPost.memberships[].mode
+    縮圖              descriptor.image_url / canonical_post.images (page sweeps ignored)
+  All data is fixture.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1b1a17; --sub: #3d3b35; --soft: #6c695e; --faint: #a19e93;
+  --hair: rgba(27,26,23,.08); --wash: rgba(27,26,23,.035); --hover: rgba(27,26,23,.04);
+  --sage: #3f5a3b; --amber: #a06a17; --violet: #7b4a8a;
+  --paper: #fbfbf9;
+  --mist-sage: rgba(63,90,59,.09);
+  --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --serif-cjk: 'Noto Serif TC', 'Songti TC', serif;
+  --spring: cubic-bezier(.2,.9,.25,1.05);
+  --out: cubic-bezier(.16,1,.3,1);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #e9e7e1; color: var(--ink); font: 13px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; color: inherit; }
+
+.stage { display: flex; gap: 40px; align-items: flex-start; padding: 32px; min-width: 0; flex-wrap: wrap; }
+
+/* Chrome's own side panel frame — drawn by Chrome, not DLens */
+.chrome { width: 400px; flex: none; border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 12px 40px rgba(0,0,0,.10); overflow: hidden; }
+.chrome-bar { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; font: 600 15px/1 -apple-system, system-ui, sans-serif; color: #222; border-bottom: 1px solid #eee; }
+.chrome-bar img { width: 18px; height: 18px; display: block; }
+.chrome-bar span { margin-left: auto; color: #777; font-weight: 400; letter-spacing: 6px; }
+.chrome-bar small { font: 500 10px/1 var(--sans); color: #999; letter-spacing: 0; margin-left: 4px; }
+
+/* DLens panel */
+.panel { position: relative; height: 760px; overflow: hidden; background: var(--paper); isolation: isolate; }
+.mist { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.mist::before { content: ""; position: absolute; width: 560px; height: 380px; top: -200px; left: -60px; border-radius: 50%; background: radial-gradient(closest-side, var(--mist-sage), transparent); }
+/* grain dithers the fade so it never shows rings */
+.mist::after { content: ""; position: absolute; inset: 0; opacity: .5; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.1  0 0 0 0 0.09  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+.scroll { position: relative; z-index: 1; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 16px 24px; }
+
+.head { position: sticky; top: 0; z-index: 3; margin: 0 -16px; padding: 0 16px; height: 48px; display: flex; align-items: center; gap: 18px; background: rgba(251,251,249,.78); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--hair); }
+.logo { font: 21px/1 var(--serif); color: var(--ink); letter-spacing: -.01em; }
+.tabs { position: relative; display: flex; gap: 18px; flex: 1; height: 100%; }
+.tab { border: 0; background: none; padding: 0; height: 100%; font-size: 13.5px; font-weight: 500; color: var(--soft); cursor: pointer; transition: color .2s; }
+.tab.on { color: var(--ink); font-weight: 600; }
+.ink-bar { position: absolute; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: var(--ink); }
+.more { flex: none; display: grid; place-items: center; border: 0; background: none; width: 30px; height: 30px; padding: 0; border-radius: 8px; color: var(--soft); cursor: pointer; }
+.more:hover { background: var(--hover); }
+
+.view { padding-top: 14px; }
+.search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; background: var(--wash); transition: background .2s, box-shadow .25s var(--out); }
+.search:focus-within { background: #fff; box-shadow: 0 0 0 1px var(--hair), 0 4px 14px rgba(27,26,23,.06); }
+.search svg { width: 15px; height: 15px; color: var(--faint); flex: none; }
+.search input { border: 0; outline: 0; background: none; flex: 1; min-width: 0; font-size: 13px; }
+.search input::placeholder { color: var(--faint); }
+
+.sortbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 2px; }
+.count { font-size: 11.5px; color: var(--soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.seg { position: relative; display: inline-flex; padding: 2px; border-radius: 8px; background: var(--wash); }
+.seg button { position: relative; z-index: 1; border: 0; background: none; padding: 4px 9px; font-size: 11.5px; font-weight: 500; color: var(--soft); cursor: pointer; white-space: nowrap; transition: color .2s; }
+.seg button.on { color: var(--ink); }
+.seg .knob { position: absolute; z-index: 0; top: 2px; bottom: 2px; border-radius: 6px; background: #fff; box-shadow: 0 1px 2px rgba(27,26,23,.10); }
+
+.day { margin: 16px 0 2px; font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--faint); }
+.list { position: relative; }
+.row { position: relative; display: grid; grid-template-columns: 52px minmax(0,1fr); gap: 12px; align-items: center; padding: 10px 8px; margin: 0 -8px; border-radius: 12px; cursor: pointer; transition: background .18s; overflow: hidden; }
+.row:hover { background: var(--hover); }
+.row:active { transform: scale(.992); }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 72px; right: 8px; height: 1px; background: var(--hair); transition: opacity .18s; }
+.row:hover::before, .row:hover + .row::before { opacity: 0; }
+.thumb { position: relative; width: 52px; height: 52px; border-radius: 10px; overflow: hidden; transition: transform .35s var(--spring); }
+.row:hover .thumb { transform: scale(1.04) rotate(-1deg); }
+.thumb .img { position: absolute; inset: 0; }
+.tile { display: grid; place-items: center; font: 600 21px/1 var(--serif-cjk); }
+.tile::before { content: "“"; position: absolute; top: 3px; left: 6px; font: 18px/1 var(--serif); opacity: .45; }
+.body { min-width: 0; display: grid; gap: 3px; }
+.text { font-size: 13.5px; line-height: 1.5; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.meta { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.meta .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.meta .h { overflow: hidden; text-overflow: ellipsis; color: var(--sub); }
+.meta .sep { color: var(--faint); }
+
+/* 工作區 tab */
+.ws { padding-top: 14px; display: grid; gap: 10px; }
+.ws-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.ghost { border: 0; background: none; padding: 5px 9px; margin-right: -9px; border-radius: 8px; color: var(--sage); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .18s; }
+.ghost:hover { background: rgba(63,90,59,.08); }
+.ws-card { display: grid; gap: 10px; padding: 14px 14px 12px; border-radius: 14px; background: rgba(255,255,255,.72); box-shadow: 0 0 0 1px var(--hair), 0 1px 2px rgba(27,26,23,.04); cursor: pointer; transition: transform .3s var(--spring), box-shadow .3s var(--out); }
+.ws-card:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--hair), 0 8px 22px rgba(27,26,23,.07); }
+.ws-card:active { transform: scale(.995); }
+.ws-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ws-head .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ws-head b { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; }
+.ws-menu { display: grid; place-items: center; width: 28px; height: 28px; margin: -6px -6px -6px 0; border: 0; border-radius: 8px; background: none; color: var(--faint); cursor: pointer; transition: background .18s, color .18s; }
+.ws-menu:hover { background: var(--hover); color: var(--sub); }
+.ws-card p { margin: -6px 0 0 15px; font-size: 12px; color: var(--soft); }
+.ws-foot { display: flex; align-items: center; gap: 10px; margin-left: 15px; min-width: 0; }
+.stack { display: flex; flex: none; }
+.stack > * { width: 26px; height: 26px; border-radius: 7px; box-shadow: 0 0 0 2px #fff; display: grid; place-items: center; font: 600 12px/1 var(--serif-cjk); }
+.stack > * + * { margin-left: -6px; }
+.ws-foot .meta { font-size: 11.5px; }
+
+/* motion */
+@media (prefers-reduced-motion: no-preference) {
+  .mist::before { animation: drift 22s ease-in-out infinite alternate; }
+  .rise { animation: rise .42s var(--out) both; animation-delay: calc(var(--i, 0) * 28ms); }
+  .head.rise { animation-duration: .36s; }
+  .ink-bar, .seg .knob { transition: transform .38s var(--spring), width .38s var(--spring); }
+  .view.swap { animation: swap .32s var(--out) both; }
+  .thumb .img { animation: fade .5s ease both; animation-delay: calc(var(--i, 0) * 28ms + 120ms); }
+  .row.fold { animation: fold .26s var(--out) both; }
+  .row.unfold { animation: unfold .3s var(--out) both; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes swap { from { opacity: 0; transform: translateX(var(--dx, 10px)); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; filter: blur(4px); } to { opacity: 1; filter: none; } }
+@keyframes fold { to { opacity: 0; height: 0; padding-top: 0; padding-bottom: 0; } }
+@keyframes unfold { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(60px, 30px) scale(1.12); } }
+
+/* notes */
+.notes { width: 380px; max-width: 100%; font-size: 13px; color: var(--sub); }
+.notes h1 { margin: 0 0 4px; font: 600 18px/1.3 var(--sans); color: var(--ink); }
+.notes p { margin: 0 0 14px; color: var(--soft); }
+.notes ol { margin: 0; padding-left: 18px; display: grid; gap: 10px; }
+.notes b { color: var(--ink); }
+.notes code { font: 11.5px/1.4 ui-monospace, monospace; background: rgba(0,0,0,.05); padding: 1px 4px; border-radius: 4px; }
+.icons { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.icons figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
+.icons figure > img { width: 64px; height: 64px; }
+.icons figure div { display: flex; align-items: flex-end; gap: 6px; }
+.icons figcaption { font-size: 11.5px; color: var(--soft); }
+.notes .replay { margin-top: 16px; border: 1px solid var(--hair); background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+@media (max-width: 480px) { .stage { padding: 16px; } .chrome { width: 100%; } }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="chrome">
+    <div class="chrome-bar"><img src="2026-10-13-icon/dot-32.png" alt="">DLens v4 beta<span>⌖ ✕</span></div>
+    <div class="panel">
+      <div class="mist" aria-hidden="true"></div>
+      <div class="scroll" id="scroll">
+        <header class="head rise" style="--i:0">
+          <span class="logo">dlens</span>
+          <nav class="tabs" id="tabs">
+            <button class="tab on" data-tab="collection">收藏</button>
+            <button class="tab" data-tab="workspaces">工作區</button>
+            <span class="ink-bar" id="ink"></span>
+          </nav>
+          <button class="more" aria-label="更多選項"><svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+        </header>
+        <div id="view"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="notes">
+    <h1>收藏 B</h1>
+    <p>真實側欄寬度 400px。點分頁、排序、搜尋、移過列都會郁。</p>
+    <ol>
+      <li><b>頂部空隙</b>：header 由左邊貼到右邊，唔再預留 scrollbar 位。（bug，已改好）</li>
+      <li><b>冇圖</b>：純文字帖顯示「字塊」—— 帖子第一個字，底色由作者 handle 計出嚟，同一個作者永遠同一個色。</li>
+      <li><b>排序</b>：最近收藏／發帖時間／留言最多。兩個日期排序會分「今天、昨天、10月7日」。</li>
+      <li><b>字級</b>：內文 13.5px、資料行 11.5px、縮圖 52px（之前內文 16px、縮圖 96×72）。</li>
+      <li><b>背景</b>：米白紙底，頂部一團淡綠霧慢慢飄，上面鋪一層好幼嘅顆粒，漸層唔會再出一圈圈色帶。取代青／黃／紫三團光暈。</li>
+      <li><b>動畫</b>：打開時逐列浮上；分頁底線滑過去；排序時每列滑去新位置；搜尋時唔啱嘅列收埋；縮圖淡入；移過列會輕輕浮起。系統開咗「減少動態」就全部唔郁。</li>
+      <li><b>工作區</b>：每個工作區一張卡：名、用途、最近收藏嘅幾篇疊成一排、篇數同最近收藏時間。「⋯」改成細 icon，唔再係三粒散開嘅點。</li>
+      <li><b>Icon</b>：放大鏡，暖黑底。下面三個版本，建議用「訊號點」：鏡片入面一粒薄荷綠點，代表搵到嘅訊號，16px 都睇得清楚。</li>
+    </ol>
+    <div class="icons">
+      <figure><img src="2026-10-13-icon/dot-128.png" alt=""><div><img src="2026-10-13-icon/dot-48.png" alt=""><img src="2026-10-13-icon/dot-32.png" alt=""><img src="2026-10-13-icon/dot-16.png" alt=""></div><figcaption>訊號點（建議）</figcaption></figure>
+      <figure><img src="2026-10-13-icon/glint-128.png" alt=""><div><img src="2026-10-13-icon/glint-48.png" alt=""><img src="2026-10-13-icon/glint-32.png" alt=""><img src="2026-10-13-icon/glint-16.png" alt=""></div><figcaption>反光</figcaption></figure>
+      <figure><img src="2026-10-13-icon/arc-128.png" alt=""><div><img src="2026-10-13-icon/arc-48.png" alt=""><img src="2026-10-13-icon/arc-32.png" alt=""><img src="2026-10-13-icon/arc-16.png" alt=""></div><figcaption>對焦弧</figcaption></figure>
+    </div>
+    <button class="replay" id="replay">重播打開動畫</button>
+  </aside>
+</div>
+
+<script>
+const MODES = { reaction: { name: "觀眾反應", color: "var(--sage)" }, product: { name: "個人應用", color: "var(--amber)" } };
+const NOW = new Date("2026-10-08T15:20:00+08:00");
+const H = 3600e3, D = 24 * H;
+const POSTS = [
+  { h: "prompt_case", t: "我知道很多人不想我推 Grok Bot，但 Grok Bot 的含金量真的不是開玩笑的，今天整理一次給大家看", saved: 0.3 * H, posted: 3 * H, c: 48, mode: "reaction", img: "grok" },
+  { h: "0xalpha.ai", t: "同一個 Opus 5.5，有沒有接上 motion design 的流程，表現差超多。裸用是一個樣，放進設計好的 harness 裡又是另一個樣。", saved: 0.6 * H, posted: 20 * H, c: 10, mode: "reaction", img: "opus" },
+  { h: "queenie128", t: "人生方向真係好迷失… 搵工見到d 數字愈黎愈癲 我都開始懷疑自己", saved: 3.2 * H, posted: 26 * H, c: 85, mode: "product", img: "compare" },
+  { h: "cc401876", t: "真心覺得 人生閱歷唔夠嘅人根本唔適合做老師", saved: 1.1 * D, posted: 2.1 * D, c: 65, mode: "reaction" },
+  { h: "anna.s.darling", t: "香港有咩調情好地方？", saved: 1.2 * D, posted: 2.3 * D, c: 85, mode: "reaction" },
+  { h: "prompt_case", t: "我後悔了，Grok Bot 真的超級好用，用上癮了！更狂的是佢連 agent 都幫你寫埋", saved: 1.25 * D, posted: 1.9 * D, c: 17, mode: "reaction" },
+  { h: "alan_890104", t: "我真的記不住 Claude Code 裡的 [Image #4]、[Image #5] 到底是哪一張", saved: 1.3 * D, posted: 2.2 * D, c: 12, mode: "reaction", img: "term" },
+  { h: "gggodlin", t: "開源了兩個我自己做的claude mod蹭一下熱點 (2/2)", saved: 1.4 * D, posted: 2.4 * D, c: 9, mode: "reaction", img: "mod" },
+  { h: "tsla.mark", t: "我感覺 Codex 在出事了。。。。。。", saved: 1.6 * D, posted: 3.4 * D, c: 15, mode: "reaction" }
+];
+const IMAGES = {
+  grok: "linear-gradient(135deg,#2a2140 0%,#5b3a62 45%,#c26a3a 100%)",
+  opus: "linear-gradient(#16161b,#16161b) 8% 50% / 42% 44% no-repeat, linear-gradient(#24242a,#24242a) 92% 50% / 42% 44% no-repeat, #fff",
+  compare: "repeating-linear-gradient(180deg,#fff 0 7px,#e6e6e6 7px 8px)",
+  term: "radial-gradient(circle at 45% 50%, #fff 0 1.5px, transparent 2px), #0d0d10",
+  mod: "linear-gradient(160deg,#0f2a2a,#1e4d4a 60%,#53b3a3)"
+};
+const SORTS = [["saved", "最近收藏"], ["posted", "發帖時間"], ["comments", "留言最多"]];
+let tab = "collection", sort = "saved", query = "";
+
+function hue(handle) { let x = 0; for (const ch of handle) x = (x * 31 + ch.codePointAt(0)) >>> 0; return x % 360; }
+function ago(ms) { return ms < H ? `${Math.round(ms / 6e4)}m` : ms < D ? `${Math.round(ms / H)}h` : `${Math.round(ms / D)}d`; }
+function dayLabel(ms) {
+  const d = new Date(NOW - ms), today = new Date(NOW); today.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((today - d) / D);
+  return d >= today ? "今天" : diff <= 1 ? "昨天" : `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+function thumb(p, i) {
+  if (p.img) return `<div class="thumb"><div class="img" style="--i:${i};background:${IMAGES[p.img]}"></div></div>`;
+  const h = hue(p.h);
+  return `<div class="thumb tile" style="background:hsl(${h} 38% 93%);color:hsl(${h} 32% 32%)">${[...p.t.trim()][0]}</div>`;
+}
+function row(p, i) {
+  const key = `${p.h}|${p.t.slice(0, 8)}`;
+  return `<div class="row rise" style="--i:${i}" data-key="${key}">${thumb(p, i)}
+    <div class="body"><div class="text">${p.t}</div>
+    <div class="meta"><span class="dot" style="background:${MODES[p.mode].color}"></span><span class="h">@${p.h}</span><span class="sep">·</span>${ago(p.posted)}<span class="sep">·</span>留言 ${p.c}</div></div></div>`;
+}
+function ordered() {
+  const list = POSTS.filter((p) => !query || (p.t + p.h).toLowerCase().includes(query.toLowerCase()));
+  const by = { saved: (a, b) => a.saved - b.saved, posted: (a, b) => a.posted - b.posted, comments: (a, b) => b.c - a.c }[sort];
+  return list.sort(by);
+}
+function collectionHtml() {
+  const list = ordered();
+  let html = "", last = null, i = 2;
+  for (const p of list) {
+    if (sort !== "comments") { const label = dayLabel(sort === "saved" ? p.saved : p.posted); if (label !== last) { html += `<div class="day rise" style="--i:${i++}">${label}</div>`; last = label; } }
+    html += row(p, i++);
+  }
+  return `<div class="search rise" style="--i:1"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5" stroke-linecap="round"/></svg><input id="q" placeholder="搜尋收藏的內容或作者" value="${query}"></div>
+    <div class="sortbar rise" style="--i:1"><span class="count">${list.length} 篇</span><div class="seg" id="seg">${SORTS.map(([k, l]) => `<button data-sort="${k}" class="${k === sort ? "on" : ""}">${l}</button>`).join("")}<span class="knob" id="knob"></span></div></div>
+    <div class="list" id="list">${html || `<p class="count" style="margin-top:20px">冇符合「${query}」嘅收藏</p>`}</div>`;
+}
+function mini(p) {
+  if (p.img) return `<span style="background:${IMAGES[p.img]}"></span>`;
+  const h = hue(p.h);
+  return `<span style="background:hsl(${h} 38% 93%);color:hsl(${h} 32% 32%)">${[...p.t.trim()][0]}</span>`;
+}
+const DOTS = '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>';
+function workspacesHtml() {
+  const spaces = [["reaction", "睇大家點講、有咩分歧"], ["product", "收落嚟自己要用嘅做法"]];
+  return `<div class="ws"><div class="ws-top rise" style="--i:1"><span class="count">${spaces.length} 個工作區</span><button class="ghost">＋ 新工作區</button></div>
+    ${spaces.map(([mode, purpose], i) => {
+      const posts = POSTS.filter((p) => p.mode === mode).sort((a, b) => a.saved - b.saved);
+      return `<article class="ws-card rise" style="--i:${i + 2}">
+        <div class="ws-head"><span class="dot" style="background:${MODES[mode].color}"></span><b>${MODES[mode].name}</b><button class="ws-menu" aria-label="管理">${DOTS}</button></div>
+        <p>${purpose}</p>
+        <div class="ws-foot"><div class="stack">${posts.slice(0, 4).map(mini).join("")}</div><span class="meta">${posts.length} 篇<span class="sep">·</span>最近收藏 ${ago(posts[0].saved)} 前</span></div>
+      </article>`;
+    }).join("")}</div>`;
+}
+function place(bar, el) { if (!el) return; bar.style.width = `${el.offsetWidth}px`; bar.style.transform = `translateX(${el.offsetLeft}px)`; }
+function render({ dx = 0, flip = null } = {}) {
+  const view = document.getElementById("view");
+  view.className = "view" + (dx ? " swap" : "");
+  view.style.setProperty("--dx", `${dx}px`);
+  view.innerHTML = tab === "collection" ? collectionHtml() : workspacesHtml();
+  if (dx) view.querySelectorAll(".rise").forEach((el) => el.classList.remove("rise"));
+  place(document.getElementById("ink"), document.querySelector(`.tab[data-tab="${tab}"]`));
+  const knob = document.getElementById("knob");
+  if (knob) place(knob, document.querySelector(`.seg button[data-sort="${sort}"]`));
+  bind();
+  if (flip) playFlip(flip);
+}
+function snapshot() { const m = new Map(); document.querySelectorAll(".row").forEach((r) => m.set(r.dataset.key, r.getBoundingClientRect().top)); return m; }
+function playFlip(before) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  document.querySelectorAll(".row, .day").forEach((el) => {
+    el.classList.remove("rise");
+    const was = before.get(el.dataset.key);
+    if (was === undefined) { el.classList.add("unfold"); return; }
+    const dy = was - el.getBoundingClientRect().top;
+    if (!dy) return;
+    el.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.2,.9,.25,1.05)" });
+  });
+}
+function bind() {
+  document.querySelectorAll(".seg button").forEach((b) => b.onclick = () => {
+    if (b.dataset.sort === sort) return;
+    const before = snapshot(); sort = b.dataset.sort;
+    const knob = document.getElementById("knob");
+    place(knob, b); document.querySelectorAll(".seg button").forEach((x) => x.classList.toggle("on", x === b));
+    const list = document.getElementById("list"); const tmp = document.createElement("div"); tmp.innerHTML = collectionHtml();
+    list.replaceWith(tmp.querySelector("#list")); document.querySelector(".count").textContent = `${ordered().length} 篇`;
+    playFlip(before);
+  });
+  const q = document.getElementById("q");
+  if (q) q.oninput = () => {
+    const next = q.value; const keep = new Set(POSTS.filter((p) => !next || (p.t + p.h).toLowerCase().includes(next.toLowerCase())).map((p) => `${p.h}|${p.t.slice(0, 8)}`));
+    const before = snapshot();
+    const gone = [...document.querySelectorAll(".row")].filter((r) => !keep.has(r.dataset.key));
+    gone.forEach((r) => r.classList.add("fold"));
+    setTimeout(() => { query = next; const list = document.getElementById("list"); const tmp = document.createElement("div"); tmp.innerHTML = collectionHtml(); list.replaceWith(tmp.querySelector("#list")); document.querySelector(".count").textContent = `${ordered().length} 篇`; playFlip(before); }, gone.length ? 240 : 0);
+  };
+}
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
+  if (b.dataset.tab === tab) return;
+  const dx = b.dataset.tab === "workspaces" ? 14 : -14;
+  tab = b.dataset.tab;
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  render({ dx });
+});
+document.getElementById("replay").onclick = () => {
+  const head = document.querySelector(".head"); head.classList.remove("rise"); void head.offsetWidth; head.classList.add("rise");
+  render();
+};
+document.fonts.ready.then(() => render());
+render();
+</script>
+</body>
+</html>

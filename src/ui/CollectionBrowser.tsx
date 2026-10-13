@@ -2,14 +2,17 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 import type { SessionRecord } from "../state/types";
-import { buildCollectionPosts, searchCollectionPosts, type CollectionPost } from "../viewmodel/collection-browser";
-import { PrimaryButton } from "./components";
+import { buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { useCollectionMotion } from "./useCollectionMotion";
 import { SavedPostMetrics } from "./SavedPostPreview";
-import { textStyles, tokens } from "./tokens";
+import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
   query: string;
+  sort?: CollectionSort;
+  onSortChange?: (sort: CollectionSort) => void;
+  nowMs?: number;
   onQueryChange: (value: string) => void;
   selectedKey: string | null;
   onSelect: (key: string | null) => void;
@@ -31,11 +34,6 @@ const statusText: Record<CollectionPost["status"], string> = {
   saved: "尚未擷取", queued: "等候擷取", running: "擷取中", succeeded: "擷取完成", failed: "擷取未完成"
 };
 
-function savedTime(value: string): string {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString("zh-HK", { dateStyle: "medium", timeStyle: "short" }) : value;
-}
-
 function OriginalImage({ url, index }: { url: string; index: number }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -53,18 +51,20 @@ function OriginalImage({ url, index }: { url: string; index: number }) {
   );
 }
 
-function CollectionThumbnail({ url }: { url?: string }) {
+export function CollectionThumbnail({ post, miniature = false }: { post: CollectionPost; miniature?: boolean }) {
+  const url = post.imageUrls[0];
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const style: CSSProperties = {
-    display: "block", width: tokens.layout.collectionThumbnailWidth, height: tokens.layout.collectionThumbnailHeight,
-    borderRadius: tokens.radius.xs, flexShrink: 0
-  };
-  return (
-    <span data-collection-thumbnail="" aria-hidden="true" style={style}>
-      {url && failedUrl !== url ? <img src={url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
-        onError={() => setFailedUrl(url)} style={{ ...style, objectFit: "cover" }} /> : null}
-    </span>
-  );
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const size = miniature ? tokens.collection.previewSize : tokens.layout.collectionThumbnailSize;
+  const style: CSSProperties = { display: "grid", placeItems: "center", position: "relative", overflow: "hidden",
+    width: size, height: size, borderRadius: miniature ? tokens.radius.pill : tokens.collection.thumbnailRadius, flexShrink: 0,
+    ...collectionTileTint(post.author), fontFamily: tokens.font.serifCjk, fontSize: miniature ? tokens.collection.metaSize : tokens.collection.tileSize };
+  return <span data-collection-thumbnail="" aria-hidden="true" style={style}>
+    <span data-collection-type-tile="">{post.tileCharacter}</span>
+    {url && failedUrl !== url ? <img src={url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
+      data-collection-image-loaded={loadedUrl === url ? "true" : "false"} onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)}
+      style={{ display: "block", position: "absolute", inset: 0, width: size, height: size, objectFit: "cover" }} /> : null}
+  </span>;
 }
 
 function CollectionReader({ post, onBack, onOpenWorkspace }: {
@@ -101,9 +101,9 @@ function CollectionReader({ post, onBack, onOpenWorkspace }: {
           <div style={{ display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.sm, minWidth: 0 }}>
             <SavedPostMetrics descriptor={post.descriptor} />
             <div style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-              收藏時間：<time dateTime={post.savedAt}>{savedTime(post.savedAt)}</time>
+              收藏時間：<time dateTime={post.savedAt}>{collectionSavedTime(post.savedAt)}</time>
               {post.descriptor.time_token_hint ? <div>原帖時間：{post.descriptor.time_token_hint}</div> : null}
-              {post.capturedAt ? <div>原文擷取：<time dateTime={post.capturedAt}>{savedTime(post.capturedAt)}</time></div> : null}
+              {post.capturedAt ? <div>原文擷取：<time dateTime={post.capturedAt}>{collectionSavedTime(post.capturedAt)}</time></div> : null}
               <div>最新收藏擷取狀態：{statusText[post.status]}</div>
             </div>
             <ul aria-label="所屬工作區" style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -122,44 +122,56 @@ function CollectionReader({ post, onBack, onOpenWorkspace }: {
 }
 
 /** Controlled source browsing: the shell owns query/selection across close and tab changes. */
-export function CollectionBrowser({ sessions, query, onQueryChange, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false }: CollectionBrowserProps) {
+export function CollectionBrowser({ sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
-  const visible = useMemo(() => searchCollectionPosts(posts, query), [posts, query]);
+  const model = useMemo(() => buildCollectionBrowserModel(posts, query, sort, nowMs), [posts, query, sort, nowMs]);
+  const motion = useCollectionMotion(model.rows);
   if (selected) return <CollectionReader key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} />;
-
+  const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: tokens.spacing.md, padding: tokens.spacing.lg, flexShrink: 0 }}>
-        <h2 style={{ ...textStyles.h3, margin: 0 }}>最近收藏</h2>
-        <PrimaryButton onClick={onCollect} dataAttrs={{ "data-collection-action": "collect" }}>收集貼文</PrimaryButton>
-        <label style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, width: "100%", minWidth: 0, boxSizing: "border-box", border: `1px solid ${tokens.color.lineStrong}`, borderRadius: tokens.radius.round, background: tokens.color.elevated, padding: tokens.spacing.md }}>
+      <header style={{ display: "grid", gap: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
+        <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, height: tokens.collection.searchHeight, width: "100%", minWidth: 0, boxSizing: "border-box", borderRadius: tokens.collection.thumbnailRadius, padding: `0 ${tokens.spacing.md}px` }}>
           <Search size={tokens.spacing.section} aria-hidden="true" style={{ color: tokens.color.softInk, flexShrink: 0 }} />
-          <input type="search" aria-label="搜尋收藏" placeholder="搜尋收藏的內容或作者…" value={query} onChange={(event) => onQueryChange(event.target.value)}
-            style={{ ...textStyles.bodyTight, width: "100%", minWidth: 0, border: 0, background: "transparent", color: tokens.color.ink }} />
+          <input type="search" aria-label="搜尋收藏" placeholder="搜尋收藏的內容或作者" value={query} onChange={(event) => onQueryChange(event.target.value)}
+            style={{ ...textStyles.bodyTight, width: "100%", minWidth: 0, border: 0, outline: "none", background: "transparent", color: tokens.color.ink }} />
         </label>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: tokens.spacing.sm, flexWrap: "wrap" }}>
+          <span data-collection-count="" style={metaStyle}>{model.count} 篇</span>
+          <div role="group" aria-label="收藏排序" style={{ display: "flex", position: "relative", padding: tokens.collection.segmentPadding, background: tokens.collection.wash, borderRadius: tokens.collection.segmentRadius }}>
+            <span aria-hidden="true" data-collection-sort-knob="" style={{ position: "absolute", left: tokens.collection.segmentPadding, top: tokens.collection.segmentPadding, bottom: tokens.collection.segmentPadding, width: `calc((100% - ${tokens.collection.segmentPadding * 2}px) / 3)`, transform: `translateX(${COLLECTION_SORTS.findIndex(entry => entry.key === sort) * 100}%)`, background: tokens.color.elevated, borderRadius: tokens.collection.knobRadius, boxShadow: tokens.collection.knobShadow }} />
+            {COLLECTION_SORTS.map(entry => <button key={entry.key} type="button" data-collection-sort={entry.key} aria-pressed={entry.key === sort} onClick={() => onSortChange?.(entry.key)}
+              style={{ ...metaStyle, position: "relative", zIndex: 1, flex: 1, whiteSpace: "nowrap", height: tokens.collection.segmentHeight, padding: `0 ${tokens.spacing.sm}px`, border: 0, background: "transparent", color: sort === entry.key ? tokens.color.ink : tokens.color.softInk, cursor: "pointer" }}>{entry.label}</button>)}
+          </div>
+        </div>
       </header>
-      <div style={{ minWidth: 0, padding: `0 ${tokens.spacing.lg}px ${tokens.spacing.lg}px` }}>
-        {visible.length ? (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {visible.map((post) => (
-              <li key={post.key} style={{ borderBottom: `1px solid ${tokens.color.line}` }}>
-                <button type="button" data-collection-post={post.key} onClick={() => onSelect(post.key)}
-                  style={{ display: "flex", alignItems: "center", gap: tokens.spacing.md, width: "100%", minWidth: 0, textAlign: "left", boxSizing: "border-box", padding: `${tokens.spacing.section}px 0`, border: 0, background: "transparent", cursor: "pointer", color: tokens.color.ink }}>
-                  <CollectionThumbnail url={post.imageUrls[0]} />
+      <div style={{ minWidth: 0 }}>
+        <ul ref={motion.listRef} style={{ listStyle: "none", margin: 0, padding: 0, position: "relative" }}>
+          {motion.rows.map(({ post, dayLabel, postedRelative, comments, exiting }, index) => (
+            <li key={post.key} data-collection-row={post.key} data-collection-exiting={exiting ? "true" : undefined} style={{ position: "relative", display: "grid", gridTemplateRows: "1fr", pointerEvents: exiting ? "none" : undefined }} inert={exiting || undefined}>
+              <div style={{ minHeight: 0, overflow: "hidden" }}>
+                {dayLabel ? <div data-collection-day="" style={{ ...metaStyle, fontWeight: 600, paddingTop: tokens.spacing.section, paddingBottom: tokens.spacing.xs }}>{dayLabel}</div> : null}
+                <button type="button" data-collection-post={post.key} data-collection-arrival="" onClick={() => onSelect(post.key)}
+                  style={{ "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, display: "flex", position: "relative", alignItems: "center", gap: tokens.spacing.md, width: "100%", minWidth: 0, textAlign: "left", boxSizing: "border-box", padding: `${tokens.collection.rowPadding}px ${tokens.spacing.sm}px`, border: 0, borderRadius: tokens.radius.card, background: "transparent", cursor: "pointer", color: tokens.color.ink } as CSSProperties}>
+                  <CollectionThumbnail post={post} />
                   <span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}>
-                    <span style={{ ...textStyles.body, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>{post.body || "沒有已保存的原文文字"}</span>
-                    <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span>
+                    <span style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, lineHeight: tokens.collection.lineHeight, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>{post.body || "沒有已保存的原文文字"}</span>
+                    <span style={{ ...metaStyle, display: "flex", alignItems: "center", gap: tokens.spacing.xs, overflow: "hidden", whiteSpace: "nowrap" }}>
+                      <span title={post.memberships[0]?.sessionName} style={{ width: tokens.collection.dotSize, height: tokens.collection.dotSize, flexShrink: 0, borderRadius: tokens.radius.round, background: getModeTheme(post.memberships[0]?.mode ?? "archive").accent }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span>
+                      {postedRelative ? <span>· {postedRelative}</span> : null}<span>· 留言 {comments ?? "—"}</span>
+                    </span>
                   </span>
                 </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p role="status" style={{ ...textStyles.body, color: tokens.color.softInk, padding: `${tokens.spacing.xl}px 0`, margin: 0 }}>
-            {isLoading ? "正在載入收藏…" : posts.length ? "找不到符合搜尋的收藏。" : "尚未收藏貼文。從 Threads 收集感興趣的內容後，便可在這裡閱讀。"}
-          </p>
-        )}
+              </div>
+            </li>
+          ))}
+        </ul>
+        {!model.count ? <p role="status" style={{ ...textStyles.bodyTight, color: tokens.color.softInk, padding: `${tokens.spacing.xl}px 0`, margin: 0 }}>
+          {isLoading ? "正在載入收藏…" : posts.length ? "找不到符合搜尋的收藏。" : "尚未收藏貼文。從 Threads 收集感興趣的內容後，便可在這裡閱讀。"}
+        </p> : null}
+        <button type="button" data-collection-action="collect" onClick={onCollect} style={{ ...quietButton, marginTop: tokens.spacing.md }}>收集貼文</button>
       </div>
     </section>
   );

@@ -18,6 +18,12 @@ import { tokens } from "./tokens";
  * "single owner" is literally true.
  */
 export const DLENS_KEYFRAMES_CSS = `
+@keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
+@keyframes dlens-collection-fold { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes dlens-collection-glide { from { transform: translateY(var(--collection-delta)); } to { transform: none; } }
+@keyframes dlens-collection-image { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dlens-collection-mist { to { transform: translate(${tokens.motion.collection.mistX}px, ${tokens.motion.collection.mistY}px); } }
+
 @keyframes dlens-collect-charge { from { --dlens-collect-charge: 0%; } to { --dlens-collect-charge: 100%; } }
 @keyframes dlens-collect-spin { to { transform: rotate(1turn); } }
 @keyframes dlens-collect-burst {
@@ -324,6 +330,25 @@ export const DLENS_MOTION_CSS = `
   [data-dlens-control="true"] [data-product-action-stage][data-direction="backward"] {
     animation: dlens-product-stage-backward-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} both;
   }
+}
+[data-collection-workspace-shell] [data-collection-search] { background: ${tokens.collection.wash}; }
+[data-collection-workspace-shell] [data-collection-search]:focus-within { background: ${tokens.color.elevated}; box-shadow: ${tokens.collection.focusShadow}; }
+[data-collection-workspace-shell] [data-collection-post]:hover { background: ${tokens.collection.hover} !important; }
+[data-collection-row] + [data-collection-row] [data-collection-post]::before { content: ""; position: absolute; top: 0; left: ${tokens.layout.collectionThumbnailSize + tokens.spacing.md + tokens.spacing.sm}px; right: ${tokens.spacing.sm}px; height: ${tokens.collection.indicatorHeight / 2}px; background: ${tokens.collection.hairline}; }
+[data-collection-row]:hover [data-collection-post]::before,
+[data-collection-row]:hover + [data-collection-row] [data-collection-post]::before { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} var(--collection-delay, 0ms) backwards; }
+  [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.motion.collection.glideMs}ms ${tokens.motion.easing.entrance} backwards; }
+  [data-collection-row][data-collection-exiting="true"] { animation: dlens-collection-fold ${tokens.motion.collection.foldMs}ms ${tokens.motion.easing.exit} forwards; }
+  [data-collection-tab-indicator], [data-collection-sort-knob] { transition: transform ${tokens.motion.duration.slower} ${tokens.motion.easing.entrance}; }
+  [data-collection-workspace-shell] [data-collection-post], [data-collection-workspace-shell] [data-workspace-card] { transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.entrance}, background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.base} ${tokens.motion.easing.standard}; }
+  [data-collection-workspace-shell] [data-collection-post]:hover, [data-collection-workspace-shell] [data-workspace-card]:hover { transform: translateY(${tokens.collection.rowLift}px); }
+  [data-collection-workspace-shell] [data-workspace-card]:hover { box-shadow: ${tokens.shadow.card}; }
+  [data-collection-search] { transition: background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance}; }
+  [data-collection-image-loaded="false"] { opacity: 0; }
+  [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.motion.collection.fadeMs}ms ${tokens.motion.easing.entrance} backwards; }
+  [data-collection-mist] { animation: dlens-collection-mist ${tokens.motion.collection.mistMs}ms ${tokens.motion.easing.standard} infinite alternate; }
 }
 [data-dlens-control="true"][data-workspace-popup-material] [data-shell-masthead="editorial"] {
   animation: dlens-mode-swap-in ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} backwards;

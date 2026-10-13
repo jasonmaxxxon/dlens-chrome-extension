@@ -23,7 +23,9 @@ import { ProductSignalView } from "./ProductSignalViews";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
 import { TopicDetailView } from "./TopicDetailView";
-import { TopicsListView } from "./TopicsListView";
+import { TopicDiscourseView, type TopicDiscourseCommand } from "./TopicDiscourseView";
+import { useDiscourseFeeds } from "./useDiscourseFeeds";
+import { buildTopicDiscourseViewModel } from "../viewmodel/topic-discourse";
 import { tokens } from "./tokens";
 import { OPEN_WORKSPACE_EVENT, consumeWorkspaceOpen } from "./inpage-helpers";
 import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
@@ -31,6 +33,8 @@ import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel
 import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
 import { getProcessingFailureMessage } from "../state/processing-errors";
 import { CollectionWorkspaceShell, type CollectionTab } from "./CollectionWorkspaceShell";
+import type { CollectionSort } from "../viewmodel/collection-browser";
+import { useCollectionClock } from "./useCollectionMotion";
 import { CollectionBrowser } from "./CollectionBrowser";
 import { WorkspaceHomeView } from "./WorkspaceHomeView";
 import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
@@ -49,6 +53,7 @@ interface ReadingNavigation {
   collecting: boolean;
   settingsOpen: boolean;
   query: string;
+  sort: CollectionSort;
   selectedKey: string | null;
   returnPage?: PopupPage;
   workspaceSessionId?: string;
@@ -100,7 +105,7 @@ export function InPageCollectorPopup({ app, embedded = false }: { app: InPageCol
   const popupOpen = app.popupOpen;
   const [readingNavigation, setReadingNavigation] = useState<ReadingNavigation>({
     tab: IS_PR_ONLY_BUILD ? "workspaces" : "collection", workspaceOpen: IS_PR_ONLY_BUILD, collecting: false,
-    settingsOpen: false, query: "", selectedKey: null
+    settingsOpen: false, query: "", sort: "saved", selectedKey: null
   });
   const navigationPending = useRef(false);
   const [navigationBusy, setNavigationBusy] = useState(false);
@@ -166,6 +171,7 @@ function OpenInPageCollectorPopup({
   const productCrawlPendingRef = useRef(false);
   const { pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError } = navigationControl;
   const workspaceAllowed = !IS_PR_ONLY_BUILD || (activeFolder?.mode === "pr-evidence" && (page === "pr-evidence" || page === "collect" || page === "settings"));
+  const nowMs = useCollectionClock();
   const domainPage = readingNavigation.settingsOpen ? "settings"
     : readingNavigation.collecting ? "collect"
     : readingNavigation.tab === "workspaces" && readingNavigation.workspaceOpen && workspaceAllowed ? page : null;
@@ -174,6 +180,27 @@ function OpenInPageCollectorPopup({
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
   const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
   const workspaceGlass = tokens.material.workspaceGlass;
+  // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
+  const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
+  const discourseFeeds = useDiscourseFeeds(domainPage === "topics");
+  const discourseViewModel = domainPage === "topics"
+    ? buildTopicDiscourseViewModel({
+        topics: app.topics,
+        signals: app.signals,
+        items: activeFolder?.items ?? [],
+        readings: discourseFeeds.readings,
+        selectedTopicId: discourseTopicId,
+        inViewPostKey: discourseFeeds.inViewPostKey,
+        now: app.readWallClockNowMs()
+      })
+    : null;
+  function onDiscourseCommand(command: TopicDiscourseCommand) {
+    if (command.kind === "select-topic") setDiscourseTopicId(command.topicId);
+    else if (command.kind === "assign") void app.onSignalTriaged(command.signalId, { kind: "assign", topicId: command.topicId });
+    else if (command.kind === "create-topic") void (command.signalId ? app.onSignalTriaged(command.signalId, { kind: "create-topic", name: command.name }) : app.onCreateTopicNamed(command.name));
+    else if (command.kind === "open-atlas") void app.onNavigateToTopic(command.topicId);
+    else void app.onDeleteTopic(command.topicId);
+  }
   const productExportFolders = (snapshot?.global.sessions ?? [])
     .filter((session) => session.mode === "product")
     .map((session) => ({
@@ -536,13 +563,16 @@ function OpenInPageCollectorPopup({
         position: "absolute",
         inset: 0,
         borderRadius: embedded ? 0 : POPUP_FRAME_RADIUS,
-        background: workspaceMaterial === "glass"
+        background: embedded ? tokens.collection.paper : workspaceMaterial === "glass"
           ? workspaceGlass.canvas
           : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
         zIndex: 0,
         pointerEvents: "none"
       }} />
-      {workspaceMaterial === "glass" ? (
+      {embedded ? <>
+        <div aria-hidden="true" data-collection-mist="" style={{ position: "absolute", zIndex: 0, width: tokens.collection.mistWidth, height: tokens.collection.mistHeight, top: tokens.collection.mistTop, left: tokens.collection.mistLeft, borderRadius: tokens.radius.round, background: tokens.collection.mist, pointerEvents: "none" }} />
+        <div aria-hidden="true" data-collection-grain="" style={{ position: "absolute", inset: 0, zIndex: 0, opacity: tokens.collection.grainOpacity, backgroundImage: tokens.collection.grain, pointerEvents: "none" }} />
+      </> : workspaceMaterial === "glass" ? (
         <>
           <div aria-hidden="true" data-workspace-aura="teal" style={{ position: "absolute", zIndex: 0, width: 320, height: 320, top: -120, right: -90, borderRadius: tokens.radius.round, background: workspaceGlass.auraTeal, filter: "blur(64px)", opacity: 0.55, pointerEvents: "none" }} />
           <div aria-hidden="true" data-workspace-aura="amber" style={{ position: "absolute", zIndex: 0, width: 280, height: 280, top: "38%", left: -130, borderRadius: tokens.radius.round, background: workspaceGlass.auraAmber, filter: "blur(68px)", opacity: 0.48, pointerEvents: "none" }} />
@@ -566,7 +596,8 @@ function OpenInPageCollectorPopup({
           paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
-          scrollbarGutter: "stable both-edges"
+          // In the side panel a reserved gutter shows as an empty strip beside the header.
+          scrollbarGutter: embedded ? "auto" : "stable both-edges"
         }}
       >
         <div
@@ -596,7 +627,7 @@ function OpenInPageCollectorPopup({
           >
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey }))}
@@ -604,7 +635,7 @@ function OpenInPageCollectorPopup({
                 isLoading={!snapshot} />
             ) : null}
             {!domainPage && readingNavigation.tab === "workspaces" ? (
-              <WorkspaceHomeView sessions={IS_PR_ONLY_BUILD ? (snapshot?.global.sessions ?? []).filter((session) => session.mode === "pr-evidence") : snapshot?.global.sessions ?? []} activeSessionId={activeFolder?.id ?? null}
+              <WorkspaceHomeView nowMs={nowMs} sessions={IS_PR_ONLY_BUILD ? (snapshot?.global.sessions ?? []).filter((session) => session.mode === "pr-evidence") : snapshot?.global.sessions ?? []} activeSessionId={activeFolder?.id ?? null}
                 onOpen={openWorkspace} onCreate={createWorkspace} onRename={(id, name) => manageWorkspace(id, "rename", name)} onDelete={(id) => manageWorkspace(id, "delete")} externalError={navigationError} busy={navigationBusy} allowedCreationModes={IS_PR_ONLY_BUILD ? ["pr-evidence"] : undefined} />
             ) : null}
             {domainPage && !readingNavigation.settingsOpen ? (
@@ -657,17 +688,7 @@ function OpenInPageCollectorPopup({
 
           {domainPage === "topics" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <TopicsListView
-                topics={app.topics}
-                signals={app.signals}
-                sessionItems={activeFolder?.items ?? []}
-                auditSummariesByTopicId={Object.fromEntries(
-                  Object.entries(app.topicAuditByTopicId).map(([topicId, audit]) => [topicId, audit.summary])
-                )}
-                onOpenTopic={(topicId) => void app.onNavigateToTopic(topicId)}
-                onCreateTopic={() => void app.onCreateTopic()}
-                onDeleteTopic={(topicId) => void app.onDeleteTopic(topicId)}
-              />
+              {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} /> : null}
             </WorkspaceSurface>
           ) : null}
 
@@ -821,6 +842,8 @@ function OpenInPageCollectorPopup({
                 onClearProductCache={() => void app.onClearProductCache()}
                 createContextFileId={app.createContextFileId}
                 onSaveSettings={() => void app.onSaveSettings()}
+                onSaveAndTestAi={() => void app.onSaveAndTestAi()}
+                aiKeyStatus={app.aiKeyStatus}
               />
             </WorkspaceSurface>
           ) : null}

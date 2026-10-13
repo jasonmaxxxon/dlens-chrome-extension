@@ -54,6 +54,11 @@ export type ExtensionMessagePayload =
   | { type: "sidepanel/open"; sessionId: string }
   | { type: "sidepanel/take-workspace-open" }
   | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
+  /** The post crossing the middle of the Threads viewport; the side panel follows it. */
+  | { type: "inline/in-view"; postKey: string | null }
+  | { type: "inline/in-view-get" }
+  /** Ask the chosen provider whether the saved key works (a models listing, no generation). */
+  | { type: "settings/test-ai-key" }
   | { type: "popup/close-tab"; tabId: number }
   | { type: "popup/navigate-active-tab"; page: PopupPage }
   | { type: "selection/start-active-tab" }
@@ -179,6 +184,8 @@ export type ExtensionSuccessResponse = {
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
   inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
+  inViewPostKey?: string | null;
+  aiKeyTest?: { ok: boolean; message: string };
   clusterInterpretations?: ClusterInterpretation[];
   evidenceAnnotations?: EvidenceAnnotation[];
   techniqueReadings?: TechniqueReadingSnapshot[];

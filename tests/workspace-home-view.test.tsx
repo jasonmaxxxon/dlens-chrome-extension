@@ -60,7 +60,7 @@ test("workspace home keeps every same-mode folder and legacy archive reachable",
   await withView({ sessions, activeSessionId: "one", onOpen: (id) => { opened.push(id); }, onCreate: async () => undefined }, async (host) => {
     assert.match(host.textContent ?? "", /議題探索/);
     assert.match(host.textContent ?? "", /收藏整理/);
-    assert.equal(host.querySelectorAll("h1,h2").length, 1);
+    assert.equal(host.querySelectorAll("h1,h2").length, 0);
     for (const id of ["two", "one", "archive"]) {
       const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${id}"]`);
       assert.ok(row);
@@ -76,7 +76,7 @@ test("new workspace sends explicit trimmed name and chosen type once while pendi
   const completion = new Promise<void>((resolve) => { finish = resolve; });
   await withView({ sessions: [], activeSessionId: null, onOpen: () => undefined, onCreate: async (name, mode) => { calls.push([name, mode]); await completion; } }, async (host, dom) => {
     assert.equal(host.querySelector("form"), null);
-    await act(async () => button(host, "建立工作區").click());
+    await act(async () => button(host, "＋ 新工作區").click());
     const select = host.querySelector<HTMLSelectElement>("select")!;
     assert.equal(select.value, "topic");
     assert.deepEqual(Array.from(select.options).map((option) => [option.value, option.textContent]), [["topic", "議題探索"], ["product", "個人應用"], ["pr-evidence", "訊息核對"]]);
@@ -102,7 +102,7 @@ test("creation failures preserve user input, display safe feedback and allow ret
     if (attempts === 2) return { ok: false, error: "private service response" };
     return { ok: true };
   } }, async (host, dom) => {
-    await act(async () => button(host, "建立工作區").click());
+    await act(async () => button(host, "＋ 新工作區").click());
     await fillForm(host, dom, "訊息研究", "pr-evidence");
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await act(async () => button(host, "建立").click());
@@ -125,7 +125,7 @@ test("busy state blocks navigation and submission; an empty home invents no work
   let calls = 0;
   const props: Props = { sessions: [session("one", "研究", "topic")], activeSessionId: "one", onOpen: () => { calls += 1; }, onCreate: async () => { calls += 1; } };
   await withView(props, async (host, dom, rerender) => {
-    await act(async () => button(host, "建立工作區").click());
+    await act(async () => button(host, "＋ 新工作區").click());
     await fillForm(host, dom, "新研究", "topic");
     await rerender({ ...props, busy: true });
     const row = host.querySelector<HTMLButtonElement>('[data-workspace-session="one"]')!;
@@ -151,6 +151,7 @@ test("workspace management renames the selected inactive archive once and preser
   await withView(props, async (host, dom) => {
     const menu = host.querySelector<HTMLElement>('[data-workspace-management="archive"]');
     assert.ok(menu, "each existing archive has a secondary management menu");
+    assert.equal(menu.querySelector("summary")!.style.listStyle, "none", "the ••• menu shows no disclosure triangle");
     await act(async () => button(menu, "重新命名").click());
     const input = host.querySelector<HTMLInputElement>('input[name="workspace-rename"]')!;
     assert.equal(input.value, "舊收藏");
@@ -205,7 +206,7 @@ test("PR-only creation keeps its allowed purpose after reopening the form", asyn
     onCreate: async (_name, mode) => { calls.push(mode); return { ok: true }; }
   }, async (host, dom) => {
     for (let index = 0; index < 2; index += 1) {
-      await act(async () => button(host, "建立工作區").click());
+      await act(async () => button(host, "＋ 新工作區").click());
       assert.deepEqual(Array.from(host.querySelector<HTMLSelectElement>("select")!.options).map((option) => option.value), ["pr-evidence"]);
       const input = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
       await act(async () => { input.value = "訊息核對"; input.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
@@ -213,4 +214,22 @@ test("PR-only creation keeps its allowed purpose after reopening the form", asyn
     }
     assert.deepEqual(calls, ["pr-evidence", "pr-evidence"]);
   });
+});
+
+
+test("workspace B cards expose purpose, count, last save and at most four stacked previews", async () => {
+  const { item, descriptor } = await import("./collection-browser.fixtures.ts");
+  const nowMs = Date.parse("2026-10-13T12:00:00Z");
+  const workspace = session("one", "研究", "topic");
+  workspace.items = Array.from({ length: 5 }, (_, i) => item(String(i), { savedAt: new Date(nowMs - (i + 1) * 3600000).toISOString(), descriptor: descriptor({ post_url: `https://threads.com/@author/post/${i}`, image_url: i % 2 ? null : `https://images.test/${i}.jpg` }) }));
+  const html = renderToStaticMarkup(<WorkspaceHomeView sessions={[workspace]} nowMs={nowMs} activeSessionId="one" onOpen={() => undefined} onCreate={async () => undefined} />);
+  const doc = new JSDOM(html).window.document;
+  assert.match(doc.body.textContent ?? "", /1 個工作區/);
+  assert.match(doc.body.textContent ?? "", /睇大家點講、有咩分歧/);
+  assert.match(doc.body.textContent ?? "", /5 篇 · 最近收藏 1h 前/);
+  assert.equal(doc.querySelectorAll("[data-workspace-preview]").length, 4);
+  assert.equal(doc.querySelectorAll("[data-workspace-preview] img").length, 2);
+  const tiles = [...doc.querySelectorAll("[data-workspace-preview]")].filter(preview => !preview.querySelector("img"));
+  assert.equal(tiles.length, 2);
+  assert.ok(tiles.every(preview => preview.querySelector("[data-collection-type-tile]")?.textContent === "收"));
 });

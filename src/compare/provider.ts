@@ -844,6 +844,23 @@ export async function generateTopicSignalReading(
   return parsed;
 }
 
+/** Settings' 儲存並測試: list one model with the key. Nothing is generated, so nothing is billed. */
+export async function testProviderKey(provider: "openai" | "claude" | "google", apiKey: string): Promise<{ ok: boolean; message: string }> {
+  const name = provider === "google" ? "Google" : provider === "openai" ? "OpenAI" : "Claude";
+  const [url, headers]: [string, Record<string, string>] = provider === "google"
+    ? ["https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", { "x-goog-api-key": apiKey }]
+    : provider === "openai"
+      ? ["https://api.openai.com/v1/models", { Authorization: `Bearer ${apiKey}` }]
+      : ["https://api.anthropic.com/v1/models?limit=1", { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }];
+  try {
+    const response = await fetch(url, { headers });
+    if (response.ok) return { ok: true, message: `${name} key 可用` };
+    return { ok: false, message: [400, 401, 403].includes(response.status) ? `${name} 拒絕了這個 key（${response.status}）` : `${name} 暫時未能確認 key（${response.status}）` };
+  } catch {
+    return { ok: false, message: `未能連上 ${name}，請檢查網絡` };
+  }
+}
+
 export async function generateInlineReading(
   provider: "openai" | "claude" | "google",
   apiKey: string,

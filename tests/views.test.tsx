@@ -1067,6 +1067,8 @@ test("InPageCollectorPopup keeps collection query and reader across reopen witho
   try {
     await render();
     assert.equal(host.querySelectorAll("[data-collection-post]").length, 2, "collection includes inactive workspaces");
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-sort="comments"]')!.click());
+    assert.equal(host.querySelector('[data-collection-sort="comments"]')?.getAttribute("aria-pressed"), "true");
     const innerScrollOwners = () => [...host.querySelectorAll<HTMLElement>('[data-collection-browser], [data-collection-browser] *')]
       .filter((element) => element.style.overflowY === "auto" || element.style.overflowY === "scroll");
     assert.equal(innerScrollOwners().length, 0, "collection uses the popup viewport as its single scroll owner");
@@ -1111,6 +1113,7 @@ test("InPageCollectorPopup keeps collection query and reader across reopen witho
     await act(async () => popupTab(host, "收藏").click());
     assert.equal(viewport().scrollTop, 180, "primary tabs keep independent positions");
     assert.equal(host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]')?.value, "pear");
+    assert.equal(host.querySelector('[data-collection-sort="comments"]')?.getAttribute("aria-pressed"), "true", "sort survives close, reader and primary tab changes");
     assert.deepEqual(mutations, [], "browsing, reading and the workspace index must never change domain state");
     assert.equal(app.snapshot.global.activeSessionId, activeSession.id);
     assert.equal(JSON.stringify(sessions), inventoryBefore, "all folder modes and item ownership remain intact");
@@ -1355,12 +1358,12 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
   const root = createRoot(host);
   const openCalls: string[] = [];
   const navCalls: string[] = [];
-  let createCalls = 0;
   const app = buildPopupAppFixture({ session: topicSession, page: "topics",
     onSetActiveSession: async (id) => { openCalls.push(id); return { ok: true }; },
     onNavigate: async (page) => { navCalls.push(page); }
   });
-  app.onCreateTopic = () => { createCalls += 1; };
+  const createdNames: string[] = [];
+  app.onCreateTopicNamed = (name: string) => { createdNames.push(name); };
   try {
     await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
     const shell = host.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
@@ -1403,10 +1406,18 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
     await act(async () => row.click());
     assert.deepEqual(openCalls, [topicSession.id]);
     assert.deepEqual(navCalls, ["topics"]);
-    const createButton = host.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
-    assert.ok(createButton, "the selected workspace renders the original topic workflow");
+    // 觀眾反應 home is the discourse view (side panel A): ＋ 新話題 names the topic in place, no prompt dialog.
+    const createButton = host.querySelector<HTMLButtonElement>('[data-discourse-new-topic="true"]');
+    assert.ok(createButton, "the selected workspace renders the 觀眾反應 discourse view");
     await act(async () => createButton.click());
-    assert.equal(createCalls, 1);
+    const nameInput = host.querySelector<HTMLInputElement>('[data-discourse-new-topic-name="true"]');
+    assert.ok(nameInput);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(nameInput, "畢業生搵工");
+      nameInput.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    await act(async () => nameInput.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    assert.deepEqual(createdNames, ["畢業生搵工"]);
     assert.equal(host.querySelector('[data-workspace-popup-scroll="viewport"]'), viewport, "in-popup navigation keeps the shared viewport ref");
   } finally {
     await act(async () => root.unmount());
@@ -2979,7 +2990,9 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-settings-language-option="zh"[^>]*data-active="true"/);
   assert.match(html, /data-settings-language-option="en"[^>]*data-active="false"/);
   assert.match(html, /data-settings-group="connection"/);
-  assert.match(html, /data-settings-group="keys"/);
+  assert.match(html, /data-settings-group="ai"/);
+  assert.doesNotMatch(html, /data-settings-group="keys"/);
+  assert.ok(html.indexOf('data-settings-group="ai"') < html.indexOf('data-settings-group="connection"'), "AI comes first (side panel A)");
   assert.match(html, /data-settings-group="product"/);
   assert.match(html, /data-settings-group="connection"[^>]*border-radius:20px/);
   assert.match(html, /data-settings-group="connection"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
@@ -3023,15 +3036,34 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-product-cache-reset="true"/);
   assert.match(html, /清除 Product cache/);
   assert.match(html, /只會移除 Product 分析、判讀與編譯脈絡/);
-  // Regression guard: the save dock must flow at the end of the form, never
-  // float over the preceding card. A bottom-anchored sticky bar clips the last
-  // card's border + button, which is the exact bug this replaces.
-  assert.match(html, /data-settings-save-dock="footer"/);
-  assert.doesNotMatch(html, /data-settings-save-dock="[^"]*"[^>]*position:sticky/);
-  assert.match(html, /Save settings/);
+  // Each group saves itself (side panel A); the distant bottom "Save settings" is gone.
+  assert.doesNotMatch(html, /data-settings-save-dock/);
+  assert.doesNotMatch(html, /Save settings/);
+  assert.match(html, /儲存並測試/);
+  assert.match(html, /儲存產品資料/);
   assert.match(html, /data-settings-save-status="success"/);
   assert.match(html, /ProductContext 已編譯/);
   assert.doesNotMatch(html, /Welcome|Get started/);
+});
+
+test("SettingsView's AI group shows only the chosen provider's key, saves it in place and shows the test result", () => {
+  const base = {
+    sessionMode: "topic" as const, draftBaseUrl: "http://127.0.0.1:8000", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+    hasGoogleKey: false, hasOpenAiKey: true, draftLayoutPreferences: createDefaultSettings().layoutPreferences,
+    draftProductProfile: { name: "", category: "", audience: "" }, onDraftBaseUrlChange: () => undefined, onDraftProviderChange: () => undefined,
+    onDraftOpenAiKeyChange: () => undefined, onDraftClaudeKeyChange: () => undefined, onDraftGoogleKeyChange: () => undefined,
+    onDraftLayoutPreferencesChange: () => undefined, onDraftProductProfileChange: () => undefined,
+    createContextFileId: (kind: string, name: string) => `${kind}_${name}`, onSaveSettings: () => undefined
+  };
+  const google = renderToStaticMarkup(React.createElement(SettingsView, { ...base, draftProvider: "google", aiKeyStatus: { kind: "error", message: "Google 拒絕了這個 key（400）" } } as any));
+  assert.match(google, /data-settings-provider-option="google"[^>]*data-active="true"/);
+  assert.match(google, /data-settings-ai-key="google"/);
+  assert.doesNotMatch(google, /data-settings-ai-key="openai"/, "one key field: the chosen provider's");
+  assert.match(google, /OpenAI<small[^>]*>已填/);
+  assert.match(google, /data-settings-ai-status="error"[^]*Google 拒絕了這個 key（400）/);
+  const off = renderToStaticMarkup(React.createElement(SettingsView, { ...base, draftProvider: "" } as any));
+  assert.doesNotMatch(off, /data-settings-ai-key=/);
+  assert.match(off, /未選 AI/);
 });
 
 test("SettingsView shows saved key state when sanitized snapshot hides the raw key", () => {
@@ -6502,7 +6534,7 @@ test("PR-only popup keeps mixed inventories and stale non-PR routes behind the P
       assert.deepEqual([...host.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ["工作區"]);
       assert.ok(host.querySelector('[data-workspace-home]'), "stale non-PR domain opens only the allowed workspace index");
       assert.deepEqual([...host.querySelectorAll('[data-workspace-session]')].map((row) => row.getAttribute("data-workspace-session")), [pr.id]);
-      await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "建立工作區")!.click());
+      await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "＋ 新工作區")!.click());
       assert.deepEqual([...host.querySelectorAll('select[name="workspace-type"] option')].map((option) => option.getAttribute("value")), ["pr-evidence"]);
       const name = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
       await act(async () => { name.value = "新核對"; name.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });

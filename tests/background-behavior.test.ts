@@ -791,6 +791,43 @@ test("a card's 開啟工作區 opens the side panel inside the gesture and hands
   assert.equal(second.workspaceSessionId, null);
 });
 
+test("settings/test-ai-key lists one model with the chosen provider's key and names a missing key", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const urls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => { urls.push(String(input)); return new Response("{}", { status: 200 }); }) as typeof fetch;
+    const global = makeGlobal([makeSession("topic-session", "topic")], "topic-session");
+    const keyed = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "test-google-key" } },
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+    const ok = await keyed.dispatch({ type: "settings/test-ai-key" });
+    assert.ok(ok.ok);
+    assert.deepEqual(ok.aiKeyTest, { ok: true, message: "Google key 可用" });
+    assert.deepEqual(urls, ["https://generativelanguage.googleapis.com/v1beta/models?pageSize=1"], "a listing, not a generation");
+    const bare = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "", openaiApiKey: "sk-x" } },
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+    const missing = await bare.dispatch({ type: "settings/test-ai-key" });
+    assert.ok(missing.ok);
+    assert.deepEqual(missing.aiKeyTest, { ok: false, message: "設定選了 Google，但只填了 OpenAI key" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the post in view is kept per Threads tab for a side panel that opens later", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+  assert.equal((await harness.dispatch({ type: "inline/in-view", postKey: "threads-post:abc" })).ok, true);
+  const got = await harness.dispatch({ type: "inline/in-view-get" });
+  assert.ok(got.ok);
+  assert.equal(got.inViewPostKey, "threads-post:abc");
+});
+
 test("session/set-mode existing target mode writes only active-session and tab keys", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = makeSession("product-session", "product");

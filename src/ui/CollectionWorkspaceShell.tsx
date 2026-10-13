@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { MoreHorizontal } from "lucide-react";
 import { tokens, textStyles } from "./tokens";
 import { BUILD_VERSION } from "./version";
 
@@ -16,16 +17,17 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, diagnos
 }) {
   return (
     <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gap: tokens.spacing.lg }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 3, background: tokens.color.surface, display: "flex", alignItems: "center", gap: tokens.spacing.lg, flexWrap: "wrap", padding: `${tokens.spacing.md}px 0`, borderBottom: `1px solid ${tokens.color.line}` }}>
-        <span style={{ fontFamily: tokens.font.serif, fontSize: textStyles.h3.fontSize, color: tokens.color.ink }}>dlens</span>
-        <nav aria-label="主要導覽" role="tablist" style={{ display: "flex", gap: tokens.spacing.md, flex: 1 }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 3, background: tokens.collection.header, backdropFilter: tokens.collection.headerBlur, WebkitBackdropFilter: tokens.collection.headerBlur, height: tokens.collection.headerHeight, boxSizing: "border-box", display: "flex", alignItems: "center", gap: tokens.collection.tabGap, margin: `0 -${tokens.spacing.section}px`, padding: `0 ${tokens.spacing.section}px`, borderBottom: `1px solid ${tokens.color.line}` }}>
+        <span style={{ fontFamily: tokens.font.serif, fontSize: tokens.collection.logoSize, color: tokens.color.ink }}>dlens</span>
+        <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: tokens.collection.tabGap, height: "100%", flex: 1 }}>
           {([['collection', '收藏'], ['workspaces', '工作區']] as const).filter(([key]) => allowCollection || key !== 'collection').map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} disabled={busy} onClick={() => onTabChange(key)}
-              style={{ ...textStyles.bodyTight, fontWeight: tab === key ? 700 : 400, color: tab === key ? tokens.color.accent : tokens.color.softInk, background: "transparent", border: 0, borderBottom: `2px solid ${tab === key ? tokens.color.accent : 'transparent'}`, padding: `${tokens.spacing.sm}px 0`, cursor: "pointer" }}>{label}</button>
+              style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, width: tokens.collection.tabWidth, fontWeight: tab === key ? 600 : 500, color: tab === key ? tokens.color.accent : tokens.color.softInk, background: "transparent", border: 0, padding: 0, cursor: "pointer" }}>{label}</button>
           ))}
+          <span data-collection-tab-indicator="" aria-hidden="true" style={{ position: "absolute", bottom: 0, left: 0, width: tokens.collection.tabWidth, height: tokens.collection.indicatorHeight, background: tokens.color.accent, borderRadius: tokens.radius.xs, transform: `translateX(${allowCollection && tab === "workspaces" ? tokens.collection.tabWidth + tokens.collection.tabGap : 0}px)` }} />
         </nav>
         <details data-collection-menu="true" style={{ position: "relative" }}>
-          <summary aria-label="更多選項" style={{ cursor: "pointer", listStyle: "none", padding: tokens.spacing.sm, color: tokens.color.subInk }}>•••</summary>
+          <summary aria-label="更多選項" style={{ cursor: "pointer", listStyle: "none", padding: tokens.spacing.sm, color: tokens.color.subInk }}><MoreHorizontal size={tokens.spacing.section} aria-hidden="true" /></summary>
           <div style={{ position: "absolute", top: "100%", right: 0, zIndex: 2, width: tokens.layout.collectionMenuWidth, maxWidth: "70vw", display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.md, border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, background: tokens.color.surface, boxShadow: tokens.shadow.card }}>
             <button type="button" onClick={onSettings} style={{ ...textStyles.bodyTight, textAlign: "left", border: 0, background: "transparent", padding: tokens.spacing.sm, color: tokens.color.ink, cursor: "pointer" }}>設定</button>
             <details>

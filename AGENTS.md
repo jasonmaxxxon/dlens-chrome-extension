@@ -136,6 +136,24 @@ regenerating. PR-only builds expose only their existing PR domain.
   most 3 replies per group (1 for noise) and each text once. There are no
   per-reply permalinks (the backend drops them), so rows do not link out.
 
+## 觀眾反應 workspace = discourse layer (side panel A, 2026-10-08)
+
+- The topic workspace home (`topics` page) is `TopicDiscourseView` driven by
+  `src/viewmodel/topic-discourse.ts`; the old Topics list is retired. 話題 are
+  filled by hand only: the card's 未放入話題 chips / ＋ 新話題, or the panel's
+  未分流 strip, all through `signal/triage` (`assign` / `create-topic`).
+- 講法 = posts sharing the first keyword of their largest comment cluster that
+  the AI pass did not flag as noise (TopicSynthesis' grouping, computed live
+  so every post is listed). 發現 (走勢 / 共鳴 / 重複問題) are fixed templates
+  filled with counts and marked 無 AI; a 共鳴 claim needs 1.5× and 走勢 2+
+  posts. v12's per-comment stance (留言反應) is not built.
+- The panel follows the Threads post crossing 45% of the viewport
+  (`inline/in-view`, kept per tab in background for a panel that opens later)
+  unless the user picked a 話題 chip.
+- Settings: the AI group comes first (one provider, one key field,
+  儲存並測試 via `settings/test-ai-key`, which lists one model and generates
+  nothing); every group saves itself; there is no bottom Save settings.
+
 ## Mode contracts (current; history and rationale in the archive)
 
 - **Shared workspace shell**: Topic, Product, and PR Evidence use

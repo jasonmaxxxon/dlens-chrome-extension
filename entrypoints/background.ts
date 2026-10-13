@@ -113,10 +113,11 @@ import {
   generateSignalTags,
   generateTopicAuditEnvelope,
   generateTopicSignalReading,
-  generateInlineReading
+  generateInlineReading,
+  testProviderKey
 } from "../src/compare/provider";
 import { buildInlineReadingInput, INLINE_READING_PROMPT_VERSION, readCrawlComments } from "../src/compare/inline-reading";
-import { providerKeyFromSettings } from "../src/state/ai-key";
+import { aiKeyGap, providerKeyFromSettings } from "../src/state/ai-key";
 import { loadInlineReadingRecords, saveInlineReadingRecord } from "../src/compare/inline-reading-storage";
 import {
   appendSignalReadingReview,
@@ -2428,6 +2429,9 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
   return "started";
 }
 
+// The post in view per Threads tab, for a side panel that opens after the user stopped scrolling.
+const inViewPostByTab = new Map<number, string | null>();
+
 // The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
 let pendingSidePanelWorkspace: { sessionId: string; at: number } | null = null;
 
@@ -2571,6 +2575,24 @@ export default defineBackground(() => {
             const pending = pendingSidePanelWorkspace;
             pendingSidePanelWorkspace = null;
             sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null } satisfies ExtensionResponse);
+            return;
+          }
+          case "settings/test-ai-key": {
+            const tabId = await resolveTabId(sender);
+            const settings = normalizeGlobalState((await loadSnapshot(tabId)).global).settings;
+            const config = providerKeyFromSettings(settings);
+            const aiKeyTest = config ? await testProviderKey(config.provider, config.apiKey) : { ok: false, message: aiKeyGap(settings) ?? "未設定 AI key" };
+            sendResponse({ ok: true, tabId, aiKeyTest } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline/in-view": {
+            if (typeof sender.tab?.id === "number") inViewPostByTab.set(sender.tab.id, message.postKey);
+            sendResponse({ ok: true } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline/in-view-get": {
+            const tabId = await resolveTabId(sender);
+            sendResponse({ ok: true, tabId, inViewPostKey: inViewPostByTab.get(tabId) ?? null } satisfies ExtensionResponse);
             return;
           }
           case "inline-reading/ensure": {

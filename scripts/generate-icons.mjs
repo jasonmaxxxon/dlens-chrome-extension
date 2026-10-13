@@ -1,13 +1,13 @@
 /**
- * Generates DLens placeholder icons (a geometric "lens" mark) as PNGs.
+ * Generates the DLens icon (a magnifier with a mint signal dot in the lens) as PNGs.
  * Zero dependencies — a hand-rolled PNG encoder over node:zlib, so no image
  * tooling (ImageMagick / rsvg) is required.
  *
  * Output: public/icon/{16,32,48,96,128}.png  (WXT copies public/ to build root)
  * Re-run after tweaking the design:  node scripts/generate-icons.mjs
  *
- * These are intentional placeholders — swap in a real brand mark later by
- * replacing the PNGs (keep the same filenames) or editing the renderer below.
+ * 16px and 32px use a bolder stroke so the ring, handle and dot still read in
+ * the toolbar. Mockup: docs/mockups/2026-10-08-sidepanel-collection-B.html.
  */
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -17,9 +17,10 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(__dirname, "..", "public", "icon");
 
-// Brand palette — see src/ui/tokens.ts (indigo tile, warm-paper lens).
-const INK = [0x1a, 0x2e, 0x4f];
-const PAPER = [0xf7, 0xf4, 0xec];
+// Brand palette — see src/ui/tokens.ts (warm-ink tile, paper magnifier, mint signal).
+const INK = [0x1b, 0x1a, 0x17];
+const PAPER = [0xfb, 0xfb, 0xf9];
+const MINT = [0x8f, 0xd6, 0xa8];
 
 const SIZES = [16, 32, 48, 96, 128];
 const SS = 4; // supersampling factor for anti-aliasing
@@ -70,12 +71,24 @@ function encodePng(size, rgba) {
 // ── Mark renderer ────────────────────────────────────────────────────────
 function renderIcon(size) {
   const W = size * SS;
-  const center = (W - 1) / 2;
-  const pad = W * 0.06;
-  const corner = W * 0.22;
-  const ringOuter = W * 0.34;
-  const ringInner = ringOuter - W * 0.11;
-  const dotRadius = W * 0.085;
+  const bold = size <= 32;
+  const pad = W * 0.0234;
+  const corner = W * 0.2266;
+  const center = W * 0.4414;
+  const ring = W * 0.2305; // ring centre-line radius
+  const ringHalf = (W * (bold ? 0.1172 : 0.082)) / 2;
+  const handleHalf = (W * (bold ? 0.1289 : 0.1016)) / 2;
+  const handleStart = center + (ring + ringHalf - W * 0.0078) * Math.SQRT1_2;
+  const handleEnd = W * 0.7734;
+  const dot = center - W * 0.0605;
+  const dotRadius = W * (bold ? 0.0723 : 0.0527);
+
+  const onHandle = (x, y) => {
+    // distance to the 45° segment from handleStart to handleEnd, round caps
+    const t = Math.min(Math.max(((x - handleStart) + (y - handleStart)) / (2 * (handleEnd - handleStart)), 0), 1);
+    const along = handleStart + t * (handleEnd - handleStart);
+    return Math.hypot(x - along, y - along) <= handleHalf;
+  };
 
   const insideRoundedSquare = (x, y) => {
     const x0 = pad;
@@ -101,9 +114,8 @@ function renderIcon(size) {
           const px = x * SS + sx + 0.5;
           const py = y * SS + sy + 0.5;
           if (!insideRoundedSquare(px, py)) continue;
-          const dist = Math.hypot(px - center, py - center);
-          const isLens = (dist >= ringInner && dist <= ringOuter) || dist <= dotRadius;
-          const color = isLens ? PAPER : INK;
+          const isMark = Math.abs(Math.hypot(px - center, py - center) - ring) <= ringHalf || onHandle(px, py);
+          const color = isMark ? PAPER : Math.hypot(px - dot, py - dot) <= dotRadius ? MINT : INK;
           r += color[0];
           g += color[1];
           b += color[2];

@@ -1,10 +1,14 @@
 import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { DEFAULT_SESSION_NAME_BY_MODE, getSessionDisplayName } from "../state/store-helpers";
 import type { FolderMode, SessionRecord } from "../state/types";
-import { textStyles, tokens } from "./tokens";
+import { MoreHorizontal } from "lucide-react";
+import { buildWorkspaceCards } from "../viewmodel/collection-browser";
+import { CollectionThumbnail } from "./CollectionBrowser";
+import { getModeTheme, textStyles, tokens } from "./tokens";
 
 interface WorkspaceHomeViewProps {
   sessions: SessionRecord[];
+  nowMs?: number;
   activeSessionId: string | null;
   onOpen: (sessionId: string) => Promise<unknown> | unknown;
   onCreate: (name: string, mode: FolderMode) => Promise<unknown>;
@@ -55,7 +59,7 @@ function failedResponse(response: unknown): boolean {
   return typeof response === "object" && response !== null && "ok" in response && response.ok === false;
 }
 
-export function WorkspaceHomeView({ sessions, activeSessionId, onOpen, onCreate, onRename, onDelete, externalError, busy = false, allowedCreationModes = CREATION_MODES }: WorkspaceHomeViewProps) {
+export function WorkspaceHomeView({ sessions, nowMs = 0, activeSessionId, onOpen, onCreate, onRename, onDelete, externalError, busy = false, allowedCreationModes = CREATION_MODES }: WorkspaceHomeViewProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [mode, setMode] = useState<FolderMode>(allowedCreationModes[0] ?? "topic");
@@ -125,20 +129,21 @@ export function WorkspaceHomeView({ sessions, activeSessionId, onOpen, onCreate,
     }
   }
 
+  const cards = buildWorkspaceCards(sessions, nowMs);
   const visibleError = error ?? externalError;
   const managedSession = sessions.find((session) => session.id === management?.sessionId);
 
   return (
     <section data-workspace-home="true" aria-busy={pending || undefined} style={{ display: "grid", gap: tokens.spacing.lg, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: tokens.spacing.md, flexWrap: "wrap" }}>
-        <h2 style={{ ...textStyles.h2, color: tokens.color.ink, margin: 0 }}>工作區</h2>
+        <span style={{ ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk }}>{sessions.length} 個工作區</span>
         <button
           type="button"
           disabled={disabled}
           aria-expanded={showCreate}
           onClick={() => { setShowCreate(!showCreate); setManagement(null); setError(null); }}
-          style={buttonStyle}
-        >建立工作區</button>
+          style={{ ...buttonStyle, border: 0, background: "transparent", color: tokens.color.softInk }}
+        >＋ 新工作區</button>
       </div>
 
       {showCreate ? (
@@ -186,45 +191,34 @@ export function WorkspaceHomeView({ sessions, activeSessionId, onOpen, onCreate,
       {visibleError ? <p role="alert" style={{ ...textStyles.bodyTight, color: tokens.color.failed, margin: 0 }}>{visibleError}</p> : null}
 
       {sessions.length ? (
-        <div style={{ display: "grid", minWidth: 0 }}>
-          {sessions.map((session) => (
-            <div key={session.id} style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, borderBottom: `1px solid ${tokens.color.line}` }}>
-            <button
-              type="button"
-              data-workspace-session={session.id}
-              aria-current={session.id === activeSessionId ? "true" : undefined}
-              disabled={disabled}
-              onClick={() => void openWorkspace(session.id)}
-              style={{
-                ...textStyles.body,
-                display: "flex",
-                width: "100%",
-                minWidth: 0,
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: tokens.spacing.md,
-                padding: `${tokens.spacing.section}px 0`,
-                textAlign: "left",
-                border: "none",
-                flex: 1,
-                background: "transparent",
-                color: tokens.color.ink,
-                cursor: disabled ? "default" : "pointer"
-              }}
-            >
-              <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{workspaceName(session)}</span>
-              <span style={{ ...textStyles.meta, color: tokens.color.softInk, whiteSpace: "nowrap" }}>{session.items.length} 則收藏</span>
-            </button>
-            {onRename || onDelete ? (
-              <details data-workspace-management={session.id} style={{ position: "relative" }}>
-                <summary aria-label={`管理 ${workspaceName(session)}`} style={{ ...textStyles.meta, padding: tokens.spacing.sm, cursor: "pointer" }}>•••</summary>
-                <div style={{ position: "absolute", right: 0, zIndex: 2, display: "grid", gap: tokens.spacing.xs, padding: tokens.spacing.sm, background: tokens.color.surface, border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, boxShadow: tokens.shadow.card }}>
-                  {onRename ? <button type="button" disabled={disabled} onClick={() => { setManagement({ sessionId: session.id, action: "rename" }); setRenameName(session.name); setShowCreate(false); setError(null); }} style={{ ...buttonStyle, whiteSpace: "nowrap" }}>重新命名</button> : null}
-                  {onDelete ? <button type="button" disabled={disabled} onClick={() => { setManagement({ sessionId: session.id, action: "delete" }); setShowCreate(false); setError(null); }} style={buttonStyle}>刪除</button> : null}
-                </div>
-              </details>
-            ) : null}
-            </div>
+        <div style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
+          {cards.map(({ session, purpose, count, previews, lastSavedRelative }, index) => (
+            <article key={session.id} data-workspace-card="" data-collection-arrival="" style={{ "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.section, border: `1px solid ${tokens.collection.hairline}`, borderRadius: tokens.radius.cardLg, background: tokens.color.surface } as CSSProperties}>
+              <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm }}>
+                <span aria-hidden="true" style={{ width: tokens.collection.dotSize, height: tokens.collection.dotSize, borderRadius: tokens.radius.round, background: getModeTheme(session.mode).accent, flexShrink: 0 }} />
+                <button type="button" data-workspace-session={session.id} aria-current={session.id === activeSessionId ? "true" : undefined}
+                  disabled={disabled} onClick={() => void openWorkspace(session.id)}
+                  style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, fontWeight: 600, flex: 1, minWidth: 0, textAlign: "left", padding: 0, border: 0, background: "transparent", color: tokens.color.ink, cursor: disabled ? "default" : "pointer", overflowWrap: "anywhere" }}>
+                  {workspaceName(session)}
+                </button>
+                {onRename || onDelete ? (
+                  <details data-workspace-management={session.id} style={{ position: "relative" }}>
+                    <summary aria-label={`管理 ${workspaceName(session)}`} style={{ listStyle: "none", display: "flex", padding: tokens.spacing.xs, color: tokens.color.softInk, cursor: "pointer" }}><MoreHorizontal size={tokens.spacing.section} aria-hidden="true" /></summary>
+                    <div style={{ position: "absolute", right: 0, zIndex: 2, display: "grid", gap: tokens.spacing.xs, padding: tokens.spacing.sm, background: tokens.color.surface, border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, boxShadow: tokens.shadow.card }}>
+                      {onRename ? <button type="button" disabled={disabled} onClick={() => { setManagement({ sessionId: session.id, action: "rename" }); setRenameName(session.name); setShowCreate(false); setError(null); }} style={{ ...buttonStyle, whiteSpace: "nowrap" }}>重新命名</button> : null}
+                      {onDelete ? <button type="button" disabled={disabled} onClick={() => { setManagement({ sessionId: session.id, action: "delete" }); setShowCreate(false); setError(null); }} style={buttonStyle}>刪除</button> : null}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+              <p style={{ ...textStyles.bodyTight, color: tokens.color.softInk, margin: 0 }}>{purpose}</p>
+              <footer style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, flexWrap: "wrap" }}>
+                {previews.length ? <span style={{ display: "flex", paddingLeft: tokens.collection.previewOverlap }}>
+                  {previews.map(post => <span key={post.key} data-workspace-preview="" style={{ display: "flex", marginLeft: -tokens.collection.previewOverlap, border: `${tokens.collection.previewBorder}px solid ${tokens.color.surface}`, borderRadius: tokens.radius.pill }}><CollectionThumbnail post={post} miniature /></span>)}
+                </span> : null}
+                <span style={{ ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk }}>{count} 篇{lastSavedRelative ? ` · 最近收藏 ${lastSavedRelative} 前` : ""}</span>
+              </footer>
+            </article>
           ))}
         </div>
       ) : (

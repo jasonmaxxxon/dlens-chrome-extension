@@ -8,7 +8,9 @@ import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-tr
 import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
 import { awaitingAnalysis, buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
 import { aiKeyGap } from "../state/ai-key";
-import type { SessionItem } from "../state/types";
+import type { SessionItem, Signal, Topic } from "../state/types";
+import { normalizeSignal, normalizeTopic, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../state/topic-storage";
+import { buildCardTopicLine } from "../viewmodel/topic-discourse";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
 import { renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
@@ -109,9 +111,12 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       slot.className = "dlens-card-slot";
       slot.setAttribute("data-dlens-control", "true");
       slot.addEventListener("click", (event) => onCardClick(post, event));
+      slot.addEventListener("keydown", (event) => onCardKey(post, event));
       bar.insertAdjacentElement("afterend", slot);
       slots.set(post.identity, slot);
     }
+    // Never repaint under the user's cursor while they type a new 話題 name.
+    if (!enter && document.activeElement?.tagName === "INPUT" && slot.contains(document.activeElement)) return;
     const reads = destination.mode === "topic" || destination.mode === "product";
     if (reads && item.status !== "succeeded" && !peeks.has(post.identity) && item.descriptor.post_url) startPeek(post.identity, item.descriptor.post_url);
     const vm = buildInlineCardViewModel(item, destination.mode, destination.sessionName, {
@@ -129,7 +134,11 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const card = (post as InlineCollectEntry).card ?? bar;
     const right = card.getBoundingClientRect().right;
     const floating = !!evidence && window.innerWidth - right - tokens.collectCard.windowGap >= tokens.collectCard.windowMinRoom;
-    slot.innerHTML = renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence });
+    const topicLine = destination.mode === "topic"
+      ? buildCardTopicLine(item.id, topics, signals, global?.sessions.flatMap((session) => session.items) ?? [], readings)
+      : null;
+    slot.innerHTML = renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence, topicLine, naming: naming === post.identity });
+    if (naming === post.identity) slot.querySelector<HTMLInputElement>("[data-dlens-topic-name]")?.focus();
     if (evidence && floating) showEvidenceWindow(post.identity, (enter: boolean) => renderInlineEvidenceWindow(evidence, destination.mode, enter), right, slot.getBoundingClientRect().top);
     else if (evidenceWindow?.dataset.dlensFor === post.identity) closeEvidenceWindow();
   }
@@ -156,6 +165,31 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   }
   function closeEvidenceWindow() { evidenceWindow?.remove(); evidenceWindow = null; }
   let readings: Record<string, InlineReadingRecord> = {};
+  // 話題 the user sorts posts into by hand; read straight from storage so the card line stays current.
+  let topics: Topic[] = [];
+  let signals: Signal[] = [];
+  let naming: string | null = null;
+  const readTopics = (value: unknown) => (Array.isArray(value) ? value.map(normalizeTopic).filter((t): t is Topic => !!t) : []);
+  const readSignals = (value: unknown) => (Array.isArray(value) ? value.map(normalizeSignal).filter((s): s is Signal => !!s) : []);
+  function triage(post: InlineCollectPost, signalId: string, action: { kind: "assign"; topicId: string } | { kind: "create-topic"; name: string }) {
+    void send({ type: "signal/triage", signalId, action })
+      .then((response) => { if (!response.ok) wheel.showToast("未能放入話題，請再試。"); })
+      .catch(() => wheel.showToast("未能放入話題，請再試。"))
+      .finally(() => repaintCard(post.identity));
+  }
+  function onCardKey(post: InlineCollectPost, event: KeyboardEvent) {
+    const input = (event.target as Element | null)?.matches?.("input[data-dlens-topic-name]") ? event.target as HTMLInputElement : null;
+    if (!input) return;
+    event.stopPropagation();
+    if (event.key === "Escape") { naming = null; input.blur(); repaintCard(post.identity); return; }
+    if (event.key !== "Enter") return;
+    const name = input.value.trim();
+    const signalId = input.dataset.signalId;
+    naming = null;
+    input.blur();
+    if (name && signalId) triage(post, signalId, { kind: "create-topic", name });
+    else repaintCard(post.identity);
+  }
   // Background said no key although local settings looked usable; cleared on the next settings/global change.
   const noKey = new Set<string>();
   const ensured = new Set<string>();
@@ -192,6 +226,16 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     else if (act === "open") openWorkspace(post.identity);
     else if (act === "move") wheel.openSticky(post);
     else if (act === "crawl" && destination) crawl(destination);
+    else if (act === "topic-pick") {
+      const button = target!.closest<HTMLElement>("[data-dlens-act]")!;
+      if (button.dataset.signalId && button.dataset.topicId) triage(post, button.dataset.signalId, { kind: "assign", topicId: button.dataset.topicId });
+    }
+    else if (act === "topic-new") { naming = post.identity; renderCard(post); }
+    else if (act === "topic-side" && destination) {
+      // The panel follows the post in view; name this one so it opens on its 話題.
+      void send({ type: "inline/in-view", postKey: post.identity }).catch(() => undefined);
+      openWorkspace(post.identity);
+    }
     else if (act === "evidence") {
       // Opening one post's evidence closes any other.
       if (!view.evidence) for (const [identity, other] of cards) if (identity !== post.identity && other.evidence) { cards.set(identity, { ...other, evidence: false }); repaintCard(identity); }
@@ -389,8 +433,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   });
   const storageListener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
     if (area !== "local" || destroyed) return;
-    if (INLINE_READINGS_STORAGE_KEY in changes) {
-      readings = normalizeInlineReadingRecords(changes[INLINE_READINGS_STORAGE_KEY].newValue);
+    if (INLINE_READINGS_STORAGE_KEY in changes || TOPICS_STORAGE_KEY in changes || SIGNALS_STORAGE_KEY in changes) {
+      if (INLINE_READINGS_STORAGE_KEY in changes) readings = normalizeInlineReadingRecords(changes[INLINE_READINGS_STORAGE_KEY].newValue);
+      if (TOPICS_STORAGE_KEY in changes) topics = readTopics(changes[TOPICS_STORAGE_KEY].newValue);
+      if (SIGNALS_STORAGE_KEY in changes) signals = readSignals(changes[SIGNALS_STORAGE_KEY].newValue);
       injection?.entries().forEach(renderCard);
     }
     if (!(GLOBAL_STATE_STORAGE_KEY in changes)) return;
@@ -410,16 +456,35 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const next = stored?.[GLOBAL_STATE_STORAGE_KEY] as ExtensionGlobalState | undefined;
     if (next && Array.isArray(next.sessions)) { global = next; injection?.entries().forEach(paint); }
   }).catch(() => undefined);
-  void Promise.resolve(chrome.storage.local?.get?.(INLINE_READINGS_STORAGE_KEY)).then((stored) => {
+  void Promise.resolve(chrome.storage.local?.get?.([INLINE_READINGS_STORAGE_KEY, TOPICS_STORAGE_KEY, SIGNALS_STORAGE_KEY])).then((stored) => {
     if (destroyed || !stored) return;
     readings = normalizeInlineReadingRecords(stored[INLINE_READINGS_STORAGE_KEY]);
+    topics = readTopics(stored[TOPICS_STORAGE_KEY]);
+    signals = readSignals(stored[SIGNALS_STORAGE_KEY]);
     injection?.entries().forEach(renderCard);
   }).catch(() => undefined);
+  // The side panel follows the feed: report the post crossing the middle of the viewport whenever it changes.
+  let inView: string | null = null;
+  let inViewFrame = 0;
+  const onScroll = () => {
+    if (inViewFrame) return;
+    inViewFrame = window.requestAnimationFrame(() => {
+      inViewFrame = 0;
+      const middle = window.innerHeight * 0.45;
+      const entry = injection?.entries().find((candidate) => { const rect = candidate.card.getBoundingClientRect(); return rect.top <= middle && rect.bottom >= middle; });
+      const next = entry?.identity ?? null;
+      if (next === inView) return;
+      inView = next;
+      void send({ type: "inline/in-view", postKey: next }).catch(() => undefined);
+    });
+  };
+  document.addEventListener("scroll", onScroll, { passive: true, capture: true });
   chrome.storage.onChanged.addListener(storageListener);
   const onResize = () => { const identity = evidenceWindow?.dataset.dlensFor; if (identity) repaintCard(identity); };
   window.addEventListener("resize", onResize);
   function teardown() {
-    destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
+    destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize);
+    document.removeEventListener("scroll", onScroll, { capture: true }); if (inViewFrame) window.cancelAnimationFrame(inViewFrame); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
     try { chrome.storage.onChanged.removeListener(storageListener); } catch { /* the extension context may already be gone */ }
     injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id);
   }

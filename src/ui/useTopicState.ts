@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import { deriveTopicLoadState } from "../state/load-state";
 import { emitPipelineEvent, type PipelineEventInput } from "../state/pipeline-trace";
+import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../state/topic-storage";
 import type {
   FolderMode,
   PopupPage,
@@ -325,6 +326,17 @@ export function useTopicState({
     [collectionTargetOverride, collectionTopicId, selectedTopicId, topics]
   );
 
+  // Cards on Threads sort posts into topics directly; re-read when those writes land so the side panel follows.
+  const [topicStoreVersion, setTopicStoreVersion] = useState(0);
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.storage?.onChanged) return;
+    const onChanged = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+      if (area === "local" && (TOPICS_STORAGE_KEY in changes || SIGNALS_STORAGE_KEY in changes)) setTopicStoreVersion((version) => version + 1);
+    };
+    chrome.storage.onChanged.addListener(onChanged);
+    return () => chrome.storage.onChanged.removeListener(onChanged);
+  }, []);
+
   useEffect(() => {
     if (!popupOpen || !activeFolder?.id || activeFolderMode === "archive") {
       emitPipelineEvent({
@@ -415,7 +427,7 @@ export function useTopicState({
     return () => {
       cancelled = true;
     };
-  }, [activeFolder?.id, activeFolderMode, popupOpen, stateUpdatedAt]);
+  }, [activeFolder?.id, activeFolderMode, popupOpen, stateUpdatedAt, topicStoreVersion]);
 
   useEffect(() => {
     if (activeTopic && !topics.some((topic) => topic.id === activeTopic.id)) {
@@ -609,6 +621,17 @@ export function useTopicState({
         await sendAndSync({ type: "topic/set-collection-target", topicId: nextTopicId });
       }
     }
+  }
+
+  /** Create a topic from a typed name (the discourse view's inline field), without the prompt dialogs. */
+  async function onCreateTopicNamed(name: string) {
+    if (!activeFolder || !name.trim()) return;
+    const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
+      type: "topic/create",
+      sessionId: activeFolder.id,
+      name: name.trim()
+    });
+    if (response.ok) setTopics(response.topics ?? topics);
   }
 
   function onSelectTopicTarget(topicId: string | null) {
@@ -848,6 +871,7 @@ export function useTopicState({
     clearResultTopicContext,
     onSessionModeChange,
     onCreateTopic,
+    onCreateTopicNamed,
     onSelectTopicTarget,
     onDeleteTopic,
     onNavigateToTopic,

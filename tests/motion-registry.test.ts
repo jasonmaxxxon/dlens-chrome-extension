@@ -40,7 +40,7 @@ const ATLAS_REACTION_MAP_PATH = fileURLToPath(new URL("../src/ui/AtlasReactionMa
 type RouteCardSource = { kind: "file"; relativePath: string } | { kind: "family"; family: UiSourceFamilyName };
 
 const WORKSPACE_ROUTE_CARD_SOURCES: readonly RouteCardSource[] = [
-  { kind: "file", relativePath: "../src/ui/TopicsListView.tsx" },
+  { kind: "file", relativePath: "../src/ui/TopicDiscourseView.tsx" },
   { kind: "family", family: "TopicDetailView" },
   { kind: "file", relativePath: "../src/ui/CollectView.tsx" },
   { kind: "family", family: "LibraryView" },
@@ -580,4 +580,14 @@ test("family reader catches a hard-coded scroll behavior hidden in a nested fami
     offenders.some((entry) => entry.relativePath.includes("sibling/nested/")),
     `expected the family scan to catch the nested fixture violation among: ${family.map((entry) => entry.relativePath).join(", ")}`
   );
+});
+
+
+test("collection B owns rise, fold, glide, image and mist keyframes and current shell markers", () => {
+  const names = new Set(registryKeyframeNames());
+  for (const suffix of ["rise", "fold", "glide", "image", "mist"]) assert.ok(names.has(`dlens-collection-${suffix}`));
+  const start = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: no-preference) {\n  [data-collection-workspace-shell]");
+  assert.notEqual(start, -1, "collection motion sits behind the no-preference gate");
+  const block = DLENS_MOTION_CSS.slice(start, DLENS_MOTION_CSS.indexOf("\n}\n", start));
+  for (const marker of ["data-collection-arrival", "data-collection-glide", "data-collection-exiting", "data-collection-tab-indicator", "data-collection-sort-knob", "data-collection-image-loaded", "data-collection-mist"]) assert.ok(block.includes(marker), marker);
 });

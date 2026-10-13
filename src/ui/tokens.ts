@@ -29,6 +29,22 @@ const WORKSPACE_GLASS = {
 } as const;
 
 export const tokens = {
+  collection: {
+    bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
+    headerHeight: 48, logoSize: 21, tabWidth: 54, tabGap: 18, searchHeight: 36,
+    thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,
+    rowPadding: 10, rowLift: -2, indicatorHeight: 2, segmentPadding: 2,
+    segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,
+    paper: "#fbfbf9", header: "rgba(251,251,249,.78)", wash: "rgba(27,26,23,.035)",
+    hover: "rgba(27,26,23,.04)", hairline: "rgba(27,26,23,.08)",
+    mist: "radial-gradient(closest-side, rgba(63,90,59,.09), transparent)",
+    headerBlur: "blur(14px) saturate(1.2)",
+    mistWidth: 560, mistHeight: 380, mistTop: -200, mistLeft: -60,
+    grainOpacity: .5,
+    grain: `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`,
+    focusShadow: "0 0 0 1px rgba(27,26,23,.08), 0 4px 14px rgba(27,26,23,.06)",
+    knobShadow: "0 1px 2px rgba(27,26,23,.10)"
+  },
   material: {
     workspaceGlass: WORKSPACE_GLASS
   },
@@ -279,6 +295,15 @@ export const tokens = {
     font: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
   },
 
+  /* 觀眾反應 workspace as a discourse layer (side panel A, 2026-10-08): 話題 chips, 未分流, 講法 rows, 發現 cards. */
+  discourse: {
+    pad: 16, gap: 8, sectionTop: 22, radius: 14, rowRadius: 10, chipPad: "6px 12px", pickPad: "4px 10px",
+    chipBg: "rgba(27,26,23,.05)", chipCountOn: "rgba(255,255,255,.72)", hover: "rgba(27,26,23,.04)", hair: "rgba(27,26,23,.06)", card: "#ffffff",
+    cardShadow: "0 1px 2px rgba(27,26,23,.04)", soft: "#6c695e", faint: "#a19e93",
+    inbox: "#a06a17", inboxWash: "rgba(160,106,23,.08)", trend: "#3f5a3b", like: "#a06a17", ask: "#7b4a8a", replied: "#234f7a",
+    titleFont: 21, bodyFont: 13, smallFont: 12, tinyFont: 11.5, avatar: 22, faceAvatar: 20, weekBar: 34
+  },
+
   /* The card under a saved post, from the owner's v9 mockup: status line, four entries, one answer at a time. */
   collectCard: {
     wash: "#fbfbfa", hair: "rgba(27,26,23,.08)", sub: "#4a4840", soft: "#8a877c", fail: "#a8462e",
@@ -317,6 +342,7 @@ export const tokens = {
       chipOffset: 8, chipScale: 0.9, toastOffset: 20, progFadeMs: 300, dotMs: 240
     },
     /* The card under a post: enters once, results fade up once, the live dot breathes, the peek shimmers. */
+    collection: { riseMs: 420, risePx: 8, staggerMs: 28, staggerCap: 10, foldMs: 240, glideMs: 420, fadeMs: 280, mistMs: 18000, mistX: 24, mistY: 12, clockMs: 60000 },
     collectCard: { enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
     /* Primitive durations — pair with easings to build named transitions. */
     duration: {
@@ -413,8 +439,7 @@ export const tokens = {
   layout: {
     savedPostThumbnailSize: 44,
     collectionMenuWidth: 224,
-    collectionThumbnailWidth: 96,
-    collectionThumbnailHeight: 72,
+    collectionThumbnailSize: 52,
     atlasNarrowBreakpointPx: 520,
     workspacePopupHeight: "min(78vh, 780px)"
   },
@@ -611,3 +636,16 @@ export const TOKENS = {
   interactiveTransition: tokens.motion.interactiveTransition,
   interactiveTransitionFast: tokens.motion.interactiveTransitionFast
 } as const;
+
+/** A handle-tinted initial stands in for an avatar (no avatar URL is stored); same hue for the same handle everywhere. */
+export function avatarGradient(handle: string): string {
+  const hue = [...(handle || "?")].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
+  return `linear-gradient(135deg, hsl(${hue} 45% 60%), hsl(${hue + 40} 42% 44%))`;
+}
+
+
+/** Quiet type tiles share one deterministic tint per normalized author handle. */
+export function collectionTileTint(handle: string): { background: string; color: string } {
+  const hue = [...(handle.trim().replace(/^@/, "").toLowerCase() || "?")].reduce((h, ch) => (h * 31 + ch.codePointAt(0)!) % 360, 7);
+  return { background: `hsl(${hue} 38% 93%)`, color: `hsl(${hue} 32% 32%)` };
+}

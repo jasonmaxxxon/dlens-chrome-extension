@@ -38,6 +38,7 @@ function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[];
   const click = () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, detail: 0 }));
   return { dom, runtime, calls, button, chip, click,
     emitGlobal(global: ExtensionGlobalState) { storageListeners.forEach(listener => listener({ [GLOBAL_STATE_STORAGE_KEY]: { newValue: global } }, "local")); },
+    emitKey(key: string, value: unknown) { storageListeners.forEach(listener => listener({ [key]: { newValue: value } }, "local")); },
     releaseSnapshot() { releaseSnapshot?.({ ok: true, inlineCollect: base }); },
     storageListenerCount: () => storageListeners.size,
     cleanup() { runtime.destroy(); dom.window.close(); keys.forEach((key, index) => saved[index] ? Object.defineProperty(globalThis, key, saved[index]!) : Reflect.deleteProperty(globalThis, key)); } };
@@ -419,5 +420,38 @@ test("a script cut off by an extension reload removes its controls and asks for 
     intervals.forEach((poll) => poll());
     assert.equal(s.dom.window.document.querySelector(".dlens-collect-button"), null, "the old build's button is gone");
     assert.match(s.dom.window.document.querySelector(".dlens-collect-toast.on")!.textContent!, /重新整理此頁/);
+  } finally { s.cleanup(); }
+});
+
+test("a 觀眾反應 card sorts its post into a 話題 by hand and names where a sorted post sits", async () => {
+  const s = fixture();
+  try {
+    await tick();
+    const doc = s.dom.window.document;
+    const global = readingGlobal("topic", "saved");
+    s.emitGlobal(global);
+    const topic = (id: string, name: string, updatedAt: string) => ({ id, sessionId: "topic", name, status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: updatedAt, updatedAt });
+    s.emitKey("dlens:v1:topics", [topic("t-old", "香港拍拖", "2026-10-01T00:00:00Z"), topic("t-new", "AI 工具額度", "2026-10-07T00:00:00Z")]);
+    s.emitKey("dlens:v1:signals", [{ id: "sig-a", sessionId: "topic", itemId: "item-a", source: "threads", inboxStatus: "unprocessed", capturedAt: "" }]);
+    const picks = [...doc.querySelectorAll<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-pick"]')];
+    assert.deepEqual(picks.map((b) => b.textContent), ["AI 工具額度", "香港拍拖"], "most recently used 話題 first");
+    picks[0].click(); await tick();
+    const assign = s.calls.find(({ message }) => message.type === "signal/triage")!.message;
+    assert.deepEqual(assign, { type: "signal/triage", signalId: "sig-a", action: { kind: "assign", topicId: "t-new" } });
+
+    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-new"]')!.click();
+    const input = doc.querySelector<HTMLInputElement>(".dlens-card [data-dlens-topic-name]")!;
+    assert.ok(input);
+    input.value = "畢業生搵工";
+    input.dispatchEvent(new s.dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await tick();
+    const created = s.calls.filter(({ message }) => message.type === "signal/triage").at(-1)!.message;
+    assert.deepEqual(created, { type: "signal/triage", signalId: "sig-a", action: { kind: "create-topic", name: "畢業生搵工" } });
+
+    s.emitKey("dlens:v1:signals", [{ id: "sig-a", sessionId: "topic", itemId: "item-a", source: "threads", inboxStatus: "assigned", topicId: "t-new", capturedAt: "" }]);
+    const line = doc.querySelector(".dlens-card .tl")!.textContent!;
+    assert.match(line, /〈AI 工具額度〉內 1 篇/);
+    doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-side"]')!.click(); await tick();
+    const sent = s.calls.map(({ message }) => message.type);
+    assert.ok(sent.includes("inline/in-view") && sent.includes("sidepanel/open"), "the panel opens on this post's 話題");
   } finally { s.cleanup(); }
 });
