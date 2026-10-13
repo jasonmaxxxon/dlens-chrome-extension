@@ -6699,3 +6699,26 @@ test("SettingsView deep model field follows the chosen provider and saved overri
   const html=renderToStaticMarkup(React.createElement(SettingsView,{...base,draftProvider:"google",draftDeepReadingModels:{google:"custom-model"}} as any));
   assert.match(html,/value="custom-model"/);
 });
+
+test('card reader handoff opens on the requested lens live and after pending load, without domain mutations', async()=>{
+ const {JSDOM}=await import('jsdom');const {act}=await import('react');const {requestWorkspaceOpen}=await import('../src/ui/inpage-helpers.tsx');
+ const dom=new JSDOM('<div id="root"></div>',{url:'https://dlens.test',pretendToBeVisual:true});
+ const previous={window:globalThis.window,document:globalThis.document,HTMLElement:globalThis.HTMLElement};const g=globalThis as any;const oldAct=g.IS_REACT_ACT_ENVIRONMENT;
+ Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement});g.IS_REACT_ACT_ENVIRONMENT=true;
+ const {createRoot}=await import('react-dom/client');const host=document.getElementById('root')!;const root=createRoot(host);
+ const product=createSessionRecord('個人應用','2026-10-13T00:00:00Z','product');product.items=[createSessionItem({...buildDescriptor(),post_url:'https://www.threads.com/@pear/post/F1',author_hint:'pear',text_snippet:'保存原文'},'2026-10-13T00:00:00Z')];
+ const mutations:string[]=[];const app=buildPopupAppFixture({session:product,sessions:[product],onSetActiveSession:async id=>{mutations.push(id);return {ok:true};},onNavigate:async p=>{mutations.push(p);}});
+ try {
+  // Fresh-load handoff arrives before React mounts and before inventory consumption.
+  requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'try'});
+  await act(async()=>root.render(<InPageCollectorPopup app={app as any}/>));
+  assert.ok(host.querySelector('[data-collection-browser="reader"]'));
+  assert.equal(host.querySelector('[data-reader-entry="try"]')?.getAttribute('aria-pressed'),'true');
+  await act(async()=>requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'what'}));
+  assert.equal(host.querySelector('[data-reader-entry="what"]')?.getAttribute('aria-pressed'),'true');
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-reader-entry="fit"]')!.click());
+  await act(async()=>requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'what'}));
+  assert.equal(host.querySelector('[data-reader-entry="what"]')?.getAttribute('aria-pressed'),'true','repeated card handoff overrides the lens selected locally');
+  assert.deepEqual(mutations,[]);
+ }finally{await act(async()=>root.unmount());Object.assign(globalThis,previous);g.IS_REACT_ACT_ENVIRONMENT=oldAct;dom.window.close();}
+});

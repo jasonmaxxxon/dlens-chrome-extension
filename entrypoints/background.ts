@@ -2442,7 +2442,7 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
 const inViewPostByTab = new Map<number, string | null>();
 
 // The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
-let pendingSidePanelWorkspace: { sessionId: string; at: number } | null = null;
+let pendingSidePanelWorkspace: { sessionId: string; itemId?:string; lens?:string; at: number } | null = null;
 
 function configureActionSidePanel(): void {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
@@ -2576,14 +2576,14 @@ export default defineBackground(() => {
           case "sidepanel/open": {
             // Before any await: Chrome only opens the side panel inside the click's user gesture.
             if (sender.tab) openSidePanelFromAction(sender.tab);
-            pendingSidePanelWorkspace = { sessionId: message.sessionId, at: Date.now() };
+            pendingSidePanelWorkspace = { sessionId: message.sessionId, itemId:message.itemId, lens:message.lens, at: Date.now() };
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           }
           case "sidepanel/take-workspace-open": {
             const pending = pendingSidePanelWorkspace;
             pendingSidePanelWorkspace = null;
-            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null } satisfies ExtensionResponse);
+            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null, ...(pending && Date.now()-pending.at < 15_000 ? {readerItemId:pending.itemId,readerLens:pending.lens} : {}) } satisfies ExtensionResponse);
             return;
           }
           case "settings/test-ai-key": {
@@ -2607,7 +2607,7 @@ export default defineBackground(() => {
           case "deep-reading/run": {
             const tabId = await resolveTabId(sender);
             const current = await loadSnapshot(tabId);
-            const item = current.global.sessions.flatMap(s => s.mode === "topic" ? s.items : []).find(i => i.id === message.itemId);
+            const item = current.global.sessions.flatMap(s => (s.mode === "topic" || s.mode === "product") ? s.items : []).find(i => i.id === message.itemId);
             if (!item) throw new Error("找不到已儲存帖子");
             const deepReading = await runDeepReading(item, current.global.settings);
             sendResponse({ ok: true, deepReading } satisfies ExtensionResponse);

@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import type { SessionRecord } from "../state/types";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import { openedItemId, OPENED_READING_PREFIX, loadOpenedReadings, markReadingOpened, normalizeOpenedReadings, type OpenedReadings } from "../state/opened-readings-storage";
-import { buildCollectionPosts, buildCollectionArrivalModel } from "../viewmodel/collection-browser";
+import { buildCollectionPosts, buildCollectionArrivalModel, type CollectionProductInputs } from "../viewmodel/collection-browser";
 
 /** Storage effects stay in the shell hook; an already-open reader acknowledges later results too. */
-export function useOpenedReadings(enabled: boolean, selectedKey: string | null, sessions: SessionRecord[], readings: Record<string, InlineReadingRecord>) {
+export function useOpenedReadings(enabled: boolean, selectedKey: string | null, sessions: SessionRecord[], readings: Record<string, InlineReadingRecord>, product:CollectionProductInputs = {}) {
   const [opened, setOpened] = useState<OpenedReadings>({});
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -37,11 +37,11 @@ export function useOpenedReadings(enabled: boolean, selectedKey: string | null, 
   useEffect(() => {
     if (!enabled || !selectedKey || typeof chrome === "undefined" || !chrome.storage?.local) return;
     const now = Date.now();
-    const arrival = buildCollectionArrivalModel(buildCollectionPosts(sessions), readings, opened, now, false);
+    const arrival = buildCollectionArrivalModel(buildCollectionPosts(sessions), readings, opened, now, false, product);
     const unread = arrival.finished.filter(r => r.post.key === selectedKey && (!opened[r.itemId] || Date.parse(opened[r.itemId]) < Date.parse(r.at)));
     if (!unread.length) return;
     void Promise.all(unread.map(r => markReadingOpened(chrome.storage.local, r.itemId, new Date(now).toISOString())))
       .then(() => setError(null), () => setError("未能記錄已讀狀態。"));
-  }, [enabled, selectedKey, sessions, readings, opened]);
+  }, [enabled, selectedKey, sessions, readings, opened, product.analyses, product.signals, product.settings, product.hasContext, product.loaded]);
   return { opened, error };
 }

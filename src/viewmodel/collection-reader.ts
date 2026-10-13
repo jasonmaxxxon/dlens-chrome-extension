@@ -19,14 +19,14 @@ export function readerNeedsReading(item: SessionRecord["items"][number], stored:
 }
 
 /** Projection only: the reading and evidence remain owned by inline-card. */
-export function buildCollectionReaderModel(post: CollectionPost, sessions: SessionRecord[], topics: Topic[], signals: Signal[], readings: Record<string, InlineReadingRecord>, now: number, lens: InlineCardEntryKey | null = null) {
+export function buildCollectionReaderModel(post: CollectionPost, sessions: SessionRecord[], topics: Topic[], signals: Signal[], readings: Record<string, InlineReadingRecord>, now: number, lens: InlineCardEntryKey | null = null, groupLimits: Record<string, number> = {}) {
   const source = collectionAudienceSource(post, sessions);
   if (!source) return null;
   const { session, item } = source;
   const stored = readings[item.id];
   // An older prompt's reading stays on screen while the reader asks for a fresh one (readerNeedsReading).
   const ai = stored ?? null;
-  const card = buildInlineCardViewModel(item, "topic", session.name, { ai, now, queue: sessions.flatMap(s => s.items) });
+  const card = buildInlineCardViewModel(item, "topic", session.name, { ai, now, forReader:true, queue: sessions.flatMap(s => s.items) });
   const selected = card.entries.find(e => e.key === lens)?.key ?? card.entries[0]?.key ?? null;
   const ownTopics = topics.filter(t => t.sessionId === session.id);
   const liveSignals = signals.filter(s => s.sessionId === session.id && session.items.some(i => i.id === s.itemId));
@@ -42,10 +42,25 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   }
   if (card.analysisPending) stateLine += " · 分群整理中";
   else if (card.ai?.state === "running") stateLine += " · AI 整理中";
+  // A finished reading's count already sits in the source meta (讀咗 N); repeating it here was noise.
+  else if (card.phase === "done") stateLine = "";
   const aiNote = card.ai?.state === "failed" ? `AI 整理失敗：${card.ai.error}`
     : card.entries.length && !card.ai && !card.analysisPending ? "尚未有已存 AI 閱讀 · 字詞同回覆" : null;
   return { sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
     answer: selected ? card.answers[selected] : undefined, stateLine, aiNote,
-    evidence: buildInlineCardEvidence(item, card, selected, ai) };
+    evidence: buildInlineCardEvidence(item, card, selected, ai, groupLimits) };
 }
 export type CollectionReaderModel = NonNullable<ReturnType<typeof buildCollectionReaderModel>>;
+
+/** Audience membership has priority; otherwise product, never changes domain context. */
+export function collectionReadingSource(post: CollectionPost | undefined, sessions: SessionRecord[]) {
+ const audience=collectionAudienceSource(post,sessions); if (audience) return audience;
+ const m=post?.memberships.find(m=>m.mode==='product');
+ const session=sessions.find(s=>s.id===m?.sessionId), item=session?.items.find(i=>i.id===m?.itemId);
+ return session && item ? {session,item} : null;
+}
+export function resolveCollectionReaderOpen(posts: CollectionPost[], itemId: string, lens?: string) {
+ const post=posts.find(p=>p.memberships.some(m=>m.itemId===itemId));
+ return post ? {key:post.key,lens:lens ?? null} : null;
+}
+export function expandReaderEvidenceGroup(limits: Record<string,number>, key:string) { return {...limits,[key]:13}; }

@@ -790,6 +790,24 @@ test("a card's 開啟工作區 opens the side panel inside the gesture and hands
   assert.ok(second.ok);
   assert.equal(second.workspaceSessionId, null);
 });
+test("a card reader opens the side panel inside the gesture and hands its workspace over once", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: "topic-session",
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+
+  const opened = harness.dispatch({ type: "sidepanel/open", sessionId: "topic-session",itemId:"saved-item",lens:"ask" });
+  assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }], "sidePanel.open must run before the handler awaits anything");
+  assert.equal((await opened).ok, true);
+  const first = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(first.ok);
+  assert.equal(first.workspaceSessionId, "topic-session");
+  assert.equal(first.readerItemId,"saved-item");assert.equal(first.readerLens,"ask");
+  const second = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(second.ok);
+  assert.equal(second.workspaceSessionId, null);
+});
 
 test("settings/test-ai-key lists one model with the chosen provider's key and names a missing key", async () => {
   const originalFetch = globalThis.fetch;
@@ -3955,6 +3973,31 @@ test("topic/create persists the optional research question", async () => {
 test('deep-reading/run refuses a key gap and single-flights the stored capture', async () => {
   const { DEEP_READINGS_STORAGE_KEY } = await import('../src/compare/deep-reading-storage.ts');
   const topic = makeSession('deep-session', 'topic');
+  const saved = createSessionItem(makeDescriptor('deep-post'));
+  saved.status = 'succeeded';
+  saved.latestCapture = {id:'deep-capture', result:{canonical_post:{author:'op',text:'RAG'},comments:[{comment_id:'q',author:'fan',text:'點樣做？'}]},analysis:{status:'succeeded',clusters:[]}} as any;
+  topic.items = [saved];
+  const seed = { [backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([topic],topic.id), [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]:topic.id, [backgroundTestables.tabStorageKey(TAB_ID)]:createEmptyTabState() };
+  const gapHarness = await createHarness(seed);
+  const gap = await gapHarness.dispatch({type:'deep-reading/run',itemId:saved.id});
+  assert.equal(gap.ok,false);if(!gap.ok)assert.match(gap.error,/設定未填 Google API key/);
+  const global=seed[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  global.settings={...global.settings,oneLinerProvider:'google',googleApiKey:'test-key'};
+  const harness = await createHarness(seed);
+  const previousFetch=globalThis.fetch;let calls=0;
+  const payload={background:'原帖討論方法。留言提出問題。',takeaway:'尚待實證。',terms:[],debates:[],evidence:{strong:[],weak:[]},unanswered:[{question:'點樣做？',refs:['e1']}]};
+  globalThis.fetch=async()=>{calls++; await Promise.resolve();return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(payload)}]}}]}));};
+  try {
+    const results=await Promise.all([harness.dispatch({type:'deep-reading/run',itemId:saved.id}),harness.dispatch({type:'deep-reading/run',itemId:saved.id})]);
+    assert.ok(results.every(r=>r.ok));assert.equal(calls,1);
+    const records=harness.state[DEEP_READINGS_STORAGE_KEY] as Record<string,{status:string;captureId:string}>;
+    assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
+  } finally {globalThis.fetch=previousFetch;}
+});
+
+test('deep-reading/run finds a product item and single-flights its stored capture', async () => {
+  const { DEEP_READINGS_STORAGE_KEY } = await import('../src/compare/deep-reading-storage.ts');
+  const topic = makeSession('deep-session', 'product');
   const saved = createSessionItem(makeDescriptor('deep-post'));
   saved.status = 'succeeded';
   saved.latestCapture = {id:'deep-capture', result:{canonical_post:{author:'op',text:'RAG'},comments:[{comment_id:'q',author:'fan',text:'點樣做？'}]},analysis:{status:'succeeded',clusters:[]}} as any;

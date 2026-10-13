@@ -1,5 +1,8 @@
+import { inlineCollectPostKey } from "../state/inline-collect";
+import { providerKeyFromSettings } from "../state/ai-key";
+import { productReadingFinishedAt, PRODUCT_VERDICT_LABELS } from "./product-reader";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import type { SessionItem, SessionRecord } from "../state/types";
+import type { ProductSignalAnalysis, Signal, ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
 import { stripThreadsTranslationChrome } from "../state/source-text";
 import { buildInlineCardViewModel, buildInlineSaveLine, inlineReadingFinishedAt } from "./inline-card";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
@@ -229,13 +232,16 @@ export function buildWorkspaceCards(sessions: SessionRecord[], nowMs: number) {
 }
 
 
-export function buildCollectionArrivalModel(posts: CollectionPost[], readings: Record<string, InlineReadingRecord>, opened: OpenedReadings, now: number, finishedOnly: boolean) {
-  const finished = posts.flatMap(post => post.memberships.flatMap(m => {
+interface CollectionFinished {post:CollectionPost;mode:"topic"|"product";itemId:string;at:string;summary:string;ago:string}
+export function buildCollectionArrivalModel(posts: CollectionPost[], readings: Record<string, InlineReadingRecord>, opened: OpenedReadings, now: number, finishedOnly: boolean, product: CollectionProductInputs = {}) {
+  const finished = posts.flatMap(post => post.memberships.flatMap<CollectionFinished>(m => {
     if (m.mode !== "topic" && m.mode !== "product") return [];
     const record = readings[m.itemId];
     const ai = record?.status === "complete" && record.reading.promptVersion !== INLINE_READING_PROMPT_VERSION ? null : record;
-    const at = inlineReadingFinishedAt(m.item, ai, now);
+    const analysis=product.analyses?.[product.signals?.find(s=>s.itemId===m.itemId && s.sessionId===m.sessionId)?.id ?? ""];
+    const at = m.mode === "product" ? productReadingFinishedAt(m.item, analysis, product.loaded === false || (!!product.hasContext && !!product.settings && !!providerKeyFromSettings(product.settings))) : inlineReadingFinishedAt(m.item, ai, now);
     if (!at || !Number.isFinite(Date.parse(at)) || Date.parse(at) > now) return [];
+    if (m.mode === "product") return [{post,mode:m.mode,itemId:m.itemId,at,summary:`讀完${analysis?.status === "complete" ? ` · ${PRODUCT_VERDICT_LABELS[analysis.verdict]}` : ""}`,ago: now-Date.parse(at)<60000 ? "啱啱" : `${Math.floor((now-Date.parse(at))/60000)} 分前`}];
     const card = buildInlineCardViewModel(m.item, "topic", m.sessionName, { ai, now });
     const line = buildInlineSaveLine(card, now, null, null);
     return [{ post, mode: m.mode, itemId: m.itemId, at, summary: line.status.replace(/ · \d+ 則留言$/, ""),
@@ -243,10 +249,23 @@ export function buildCollectionArrivalModel(posts: CollectionPost[], readings: R
   })).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.itemId.localeCompare(b.itemId));
   const unique = finished.filter((r, i) => finished.findIndex(other => other.post.key === r.post.key) === i);
   const states = Object.fromEntries(posts.map(post => {
-    const live = post.memberships.some(m => m.status === "queued" || m.status === "running" || (m.status === "succeeded" && (m.mode === "topic" || m.mode === "product") && !inlineReadingFinishedAt(m.item, readings[m.itemId], now)));
+    const live = post.memberships.some(m => m.status === "queued" || m.status === "running" || (m.status === "succeeded" && (m.mode === "topic" || m.mode === "product") && !finished.some(r=>r.itemId===m.itemId)));
     const unread = finished.some(r => r.post.key === post.key && (!opened[r.itemId] || Date.parse(opened[r.itemId]) < Date.parse(r.at)));
     return [post.key, live ? "arc" : unread ? "dot" : "none"] as const;
   }));
   return { recent: unique.filter(r => now - Date.parse(r.at) <= 86400000).slice(0, 3),
     posts: finishedOnly ? unique.map(r => r.post) : posts, states, finished };
+}
+
+export interface CollectionProductInputs {analyses?: Record<string,ProductSignalAnalysis>; signals?:Signal[]; settings?:ExtensionSettings; hasContext?:boolean; loaded?:boolean}
+export type CollectionFilter='all'|'topic'|'product'|'reading'|'finished';
+export function buildCollectionFilters(posts:CollectionPost[], arrival:ReturnType<typeof buildCollectionArrivalModel>, selected:CollectionFilter) {
+ const matches=(p:CollectionPost,key:CollectionFilter)=>key==='all' || key==='topic' || key==='product' ? key==='all' || p.memberships.some(m=>m.mode===key) : key==='reading' ? arrival.states[p.key]==='arc' : arrival.finished.some(r=>r.post.key===p.key);
+ const chips=([{key:'all',label:'全部'},{key:'topic',label:'觀眾反應'},{key:'product',label:'個人應用'},{key:'reading',label:'讀緊'},{key:'finished',label:'讀完'}] as const).map(c=>({...c,count:posts.filter(p=>matches(p,c.key)).length,selected:c.key===selected}));
+ return {chips,posts:posts.filter(p=>matches(p,selected))};
+}
+export function buildCollectionInView(posts:CollectionPost[], inView:string|null, openKey:string|null) {
+ if (!inView) return null;
+ const post=posts.find(p=>p.memberships.some(m=>inlineCollectPostKey(m.item.descriptor)===inView));
+ return post && post.key!==openKey ? {key:post.key,author:post.author,summary:post.body.replace(/\s+/g,' ').slice(0,60)} : null;
 }

@@ -57,7 +57,7 @@ export function useCollectionReaderLive(source: ReturnType<typeof import("../vie
   const sessionId = source?.session.id;
   // Opening a reader is enough to (re)generate its reading; the card under the post is no longer the only trigger.
   const asked = useRef(new Set<string>());
-  const needsReading = item ? readerNeedsReading(item, reading) : false;
+  const needsReading = source?.session.mode === "topic" && item ? readerNeedsReading(item, reading) : false;
   useEffect(() => {
     if (!item || !sessionId || !needsReading) return;
     const key = `${item.id}:${item.latestCapture?.id ?? ""}`;

@@ -175,7 +175,7 @@ test("展開證據 groups the replies behind the open answer and never repeats w
   assert.equal(authorChain.row.text, "可唔可以拒絕 WFO？");
   assert.equal(authorChain.reply?.text, "可以同 HR 傾");
   assert.equal(authorChain.reply?.isAuthor, true);
-  assert.match(renderInlineCard(vm, "ask", 0, asks), /<span class="au">作者<\/span>/);
+  assert.doesNotMatch(renderInlineCard(vm, "ask", 0), /data-dlens-act="evidence"/);
 
   const read = buildInlineCardViewModel(plain, "topic", "返工", { ai: aiReading() });
   const methods = buildInlineCardEvidence(plain, read, "method", aiReading())!;
@@ -186,9 +186,9 @@ test("展開證據 groups the replies behind the open answer and never repeats w
   ]);
   const evil = item("succeeded", [...many, { comment_id: "c12", author: "x", text: "<b>hi</b>", like_count: 99 }]);
   const evilVm = buildInlineCardViewModel(evil, "topic", "返工");
-  const html = renderInlineCard(evilVm, null, 0, buildInlineCardEvidence(evil, evilVm, "top"));
+  const html = renderInlineCard(evilVm, "top", 0);
   assert.ok(!html.includes("<b>hi</b>"));
-  assert.match(html, /收起證據/);
+  assert.match(html, /側欄睇全部 →/);
 });
 
 test("a finished crawl waits for its quant clusters before reading, for at most five minutes", () => {
@@ -206,7 +206,7 @@ test("a finished crawl waits for its quant clusters before reading, for at most 
 
 test("the card enters and its results fade up only when asked to", () => {
   const vm = buildInlineCardViewModel(item("succeeded", many), "topic", "返工");
-  assert.match(renderInlineCard(vm, null, 0, null, { enter: true, fresh: true }), /class="dlens-card enter fresh"/);
+  assert.match(renderInlineCard(vm, null, 0, { enter: true, fresh: true }), /class="dlens-card enter fresh"/);
   assert.match(renderInlineCard(vm, null, 0), /class="dlens-card"/);
 });
 
@@ -230,4 +230,28 @@ test("spam or off-topic clusters never lead 大家點睇 and stay grey and short
   assert.equal(noise.chains.length, 1, "repeated spam shows once");
   assert.equal(noise.more, 1, "the near-duplicate is dropped, the other ad is counted, not shown");
   assert.match(renderInlineCard(vm, "stance", 0), /class="nz"/);
+});
+
+test("card foot hands off current lens and no evidence control survives",()=>{
+ const vm=buildInlineCardViewModel(item('succeeded',many),'topic','返工');
+ const html=renderInlineCard(vm,'ask',0);
+ assert.match(html,/側欄睇全部 →/);assert.match(html,/data-reader-lens="ask"/);
+ assert.doesNotMatch(html,/展開證據|開啟工作區|data-dlens-act="evidence"/);
+});
+test('evidence expands only the named group and caps at ten additional chains',()=>{
+ const mine=item('succeeded',many);mine.latestCapture!.analysis!.evidence=[0,1].map(key=>({cluster_key:key,comments:Array.from({length:20},(_,i)=>({comment_id:`extra${key}-${i}`,author:'fan',text:`群${key} 留言${i}`}))})) as never;
+ const vm=buildInlineCardViewModel(mine,'topic','返工');
+ const before=buildInlineCardEvidence(mine,vm,null)!;
+ assert.deepEqual(before.groups.map(g=>g.chains.length),[3,3]);
+ const after=buildInlineCardEvidence(mine,vm,null,null,{'cluster:0':999})!;
+ assert.deepEqual(after.groups.map(g=>g.chains.length),[13,3]);assert.equal(after.groups[0].more,7);
+});
+
+test('question evidence counts paired reply rows, and expands by at most ten more rows',()=>{
+ const comments=Array.from({length:10},(_,i)=>[c(`q${i}`,'fan',`點樣做 ${i}？`,i),c(`a${i}`,'op',`答覆 ${i}`,i,`q${i}`)]).flat();
+ const mine=item('succeeded',comments);const vm=buildInlineCardViewModel(mine,'topic','返工');
+ const count=(group:any)=>group.chains.reduce((n:number,ch:any)=>n+1+(ch.reply ? 1 : 0),0);
+ const before=buildInlineCardEvidence(mine,vm,'ask')!.groups.find(g=>g.tone==='author')!;
+ const after=buildInlineCardEvidence(mine,vm,'ask',null,{'author:1':13})!.groups.find(g=>g.tone==='author')!;
+ assert.ok(count(before)<=3);assert.ok(count(after)-count(before)<=10);assert.equal(after.expanded,true);assert.equal(after.more,8);
 });

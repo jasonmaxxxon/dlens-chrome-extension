@@ -138,11 +138,8 @@ regenerating. PR-only builds expose only their existing PR domain.
   大家問咩 stays the question rule plus the
   reply chain. Without a reading the card keeps the no-AI entries
   (樣本內最高讚 / 作者回應) and says why (整理中 / 未接 AI / 失敗).
-- 展開證據 renders the replies behind the open answer in Threads' reply shape
-  and never repeats a sentence the card already quotes. It opens as one
-  window beside the feed when there is room (else below the card), shows at
-  most 3 replies per group (1 for noise) and each text once. There are no
-  per-reply permalinks (the backend drops them), so rows do not link out.
+- 證據只在側欄閱讀頁顯示；帖下卡片以 `側欄睇全部` 交接目前帖子與 lens。
+- 收藏統一閱讀所有已存帖子；觀眾反應優先，否則個人應用提供產品分析與留言四格。
 
 ## 觀眾反應 workspace = discourse layer (side panel A, 2026-10-08)
 

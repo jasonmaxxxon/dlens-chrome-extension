@@ -13,3 +13,12 @@ test("primary shell leads with only collection and workspaces, diagnostics stay 
  assert.doesNotMatch(html,/<details[^>]*open/);
  assert.match(html,/source body/);
 });
+
+test('畫面上 bar renders under the header on either primary tab and disappears when unmatched',()=>{
+ for (const tab of ['collection','workspaces'] as const) {
+  const html=renderToStaticMarkup(<CollectionWorkspaceShell tab={tab} onTabChange={()=>{}} onSettings={()=>{}} inView={{author:'saved',summary:'來源摘要'}} onInView={()=>{}}>body</CollectionWorkspaceShell>);
+  assert.match(html,/data-collection-in-view/);assert.match(html,/畫面上：@saved/);assert.match(html,/睇 ›/);
+ }
+ const html=renderToStaticMarkup(<CollectionWorkspaceShell tab="collection" onTabChange={()=>{}} onSettings={()=>{}} inView={null}>body</CollectionWorkspaceShell>);
+ assert.doesNotMatch(html,/data-collection-in-view/);
+});

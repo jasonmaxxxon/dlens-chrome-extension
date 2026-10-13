@@ -1,5 +1,10 @@
+import { readInlineCardThread } from "../viewmodel/inline-card";
+import { DeepReadingView } from "./DeepReadingView";
+import { CollectionProductReading } from "./CollectionProductReading";
+import { buildProductReaderModel } from "../viewmodel/product-reader";
+import type { ProductSignalAnalysis } from "../state/types";
 import { buildDeepReadingModel, toggleDeepDisclosure, EMPTY_DEEP_DISCLOSURE, type DeepCommand } from "../viewmodel/deep-reading";
-import { collectionAudienceSource } from "../viewmodel/collection-reader";
+import { collectionReadingSource, expandReaderEvidenceGroup } from "../viewmodel/collection-reader";
 import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { ExtensionSettings } from "../state/types";
 import type { OpenedReadings } from "../state/opened-readings-storage";
@@ -13,13 +18,26 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 import type { SessionRecord } from "../state/types";
-import { buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
 import { useCollectionMotion } from "./useCollectionMotion";
 import { SavedPostMetrics } from "./SavedPostPreview";
 import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
+  productAnalyses?: Record<string,ProductSignalAnalysis>;
+  productSignals?: Signal[];
+  productHasContext?: boolean;
+  productLoaded?: boolean;
+  productPending?: Record<string,boolean>;
+  productErrors?: Record<string,string>;
+  onProductAnalyze?: (sessionId:string)=>void;
+  onSettings?: ()=>void;
+  onCopy?: (text:string)=>void;
+  copyStatus?: string;
+  requestedLens?: string | null;
+  readerRequest?: number;
+
   settings?: ExtensionSettings;
   deepReadings?: Record<string, DeepReadingRecord>;
   deepPending?: Record<string, boolean>;
@@ -90,42 +108,46 @@ export function CollectionThumbnail({ post, miniature = false }: { post: Collect
   </span>;
 }
 
-function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: Pick<CollectionBrowserProps, "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
+export function CollectionReader({ productAnalyses = {}, productSignals = [], productHasContext = false, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: Pick<CollectionBrowserProps, "productAnalyses" | "productSignals" | "productHasContext" | "productLoaded" | "productPending" | "productErrors" | "onProductAnalyze" | "onSettings" | "onCopy" | "copyStatus" | "requestedLens" | "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
   post: CollectionPost; onBack: () => void; onOpenWorkspace: CollectionBrowserProps["onOpenWorkspace"];
 }) {
   const [disclosure, setDisclosure] = useState(EMPTY_DEEP_DISCLOSURE);
-  const source = collectionAudienceSource(post, sessions);
+  const source = collectionReadingSource(post, sessions);
   const deepReading = source && settings ? buildDeepReadingModel(source.item, settings, deepReadings?.[source.item.id], new Date(nowMs).toISOString(), deepPending?.[source.item.id], deepErrors?.[source.item.id] || null, disclosure) : null;
   const onDeepCommand = (command: DeepCommand) => { if (command.type === "run") { setDisclosure(EMPTY_DEEP_DISCLOSURE); onDeepRun?.(command.itemId); } else setDisclosure(current => toggleDeepDisclosure(current, command)); };
-  const [lens, setLens] = useState<InlineCardEntryKey | null>(null);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const reading = buildCollectionReaderModel(post, sessions, topics, signals, readings, nowMs, lens);
+  const [lens, setLens] = useState<string | null>(requestedLens ?? null);
+  const [fullText,setFullText]=useState(false);
+  const [groupLimits,setGroupLimits]=useState<Record<string,number>>({});
+  const reading = buildCollectionReaderModel(post, sessions, topics, signals, readings, nowMs, lens as InlineCardEntryKey | null, groupLimits);
+  const productSignal=source?.session.mode === "product" ? productSignals.find(s=>s.sessionId===source.session.id && s.itemId===source.item.id) : null;
+  const product=source?.session.mode === "product" && settings ? buildProductReaderModel(source.item,source.session.id,productSignal?.id ?? null,productAnalyses[productSignal?.id ?? ""],settings,productHasContext,lens,((productLoaded === false && !productErrors?.[source.session.id]) || productPending?.[source.session.id]),productErrors?.[source.session.id]) : null;
   const workspaces = [...new Map(post.memberships.map((membership) => [membership.sessionId, membership])).values()];
   return (
     <section data-collection-browser="reader" aria-label="收藏原文" style={rootStyle}>
-      <div style={{ display: "flex", alignItems: "center", flexShrink: 0, padding: tokens.spacing.md, borderBottom: `1px solid ${tokens.color.line}` }}>
+      <div style={{ display: "flex", alignItems: "center", flexShrink: 0, justifyContent: "space-between", marginTop: -tokens.spacing.md }}>
         <button type="button" data-collection-action="back" onClick={onBack} style={quietButton}>
-          <ArrowLeft size={tokens.spacing.section} aria-hidden="true" />返回收藏
+          ‹ 收藏
         </button>
+        {post.postUrl ? <a href={post.postUrl} target="_blank" rel="noopener noreferrer" style={{...quietButton,textDecoration:"none"}}>原帖 ↗</a> : null}
       </div>
-      <article style={{ minWidth: 0, padding: tokens.spacing.lg }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: tokens.spacing.sm, marginBottom: tokens.spacing.lg }}>
-          <span style={{ ...textStyles.meta, color: tokens.color.softInk }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span>
-          {post.postUrl ? (
-            <a href={post.postUrl} target="_blank" rel="noopener noreferrer" style={{ ...quietButton, textDecoration: "none" }}>
-              原帖<ExternalLink size={tokens.spacing.section} aria-hidden="true" />
-            </a>
-          ) : null}
+      <article style={{ minWidth: 0, padding: `${tokens.spacing.sm}px 0 ${tokens.spacing.lg}px` }}>
+        <header style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: tokens.spacing.sm, marginBottom: tokens.spacing.lg }}>
+          <span aria-hidden="true" style={{...collectionTileTint(post.author),width:tokens.collection.previewSize,height:tokens.collection.previewSize,borderRadius:tokens.radius.round,display:"grid",placeItems:"center",fontSize:tokens.reader.meta}}>{[...post.author][0] || "？"}</span><span style={{ ...textStyles.meta, fontSize: tokens.reader.secondary, color: tokens.color.softInk }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span><small style={{fontSize:tokens.reader.meta,color:tokens.color.softInk}}>{post.descriptor.time_token_hint}</small>
+
         </header>
+        <div data-collection-reader-body="" style={{ ...textStyles.body, fontSize:tokens.reader.body,lineHeight:tokens.reader.lineHeight,display:"-webkit-box",WebkitLineClamp:fullText ? undefined : tokens.reader.sourceLines,WebkitBoxOrient:"vertical",overflow:"hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: tokens.color.ink }}>
+          {post.body || "沒有已保存的原文文字。"}
+        </div>
         {post.imageUrls.length ? (
           <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length > 1 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: tokens.spacing.md, alignItems: "start", marginBottom: tokens.spacing.lg }}>
             {post.imageUrls.map((url, index) => <OriginalImage key={url} url={url} index={index} />)}
           </div>
         ) : null}
-        <div data-collection-reader-body="" style={{ ...textStyles.body, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: tokens.color.ink }}>
-          {post.body || "沒有已保存的原文文字。"}
-        </div>
-        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} evidenceOpen={evidenceOpen} onEvidence={() => setEvidenceOpen(open => !open)} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
+
+        <div data-reader-source-meta="" style={{fontSize:tokens.reader.meta,color:tokens.color.softInk,display:"flex",alignItems:"center",gap:tokens.spacing.sm}}>♡ {post.descriptor.engagement.likes ?? "—"} · {post.descriptor.engagement.comments ?? "—"} 則留言 · 讀咗 {source ? readInlineCardThread(source.item).comments.length : 0}<button type="button" onClick={()=>setFullText(v=>!v)} aria-expanded={fullText} style={{...quietButton,fontSize:tokens.reader.meta,marginLeft:"auto"}}>{fullText ? "收起" : "全文"}</button></div>
+        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} onMore={key=>setGroupLimits(current=>expandReaderEvidenceGroup(current,key))} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
+        {product ? <CollectionProductReading model={product} onLens={setLens} onSettings={onSettings} onAnalyze={onProductAnalyze} onCopy={onCopy} copyStatus={copyStatus}/> : null}
+        {!reading && deepReading ? <DeepReadingView model={deepReading} onCommand={onDeepCommand}/> : null}
         {post.captureLimit ? <p style={{ ...textStyles.meta, color: tokens.color.softInk, marginTop: tokens.spacing.lg }}>{post.captureLimit}</p> : null}
         <details style={{ borderTop: `1px solid ${tokens.color.line}`, marginTop: tokens.spacing.xl, paddingTop: tokens.spacing.md }}>
           <summary style={{ ...textStyles.meta, color: tokens.color.softInk, cursor: "pointer", padding: tokens.spacing.sm }}>詳情</summary>
@@ -156,20 +178,21 @@ function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = []
 // A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
 const NO_OPENED: OpenedReadings = {};
 
-export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: CollectionBrowserProps) {
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
-  const [finishedOnly, setFinishedOnly] = useState(false);
-  const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, finishedOnly), [posts, readings, opened, nowMs, finishedOnly]);
+  const [filter,setFilter]=useState<CollectionFilter>("all");
+  const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, false,{analyses:productAnalyses,signals:productSignals,settings,hasContext:productHasContext,loaded:productLoaded}), [posts, readings, opened, nowMs, productAnalyses,productSignals,settings,productHasContext,productLoaded]);
+  const filtered=buildCollectionFilters(posts,arrival,filter);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
-  const model = useMemo(() => buildCollectionBrowserModel(arrival.posts, query, sort, nowMs), [arrival.posts, query, sort, nowMs]);
+  const model = useMemo(() => buildCollectionBrowserModel(filtered.posts, query, sort, nowMs), [posts,arrival,filter, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
+  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>
       <div data-reading-strip="" style={{ display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.sm }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={metaStyle}>剛讀完</span><button type="button" data-collection-finished-filter="" aria-pressed={finishedOnly} onClick={() => setFinishedOnly(value => !value)} style={quietButton}>{finishedOnly ? "睇全部收藏" : "全部 ↗"}</button>
+          <span style={metaStyle}>剛讀完</span>
         </div>
         {arrival.recent.length ? arrival.recent.map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)} style={{ ...quietButton, color: tokens.color.ink, textAlign: "left", width: "100%" }}>
           <WorkspaceModeIcon mode={row.mode} /><span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}><b>@{row.post.author.replace(/^@/, "") || "匿名"}</b><span style={metaStyle}>{row.summary}</span></span><time style={metaStyle} dateTime={row.at}>{row.ago}</time>
@@ -177,6 +200,7 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
         {openedError ? <p role="alert" style={{ ...metaStyle, margin: 0 }}>{openedError}</p> : null}
       </div>
       <header style={{ display: "grid", gap: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
+        <div role="group" aria-label="收藏篩選" style={{display:"flex",overflowX:"auto",gap:tokens.spacing.sm}}>{filtered.chips.map(chip=><button type="button" key={chip.key} data-collection-filter={chip.key} aria-pressed={chip.selected} onClick={()=>setFilter(chip.key)} style={{...quietButton,whiteSpace:"nowrap",flexShrink:0,borderRadius:tokens.radius.pill,background:chip.selected ? tokens.color.ink : tokens.collection.wash,color:chip.selected ? tokens.color.inverse : tokens.color.subInk}}>{chip.label} <small>{chip.count}</small></button>)}</div>
         <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, height: tokens.collection.searchHeight, width: "100%", minWidth: 0, boxSizing: "border-box", borderRadius: tokens.collection.thumbnailRadius, padding: `0 ${tokens.spacing.md}px` }}>
           <Search size={tokens.spacing.section} aria-hidden="true" style={{ color: tokens.color.softInk, flexShrink: 0 }} />
           <input type="search" aria-label="搜尋收藏" placeholder="搜尋收藏的內容或作者" value={query} onChange={(event) => onQueryChange(event.target.value)}

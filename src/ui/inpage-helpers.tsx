@@ -8,10 +8,10 @@ import { MetricChip } from "./components";
 export const HOVER_RECT_EVENT = "dlens:hover-rect";
 export const OPEN_WORKSPACE_EVENT = "dlens:open-workspace";
 const PENDING_WORKSPACE_KEY = "__dlensPendingWorkspaceOpen__";
-export function requestWorkspaceOpen(sessionId: string, targetWindow: Window = window): void {
-  (targetWindow as unknown as Record<string, unknown>)[PENDING_WORKSPACE_KEY] = sessionId;
+export function requestWorkspaceOpen(sessionId: string, targetWindow: Window = window, reader?: {itemId:string; lens?:string}): void {
+  (targetWindow as unknown as Record<string, unknown>)[PENDING_WORKSPACE_KEY] = reader ? {sessionId,...reader} : sessionId;
   const event = targetWindow.document.createEvent("CustomEvent");
-  event.initCustomEvent(OPEN_WORKSPACE_EVENT, false, false, { sessionId });
+  event.initCustomEvent(OPEN_WORKSPACE_EVENT, false, false, { sessionId,...reader });
   targetWindow.dispatchEvent(event);
 }
 export function consumeWorkspaceOpen(availableSessionIds: readonly string[], targetWindow: Window = window): string | null {
@@ -20,6 +20,12 @@ export function consumeWorkspaceOpen(availableSessionIds: readonly string[], tar
   if (typeof sessionId !== "string" || !availableSessionIds.includes(sessionId)) return null;
   delete store[PENDING_WORKSPACE_KEY];
   return sessionId;
+}
+export function consumeReaderOpen(availableItemIds:readonly string[],targetWindow:Window=window):{sessionId:string;itemId:string;lens?:string}|null {
+ const store=targetWindow as unknown as Record<string,unknown>;
+ const pending=store[PENDING_WORKSPACE_KEY] as {sessionId:string;itemId:string;lens?:string}|undefined;
+ if (!pending || typeof pending!=='object' || !availableItemIds.includes(pending.itemId)) return null;
+ delete store[PENDING_WORKSPACE_KEY]; return pending;
 }
 export const PAGE_LOCATION_EVENT = "dlens:page-location";
 export const OPTIMISTIC_SAVE_EVENT = "dlens:optimistic-save";

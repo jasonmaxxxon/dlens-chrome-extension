@@ -53,7 +53,7 @@ export type ExtensionMessagePayload =
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
   | { type: "popup/open-active-tab" }
-  | { type: "sidepanel/open"; sessionId: string }
+  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string }
   | { type: "sidepanel/take-workspace-open" }
   | { type: "deep-reading/run"; itemId: string }
   | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
@@ -187,6 +187,8 @@ export type ExtensionSuccessResponse = {
   oneLiner?: string | null;
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
+  readerItemId?: string;
+  readerLens?: string;
   deepReading?: DeepReadingRecord;
   inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
   inViewPostKey?: string | null;

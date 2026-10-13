@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 側欄 v14</title>
+<!--
+  2026-10-13 mockup v14 — side panel rethink after the owner walked the whole flow. Reference only, not spec.
+  Content is synthetic (made-up handles and replies).
+  Principle: two surfaces, one job each. The card under the post is the glance (unchanged, the owner likes it);
+  the side panel is where anything longer is read. No third floating window.
+  1. One reader for every saved post, opened from anywhere (card, 收藏, 剛讀完, 話題, 未分流). Lens by workspace:
+     觀眾反應 = 大家點睇 / 有咩做法 / 有咩分歧 / 大家問咩 (today's); 個人應用 = 講咩 / 啱唔啱你 / 點試 / 留言補充
+     (from the existing ProductSignalAnalysis: contentSummary, verdict + whyRelevant, experimentHint, replies).
+  2. The card's 展開證據 / 側欄 / 開啟工作區 become one action: 側欄睇全部, which opens THIS post's reader on the open lens.
+  3. 話題 page replaces the Atlas: research question, 話題解讀 on demand (deep-reading style, across posts), 講法, posts.
+  4. Panel type scale: 16 / 14 / 12.5 / 11.5. No stat heroes, no internal codes (S1.R47), no English eyebrows.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1b1a17; --sub:#3d3b35; --soft:#6c695e; --faint:#a19e93; --hair:rgba(27,26,23,.08); --wash:rgba(27,26,23,.04);
+  --sage:#3f5a3b; --sage-w:rgba(63,90,59,.09); --amber:#a06a17; --amber-w:rgba(160,106,23,.1); --blue:#35628a; --blue-w:rgba(53,98,138,.09);
+  --violet:#7b4a8a; --violet-w:rgba(123,74,138,.09); --rust:#a8462e; --rust-w:rgba(168,70,46,.09); --teal:#2f7f78;
+  --paper:#fbfbf9; --card:#fff;
+  --sans:'Noto Sans TC',-apple-system,BlinkMacSystemFont,system-ui,sans-serif; --serif:'Instrument Serif',Georgia,serif; --serif-cjk:'Noto Serif TC','Songti TC',serif;
+  --out:cubic-bezier(.16,1,.3,1);
+}
+* { box-sizing:border-box; }
+html,body { margin:0; }
+body { background:#e9e7e1; color:var(--ink); font:14px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
+button { font:inherit; color:inherit; }
+.stage { display:flex; gap:28px; padding:24px; flex-wrap:wrap; align-items:flex-start; }
+
+/* ---------- Threads canvas (simplified) ---------- */
+.feed { width:560px; max-width:100%; background:#fff; border-radius:14px; box-shadow:0 0 0 1px var(--hair); overflow:hidden; }
+.post { padding:16px 18px 14px; display:grid; grid-template-columns:36px minmax(0,1fr); gap:10px; border-bottom:1px solid var(--hair); }
+.av { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:700; font-size:14px; }
+.post b { font-size:14px; } .post .t { color:var(--faint); font-weight:400; margin-left:6px; font-size:13px; }
+.post p { margin:2px 0 8px; font-size:14.5px; line-height:1.55; }
+.acts { display:flex; gap:18px; font-size:13px; color:var(--soft); align-items:center; }
+.acts .chipsave { margin-left:auto; font-size:12px; padding:3px 9px; border-radius:999px; background:var(--sage-w); color:var(--sage); font-weight:600; }
+.icard { grid-column:2; margin-top:10px; border-radius:14px; background:var(--paper); box-shadow:0 0 0 1px var(--hair); overflow:hidden; }
+.line { display:flex; align-items:center; gap:8px; height:36px; padding:0 12px; font-size:12.5px; color:var(--sub); }
+.line .st { margin-left:auto; color:var(--soft); white-space:nowrap; }
+.line .go { border:0; background:none; color:var(--sage); font-weight:600; cursor:pointer; padding:0 0 0 6px; white-space:nowrap; }
+.ent { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:2px; padding:4px 8px 0; }
+.ent button { border:0; background:none; text-align:left; padding:8px; border-radius:10px; cursor:pointer; min-width:0; }
+.ent button.on { background:var(--blue-w); box-shadow:inset 0 -2px 0 var(--blue); border-radius:10px 10px 0 0; }
+.ent b { display:block; font-size:12.5px; } .ent span { display:block; font-size:11.5px; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ent em { font-style:normal; color:var(--blue); font-weight:600; margin-right:3px; }
+.ans { padding:10px 14px 4px; border-top:1px solid var(--hair); }
+.ans h4 { margin:0 0 8px; font-size:14px; line-height:1.5; }
+.bar { display:flex; gap:3px; height:6px; } .bar i { border-radius:3px; }
+.leg { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; font-size:11.5px; color:var(--soft); }
+.leg span::before { content:""; display:inline-block; width:7px; height:7px; border-radius:2px; background:var(--c); margin-right:5px; }
+.cfoot { display:flex; justify-content:space-between; align-items:center; padding:8px 14px 10px; font-size:12px; }
+.cfoot .ghost { color:var(--faint); }
+.cfoot button { border:0; border-radius:999px; padding:5px 12px; background:var(--ink); color:#fff; font-weight:600; font-size:12px; cursor:pointer; }
+
+/* ---------- Side panel ---------- */
+.panel { width:400px; max-width:100%; height:880px; overflow:auto; background:var(--paper); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.12); position:relative; }
+.head { position:sticky; top:0; z-index:4; height:48px; display:flex; align-items:center; gap:18px; padding:0 16px; background:rgba(251,251,249,.86); backdrop-filter:blur(14px); border-bottom:1px solid var(--hair); }
+.logo { font:21px/1 var(--serif); } .tab { border:0; background:none; padding:0; font-size:13.5px; color:var(--soft); cursor:pointer; height:48px; } .tab.on { color:var(--ink); font-weight:600; box-shadow:inset 0 -2px 0 var(--ink); }
+.head .more { margin-left:auto; color:var(--soft); }
+.now { position:sticky; top:48px; z-index:3; display:flex; align-items:center; gap:8px; margin:0; padding:7px 16px; font-size:12.5px; background:rgba(239,245,238,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--hair); color:var(--sub); }
+.now i { width:7px; height:7px; border-radius:50%; background:var(--sage); box-shadow:0 0 0 3px var(--sage-w); flex:none; }
+.now span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.now button { margin-left:auto; border:0; background:none; color:var(--sage); font-weight:600; font-size:12.5px; cursor:pointer; white-space:nowrap; }
+.body { padding:12px 16px 40px; }
+.k { display:flex; justify-content:space-between; align-items:baseline; margin:18px 2px 8px; font-size:12px; color:var(--soft); }
+.k b { color:var(--sub); font-weight:600; font-size:12.5px; }
+.back { border:0; background:none; color:var(--sage); font-size:13px; padding:2px 0; cursor:pointer; }
+.toprow { display:flex; justify-content:space-between; align-items:center; }
+.toprow a { font-size:12px; color:var(--soft); text-decoration:none; }
+
+.row { display:grid; grid-template-columns:30px minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 8px; border-radius:10px; cursor:pointer; }
+.row:hover { background:var(--wash); }
+.row .a { width:30px; height:30px; font-size:12px; }
+.row b { font-size:13px; font-weight:600; } .row b small { font-weight:400; color:var(--faint); margin-left:6px; font-size:11.5px; }
+.row .x { display:block; font-size:12.5px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .s { font-size:11.5px; color:var(--soft); white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--rust); }
+.arc { width:11px; height:11px; border-radius:50%; border:1.6px solid var(--hair); border-top-color:var(--sage); }
+.mi { width:18px; height:18px; border-radius:6px; display:grid; place-items:center; font-size:10px; color:#fff; flex:none; }
+.mi.t { background:var(--sage); } .mi.p { background:var(--amber); }
+.fil { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+.chip { border:0; border-radius:999px; padding:5px 11px; background:var(--wash); font-size:12.5px; color:var(--sub); white-space:nowrap; cursor:pointer; }
+.chip.on { background:var(--ink); color:#fff; } .chip em { font-style:normal; color:var(--faint); margin-left:4px; } .chip.on em { color:rgba(255,255,255,.6); }
+.search { display:flex; gap:6px; margin-top:10px; }
+.search input { flex:1; min-width:0; border:1px solid var(--hair); border-radius:10px; padding:7px 10px; font:inherit; font-size:13px; background:#fff; }
+.search select { border:1px solid var(--hair); border-radius:10px; padding:0 8px; font:inherit; font-size:12.5px; background:#fff; color:var(--sub); }
+.box { border-radius:14px; background:var(--card); box-shadow:0 0 0 1px var(--hair); }
+
+/* reader */
+.src { margin-top:8px; padding:12px 14px; }
+.src .who { display:flex; align-items:center; gap:8px; font-size:13px; } .src .who .a { width:26px; height:26px; font-size:11px; }
+.src .who small { color:var(--faint); }
+.src p { margin:8px 0 0; font-size:14px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.src.open p { -webkit-line-clamp:unset; }
+.src .meta { display:flex; gap:10px; margin-top:8px; font-size:11.5px; color:var(--soft); }
+.src .meta button { margin-left:auto; border:0; background:none; color:var(--soft); font-size:11.5px; padding:0; cursor:pointer; }
+.tl { display:flex; align-items:center; gap:6px; margin-top:12px; overflow-x:auto; scrollbar-width:none; font-size:12px; color:var(--soft); }
+.tl > span { white-space:nowrap; margin-right:2px; }
+.tchip { border:0; border-radius:999px; padding:4px 10px; background:var(--wash); color:var(--sub); font-size:12px; white-space:nowrap; cursor:pointer; }
+.tchip.on { background:var(--sage); color:#fff; }
+.lens { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:14px; border-bottom:1px solid var(--hair); }
+.lens button { border:0; background:none; padding:8px 4px 9px; cursor:pointer; text-align:center; min-width:0; }
+.lens b { display:block; font-size:12.5px; font-weight:500; color:var(--soft); white-space:nowrap; }
+.lens small { display:block; font-size:11px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lens button.on { box-shadow:inset 0 -2px 0 var(--c, var(--blue)); } .lens button.on b { color:var(--ink); font-weight:600; }
+.lens button.on small { color:var(--c, var(--blue)); }
+.answer { padding:14px 2px 4px; }
+.answer h3 { margin:0 0 10px; font-size:16px; line-height:1.5; font-weight:600; }
+.answer p { margin:0 0 8px; font-size:14px; color:var(--sub); }
+.ev { margin-top:14px; }
+.evg { margin-top:12px; }
+.evg-h { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; }
+.evg-h i { width:8px; height:8px; border-radius:2px; background:var(--c); }
+.evg-h small { color:var(--faint); font-weight:400; }
+.rep { display:grid; grid-template-columns:26px minmax(0,1fr); gap:8px; margin-top:8px; }
+.rep .a { width:26px; height:26px; font-size:11px; }
+.rep b { font-size:12.5px; } .rep b .au { font-size:10.5px; font-weight:600; color:var(--sage); background:var(--sage-w); padding:1px 5px; border-radius:4px; margin-left:5px; }
+.rep p { margin:1px 0 0; font-size:13.5px; line-height:1.55; color:var(--sub); }
+.rep small { font-size:11px; color:var(--faint); }
+.moreln { border:0; background:none; padding:6px 0 0 34px; font-size:12px; color:var(--soft); cursor:pointer; }
+.deep { margin-top:18px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
+.deep .ic { width:28px; height:28px; border-radius:9px; background:var(--violet-w); color:var(--violet); display:grid; place-items:center; flex:none; font-size:13px; }
+.deep div { min-width:0; } .deep b { display:block; font-size:13.5px; } .deep small { display:block; font-size:11.5px; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.deep button { margin-left:auto; border:0; border-radius:999px; padding:6px 14px; background:var(--ink); color:#fff; font-weight:600; font-size:12.5px; cursor:pointer; white-space:nowrap; }
+.verdict { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12.5px; font-weight:600; background:var(--sage-w); color:var(--sage); }
+.steps { margin:10px 0 0; padding:0; list-style:none; counter-reset:s; display:grid; gap:8px; }
+.steps li { counter-increment:s; display:grid; grid-template-columns:22px minmax(0,1fr); gap:8px; font-size:13.5px; color:var(--sub); }
+.steps li::before { content:counter(s); width:20px; height:20px; border-radius:50%; background:var(--amber-w); color:var(--amber); font-size:11.5px; font-weight:700; display:grid; place-items:center; }
+.refs { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.ref { display:inline-block; white-space:nowrap; font-size:11.5px; line-height:1.5; color:var(--sage); background:var(--sage-w); border-radius:6px; padding:1px 7px; text-decoration:none; }
+.agent { margin-top:12px; width:100%; border:1px dashed var(--hair); background:none; border-radius:10px; padding:9px; font-size:12.5px; color:var(--sub); cursor:pointer; }
+.nokey { margin-top:8px; padding:10px 12px; border-radius:10px; background:var(--amber-w); font-size:12.5px; color:var(--sub); }
+.nokey a { color:var(--amber); font-weight:600; text-decoration:none; }
+
+/* topic page */
+.ttl { margin:10px 0 2px; font:600 19px/1.35 var(--serif-cjk); }
+.tmeta { font-size:12px; color:var(--soft); }
+.rq { margin-top:12px; padding:10px 12px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; align-items:start; font-size:13.5px; }
+.rq i { font-style:normal; font-size:11.5px; color:var(--sage); font-weight:600; padding-top:2px; white-space:nowrap; }
+.rq button { border:0; background:none; color:var(--faint); cursor:pointer; padding:0; }
+.tans { margin-top:12px; padding:14px; }
+.tans .h { display:flex; align-items:center; gap:8px; } .tans .h b { font-size:13.5px; } .tans .h small { margin-left:auto; font-size:11px; color:var(--faint); }
+.tans p { margin:8px 0 0; font-size:14px; line-height:1.65; color:var(--sub); }
+.tans ul { margin:10px 0 0; padding:0; list-style:none; display:grid; gap:8px; }
+.tans li { font-size:13px; color:var(--sub); display:grid; grid-template-columns:12px minmax(0,1fr); gap:6px; }
+.tans li::before { content:"●"; font-size:8px; line-height:21px; color:var(--sage); }
+.frame { border-radius:10px; }
+.frame > button { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:center; border:0; background:none; padding:10px 8px; text-align:left; cursor:pointer; border-radius:10px; }
+.frame > button:hover { background:var(--wash); }
+.frame b { font-size:13.5px; font-weight:600; } .frame .n { font-size:12px; color:var(--soft); } .frame .chev { color:var(--soft); font-size:12px; margin-left:2px; }
+.faces { display:inline-flex; } .faces span { width:18px; height:18px; border-radius:50%; margin-left:-5px; box-shadow:0 0 0 2px var(--paper); } .faces span:first-child { margin-left:0; }
+.fold { width:100%; margin-top:12px; border:0; background:var(--wash); border-radius:10px; padding:9px 12px; text-align:left; font-size:12.5px; color:var(--soft); cursor:pointer; }
+
+/* 觀眾反應 home */
+.wh { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.wh .mi { width:26px; height:26px; border-radius:8px; font-size:13px; } .wh b { font-size:16px; }
+.wh button { margin-left:auto; border:0; border-radius:999px; padding:5px 12px; background:var(--ink); color:#fff; font-size:12.5px; font-weight:600; cursor:pointer; }
+.sheet { margin-top:10px; padding:12px; display:grid; gap:8px; }
+.sheet input { width:100%; border:1px solid rgba(27,26,23,.14); border-radius:10px; padding:9px 11px; font:inherit; font-size:13.5px; background:#fff; color:var(--ink); }
+.sheet input::placeholder { color:var(--faint); }
+.sheet .bt { display:flex; gap:8px; justify-content:flex-end; }
+.sheet .bt button { border:0; border-radius:999px; padding:6px 14px; font-size:12.5px; cursor:pointer; background:var(--wash); }
+.sheet .bt button.p { background:var(--sage); color:#fff; font-weight:600; }
+.topic { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 10px; padding:11px 12px; border-radius:12px; cursor:pointer; }
+.topic + .topic { border-top:1px solid var(--hair); border-radius:0; }
+.topic b { font-size:14px; } .topic .c { font-size:12px; color:var(--soft); text-align:right; white-space:nowrap; }
+.topic small { grid-column:1 / -1; font-size:12px; color:var(--soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.topic .new { color:var(--rust); font-weight:600; }
+.inbox .ir { padding:10px 12px 11px; border-top:1px solid var(--hair); }
+.inbox .ir:first-of-type { border-top:0; }
+.ir .who { display:grid; grid-template-columns:26px minmax(0,1fr) auto; gap:8px; align-items:center; }
+.ir .who .a { width:26px; height:26px; font-size:11px; }
+.ir .who span { min-width:0; font-size:12.5px; } .ir .who span em { display:block; font-style:normal; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ir .who button { border:0; background:none; color:var(--faint); cursor:pointer; font-size:15px; padding:0 2px; }
+.ir .pk { display:flex; gap:6px; margin:8px 0 0 34px; overflow-x:auto; scrollbar-width:none; }
+.pk .sg { border:0; border-radius:999px; padding:4px 10px; background:var(--sage); color:#fff; font-size:12px; white-space:nowrap; cursor:pointer; }
+.pk .tc { border:0; border-radius:999px; padding:4px 10px; background:var(--sage-w); color:var(--sage); font-size:12px; white-space:nowrap; cursor:pointer; }
+.pk .nw { border:1px dashed rgba(27,26,23,.18); background:none; border-radius:999px; padding:3px 10px; color:var(--soft); font-size:12px; white-space:nowrap; cursor:pointer; }
+.ihead { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--hair); font-size:13px; }
+.ihead em { font-style:normal; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--amber-w); color:var(--amber); font-size:11.5px; font-weight:700; display:grid; place-items:center; }
+.ihead small { color:var(--soft); font-size:12px; }
+.empty1 { margin:10px 2px 0; font-size:13px; color:var(--soft); }
+
+/* notes */
+.notes { width:420px; max-width:100%; font-size:13px; color:var(--sub); }
+.notes h1 { margin:0 0 4px; font-size:19px; color:var(--ink); } .notes h2 { margin:22px 0 8px; font-size:14.5px; color:var(--ink); }
+.notes p { margin:6px 0; }
+.states { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0 4px; } .states button { border:1px solid var(--hair); background:#fff; border-radius:8px; padding:5px 10px; cursor:pointer; font-size:12px; }
+.states button.on { background:var(--ink); color:#fff; }
+.flow { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.flow li { display:grid; grid-template-columns:18px minmax(0,1fr); gap:6px; font-size:12.5px; }
+.flow .ok::before { content:"✓"; color:var(--sage); font-weight:700; } .flow .bad::before { content:"✕"; color:var(--rust); font-weight:700; } .flow .new::before { content:"→"; color:var(--blue); font-weight:700; }
+.keep { width:100%; border-collapse:collapse; font-size:12px; }
+.keep td { padding:6px 4px; border-top:1px solid var(--hair); vertical-align:top; } .keep td:last-child { text-align:right; white-space:nowrap; color:var(--soft); font-variant-numeric:tabular-nums; }
+.keep .tag { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:4px; white-space:nowrap; }
+.tag.k { background:var(--sage-w); color:var(--sage); } .tag.r { background:var(--amber-w); color:var(--amber); } .tag.x { background:var(--rust-w); color:var(--rust); } .tag.q { background:var(--blue-w); color:var(--blue); }
+.rules { margin:0; padding-left:18px; display:grid; gap:5px; font-size:12.5px; }
+
+@media (prefers-reduced-motion:no-preference) {
+  .body > * { animation:rise .35s var(--out) both; }
+  .arc { animation:spin 1s linear infinite; }
+}
+@keyframes rise { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media (max-width:480px) { .stage { padding:12px; } .ent { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+</style>
+</head>
+<body>
+<div class="stage">
+  <!-- Threads canvas: the card stays as the owner likes it; its foot now hands off to the panel. -->
+  <div class="feed" id="feed"></div>
+
+  <div class="panel" id="panel"></div>
+
+  <aside class="notes">
+    <h1>側欄 v14：兩個位，各做一件事</h1>
+    <p>帖下張卡＝一眼睇（保留，唔郁）。側欄＝慢慢睇同分類。唔再有第三個浮窗。</p>
+    <div class="states" id="states">
+      <button data-s="home">收藏</button>
+      <button data-s="readT" class="on">讀 · 觀眾反應</button>
+      <button data-s="readP">讀 · 個人應用</button>
+      <button data-s="topic">話題頁</button>
+      <button data-s="ws">觀眾反應首頁</button>
+    </div>
+    <p style="font-size:12px;color:var(--soft)">左邊張卡嘅「側欄睇全部」同下面每一行都撳得，會開返同一個閱讀頁。</p>
+
+    <h2>流程：而家 vs 之後</h2>
+    <ul class="flow">
+      <li class="ok">轉盤存入（可直接入話題）→ 帖下一行 → 讀完 → 打開四格</li>
+      <li class="bad">展開證據＝浮喺 feed 同側欄中間嘅第三欄，仲遮住 Threads 嘅 ＋</li>
+      <li class="new">「側欄睇全部」：開側欄，直接係呢篇帖，停喺你打開嗰格，證據喺下面</li>
+      <li class="bad">「側欄 ↗」「開啟工作區 ↗」去觀眾反應首頁，唔係呢篇帖</li>
+      <li class="new">全部入口（卡、收藏、剛讀完、話題、未分流）都開同一個閱讀頁</li>
+      <li class="bad">話題 →「完整分析（Atlas）」：大數字、S1.R47、英文標題、26px 襯線長文，係為 720px 浮窗設計</li>
+      <li class="new">話題頁：研究問題 → 話題解讀（撳先跑）→ 講法 → 貼文</li>
+      <li class="bad">個人應用：卡讀完只得「N / M 則」，側欄閱讀頁只認觀眾反應</li>
+      <li class="new">個人應用有自己四格：講咩 / 啱唔啱你 / 點試 / 留言補充</li>
+      <li class="bad">觀眾反應首頁：輸入框似 disabled，未分流每行唯一按鈕係「移去 個人應用」</li>
+      <li class="new">未分流每行先俾話題 chip（建議嗰個排頭），移去／刪除收入 ⋯</li>
+    </ul>
+
+    <h2>側欄閱讀規則（400px）</h2>
+    <ol class="rules">
+      <li>四級字：16 標題 / 14 內文 / 12.5 次要 / 11.5 meta。襯線只用喺話題名，最大 19。</li>
+      <li>唔用大數字 hero、唔用英文小標、唔出內部代號；出處一律 @handle。</li>
+      <li>一頁最多一個主卡；其餘用行，唔疊卡。</li>
+      <li>任何列表最多先出 3–5 項，其餘「再睇 N」。</li>
+      <li>AI 生成嘅嘢撳先跑，講明模型同價錢（同深入解讀一樣）。</li>
+    </ol>
+
+    <h2>去留（行數係而家 src 實數）</h2>
+    <table class="keep">
+      <tr><td><span class="tag k">留</span></td><td>帖下卡 + 轉盤 + 一行卡（src/content）</td><td>1,936</td></tr>
+      <tr><td><span class="tag k">留</span></td><td>觀眾反應讀法 + reply-thread + 深入解讀</td><td>—</td></tr>
+      <tr><td><span class="tag k">留</span></td><td>收藏列表 + 剛讀完 + 閱讀頁（擴成兩個 lens）</td><td>—</td></tr>
+      <tr><td><span class="tag k">留</span></td><td>活動追蹤（PR 版用，唔郁）</td><td>2,250</td></tr>
+      <tr><td><span class="tag k">留</span></td><td>個人應用分析 pipeline + agent brief 匯出（之後 MCP 用）</td><td>—</td></tr>
+      <tr><td><span class="tag r">重做</span></td><td>觀眾反應首頁 + 話題頁（TopicDiscourseView）</td><td>239</td></tr>
+      <tr><td><span class="tag r">重做</span></td><td>個人應用工作區（ProductSignalViews）→ 閱讀頁 lens + 篩選列表</td><td>3,501</td></tr>
+      <tr><td><span class="tag x">刪</span></td><td>Atlas / Topic Audit 介面（TopicDetailView、Casebook、SignalDrawer、AuditReport…）</td><td>7,691</td></tr>
+      <tr><td><span class="tag x">刪</span></td><td>Atlas 嘅 view model + state + 六段 prompt pipeline</td><td>6,350</td></tr>
+      <tr><td><span class="tag x">刪</span></td><td>展開證據浮窗（renderInlineEvidenceWindow）</td><td>—</td></tr>
+      <tr><td><span class="tag x">刪</span></td><td>舊浮動 popup：加入貼文／選取模式、overlay、glass aura</td><td>812+</td></tr>
+      <tr><td><span class="tag q">問你</span></td><td>收藏整理 + 兩篇比較（Library / Compare）</td><td>7,470</td></tr>
+    </table>
+    <p style="font-size:12px;color:var(--soft)">先做新嘢、再刪舊嘢：刪除要獨立一輪 removal，等新話題頁同個人應用 lens 驗收完先郁。</p>
+  </aside>
+</div>
+
+<script>
+const C = { sage:"#3f5a3b", amber:"#a06a17", blue:"#35628a", violet:"#7b4a8a", rust:"#a8462e", teal:"#2f7f78", faint:"#c9c6bc" };
+const grad = h => { let n = 0; for (const ch of h) n = (n * 31 + ch.charCodeAt(0)) % 360; return `linear-gradient(135deg,hsl(${n} 38% 52%),hsl(${(n + 40) % 360} 42% 42%))`; };
+const av = (h, cls = "av a") => `<span class="${cls}" style="background:${grad(h)}">${h[0].toUpperCase()}</span>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+/* ---------- synthetic data ---------- */
+const POSTS = {
+  lam: { h:"lam.builds", t:"6h", ws:"t", text:"我哋公司開始用 AI 寫 code 之後，code review 反而多咗一倍時間。\n大家有冇同樣情況？定係我哋用錯方法？", likes:"1.2K", replies:140, read:96, topic:"ai-cost" },
+  smith: { h:"promptsmith", t:"9h", ws:"p", text:"我用 Claude Code + 三個 hooks 將 PR 前嘅檢查自動化：lint、跑相關測試、寫 diff 摘要。一個月落嚟 review 時間少咗四成。", likes:"380", replies:45, read:45 }
+};
+const TOPICS = [
+  { id:"ai-cost", name:"AI 寫 code 嘅代價", q:"團隊用 AI 寫 code 之後，時間其實搬咗去邊？", n:4, isNew:1, last:"今日 +1" },
+  { id:"junior", name:"新人仲使唔使學基本功", q:"", n:3, isNew:0, last:"3 日前" }
+];
+const LENS_T = [
+  { key:"stance", label:"大家點睇", mark:"58%", c:C.blue },
+  { key:"method", label:"有咩做法", mark:"3 種", c:C.teal },
+  { key:"split", label:"有咩分歧", mark:"2 邊", c:C.amber },
+  { key:"ask", label:"大家問咩", mark:"3 未回", c:C.violet }
+];
+const LENS_P = [
+  { key:"what", label:"講咩", mark:"3 步", c:C.amber },
+  { key:"fit", label:"啱唔啱你", mark:"值得試", c:C.sage },
+  { key:"try", label:"點試", mark:"1 晚", c:C.blue },
+  { key:"add", label:"留言補充", mark:"2 個坑", c:C.rust }
+];
+const EVID_T = {
+  stance:[
+    { name:"要人手覆核", pct:"58%", c:C.blue, rows:[["kwok.dev","AI 寫得快係真，但每行都要睇過，唔係慳咗時間，係搬咗去 review。","212"],["yan.qa","我哋而家規定 AI 寫嘅 PR 一定要附測試，唔係唔收。","96"]], more:41 },
+    { name:"怪 prompt 寫得差", pct:"30%", c:C.teal, rows:[["mo.tsang","你俾佢嘅 context 太少，出嚟梗係要改。","40"]], more:22 },
+    { name:"雜訊", pct:"12%", c:C.faint, rows:[["deals.hk","想學 AI？睇我主頁","0"]], more:0 }
+  ],
+  method:[ { name:"PR 拆細 + 測試先行", pct:"", c:C.teal, rows:[["yan.qa","我哋而家規定 AI 寫嘅 PR 一定要附測試，唔係唔收。","96"],["lam.builds","試過拆細，review 時間跌返落嚟一半。","58",1]], more:3 } ],
+  split:[
+    { name:"AI 真係慳時間", pct:"", c:C.amber, rows:[["fion.ops","寫 boilerplate 嗰啲，真係快好多，review 都好快。","33"]], more:5 },
+    { name:"只係將時間搬去 review", pct:"", c:C.rust, rows:[["kwok.dev","AI 寫得快係真，但每行都要睇過，唔係慳咗時間，係搬咗去 review。","212"]], more:12 }
+  ],
+  ask:[ { name:"未有人答", pct:"", c:C.violet, rows:[["cheuk.ml","你哋用緊邊隻 model？差好遠㗎。","18"],["ivy.pm","review 時間係點量度？","9"]], more:1 } ]
+};
+const ANS_T = {
+  stance:{ h:"多數人認同 AI 加快寫，但時間轉咗去覆核；少數怪用法唔啱。", bar:[[58,C.blue],[30,C.teal],[12,C.faint]], leg:[["要人手覆核 58%",C.blue],["怪 prompt 寫得差 30%",C.teal],["雜訊 12%",C.faint]] },
+  method:{ h:"三種做法：PR 拆細、測試先行、俾足 context。", p:"作者回覆話拆細之後 review 時間跌一半（作者自己講，未有數據）。" },
+  split:{ h:"分歧喺「慳時間」定「搬時間」。", p:"寫重複嘢嗰邊覺得快；寫業務邏輯嗰邊覺得要逐行睇。" },
+  ask:{ h:"3 條問題未有人答，最多人問用邊隻 model。", p:"作者答咗「點拆 PR」，但冇答 model 同點量度。" }
+};
+const ANS_P = {
+  what:{ h:"喺開 PR 之前用三個 hook 自動跑：lint、相關測試、寫 diff 摘要。", p:"作者話一個月 review 時間少四成（作者自己講，冇附數據）。" },
+  fit:{ verdict:"值得試", why:"你嘅產品設定寫咗「每次改動要過 verify gate」，呢個做法將 gate 搬去 commit 前，啱你嘅流程。", refs:["promptsmith","lo.infra"] },
+  try:{ steps:["揀一個 repo，加 pre-commit hook 跑 typecheck + lint","加第二個 hook：只跑改動檔案相關嘅測試","第三個 hook 用 AI 寫 diff 摘要，貼入 PR 描述"], note:"驗收：一星期內 review 來回次數有冇少。" },
+  add:{ h:"留言補咗兩個坑。", rows:[["lo.infra","hook 太慢大家會 --no-verify，要控制喺 10 秒內。","27"],["tsz.dev","AI 摘要會漏 breaking change，要人睇。","15"]] }
+};
+
+/* ---------- state ---------- */
+let S = { view:"readT", lens:"stance", lensP:"fit", openFrame:null, sheet:false, srcOpen:false, nowShown:true };
+const $ = id => document.getElementById(id);
+
+function feed() {
+  const lt = LENS_T.find(l => l.key === S.lens) ?? LENS_T[0];
+  const a = ANS_T.stance;
+  $("feed").innerHTML = `
+  <div class="post">${av("lam.builds")}<div>
+    <b>lam.builds<span class="t">6h</span></b><p>${esc(POSTS.lam.text)}</p>
+    <div class="acts">♡ 1.2K　◯ 140　⟲ 22<span class="chipsave">✓ 觀眾反應</span></div></div>
+    <div class="icard">
+      <div class="line"><span class="mi t">◎</span>已存入 觀眾反應〈AI 寫 code 嘅代價〉<span class="st">讀完 · 3 種講法 · 96 則</span></div>
+      <div class="ent">${LENS_T.map(l => `<button data-feed-lens="${l.key}" class="${l.key === S.lens ? "on" : ""}"><b>${l.label}</b><span><em>${l.mark}</em>${{stance:"要人手覆核",method:"拆細 PR",split:"慳時間 vs 搬時間",ask:"用邊隻 model？"}[l.key]}</span></button>`).join("")}</div>
+      <div class="ans"><h4>${esc(ANS_T[lt.key].h)}</h4>${lt.key === "stance" ? `<div class="bar">${a.bar.map(([w,c]) => `<i style="flex:${w};background:${c}"></i>`).join("")}</div><div class="leg">${a.leg.map(([t,c]) => `<span style="--c:${c}">${t}</span>`).join("")}</div>` : ""}</div>
+      <div class="cfoot"><span class="ghost">以前：開啟工作區 ↗ · 展開證據 ↗</span><button data-open="readT">側欄睇全部 →</button></div>
+    </div>
+  </div>
+  <div class="post">${av("promptsmith")}<div>
+    <b>promptsmith<span class="t">9h</span></b><p>${esc(POSTS.smith.text)}</p>
+    <div class="acts">♡ 380　◯ 45　⟲ 8<span class="chipsave" style="background:var(--amber-w);color:var(--amber)">✓ 個人應用</span></div></div>
+    <div class="icard"><div class="line"><span class="mi p">◆</span>已存入 個人應用<span class="st">讀完 · 值得試 · 3 步</span><button class="go" data-open="readP">側欄 →</button></div></div>
+  </div>
+  <div class="post">${av("kwok.dev")}<div><b>kwok.dev<span class="t">2h</span></b><p>大家覺得 junior 仲使唔使由零寫起？</p><div class="acts">♡ 88　◯ 31　⟲ 2</div></div></div>`;
+}
+
+function head() {
+  const coll = ["home","readT","readP"].includes(S.view);
+  return `<div class="head"><span class="logo">dlens</span><button class="tab ${coll ? "on" : ""}" data-open="home">收藏</button><button class="tab ${coll ? "" : "on"}" data-open="ws">工作區</button><span class="more">⋯</span></div>`
+    + (S.nowShown && !["readT"].includes(S.view) ? `<div class="now"><i></i><span>畫面上：@lam.builds · 讀完 · 3 種講法</span><button data-open="readT">睇 ›</button></div>` : "");
+}
+
+function home() {
+  return `
+  <div class="k" style="margin-top:4px"><b>剛讀完</b><span>唔使留喺原帖等</span></div>
+  <div class="box" style="padding:4px">
+    ${row("lam.builds","6h","我哋公司開始用 AI 寫 code 之後…","t",`<span class="dot"></span>4 分鐘前`,"readT")}
+    ${row("promptsmith","9h","我用 Claude Code + 三個 hooks…","p",`<span class="dot"></span>12 分鐘前`,"readP")}
+  </div>
+  <div class="k"><b>全部收藏</b><span>12 篇</span></div>
+  <div class="fil"><button class="chip on">全部<em>12</em></button><button class="chip">觀眾反應<em>7</em></button><button class="chip">個人應用<em>4</em></button><button class="chip">讀緊<em>1</em></button></div>
+  <div class="search"><input placeholder="搵帖、作者、字眼"><select><option>最新收藏</option><option>最多留言</option></select></div>
+  <div style="margin-top:8px">
+    ${row("kwok.dev","2h","大家覺得 junior 仲使唔使由零寫起？","t",`<span class="arc"></span>讀緊 · 約 1 分`,"home")}
+    ${row("lam.builds","6h","我哋公司開始用 AI 寫 code 之後…","t","3 種講法","readT")}
+    ${row("promptsmith","9h","我用 Claude Code + 三個 hooks…","p","值得試","readP")}
+    ${row("fion.ops","1d","寫 boilerplate 用 AI 真係快好多","p","觀察","readP")}
+    ${row("cheuk.ml","2d","model 揀錯，prompt 寫幾好都冇用","t","2 種講法","readT")}
+  </div>`;
+}
+const row = (h, t, x, ws, s, go) => `<div class="row" data-open="${go}">${av(h)}<div style="min-width:0"><b>@${h}<small>${t}</small></b><span class="x">${esc(x)}</span></div><span class="s"><span class="mi ${ws}">${ws === "t" ? "◎" : "◆"}</span>${s}</span></div>`;
+
+function src(p) {
+  return `<div class="box src ${S.srcOpen ? "open" : ""}"><div class="who">${av(p.h)}<b>@${p.h}</b><small>${p.t}</small></div><p>${esc(p.text)}</p>
+  <div class="meta"><span>♡ ${p.likes}</span><span>${p.replies} 則留言 · 讀咗 ${p.read}</span><button data-src>${S.srcOpen ? "收起" : "全文"}</button></div></div>`;
+}
+function lensBar(list, cur, attr) {
+  return `<div class="lens">${list.map(l => `<button data-${attr}="${l.key}" class="${l.key === cur ? "on" : ""}" style="--c:${l.c}"><b>${l.label}</b><small>${l.mark}</small></button>`).join("")}</div>`;
+}
+function rep([h, text, likes, au]) {
+  return `<div class="rep">${av(h)}<div><b>@${h}${au ? `<span class="au">作者</span>` : ""}</b><p>${esc(text)}</p><small>♡ ${likes}</small></div></div>`;
+}
+const deep = (n, cost) => `<div class="box deep"><span class="ic">✦</span><div><b>深入解讀</b><small>背景、術語、爭論 · gemini-3.8-flash · ${n} 則 · 約 $${cost}</small></div><button>讀</button></div>`;
+
+function readT() {
+  const a = ANS_T[S.lens];
+  const groups = EVID_T[S.lens];
+  return `
+  <div class="toprow"><button class="back" data-open="home">‹ 收藏</button><a href="#">原帖 ↗</a></div>
+  ${src(POSTS.lam)}
+  <div class="tl"><span>話題</span><button class="tchip on">AI 寫 code 嘅代價 ✓</button><button class="tchip">新人仲使唔使學基本功</button><button class="tchip">＋</button></div>
+  ${lensBar(LENS_T, S.lens, "lens")}
+  <div class="answer"><h3>${esc(a.h)}</h3>${a.p ? `<p>${esc(a.p)}</p>` : ""}
+    ${a.bar ? `<div class="bar">${a.bar.map(([w,c]) => `<i style="flex:${w};background:${c}"></i>`).join("")}</div><div class="leg">${a.leg.map(([t,c]) => `<span style="--c:${c}">${t}</span>`).join("")}</div>` : ""}
+  </div>
+  <div class="ev"><div class="k" style="margin-top:6px"><b>證據</b><span>原句，唔重複上面</span></div>
+    ${groups.map(g => `<div class="evg"><div class="evg-h"><i style="--c:${g.c}"></i>${g.name}<small>${g.pct}</small></div>${g.rows.map(rep).join("")}${g.more ? `<button class="moreln">再睇 ${g.more} 則</button>` : ""}</div>`).join("")}
+  </div>
+  ${deep(96, "0.03")}`;
+}
+
+function readP() {
+  const k = S.lensP, a = ANS_P[k];
+  let body = "";
+  if (k === "what") body = `<h3>${esc(a.h)}</h3><p>${esc(a.p)}</p>`;
+  if (k === "fit") body = `<span class="verdict">✓ ${a.verdict}</span><p style="margin-top:10px">${esc(a.why)}</p><div class="refs">${a.refs.map(r => `<a class="ref" href="#">@${r} ↗</a>`).join("")}</div>
+    <div class="nokey">冇填產品設定時：呢格只講「呢個做法適合咩人」，<a href="#">填產品設定 ›</a></div>`;
+  if (k === "try") body = `<h3>今晚可以咁試</h3><ol class="steps">${a.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol><p style="margin-top:10px;font-size:12.5px;color:var(--soft)">${esc(a.note)}</p><button class="agent">複製成 agent 任務（Claude Code / Codex）</button>`;
+  if (k === "add") body = `<h3>${esc(a.h)}</h3>${a.rows.map(rep).join("")}`;
+  return `
+  <div class="toprow"><button class="back" data-open="home">‹ 收藏</button><a href="#">原帖 ↗</a></div>
+  ${src(POSTS.smith)}
+  <div class="tl"><span class="mi p">◆</span><span>個人應用 · 按你嘅產品設定判斷</span></div>
+  ${lensBar(LENS_P, k, "lensp")}
+  <div class="answer">${body}</div>
+  ${deep(45, "0.01")}`;
+}
+
+function topic() {
+  const t = TOPICS[0];
+  const frames = [
+    { key:"rv", name:"時間搬咗去 review", n:3, faces:["lam.builds","kwok.dev","yan.qa"] },
+    { key:"ctx", name:"context 唔夠", n:2, faces:["mo.tsang","cheuk.ml"] }
+  ];
+  return `
+  <button class="back" data-open="ws">‹ 觀眾反應</button>
+  <div class="ttl">${t.name}</div><div class="tmeta">4 篇 · 312 則留言 · 今日 +1</div>
+  <div class="box rq"><i>想答</i><span>${t.q}</span><button>✎</button></div>
+  <div class="box tans"><div class="h"><span class="ic" style="width:24px;height:24px;border-radius:8px;background:var(--violet-w);color:var(--violet);display:grid;place-items:center;font-size:12px">✦</span><b>話題解讀</b><small>4 篇 · gemini-3.8-flash · 今日</small></div>
+    <p>大部分留言話時間冇慳到，係由「寫」搬咗去「睇」；分歧在於工種：重複性嘅嘢真係快，業務邏輯就要逐行覆核。</p>
+    <ul><li><span>4 篇都有人提 review 變長 <a class="ref" href="#">@kwok.dev</a> <a class="ref" href="#">@yan.qa</a></span></li><li><span>有效做法集中喺拆細 PR 同測試先行 <a class="ref" href="#">@lam.builds</a></span></li><li><span>未有人拎出量度方法，係呢個問題最大嘅缺口 <a class="ref" href="#">@ivy.pm</a></span></li></ul>
+  </div>
+  <div class="k"><b>講法</b><span>按留言字詞分組</span></div>
+  ${frames.map(f => `<div class="frame"><button data-frame="${f.key}"><b>${f.name}</b><span class="faces">${f.faces.map(h => `<span style="background:${grad(h)}"></span>`).join("")}</span><span class="n">${f.n} 篇 <span class="chev">${S.openFrame === f.key ? "▴" : "▾"}</span></span></button>
+    ${S.openFrame === f.key ? `<div style="padding:0 0 6px">${row("lam.builds","6h","我哋公司開始用 AI 寫 code 之後…","t","3 種講法","readT")}${row("kwok.dev","2h","大家覺得 junior 仲使唔使由零寫起？","t",`<span class="arc"></span>讀緊`,"topic")}</div>` : ""}</div>`).join("")}
+  <div class="k"><b>貼文</b><span>4 篇</span></div>
+  ${row("lam.builds","6h","我哋公司開始用 AI 寫 code 之後…","t",`<span class="dot"></span>新`,"readT")}
+  ${row("cheuk.ml","2d","model 揀錯，prompt 寫幾好都冇用","t","2 種講法","readT")}
+  ${row("yan.qa","3d","AI PR 冇測試我一律唔收","t","2 種講法","readT")}
+  <button class="fold">更多：走勢 · 共鳴 · 重複問題（無 AI）▾</button>
+  <p style="margin:18px 2px 0;font-size:12px;color:var(--faint);display:flex;justify-content:space-between"><span>未跑時：一行「讀晒 4 篇答你嘅問題 · 約 $0.06 · 讀」</span><span>移除話題</span></p>`;
+}
+
+function ws() {
+  return `
+  <div class="wh"><span class="mi t">◎</span><b>觀眾反應</b><button data-sheet>＋ 新話題</button></div>
+  ${S.sheet ? `<div class="box sheet"><input placeholder="話題名稱，例如：AI 寫 code 嘅代價" autofocus><input placeholder="想答咩問題？（可選）"><div class="bt"><button data-sheet>取消</button><button class="p" data-sheet>建立</button></div></div>` : ""}
+  <div class="k"><b>話題</b><span>按最近更新</span></div>
+  <div class="box">${TOPICS.map(t => `<div class="topic" data-open="topic"><b>${t.name}</b><span class="c">${t.n} 篇${t.isNew ? ` · <span class="new">${t.last}</span>` : ""}</span><small>${t.q ? `想答：${t.q}` : "未寫研究問題"}</small></div>`).join("")}</div>
+  <div class="k"><b>未分流</b><span>放入話題先計入講法</span></div>
+  <div class="box inbox">
+    ${[["kwok.dev","2h · 31 則","大家覺得 junior 仲使唔使由零寫起？","新人仲使唔使學基本功"],["cheuk.ml","2d · 58 則","model 揀錯，prompt 寫幾好都冇用","AI 寫 code 嘅代價"],["ivy.pm","3d · 12 則","有冇人量度過 AI 幫手之後 sprint 快咗幾多？","AI 寫 code 嘅代價"]].map(([h,m,x,sg]) => `
+    <div class="ir"><div class="who">${av(h)}<span><b>@${h}</b> <small style="color:var(--faint)">${m}</small><em>${esc(x)}</em></span><button title="移去 個人應用 · 刪除">⋯</button></div>
+      <div class="pk"><button class="sg">放入〈${sg}〉</button>${TOPICS.filter(t => t.name !== sg).map(t => `<button class="tc">${t.name}</button>`).join("")}<button class="nw">＋ 新話題</button></div></div>`).join("")}
+  </div>
+  <p class="empty1">未有話題時：上面只出一句「話題＝你想答嘅問題。建一個，之後轉盤外圈可以直接放。」同 ＋ 新話題。</p>`;
+}
+
+function render() {
+  feed();
+  const v = { home, readT, readP, topic, ws }[S.view]();
+  $("panel").innerHTML = head() + `<div class="body">${v}</div>`;
+  document.querySelectorAll("#states button").forEach(b => b.classList.toggle("on", b.dataset.s === S.view));
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-open],[data-lens],[data-lensp],[data-feed-lens],[data-frame],[data-sheet],[data-src],#states button");
+  if (!t) return;
+  if (t.dataset.s) { S.view = t.dataset.s; $("panel").scrollTop = 0; }
+  else if (t.dataset.open) { S.view = t.dataset.open; $("panel").scrollTop = 0; }
+  else if (t.dataset.lens) S.lens = t.dataset.lens;
+  else if (t.dataset.lensp) S.lensP = t.dataset.lensp;
+  else if (t.dataset.feedLens) S.lens = t.dataset.feedLens;
+  else if (t.dataset.frame) S.openFrame = S.openFrame === t.dataset.frame ? null : t.dataset.frame;
+  else if ("sheet" in t.dataset) S.sheet = !S.sheet;
+  else if ("src" in t.dataset) S.srcOpen = !S.srcOpen;
+  render();
+});
+render();
+</script>
+</body>
+</html>

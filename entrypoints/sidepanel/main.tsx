@@ -19,11 +19,11 @@ ensureDlensKeyframes(document);
 
 // A card's 開啟工作區 names the workspace: live while this panel is open, or handed over once it has loaded.
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-  if (message.type === "sidepanel/open") requestWorkspaceOpen(message.sessionId);
+  if (message.type === "sidepanel/open") requestWorkspaceOpen(message.sessionId, window, message.itemId ? {itemId:message.itemId,lens:message.lens} : undefined);
   return false;
 });
 void (chrome.runtime.sendMessage({ type: "sidepanel/take-workspace-open" } satisfies ExtensionMessage) as Promise<ExtensionResponse>)
-  .then((response) => { if (response.ok && response.workspaceSessionId) requestWorkspaceOpen(response.workspaceSessionId); })
+  .then((response) => { if (response.ok && response.workspaceSessionId) requestWorkspaceOpen(response.workspaceSessionId, window, response.readerItemId ? {itemId:response.readerItemId,lens:response.readerLens} : undefined); })
   .catch(() => undefined);
 
 ReactDOM.createRoot(root).render(

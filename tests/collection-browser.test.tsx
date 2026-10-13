@@ -25,7 +25,7 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
     const [selectedKey, setSelectedKey] = useState<string | null>(props.selectedKey ?? null);
-    return <CollectionBrowser topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
+    return <CollectionBrowser settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
       onCollect={() => { collected++; }} onOpenWorkspace={(id) => opened.push(id)} />;
@@ -208,8 +208,8 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
   try {
     assert.deepEqual([...h.container.querySelectorAll("[data-reader-entry]")].map(e => e.getAttribute("data-reader-entry")), ["stance", "method", "split", "ask"]);
     assert.match(h.container.querySelector("[data-reader-answer]")!.textContent!, /支持工具/);
-    assert.equal(h.container.querySelector<HTMLDivElement>("[data-reader-entries]")!.style.gridTemplateColumns, "repeat(2, minmax(0, 1fr))");
-    await h.click("[data-reader-evidence-toggle]");
+    assert.equal(h.container.querySelector<HTMLDivElement>("[data-reader-entries]")!.style.gridTemplateColumns, "repeat(4,minmax(0,1fr))");
+    assert.equal(h.container.querySelector("[data-reader-evidence-toggle]"),null);
     const header = h.container.querySelector<HTMLDivElement>("[data-reader-evidence-header]")!;
     assert.equal(header.style.display, "grid");
     assert.equal(header.children.length, 3);
@@ -219,12 +219,11 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
     await h.click('[data-reader-topic=""]');
     assert.deepEqual(assign, [["s1", "t1"], ["s1", null]]);
     assert.equal(h.container.querySelector("select"), null);
-    await h.click("[data-reader-evidence-toggle]");
-    assert.equal(h.container.querySelector("[data-reader-evidence]"), null);
+    assert.ok(h.container.querySelector("[data-reader-evidence]"));
   } finally { await h.close(); }
 });
 
-test("recent readings sit above search, 全部 filters finished posts and a strip row opens reader", async () => {
+test("recent readings sit above search, 讀完 chip filters finished posts and a strip row opens reader", async () => {
   const now = Date.parse("2026-10-13T12:00:00Z");
   const completedAt = new Date(now - 60000).toISOString();
   const ready = item("done", { status: "succeeded", completedAt, latestCapture: capture({}, { analysis: { status: "succeeded", generated_at: completedAt, clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>["analysis"]> }) });
@@ -236,10 +235,34 @@ test("recent readings sit above search, 全部 filters finished posts and a stri
     assert.ok(strip.compareDocumentPosition(view.container.querySelector("[data-collection-search]")!) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     assert.equal(view.container.querySelectorAll('[data-collection-state="arc"]').length, 1);
     assert.equal(view.container.querySelectorAll('[data-collection-state="dot"]').length, 1);
-    await view.click("[data-collection-finished-filter]");
+    assert.equal(view.container.querySelector("[data-collection-finished-filter]"),null);
+    await view.click('[data-collection-filter="finished"]');
     // Exiting rows remain briefly for the existing fold motion; only active rows are clickable.
     assert.equal(view.container.querySelectorAll('[data-collection-row]:not([data-collection-exiting="true"])').length, 1);
     await view.click("[data-reading-arrival]");
     assert.ok(view.container.querySelector('[data-collection-browser="reader"]'));
   } finally { await view.close(); }
+});
+
+test('product reader uses four lens tabs, reply fallback and folded source',async()=>{
+ const {createDefaultSettings}=await import('../src/state/types.ts');
+ const saved=item('product',{status:'succeeded',latestCapture:capture({author:'author'},{result:{...capture().result!,comments:[{comment_id:'r1',author:'author',text:'作者補充',like_count:3},{comment_id:'r2',author:'fan',text:'試過',like_count:5}]}})});
+ const sessions=[session('product-workspace',[saved],'product')];
+ const h=await mount({sessions,settings:createDefaultSettings(),selectedKey:buildCollectionPosts(sessions)[0].key});
+ try{
+  assert.deepEqual([...h.container.querySelectorAll('[data-reader-entry]')].map(e=>e.textContent?.trim()),['講咩','啱唔啱你','點試','留言補充2 則']);
+  assert.equal(h.container.querySelector('[data-reader-entry="add"]')?.getAttribute('aria-pressed'),'true');
+  assert.match(h.container.querySelector('[data-reader-answer]')!.textContent!,/作者補充/);
+  assert.equal(h.container.querySelector<HTMLDivElement>('[data-collection-reader-body]')!.style.webkitLineClamp,'3');
+  await h.click('[data-reader-entry="fit"]');assert.match(h.container.textContent!,/未接 AI/);
+ }finally{await h.close();}
+});
+test('reader evidence is present initially and 再睇 expands just one group',async()=>{
+ const comments=Array.from({length:30},(_,i)=>({comment_id:`r${i}`,author:'fan',text:`回覆${i}`,like_count:i}));
+ const saved=item('audience',{status:'succeeded',latestCapture:capture({}, {result:{...capture().result!,comments},analysis:{status:'succeeded',clusters:[{cluster_key:0,size_share:.6,like_share:.6,keywords:['a']},{cluster_key:1,size_share:.4,like_share:.4,keywords:['b']}],evidence:[0,1].map(k=>({cluster_key:k,comments:comments.slice(k*15,k*15+15).map(c=>({...c,text:c.text}))}))}})});
+ const sessions=[session('topic',[saved],'topic')];const h=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key});
+ try{
+  const count=()=>[...h.container.querySelectorAll('[data-reader-evidence] section')].map(g=>g.querySelectorAll('[data-reader-reply]').length);
+  assert.deepEqual(count(),[3,3]);await h.click('[data-reader-more="cluster:0"]');assert.deepEqual(count(),[13,3]);
+ }finally{await h.close();}
 });

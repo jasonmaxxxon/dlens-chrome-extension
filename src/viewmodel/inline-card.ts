@@ -29,6 +29,8 @@ export type InlineCardPeek = { state: "loading" } | { state: "ready"; total: num
 export interface InlineCardContext {
   /** Every saved item, to count crawls ahead of this one on the single backend worker. */
   queue?: SessionItem[];
+  /** The side panel keeps its lens bar available for small / pending captures. */
+  forReader?: boolean;
   peek?: InlineCardPeekInput;
   /** The crawl request itself failed (backend down), so the item never left 「saved」. */
   startError?: string | null;
@@ -105,7 +107,7 @@ function peekOf(input: InlineCardPeekInput | undefined): InlineCardPeek | null {
 }
 
 /** Everything the card and 展開證據 read from one crawl, derived the same way for both. */
-function readThread(item: SessionItem) {
+export function readInlineCardThread(item: SessionItem) {
   const comments = readCrawlComments(item);
   const op = readOpHandle(item);
   const byId = new Map(comments.map((c) => [c.id, c]));
@@ -152,10 +154,16 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
     countLabel: null, readingCounts: { frames: 0, comments: 0 }, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
   };
-  if (phase !== "done" || mode !== "topic") return base;
+  if (phase !== "done" || mode !== "topic") {
+    if (context.forReader && mode === "topic") {
+      base.entries = ([['stance','大家點睇'],['top','樣本內最高讚'],['op','作者回應'],['ask','大家問咩']] as const).map(([key,label])=>({key,label,mark:'',finding:''}));
+      for (const e of base.entries) base.answers[e.key]={kind:'empty',text:phase === 'failed' ? '抓取失敗' : phase === 'saved' ? '未抓取留言' : '讀緊留言'};
+    }
+    return base;
+  }
   base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
 
-  const t = readThread(item);
+  const t = readInlineCardThread(item);
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
   const currentReading = readingOf(item, context.ai);
@@ -163,7 +171,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     : (item.latestCapture?.analysis?.clusters ?? []).filter(cluster => !isNoise(cluster, currentReading)).length };
   if (t.comments.length < INLINE_CARD_MIN_COMMENTS) {
     base.few = t.comments.slice(0, 9).map(quote);
-    return base;
+    if (!context.forReader) return base;
   }
   base.ai = base.analysisPending ? null : aiStateOf(item, context.ai);
   const reading = readingOf(item, context.ai);
@@ -184,6 +192,10 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     };
   }
 
+  if (context.forReader && !base.answers.stance) {
+    base.entries.push({key:'stance',label:'大家點睇',mark:'',finding:''});
+    base.answers.stance={kind:'empty',text:t.comments.length < INLINE_CARD_MIN_COMMENTS ? '留言未夠歸納，先睇原句。' : '未有可用的回應分群。'};
+  }
   if (reading) {
     base.entries.push({ key: "method", label: "有咩做法", mark: reading.methods.length ? `${reading.methods.length} 種` : "", finding: reading.find.method });
     base.answers.method = reading.methods.length
@@ -201,6 +213,10 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
       base.entries.push({ key: "top", label: "樣本內最高讚", mark: `${t.ranked[0].likes} 讚`, finding: t.ranked[0].text });
       base.answers.top = { kind: "quotes", rows: t.ranked.slice(0, 3).map(quote) };
     }
+    if (context.forReader && !base.answers.top) {
+      base.entries.push({key:'top',label:'樣本內最高讚',mark:'',finding:''});
+      base.answers.top={kind:'empty',text:'樣本內未有讚數。'};
+    }
     base.entries.push({ key: "op", label: "作者回應", mark: t.opReplies.length ? `${t.opReplies.length} 則` : "", finding: t.opReplies[0]?.text ?? "未有回覆留言" });
     base.answers.op = t.opReplies.length
       ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text) })) }
@@ -212,7 +228,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   base.answers.ask = t.asks.length
     ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: a.c.text, status: a.status })) }
     : { kind: "empty", text: "已讀留言裡未見提問。" };
-  base.hasEvidence = t.clusters.length > 0 || t.ranked.length > 0;
+  base.hasEvidence = t.clusters.length > 0 || t.ranked.length > 0 || (!!context.forReader && t.comments.length > 0);
   return base;
 }
 
@@ -229,6 +245,7 @@ export interface InlineEvidenceGroup {
   chains: InlineEvidenceChain[];
   /** Replies left out to keep the window short. */
   more: number;
+  expanded?: boolean;
 }
 const EVIDENCE_ROWS = 3;
 export interface InlineCardEvidence { heading: string; sub: string; section: string; groups: InlineEvidenceGroup[] }
@@ -241,9 +258,9 @@ function shownTexts(answer: InlineCardAnswer | undefined): string[] {
   return [];
 }
 
-export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewModel, lens: InlineCardEntryKey | null, ai?: InlineCardAiInput | null): InlineCardEvidence | null {
+export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewModel, lens: InlineCardEntryKey | null, ai?: InlineCardAiInput | null, groupLimits: Record<string, number> = {}): InlineCardEvidence | null {
   if (!vm.hasEvidence) return null;
-  const t = readThread(item);
+  const t = readInlineCardThread(item);
   const reading = readingOf(item, ai);
   // The card already quotes these; 展開證據 never repeats them.
   const shown = new Set(lens === "ask" ? [] : shownTexts(lens ? vm.answers[lens] : undefined));
@@ -263,24 +280,36 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
     return { chains: fresh.slice(0, cap).map((c) => ({ row: toRow(c), reply: null, unanswered: false })), more: Math.max(0, fresh.length - cap) };
   };
 
+  const limit = (tone: InlineEvidenceGroup["tone"], index: number) => Math.min(tone === "noise" ? 11 : 13, Math.max(tone === "noise" ? 1 : EVIDENCE_ROWS, groupLimits[`${tone}:${index}`] ?? (tone === "noise" ? 1 : EVIDENCE_ROWS)));
   let section: string;
   let groups: InlineEvidenceGroup[];
   if (lens === "method" && reading?.methods.length) {
     section = "做法：適用情境與原句";
-    groups = reading.methods.map((m, index) => ({ tone: "method", index, title: m.name, meta: "", context: m.fit || null, ...pick([lookup(m.quote.commentId, m.quote)]) }));
+    groups = reading.methods.map((m, index) => ({ tone: "method", index, title: m.name, meta: "", context: m.fit || null, ...pick([lookup(m.quote.commentId, m.quote)], limit("method", index)) }));
   } else if (lens === "split" && reading?.split.sides.length) {
     section = "兩邊的理由與原句";
-    groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, ...pick([lookup(side.quote.commentId, side.quote)]) }));
+    groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, ...pick([lookup(side.quote.commentId, side.quote)], limit("side", index)) }));
   } else if (lens === "ask" && t.asks.length) {
     section = "問題與回覆";
     const NAME = { none: "樣本內未見回覆", author: "作者回覆", other: "有人回覆" } as const;
     groups = (["none", "author", "other"] as const).flatMap((status, index) => {
       const asks = t.asks.filter((a) => a.status === status);
-      return asks.length ? [{
-        tone: status, index, title: NAME[status], meta: `${asks.length} 條`, context: null,
-        chains: asks.slice(0, EVIDENCE_ROWS).map((a) => ({ row: toRow(a.c), reply: a.reply ? toRow(a.reply) : null, unanswered: status === "none" })),
-        more: Math.max(0, asks.length - EVIDENCE_ROWS)
-      }] : [];
+      if (!asks.length) return [];
+      const take = (budget:number) => {
+        const chains:InlineEvidenceChain[]=[];
+        let rows=0;
+        for (const ask of asks) {
+          const size=ask.reply ? 2 : 1;
+          if (rows+size>budget) break;
+          chains.push({row:toRow(ask.c),reply:ask.reply ? toRow(ask.reply) : null,unanswered:status==='none'});
+          rows+=size;
+        }
+        return {chains,rows};
+      };
+      const initial=take(EVIDENCE_ROWS);
+      const visible=take(Math.min(limit(status,index),initial.rows+10));
+      const totalRows=asks.reduce((n,a)=>n+(a.reply ? 2 : 1),0);
+      return [{tone:status,index,title:NAME[status],meta:`${asks.length} 條`,context:null,chains:visible.chains,more:totalRows-visible.rows}];
     });
   } else if (t.clusters.length) {
     section = reading ? "按回應類別的原句" : "按關鍵詞分群的原句";
@@ -291,19 +320,19 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
         title: reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords),
         meta: `${pct(cluster.size_share)}%`, context: noise ? "AI 判斷為廣告、洗版或離題，不計作觀眾反應。" : null,
         ...pick((t.evidence.find((e) => e.cluster_key === cluster.cluster_key)?.comments ?? [])
-          .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })), noise ? 1 : EVIDENCE_ROWS)
+          .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })), limit(noise ? "noise" : "cluster", index))
       };
     });
   } else {
     section = "樣本內最高讚";
-    groups = [{ tone: "cluster", index: 0, title: "最多讚的留言", meta: "", context: null, ...pick(t.ranked.slice(0, 8)) }];
+    groups = [{ tone: "cluster", index: 0, title: "最多讚的留言", meta: "", context: null, ...pick(t.ranked.length ? t.ranked : t.comments, limit("cluster", 0)) }];
   }
   const total = num(item.descriptor.engagement?.comments);
   return {
     heading: `@${t.op || "作者"} 的留言證據`,
     sub: `已讀 ${t.comments.length} / ${total ?? "?"} 則 · 卡片上已見的句子不重複`,
     section,
-    groups: groups.filter((group) => group.chains.length || group.context)
+    groups: groups.filter((group) => group.chains.length || group.context).map(group=>({...group,expanded:!!groupLimits[`${group.tone}:${group.index}`]}))
   };
 }
 
@@ -341,4 +370,8 @@ export interface InlineReturnGlow { ready: boolean; pending: boolean; glow: bool
 export function nextReturnGlow(previous: InlineReturnGlow | undefined, ready: boolean, visible: boolean): InlineReturnGlow {
   const pending = ready && (!!previous?.pending || (!!previous && !previous.ready && !visible));
   return { ready, pending: pending && !visible, glow: pending && visible };
+}
+
+export function inlineReplyRow(c: CrawlComment, op: string): InlineEvidenceRow {
+ return {author:c.author,text:c.text,likes:c.likes,replies:c.replies,time:c.time,isAuthor:!!op && handle(c.author)===op};
 }

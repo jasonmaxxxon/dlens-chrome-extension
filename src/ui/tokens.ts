@@ -34,6 +34,7 @@ export const tokens = {
     status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },
     skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10, skeletonBackground: "linear-gradient(90deg, rgba(123,74,138,.04), rgba(123,74,138,.12), rgba(123,74,138,.04))", skeletonBackgroundSize: "200% 100%"
   },
+  reader: { headline: 16, body: 14, secondary: 12.5, meta: 11.5, sourceLines: 3, lineHeight: 1.6 },
   collection: {
     modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
@@ -325,12 +326,10 @@ export const tokens = {
     askColors: { author: "#3f5a3b", other: "#234f7a", none: "#a06a17" },
     skeleton: ["#eeede9", "#f7f6f3"], skeletonHeight: 9,
     /* 展開證據 reply rows in Threads' shape: no avatar URL is stored, so a handle-tinted initial stands in. */
-    avatar: 28, avatarSat: 30, avatarLight: 88, avatarInk: 32, threadLine: "rgba(27,26,23,.14)",
+    avatar: 28, threadLine: "rgba(27,26,23,.14)",
     /* Spam / off-topic clusters stay visible but grey, after every real reaction. */
     noise: "#b9b6ad",
-    /* 展開證據 opens as a window beside the feed when there is room (mockup v12), else below the card. */
-    windowWidth: 340, windowGap: 16, windowMinRoom: 356, windowTopOffset: 40, windowTopMin: 72, windowRadius: 16, windowLayer: 2147483000,
-    windowShadow: "0 18px 44px -16px rgba(27,26,23,.22), 0 2px 6px rgba(27,26,23,.05)", replyLines: 4
+
   },
 
   motion: {

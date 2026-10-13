@@ -1,3 +1,7 @@
+import { isProductContextSourceReady } from "../compare/product-context";
+import { useCollectionProducts } from "./useCollectionProducts";
+import { buildCollectionInView } from "../viewmodel/collection-browser";
+import { collectionReadingSource, resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
 import { useDeepReadings } from "./useDeepReadings";
 import { useOpenedReadings } from "./useOpenedReadings";
 import { collectionAudienceSource } from "../viewmodel/collection-reader";
@@ -32,7 +36,7 @@ import { TopicDiscourseView, type TopicDiscourseCommand } from "./TopicDiscourse
 import { useDiscourseFeeds } from "./useDiscourseFeeds";
 import { buildTopicDiscourseViewModel } from "../viewmodel/topic-discourse";
 import { tokens } from "./tokens";
-import { OPEN_WORKSPACE_EVENT, consumeWorkspaceOpen } from "./inpage-helpers";
+import { OPEN_WORKSPACE_EVENT, consumeWorkspaceOpen, consumeReaderOpen } from "./inpage-helpers";
 import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
 import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
 import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
@@ -60,6 +64,8 @@ interface ReadingNavigation {
   query: string;
   sort: CollectionSort;
   selectedKey: string | null;
+  requestedLens?: string | null;
+  readerRequest?: number;
   returnPage?: PopupPage;
   workspaceSessionId?: string;
   workspacePage?: PopupPage;
@@ -188,11 +194,17 @@ function OpenInPageCollectorPopup({
   // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
   const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
   const deepReadings = useDeepReadings(true);
-  const discourseFeeds = useDiscourseFeeds(domainPage === "topics" || readingNavigation.tab === "collection");
-  const openedReadings = useOpenedReadings(!domainPage && readingNavigation.tab === "collection", readingNavigation.selectedKey, snapshot?.global.sessions ?? [], discourseFeeds.readings);
+  const discourseFeeds = useDiscourseFeeds(true);
+  const products=useCollectionProducts(snapshot?.global.sessions ?? []);
+  const productHasContext=products.hasContext || isProductContextSourceReady(snapshot?.global.settings.productProfile);
+  const [copyStatus,setCopyStatus]=useState<string>('');
+  useEffect(()=>setCopyStatus(''),[readingNavigation.selectedKey]);
+  const collectionPosts=buildCollectionPosts(snapshot?.global.sessions ?? []);
+  const inView=IS_PR_ONLY_BUILD ? null : buildCollectionInView(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null);
+  const openedReadings = useOpenedReadings(!domainPage && readingNavigation.tab === "collection", readingNavigation.selectedKey, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
   const readerSource = !domainPage && readingNavigation.tab === "collection"
-    ? collectionAudienceSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
-  const readerSessionId = readerSource?.session.id ?? null;
+    ? collectionReadingSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
+  const readerSessionId = readerSource?.session.mode === "topic" ? readerSource.session.id : null;
   useCollectionReaderLive(readerSource, readerSource ? discourseFeeds.readings[readerSource.item.id] : undefined);
   const readerTopics = useCollectionReaderTopics(readerSessionId);
   const discourseViewModel = domainPage === "topics"
@@ -477,6 +489,12 @@ function OpenInPageCollectorPopup({
   useEffect(() => {
     const listener = () => {
       if (navigationPending.current) return;
+      const reader=consumeReaderOpen(snapshot?.global.sessions.flatMap(s=>s.items.map(i=>i.id)) ?? []);
+      if (reader) {
+        const target=resolveCollectionReaderOpen(collectionPosts,reader.itemId,reader.lens);
+        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,readerRequest:(current.readerRequest ?? 0)+1}));
+        return;
+      }
       const sessionId = consumeWorkspaceOpen(snapshot?.global.sessions.map((session) => session.id) ?? []);
       if (sessionId) void openWorkspace(sessionId);
     };
@@ -484,6 +502,12 @@ function OpenInPageCollectorPopup({
     listener();
     return () => window.removeEventListener(OPEN_WORKSPACE_EVENT, listener);
   });
+
+  useEffect(()=>{
+    if (!readingNavigation.readerRequest || domainPage || readingNavigation.tab!=='collection') return;
+    const frame=window.requestAnimationFrame(()=>scrollRef.current?.querySelector('[data-reader-answer]')?.scrollIntoView?.({block:'start'}));
+    return ()=>window.cancelAnimationFrame(frame);
+  },[readingNavigation.readerRequest,readingNavigation.selectedKey,domainPage]);
 
   async function createWorkspace(name: string, mode: FolderMode) {
     if (navigationPending.current || (IS_PR_ONLY_BUILD && mode !== "pr-evidence")) return { ok: false };
@@ -639,15 +663,17 @@ function OpenInPageCollectorPopup({
               setReadingNavigation((current) => ({ ...current, settingsOpen: true, collecting: false, returnPage: page }));
               void app.onNavigate("settings");
             }}
+            inView={inView}
+            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null}))}
             diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
-            {readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
+            {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
-                onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey }))}
+                onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null }))}
                 onCollect={() => void openCollectionCapture()} onOpenWorkspace={(id) => void openWorkspace(id)}
                 isLoading={!snapshot} />
             ) : null}
