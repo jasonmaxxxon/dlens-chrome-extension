@@ -20,7 +20,6 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
   const selected: Array<string | null> = [];
   const queries: string[] = [];
   const opened: string[] = [];
-  let collected = 0;
   function Harness() {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
@@ -28,11 +27,11 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
-      onCollect={() => { collected++; }} onOpenWorkspace={(id) => opened.push(id)} />;
+      onOpenWorkspace={(id) => opened.push(id)} />;
   }
   await act(async () => root.render(<Harness />));
   return {
-    dom, container, selected, queries, opened, get collected() { return collected; },
+    dom, container, selected, queries, opened,
     async click(selector: string) {
       const element = container.querySelector<HTMLElement>(selector);
       assert.ok(element, `expected ${selector}`);
@@ -63,7 +62,7 @@ test("collection shows one source-first row per post and controlled search remai
     assert.equal(view.container.querySelectorAll("h2").length, 0);
     assert.equal(view.container.querySelectorAll("[data-collection-sort]").length, 3);
     assert.equal(view.container.querySelectorAll("[data-collection-post]").length, 2);
-    assert.equal(view.container.querySelectorAll('[data-collection-action="collect"]').length, 1);
+    assert.equal(view.container.querySelectorAll('[data-collection-action="collect"]').length, 0);
     assert.equal(view.container.querySelector("[data-saved-signal-metric]"), null);
     assert.equal(view.container.querySelector("details"), null);
     await view.type("apple");
@@ -84,17 +83,16 @@ test("collection shows one source-first row per post and controlled search remai
     assert.equal(view.container.querySelector<HTMLInputElement>("input")?.value, "apple");
     assert.equal(view.container.querySelectorAll("[data-collection-post]").length, 1);
     assert.equal(view.selected.at(-1), null);
-    await view.click('[data-collection-action="collect"]');
-    assert.equal(view.collected, 1);
+
   } finally { await view.close(); }
 });
 
-test("collection empty, loading and no-results states keep search and one collect action", async () => {
+test("collection empty, loading and no-results states keep search", async () => {
   for (const props of [{ sessions: [] }, { sessions: [], isLoading: true }, { query: "不存在" }]) {
     const view = await mount(props);
     try {
       assert.ok(view.container.querySelector('input[type="search"]'));
-      assert.equal(view.container.querySelectorAll('[data-collection-action="collect"]').length, 1);
+      assert.equal(view.container.querySelectorAll('[data-collection-action="collect"]').length, 0);
       assert.equal(view.container.querySelectorAll("[data-collection-post]").length, 0);
       assert.match(view.container.textContent ?? "", props.isLoading ? /載入/ : props.query ? /找不到/ : /尚未收藏/);
     } finally { await view.close(); }

@@ -4,7 +4,6 @@ import test from "node:test";
 
 const migratedSources = [
   "src/content/inline-collect-runtime.ts",
-  "src/ui/useInPageCollectorAppState.ts",
   "src/ui/useTopicState.ts",
   "src/ui/useProcessingCoordinator.ts"
 ] as const;
@@ -53,7 +52,8 @@ test("pipeline trace slice absorbs ad-hoc markQaTrace production strings", () =>
 
 test("every migrated pipeline emit includes phase, step, target, and result", () => {
   const bodies = migratedSources.flatMap((relativePath) => extractEmitBodies(readRepoFile(relativePath)));
-  assert.ok(bodies.length >= 30, "expected the existing qa trace call sites to be migrated, not deleted");
+  // F3 removed the popup's queue / collect / bulk flows together with their 23 emits; the 14 kept here must stay.
+  assert.ok(bodies.length >= 14, "expected the existing qa trace call sites to be migrated, not deleted");
 
   for (const body of bodies) {
     assert.match(body, /\bphase:\s*"/, `missing phase in ${body}`);

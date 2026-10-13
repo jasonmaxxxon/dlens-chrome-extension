@@ -1,11 +1,11 @@
+import { loadFolderSynthesis, saveFolderSynthesis, FOLDER_SYNTHESIS_VERSION } from "./legacy-storage-fixtures.ts";
+import { clearFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { recordInlineCollectRemoval } from "../src/state/inline-collect-storage.ts";
 import { deleteSignalStorageRecords } from "../src/state/session-signal-seam.ts";
 import { loadSignals, loadTopics, saveSignal, saveTopic, type StorageAreaLike } from "../src/state/topic-storage.ts";
 import { deleteProductAgentTaskFeedbackBySignalId, listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback.ts";
-import { clearFolderSynthesis, loadFolderSynthesis, saveFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
-import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 import { TOPIC_SYNTHESIS_VERSION } from "../src/compare/topic-synthesis.ts";
 import type { FolderSynthesis, ProductAgentTaskFeedback, Topic } from "../src/state/types.ts";
 

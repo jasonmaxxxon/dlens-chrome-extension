@@ -1,12 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+import { useLayoutEffect, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
-import {
-  advancePopupWorkspaceState,
-  resolveInitialPopupMode,
-  type PopupWorkspaceState,
-  type SessionProcessingSummary
-} from "../state/processing-state";
+import { advancePopupWorkspaceState, type PopupWorkspaceState, type SessionProcessingSummary } from "../state/processing-state";
 import type { PopupPage } from "../state/types";
 
 type SendAndSync = <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage) => Promise<T>;
@@ -17,7 +13,7 @@ export function buildInitialPopupWorkspaceState(
   popupPage?: PopupPage | null
 ): PopupWorkspaceState {
   return {
-    currentMode: popupOpen ? popupPage ?? resolveInitialPopupMode(processingSummary) : "library",
+    currentMode: popupOpen ? popupPage ?? "collection" : "collection",
     popupOpen,
     modeLocked: popupOpen
   };
@@ -83,7 +79,7 @@ export function usePopupWorkspaceState({
   }, [popupOpen, popupPage]);
 
   const page = workspaceState.currentMode;
-  const primaryMode = page === "settings" || page === "result" ? null : page;
+  const primaryMode = page === "settings" ? null : page;
 
   function beginPendingNavigation(pageValue: PopupPage) {
     pendingNavigationRef.current = pageValue;

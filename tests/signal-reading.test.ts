@@ -22,7 +22,6 @@ import {
   SIGNAL_READINGS_STORAGE_KEY,
   type SignalReading
 } from "../src/compare/signal-reading-storage.ts";
-import { composeReadingBrief, selectFiledReadings } from "../src/compare/signal-reading-brief.ts";
 import type { ProductContext, ProductSignalAnalysis } from "../src/state/types.ts";
 
 function makeStorage(initial: Record<string, unknown> = {}) {
@@ -241,78 +240,6 @@ test("signalReadingStaleness 偵測兩個原因", () => {
   const noProvenance = signalReadingStaleness(makeReading({ model: "" }), LEGACY_READING_PROMPT_VERSION);
   assert.equal(noProvenance.stale, true);
   assert.deepEqual(noProvenance.reasons, ["missing_provenance"]);
-});
-
-test("selectFiledReadings 只取 filed", () => {
-  const readings = [
-    makeReading({ cacheKey: "a", reviewState: "filed" }),
-    makeReading({ cacheKey: "b", reviewState: "deferred" }),
-    makeReading({ cacheKey: "c", reviewState: "rejected" }),
-    makeReading({ cacheKey: "d", reviewState: "pending" })
-  ];
-  assert.deepEqual(
-    selectFiledReadings(readings).map((reading) => reading.cacheKey),
-    ["a"]
-  );
-});
-
-test("composeReadingBrief 只組 filed、標示過期", () => {
-  const analyses = new Map<string, ProductSignalAnalysis>([
-    [
-      "sig_1",
-      { contentSummary: "毒舌記帳 App", verdict: "watch", relevance: 3, referenceLabel: "行銷素材" } as unknown as ProductSignalAnalysis
-    ]
-  ]);
-  const brief = composeReadingBrief(
-    [
-      makeReading({ cacheKey: "filed", reviewState: "filed", reading: "已收錄的判讀內容。" }),
-      makeReading({ cacheKey: "deferred", reviewState: "deferred", reading: "不該出現的待看判讀。" })
-    ],
-    analyses,
-    LEGACY_READING_PROMPT_VERSION
-  );
-  assert.ok(brief.includes("已收錄的判讀內容。"));
-  assert.ok(!brief.includes("不該出現的待看判讀。"));
-  assert.ok(brief.includes("保留觀察"));
-
-  const staleBrief = composeReadingBrief(
-    [makeReading({ reviewState: "filed", promptVersion: "v0" })],
-    new Map(),
-    LEGACY_READING_PROMPT_VERSION
-  );
-  assert.ok(staleBrief.includes("判讀版本過期"));
-});
-
-test("composeReadingBrief prefers the projected reading headline and keeps legacy title fallback", () => {
-  const analyses = new Map<string, ProductSignalAnalysis>([
-    [
-      "sig_1",
-      {
-        contentSummary: "分析摘要不應取代明確標題",
-        verdict: "watch",
-        relevance: 4
-      } as unknown as ProductSignalAnalysis
-    ]
-  ]);
-  const projectedBrief = composeReadingBrief(
-    [makeReading({
-      reviewState: "filed",
-      headline: "先把互動模式當成有限驗證",
-      origin: "product_analysis"
-    })],
-    analyses,
-    LEGACY_READING_PROMPT_VERSION
-  );
-  assert.match(projectedBrief, /## 1\. 先把互動模式當成有限驗證/);
-  assert.doesNotMatch(projectedBrief, /## 1\. 分析摘要不應取代明確標題/);
-
-  const legacyBrief = composeReadingBrief(
-    [makeReading({ reviewState: "filed" })],
-    analyses,
-    LEGACY_READING_PROMPT_VERSION
-  );
-  assert.match(legacyBrief, /## 1\. 分析摘要不應取代明確標題/);
-  assert.doesNotMatch(legacyBrief, /Origin:/);
 });
 
 test("buildStoredSourcePacket 對長內容做保守裁切", () => {

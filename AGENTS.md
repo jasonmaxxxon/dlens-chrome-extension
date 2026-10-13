@@ -90,16 +90,17 @@ git diff --check
 
 ## Collection-first navigation (approved 2026-09-21)
 
-The primary navigation is 收藏 / 工作區. The global collection reads all existing
-session items without changing their storage, ownership, active session or mode.
-Source images and original excerpts lead; metrics, crawl diagnostics and AI tools
-are secondary disclosures. Reading selection and query live in the popup facade.
-Only explicit workspace/capture actions change domain context, and a return from
-global capture restores the previous workspace session/page/topic. Existing
-Topic/Product/PR engines remain workspace tools; do not restore permanent mode
-tabs or the old sidebar. Topic pre-result pages show sources and one action,
-without an empty Atlas banner. Real prior Atlas results remain visible while
-regenerating. PR-only builds expose only their existing PR domain.
+The primary navigation is 收藏 / 工作區. Global collection reads every existing
+session without changing storage or ownership. Reading selection, search, sort
+and filter live in the side-panel facade. Opening 個人應用 / 收藏整理 workspace
+cards, reader workspace links or side-panel requests selects their 收藏 chip;
+收藏整理 appears only when an archive session exists and spans all archive sessions.
+觀眾反應 opens `topics`; 活動追蹤 opens `pr-evidence`. Only explicit workspace
+or capture actions change domain context. Removed stored routes fall back to
+收藏 or the remaining mode home without throwing. Do not restore Atlas, Library,
+Compare, signals, Collect, the floating popup or permanent mode tabs. PR-only
+builds expose only PR Evidence. The 個人應用 chip owns the quiet Signal Packet
+HTML/JSONL export row, reusing `signal-packet/export`.
 
 ## Inline collect card (0.4.4, `codex/inline-collect-wheel`; owner's radial-converge v9–v12 mockups, local only)
 
@@ -148,7 +149,7 @@ regenerating. PR-only builds expose only their existing PR domain.
   filled by hand only: the card's 未放入話題 chips / ＋ 新話題, or the panel's
   未分流 strip, all through `signal/triage` (`assign` / `create-topic`).
 - 講法 = posts sharing the first keyword of their largest comment cluster that
-  the AI pass did not flag as noise (TopicSynthesis' grouping, computed live
+  the AI pass did not flag as noise (shared grouping, computed live
   so every post is listed). 發現 (走勢 / 共鳴 / 重複問題) are fixed templates
   filled with counts and marked 無 AI; a 共鳴 claim needs 1.5× and 走勢 2+
   posts. v12's per-comment stance (留言反應) is not built.
@@ -160,78 +161,22 @@ regenerating. PR-only builds expose only their existing PR domain.
 
 ## Mode contracts (current; history and rationale in the archive)
 
-- **Shared workspace shell**: Topic, Product, and PR Evidence use
-  `tokens.material.workspaceGlass` across the popup canvas, masthead, rail,
-  and main frame; Archive keeps the non-blurred material variant. The visual
-  hierarchy is one translucent white-green shell, restrained teal / amber /
-  violet auras, mode-specific gradient fields, and contrast-safe near-white
-  reading cards. Translucency belongs to the shell and selected hero/attention
-  surfaces; do not stack blur on ordinary rows. Fine edges, inset highlights,
-  and layered shadows provide card depth. Warm ink, serif voice, and mode
-  accents carry the editorial identity.
-- **Attention lighting**: Light Beam is semantic, not ambient decoration. It
-  marks generation or a high-value actionable reading. One whole surface owns
-  one perimeter beam; never put separate beams on its title, button, or nested
-  panel, and never run a sweep underneath text. Product-reading generation uses
-  the 16px searching orb plus the moving perimeter; ready state is static and
-  quieter. Every animated state must freeze cleanly under
-  `prefers-reduced-motion`, and every beam/card must remain inside its parent
-  border box at narrow widths. Implement through `AttentionSurface` and the
-  token/motion registry, not ad-hoc gradients or keyframes.
-- **Topic Audit** keeps one stable Atlas canvas through
-  `none / running / ready / stale / failed`, preserves the last Atlas during
-  regeneration, and must not present memo-derived `Pn/6` as live progress.
-  On popup reopen, `topic/audit/get` may reconcile evidence only after the
-  complete Topic/session inventory hydrates; it must not run Atlas generation
-  or replace published memos/reports/episodes, and a running audit wins the
-  shared mutation queue. A failed-only source remains retryable crawl work. As
-  of 0.3.50 the topic page renders ONE source list (atlas
-  `SourceRow` grammar with gist titles + manifest actions; uncrawled signals
-  are `PendingSignalRow` entries in the same card) — do not reintroduce a
-  second 源清單-style manifest section. The P6 final-report prose is
-  budget-fixed (~1500 chars, independent of source count); audit stage output
-  ceilings live in `entrypoints/background.ts` (final 6000 / audience 3200 /
-  others 2200). Google topic-audit envelope requests are schema-free
-  (0.3.51): `responseJsonSchema` sends gemini-3.1-flash-lite into runaway
-  constrained decoding (MAX_TOKENS at any ceiling) — never re-add it there;
-  shape is guarded by `parseAuditPromptEnvelopeResult` + one repair retry
-  (locked in `tests/provider-runtime.test.ts`). P3 v4 may publish optional evidence-bound displayHints.narrativeLanes[].beats
-  (setup/tension/outcome, ≤48 chars each) plus trajectory new/carried. Legacy lanes
-  remain valid; the UI never derives missing beats from prose. The P3 narrative
-  icon producer whitelist is exactly `heart | users | message-circle`; the parser
-  drops other model values, while legacy stored/unknown strings safely render with
-  the `message-circle` fallback (including inherited object-key names).
-- **Product** mode is insight / evidence / task-first. ProductSignalAnalyzer
-  v21 returns judgment axes plus one optional `product_reading`; `try` and
-  `watch` require a complete reading, while noise / park /
-  `insufficient_data` remain compact and unlit. The saved source list is immediately visible. The user-approved 2026-09-21
-  collection-first flow keeps persisted AI readings collapsed until explicitly opened. Do not restore the legacy
-  proposal rows, a second Product reading provider call, or a duplicated
-  “expand deep reading” surface.
-- **Product Reading provenance**: analysis and its projected SignalReading are
-  published atomically. Current UI/export projection requires matching signal,
-  ProductContext, analyzer prompt, source-packet, content, refs, and timestamp
-  identity; stale/manual/legacy readings are history, not the current card.
-  Support refs must resolve to captured root/reply text and `text_grounded`
-  evidence notes. Never claim that a video, animation, repository, or linked
-  page was inspected when only the Threads text was captured.
-- **Product Action UI**: the four mutually exclusive navigation buckets are
-  `try / noise / insufficient / watch`; non-noise `park` belongs under watch.
-  An actionable stage offers exactly one persisted reading disclosure and one
-  copyable Agent brief. Collection rows lead with the source, thumbnail, metrics and crawl state. The whole-folder packet export remains Action-owned;
-  Saved Signals is lifecycle intake only. Do not reintroduce a review-action
-  group or selected-brief shelf that the current Product UI does not render.
-  Backend clusters are support data, never the user-facing abstraction.
-  Product rail contract (0.4.1 signal-filter merge):
-  `getModeRailPages("product") === ["signals", "collect"]` (guarded by
-  `tests/product-routing.test.ts`). The former `saved-signals` /
-  `classification` / `actionable-filter` routes — and the never-reachable
-  `inbox` / `casebook` entries — are gone; intake, category and action are
-  filters inside the one `signals` page (`data-signals-filter`). A persisted
-  tab naming a retired route resolves to the mode home instead of throwing
-  (`resolveEffectivePopupPage`); do not reintroduce a second product route.
+- **Audience reading**: F1 has one post reader with 觀眾反應 / 個人應用 lenses.
+  F2 owns the discourse home, manual 話題 triage and on-demand 話題解讀.
+  深入解讀 remains on demand; all interpretation grounds points in captured refs.
+- **Product analysis provenance**: ProductSignalAnalyzer v21 returns judgment
+  axes and optional `product_reading` in one provider call; `try` / `watch`
+  require a complete reading. Analysis and projected SignalReading publish
+  atomically. Current reader/export projection requires matching signal,
+  ProductContext, prompt, source packet, content, refs and timestamp identity.
+  Stale/manual/legacy readings stay history. Support refs resolve to captured
+  root/reply text and `text_grounded` notes; captured Threads text does not prove
+  a linked video, animation, repository or external page was inspected.
+- **PR generation feedback**: existing AttentionBeam / SearchingOrb remain
+  semantic generation indicators, owned by the shared token/motion registry.
+  Reduced-motion users receive a settled state.
 - **PR Evidence** V1: one active campaign per session; criteria fixed at
-  `c1..c6` (labels editable, count not); Collect never runs AI; match output
+  `c1..c6` (labels editable, count not); Inline capture never runs AI; match output
   is `✓ / blank` only; CSV (UTF-8 BOM) is the primary output. Non-goals: no
   social listening, no true reach, no EAV, no XLSX, no in-app spreadsheet.
 - **PR Narrative read** (0.3.47): Stage A per-chunk post readings + Stage B

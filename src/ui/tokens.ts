@@ -7,24 +7,18 @@
  * English shorthand:
  *   Editorial voice on a shared glass workspace.
  *
- * `tokens.ts` is the single active design source. The surface family below is
- * derived from WORKSPACE_GLASS's canvas stops so opaque cards and the glass
- * shell read as one material. macOS utility patterns extend existing token
- * slots such as shadow.popup, shadow.shell, motion.preset.*, and effect.*;
+ * `tokens.ts` is the single active design source. The surface family below
+ * keeps opaque reading cards and shared glass panels in one material family.
+ * macOS utility patterns extend existing token
+ * slots such as shadow.shell, motion.preset.*, and effect.*;
  * they do not introduce a parallel palette, font stack, or scale.
  * Some callers still use legacy alias names such as glass*.
  */
 
 const WORKSPACE_GLASS = {
-  canvas: "linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%)",
   panel: "linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50))",
-  panelStrong: "rgba(255,255,255,0.90)",
   edge: "rgba(255,255,255,0.82)",
-  auraTeal: "rgba(67,214,200,0.30)",
-  auraAmber: "rgba(233,181,88,0.22)",
-  auraViolet: "rgba(111,90,167,0.16)",
   blur: "blur(18px) saturate(1.35)",
-  heroShadow: "0 1px 2px rgba(31,38,33,0.03), 0 30px 70px -34px rgba(31,38,33,0.30), inset 0 1px 0 rgba(255,255,255,0.95)",
   panelShadow: "0 1px 2px rgba(31,38,33,0.03), 0 18px 44px -26px rgba(31,38,33,0.24), inset 0 1px 0 rgba(255,255,255,0.92)"
 } as const;
 
@@ -82,33 +76,21 @@ export const tokens = {
     /* near-invisible edge for elevated cards — definition comes from shadow */
     cardEdge: "rgba(27,26,23,0.055)",
     inkWash: "rgba(27,26,23,0.025)",
-    inkWashStrong: "rgba(27,26,23,0.06)",
 
-    /* shared workspace surfaces — glass-white family, derived from
-     * WORKSPACE_GLASS.canvas stops (#ffffff → #f8fbf8 → #f2f7f3) */
+    /* shared workspace surfaces — glass-white family */
     canvas: "#f2f7f3",
     surface: "#f8fbf8",
     elevated: "#ffffff",
     shellSurface: "rgba(255,255,255,0.96)",
     contentSurface: "#f8fbf8",
     focusedSurface: "#ffffff",
-    railSurface: "rgba(248,251,248,0.94)",
     contextSurface: "rgba(242,247,243,0.72)",
     utilitySurface: "rgba(255,255,255,0.96)",
 
     /* inverse foregrounds & overlays — only for filled accent panels */
     inverse: "#fff",
-    inverseStrong: "rgba(255,255,255,0.92)",
-    inverseSoft: "rgba(255,255,255,0.76)",
-    inverseMuted: "rgba(255,255,255,0.62)",
-    inverseTrack: "rgba(255,255,255,0.24)",
-    inverseShimmer: "rgba(255,255,255,0.5)",
-    inverseWash: "rgba(255,255,255,0.08)",
-    inverseBorder: "rgba(255,255,255,0.44)",
-    inversePanel: "rgba(255,255,255,0.20)",
 
     /* legacy alias */
-    dark: "#1b1a17",
 
     /* accent — indigo core (Post A) */
     accent: "#1a2e4f",
@@ -121,76 +103,28 @@ export const tokens = {
     cyanSoft: "rgba(63,90,59,0.10)",
     cyanGlow: "rgba(63,90,59,0.16)",
 
-    /* signal — electric-cyan evidence highlight, scoped to the Audit atlas surface */
-    signal: "#43d6c8",
-    signalDeep: "#118c80",
+    /* signal glow marks the active PR attention action */
     signalGlow: "rgba(67,214,200,0.36)",
-    signalFaint: "rgba(67,214,200,0.12)",
-
-    /* Reading Beam spectrum — the nine light sources of the generating border
-     * beam, ported 1:1 from the accepted mockup
-     * docs/mockups/2026-07-23-product-action-deep-reading-orb-beam.html.
-     * These are LIGHT, not surface colour: they only ever appear inside the
-     * beam's conic mask at <=26% opacity, never as text, fill, or edge. They
-     * are not a second palette and nothing outside the beam may use them. */
-    beamRose: "rgb(255,50,100)",
-    beamAzure: "rgb(40,140,255)",
-    beamJade: "rgb(50,200,80)",
-    beamTeal: "rgb(30,185,170)",
-    beamIndigo: "rgb(100,70,255)",
-    beamAmber: "rgb(255,120,40)",
-    beamMagenta: "rgb(240,50,180)",
-    beamViolet: "rgb(180,40,240)",
-    beamShade: "rgba(0,0,0,0.14)",
 
     /* compatibility aliases for the shared workspace glass material */
-    atlasPaper: WORKSPACE_GLASS.panel,
-    atlasPaperStrong: WORKSPACE_GLASS.panelStrong,
-    atlasEdge: WORKSPACE_GLASS.edge,
-    /* Atlas aliases keep existing feature code on the same shared canvas and aura values. */
-    atlasCanvas: WORKSPACE_GLASS.canvas,
-    atlasAuraTeal: WORKSPACE_GLASS.auraTeal,
-    atlasAuraAmber: WORKSPACE_GLASS.auraAmber,
-    atlasAuraViolet: WORKSPACE_GLASS.auraViolet,
-    /* amber-tinted glass for the reliability / absence strip on the atlas canvas */
-    atlasWarnPaper: "linear-gradient(165deg, rgba(255,246,224,0.85), rgba(255,246,224,0.48))",
 
     /* teal — named alias for design system alignment */
-    teal: "#3f5a3b",
-    tealMid: "#527648",
-    tealSoft: "rgba(63,90,59,0.10)",
-    tealGlow: "rgba(63,90,59,0.16)",
 
     /* product accent — steel blue (restored 2026-07-14) */
     product: "#234f7a",
-    productMid: "#2f6a96",
     productSoft: "rgba(35,79,122,0.10)",
-    productGlow: "rgba(35,79,122,0.18)",
-    /* product field canvas — atlasCanvas grammar with a steel-blue lean, for the
-     * Product action stage and saved-signals inbox aura fields */
-    productCanvas: "linear-gradient(172deg, #ffffff 0%, #f7fafc 55%, #eff4f8 100%)",
-    auraProductBlue: "rgba(35,79,122,0.20)",
 
     /* technique accents */
     techniqueRose: "#7a2030",
-    techniqueAmber: "#a16a17",
-    techniqueTeal: "#3f5a3b",
-    techniqueBlue: "#1a2e4f",
-    techniqueViolet: "#5e4b73",
-    techniqueVioletSoft: "rgba(94,75,115,0.10)",
 
     /* status */
     success: "#3f5a3b",
     successSoft: "rgba(63,90,59,0.10)",
     successBorder: "rgba(63,90,59,0.28)",
-    successFlashStrong: "rgba(63,90,59,0.26)",
-    successFlashSoft: "rgba(63,90,59,0.18)",
     queued: "#a16a17",
-    queuedDeep: "#7c4f10",
     queuedWash: "rgba(161,106,23,0.04)",
     queuedSoft: "rgba(161,106,23,0.11)",
     queuedBorder: "rgba(161,106,23,0.24)",
-    queuedBorderStrong: "rgba(161,106,23,0.30)",
     failed: "#7a2030",
     failedWash: "rgba(122,32,48,0.04)",
     failedSoft: "rgba(122,32,48,0.10)",
@@ -201,21 +135,16 @@ export const tokens = {
     runningBorder: "rgba(26,46,79,0.25)",
 
     /* shell aliases kept for existing callers */
-    glassBg: "#f8fbf8",
     glassBorder: "rgba(27,26,23,0.10)",
 
     /* idle / neutral */
-    idleBg: "rgba(248,251,248,0.84)",
-    idleBorder: "rgba(27,26,23,0.08)",
 
     /* neutral surface — chips, inactive tabs */
     neutralSurface: "#edf2ee",
     neutralSurfaceSoft: "rgba(237,242,238,0.78)",
-    neutralText: "#6c695e",
 
     /* disabled */
     disabledPrimary: "rgba(139,150,141,0.55)",
-    disabledSecondary: "rgba(223,231,225,0.60)"
   },
 
   radius: {
@@ -242,29 +171,16 @@ export const tokens = {
   shadow: {
     card: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06)",
     topicCard: "0 1px 2px rgba(27,26,23,0.04), 0 4px 14px -4px rgba(27,26,23,0.07)",
-    topicCardHover: "0 1px 2px rgba(27,26,23,0.05), 0 8px 22px -6px rgba(27,26,23,0.10)",
     topicDrawer: "0 12px 32px -8px rgba(27,26,23,0.14)",
-    topicCta: "0 1px 0 rgba(255,255,255,0.08) inset, 0 4px 12px rgba(63,90,59,0.24), 0 1px 2px rgba(63,90,59,0.16)",
     shell: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11)",
-    raised: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
-    glass: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
     focus: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
     focusedSurface: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
     cardLiftHover: "0 18px 40px rgba(27,26,23,0.16), 0 3px 10px rgba(27,26,23,0.07)",
     accentButton: "0 8px 18px rgba(26,46,79,0.16)",
-    activeTab: "0 6px 16px rgba(27,26,23,0.08)",
-    productActionCardHover: "0 12px 28px rgba(27,26,23,0.08), 0 2px 6px rgba(27,26,23,0.04)",
-    productActionCardHoverStrong: "0 14px 32px rgba(27,26,23,0.10), 0 2px 6px rgba(27,26,23,0.04)",
-    previewAvatar: "0 4px 12px rgba(26,46,79,0.12)",
-    hudGlow: "0 1px 0 rgba(27,26,23,0.04), 0 8px 16px rgba(27,26,23,0.06)",
-    popup: "0 20px 56px rgba(27,26,23,0.16), 0 2px 8px rgba(27,26,23,0.08), 0 0 0 1px rgba(27,26,23,0.08)",
-    atlasGlass: WORKSPACE_GLASS.heroShadow,
-    atlasCard: WORKSPACE_GLASS.panelShadow
   },
 
   effect: {
     glassBlur: "none",
-    atlasBlur: WORKSPACE_GLASS.blur
   },
 
   /* Accepted collect-wheel gesture, geometry and material from the owner's v9 mockup.
@@ -377,8 +293,6 @@ export const tokens = {
       rowRest: "translateY(0)",
       rowHover: "translateY(-4px)",
       rowPress: "translateY(1px) scale(0.995)",
-      atlasHover: "scale(1.025)",
-      atlasPress: "scale(0.985)"
     },
     /* Product-wide arrival grammar (approved 2026-07-14). Presence is
      * one-shot and opt-in through data-dlens-presence so dense utility rows
@@ -415,13 +329,6 @@ export const tokens = {
       cooldownMs: 400,
       bottomTolerancePx: 1
     },
-    cascadeDelay: {
-      masthead: "0ms",
-      rail: "35ms",
-      main: "70ms"
-    },
-    transition: "all 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-    transitionFast: "all 100ms cubic-bezier(0.4, 0, 0.2, 1)",
     interactiveTransition: "background-color 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
     interactiveTransitionFast: "background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 140ms cubic-bezier(0.4, 0, 0.2, 1), opacity 140ms cubic-bezier(0.4, 0, 0.2, 1), transform 140ms cubic-bezier(0.4, 0, 0.2, 1)",
     /* Semantic presets — use these for new components.
@@ -429,17 +336,12 @@ export const tokens = {
     preset: {
       buttonPress: "transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 140ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 140ms cubic-bezier(0.4, 0, 0.2, 1), filter 140ms cubic-bezier(0.4, 0, 0.2, 1)",
       cardLift: "transform 200ms cubic-bezier(0.22, 1.12, 0.36, 1), box-shadow 200ms cubic-bezier(0.22, 1.12, 0.36, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), background-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
-      surfaceFade: "opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
     },
     /* Loading + one-shot feedback: shorthands for keyframes injected at runtime
      * from the single DLENS_KEYFRAMES_CSS registry (src/ui/motion.ts). */
     keyframes: {
-      shimmer: "dlens-popup-shimmer 1400ms linear infinite",
       pulse: "dlens-popup-pulse 1600ms cubic-bezier(0.4, 0, 0.6, 1) infinite",
       indeterminate: "dlens-popup-indeterminate 1100ms cubic-bezier(0.4, 0, 0.2, 1) infinite",
-      spin: "dlens-spin 900ms linear infinite",
-      bump: "dlens-bump 440ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-      successRing: "dlens-success-ring 900ms cubic-bezier(0.4, 0, 0.6, 1)",
       successPop: "dlens-success-pop 900ms cubic-bezier(0.4, 0, 0.6, 1)"
     }
   },
@@ -448,8 +350,6 @@ export const tokens = {
     savedPostThumbnailSize: 44,
     collectionMenuWidth: 224,
     collectionThumbnailSize: 52,
-    atlasNarrowBreakpointPx: 520,
-    workspacePopupHeight: "min(78vh, 780px)"
   },
 
   spacing: {
@@ -459,8 +359,6 @@ export const tokens = {
     lg: 20,
     xl: 28,
     section: 16,
-    resultSectionGap: 32,
-    resultCardGap: 16
   },
 
   font: {
@@ -580,8 +478,6 @@ export const textStyles = {
   mono: { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" as const } as const,
   /** Monospace metric — compact counts, scores, and ledger numbers */
   metric: { fontFamily: tokens.font.mono, fontWeight: 700, fontSize: 11, lineHeight: 1.4, fontVariantNumeric: "tabular-nums" as const } as const,
-  /** Mono display numeral — atlas coverage-ledger KPI counts */
-  metricDisplay: { fontFamily: tokens.font.mono, fontWeight: 800, fontSize: 27, lineHeight: 1, fontVariantNumeric: "tabular-nums" as const } as const,
   /** Serif CJK italic pull quote — inside evidence cards */
   quote: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontStyle: "italic" as const, fontWeight: 500, fontSize: 15, lineHeight: 1.65 } as const,
 } as const;
@@ -589,62 +485,6 @@ export const textStyles = {
 export type TextStyleKey = keyof typeof textStyles;
 
 /* ─── flat alias export ─── */
-export const TOKENS = {
-  ink: tokens.color.ink,
-  subInk: tokens.color.subInk,
-  softInk: tokens.color.softInk,
-  line: tokens.color.line,
-  canvas: tokens.color.canvas,
-  surface: tokens.color.surface,
-  elevated: tokens.color.elevated,
-  dark: tokens.color.dark,
-  accent: tokens.color.accent,
-  accentMid: tokens.color.accentMid,
-  accentSoft: tokens.color.accentSoft,
-  accentGlow: tokens.color.accentGlow,
-  cyan: tokens.color.cyan,
-  cyanSoft: tokens.color.cyanSoft,
-  cyanGlow: tokens.color.cyanGlow,
-  signal: tokens.color.signal,
-  signalDeep: tokens.color.signalDeep,
-  signalGlow: tokens.color.signalGlow,
-  signalFaint: tokens.color.signalFaint,
-  atlasPaper: tokens.color.atlasPaper,
-  atlasPaperStrong: tokens.color.atlasPaperStrong,
-  atlasEdge: tokens.color.atlasEdge,
-  teal: tokens.color.teal,
-  tealMid: tokens.color.tealMid,
-  tealSoft: tokens.color.tealSoft,
-  tealGlow: tokens.color.tealGlow,
-  product: tokens.color.product,
-  productMid: tokens.color.productMid,
-  productSoft: tokens.color.productSoft,
-  productGlow: tokens.color.productGlow,
-  success: tokens.color.success,
-  successSoft: tokens.color.successSoft,
-  queued: tokens.color.queued,
-  queuedDeep: tokens.color.queuedDeep,
-  queuedSoft: tokens.color.queuedSoft,
-  failed: tokens.color.failed,
-  failedSoft: tokens.color.failedSoft,
-  running: tokens.color.running,
-  runningSoft: tokens.color.runningSoft,
-  glassBg: tokens.color.glassBg,
-  glassBorder: tokens.color.glassBorder,
-  glassShadow: tokens.shadow.glass,
-  glassBlur: tokens.effect.glassBlur,
-  atlasBlur: tokens.effect.atlasBlur,
-  atlasGlass: tokens.shadow.atlasGlass,
-  hudGlow: tokens.shadow.hudGlow,
-  cardRadius: tokens.radius.card,
-  lgRadius: tokens.radius.lg,
-  pillRadius: tokens.radius.pill,
-  transition: tokens.motion.transition,
-  transitionFast: tokens.motion.transitionFast,
-  interactiveTransition: tokens.motion.interactiveTransition,
-  interactiveTransitionFast: tokens.motion.interactiveTransitionFast
-} as const;
-
 /** A handle-tinted initial stands in for an avatar (no avatar URL is stored); same hue for the same handle everywhere. */
 export function avatarGradient(handle: string): string {
   const hue = [...(handle || "?")].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);

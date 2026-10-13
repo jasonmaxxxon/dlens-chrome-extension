@@ -15,9 +15,7 @@ const EXCLUDE_DIRS = new Set(["node_modules", ".wxt", ".output", "dist", ".git"]
 // These TSX files are extension entry/controller shells. They are allowed to
 // own runtime messaging or orchestration; leaf Views below this layer are not.
 const VIEW_FILE_EXCLUDE = new Set([
-  "src/ui/AuditReportEntry.tsx",
   "src/ui/controller.tsx",
-  "src/ui/InPageCollectorResultWorkspace.tsx",
   "src/ui/inpage-helpers.tsx"
 ]);
 

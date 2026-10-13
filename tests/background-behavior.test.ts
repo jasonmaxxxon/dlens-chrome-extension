@@ -1,12 +1,11 @@
+import { FOLDER_SYNTHESIS_VERSION, SAVED_ANALYSES_STORAGE_KEY, TOPIC_AUDIT_EPISODES_STORAGE_KEY, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, TOPIC_AUDIT_MEMOS_STORAGE_KEY, TOPIC_AUDIT_REPORTS_STORAGE_KEY } from "./legacy-storage-fixtures.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import background, { backgroundTestables } from "../entrypoints/background.ts";
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
-import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY } from "../src/compare/folder-synthesis-storage.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
-import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords } from "../src/compare/inline-reading-storage.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
@@ -18,13 +17,6 @@ import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { PR_NARRATIVE_READS_STORAGE_KEY } from "../src/state/pr-narrative-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import {
-  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
-  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
-  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
-  TOPIC_AUDIT_REPORTS_STORAGE_KEY,
-  TOPIC_AUDIT_RUNS_STORAGE_KEY
-} from "../src/state/topic-audit-storage.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
 
@@ -44,55 +36,6 @@ function makeSession(id: string, mode: FolderMode): SessionRecord {
     items: []
   };
 }
-
-test("topic/audit/get returns typed persisted run status without provider secrets or raw output", async () => {
-  const topicSession = makeSession("topic-session", "topic");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: {
-      ...makeGlobal([topicSession], topicSession.id),
-      settings: {
-        ...createEmptyGlobalState().settings,
-        oneLinerProvider: "google",
-        googleApiKey: "test-google-key"
-      }
-    },
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topicSession.id,
-    [tabKey]: createEmptyTabState(),
-    [TOPIC_AUDIT_RUNS_STORAGE_KEY]: {
-      schemaVersion: 1,
-      runs: {
-        "topic-1": {
-          sessionId: topicSession.id,
-          topicId: "topic-1",
-          requestId: "persisted-request",
-          state: "failed",
-          stage: "narrative",
-          failureKind: "provider_error",
-          startedAt: "2026-07-17T10:00:00.000Z",
-          updatedAt: "2026-07-17T10:01:00.000Z",
-          expiresAt: "2026-07-17T10:16:00.000Z"
-        }
-      }
-    }
-  });
-
-  const response = await harness.dispatch({ type: "topic/audit/get", topicId: "topic-1" });
-
-  assert.equal(response.ok, true);
-  assert.deepEqual(response.auditRunStatus, {
-    sessionId: topicSession.id,
-    topicId: "topic-1",
-    requestId: "persisted-request",
-    state: "failed",
-    stage: "narrative",
-    failureKind: "provider_error",
-    startedAt: "2026-07-17T10:00:00.000Z",
-    updatedAt: "2026-07-17T10:01:00.000Z",
-    expiresAt: "2026-07-17T10:16:00.000Z"
-  });
-  assert.doesNotMatch(JSON.stringify(response), /test-google-key|raw model response|prompt/i);
-});
 
 function makePrCriteria(): PrCampaign["criteria"] {
   return [
@@ -909,36 +852,6 @@ test("state/get-active-tab normalizes a null active session when sessions still 
   assert.equal(response.ok, true);
   assert.equal(response.snapshot?.global.activeSessionId, topic.id);
   assert.deepEqual(harness.writes, []);
-});
-
-test("selection toggle writes only the tab key and starts content selection with the active mode", async () => {
-  const product = makeSession("product-session", "product");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
-    [tabKey]: createEmptyTabState()
-  });
-
-  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
-
-  assert.equal(startResponse.ok, true);
-  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
-  assert.deepEqual(
-    harness.tabMessageTargets
-      .filter(({ message }) => message.type === "selection/start-tab")
-      .map(({ tabId, message }) => ({ tabId, mode: (message as { mode?: string }).mode })),
-    [{ tabId: TAB_ID, mode: "product" }]
-  );
-  // The toggle only changes tab UI state — the heavy global blob must not be rewritten.
-  assert.deepEqual(harness.writes, [[tabKey]]);
-
-  harness.writes.length = 0;
-  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
-
-  assert.equal(cancelResponse.ok, true);
-  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
-  assert.deepEqual(harness.writes, [[tabKey]]);
 });
 
 test("topic↔product switching across worker restarts keeps the product session aligned", async () => {
@@ -1991,49 +1904,6 @@ test("product failure summary ignores stale job errors for queued and running it
   assert.deepEqual(failures.map((failure) => failure.signalId), ["signal-failed"]);
 });
 
-test("folder/synthesis/generate writes broadcast state/updated exactly once per tab", async () => {
-  const scenario = makeFolderSynthesisScenario("topic-session", "folder-current");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([scenario.session], scenario.session.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: scenario.session.id,
-    [TOPICS_STORAGE_KEY]: scenario.topics,
-    [SIGNALS_STORAGE_KEY]: scenario.signals,
-    [tabKey]: createEmptyTabState()
-  });
-
-  const response = await harness.dispatch({
-    type: "folder/synthesis/generate",
-    requestId: "folder-generate-current",
-    sessionId: scenario.session.id
-  } as ExtensionMessage);
-
-  assert.equal(response.ok, true);
-  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-  assertStateUpdatedBroadcastOnce(harness);
-});
-
-test("folder/synthesis/clear writes broadcast state/updated exactly once per tab", async () => {
-  const topic = makeSession("topic-session", "topic");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
-    [FOLDER_SYNTHESIS_STORAGE_KEY]: [makeFolderSynthesisRecord(topic.id)],
-    [tabKey]: createEmptyTabState()
-  });
-
-  const response = await harness.dispatch({
-    type: "folder/synthesis/clear",
-    requestId: "folder-clear-current",
-    sessionId: topic.id
-  } as ExtensionMessage);
-
-  assert.equal(response.ok, true);
-  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-  assertStateUpdatedBroadcastOnce(harness);
-});
-
 test("pr/match-criteria writes broadcast state/updated exactly once per tab", async () => {
   const originalFetch = globalThis.fetch;
   try {
@@ -2490,131 +2360,6 @@ test("product/analyze-signals ignores stale direct storage-key writes", async ()
     );
   } finally {
     globalThis.fetch = originalFetch;
-    disablePipelineTraceForTest();
-  }
-});
-
-test("folder/synthesis/generate ignores stale direct storage-key writes", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldTopics: (() => void) | null = null;
-  let blockedOldTopics = false;
-
-  try {
-    const oldScenario = makeFolderSynthesisScenario("old-topic-session", "old-folder");
-    const newScenario = makeFolderSynthesisScenario("new-topic-session", "new-folder");
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([oldScenario.session, newScenario.session], oldScenario.session.id),
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldScenario.session.id,
-      [TOPICS_STORAGE_KEY]: [...oldScenario.topics, ...newScenario.topics],
-      [SIGNALS_STORAGE_KEY]: [...oldScenario.signals, ...newScenario.signals],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldTopics && storageKeysInclude(keys, TOPICS_STORAGE_KEY)) {
-          blockedOldTopics = true;
-          return new Promise<void>((resolve) => {
-            releaseOldTopics = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "folder/synthesis/generate",
-      requestId: "folder-generate-old",
-      sessionId: oldScenario.session.id
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldTopics, "old folder synthesis topic read");
-
-    const newResponse = await harness.dispatch({
-      type: "folder/synthesis/generate",
-      requestId: "folder-generate-new",
-      sessionId: newScenario.session.id
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldTopics, null);
-    releaseOldTopics?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-    assertStateUpdatedBroadcastOnce(harness);
-
-    const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
-    assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [newScenario.session.id]);
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "folder-generate-old"
-      ),
-      true
-    );
-  } finally {
-    disablePipelineTraceForTest();
-  }
-});
-
-test("folder/synthesis/clear ignores stale direct storage-key writes", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldSynthesisRead: (() => void) | null = null;
-  let blockedOldSynthesisRead = false;
-
-  try {
-    const oldSession = makeSession("old-topic-session", "topic");
-    const newSession = makeSession("new-topic-session", "topic");
-    const oldSynthesis = makeFolderSynthesisRecord(oldSession.id, "2026-05-27T00:00:10.000Z");
-    const newSynthesis = makeFolderSynthesisRecord(newSession.id, "2026-05-27T00:00:20.000Z");
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([oldSession, newSession], oldSession.id),
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldSession.id,
-      [FOLDER_SYNTHESIS_STORAGE_KEY]: [oldSynthesis, newSynthesis],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldSynthesisRead && storageKeysInclude(keys, FOLDER_SYNTHESIS_STORAGE_KEY)) {
-          blockedOldSynthesisRead = true;
-          return new Promise<void>((resolve) => {
-            releaseOldSynthesisRead = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "folder/synthesis/clear",
-      requestId: "folder-clear-old",
-      sessionId: oldSession.id
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldSynthesisRead, "old folder synthesis clear read");
-
-    const newResponse = await harness.dispatch({
-      type: "folder/synthesis/clear",
-      requestId: "folder-clear-new",
-      sessionId: newSession.id
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldSynthesisRead, null);
-    releaseOldSynthesisRead?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-    assertStateUpdatedBroadcastOnce(harness);
-
-    const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
-    assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [oldSession.id]);
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "folder-clear-old"
-      ),
-      true
-    );
-  } finally {
     disablePipelineTraceForTest();
   }
 });
@@ -3103,96 +2848,6 @@ test("pr/generate-narrative-read rejects a changed live source before publish", 
   }
 });
 
-test("judgment/start ignores stale saved-analysis writes and broadcasts", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldSavedRead: (() => void) | null = null;
-  let blockedOldSavedRead = false;
-
-  try {
-    const oldItems = [makeSucceededItem("judgment-old-a"), makeSucceededItem("judgment-old-b")];
-    const newItems = [makeSucceededItem("judgment-new-a"), makeSucceededItem("judgment-new-b")];
-    const session = {
-      ...makeSession("judgment-session", "topic"),
-      items: [...oldItems, ...newItems]
-    };
-    const oldAnalysis = makeSavedAnalysis("old-result", oldItems[0]!.id, oldItems[1]!.id);
-    const newAnalysis = makeSavedAnalysis("new-result", newItems[0]!.id, newItems[1]!.id);
-    const global = makeGlobal([session], session.id);
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
-        ...global,
-        settings: {
-          ...global.settings,
-          productProfile: {
-            name: "DLens",
-            category: "Chrome extension",
-            audience: "product teams"
-          }
-        }
-      },
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
-      [SAVED_ANALYSES_STORAGE_KEY]: [oldAnalysis, newAnalysis],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldSavedRead && storageKeysInclude(keys, SAVED_ANALYSES_STORAGE_KEY)) {
-          blockedOldSavedRead = true;
-          return new Promise<void>((resolve) => {
-            releaseOldSavedRead = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "judgment/start",
-      requestId: "judgment-old",
-      resultId: oldAnalysis.resultId
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldSavedRead, "old judgment saved-analysis read");
-
-    const newResponse = await harness.dispatch({
-      type: "judgment/start",
-      requestId: "judgment-new",
-      resultId: newAnalysis.resultId
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldSavedRead, null);
-    releaseOldSavedRead?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(SAVED_ANALYSES_STORAGE_KEY).length, 1);
-
-    const storedAnalyses = harness.state[SAVED_ANALYSES_STORAGE_KEY] as SavedAnalysisSnapshot[];
-    assert.equal(storedAnalyses.find((entry) => entry.resultId === oldAnalysis.resultId)?.judgmentResult, null);
-    assert.equal(storedAnalyses.find((entry) => entry.resultId === newAnalysis.resultId)?.judgmentResult?.recommendedState, "park");
-    assert.equal(
-      harness.tabMessages.some((message) =>
-        message.type === "judgment/result" && message.resultId === oldAnalysis.resultId
-      ),
-      false
-    );
-    assert.equal(
-      harness.tabMessages.some((message) =>
-        message.type === "judgment/result" && message.resultId === newAnalysis.resultId
-      ),
-      true
-    );
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "judgment-old"
-      ),
-      true
-    );
-  } finally {
-    disablePipelineTraceForTest();
-  }
-});
-
 test("queue-all and refresh-all emit crawl/capture background boundary events with requestId", async () => {
   enablePipelineTraceForTest();
   try {
@@ -3278,26 +2933,7 @@ test("content-script active-tab messages resolve to the sender tab, not another 
   assert.equal(stateResponse.ok, true);
   assert.equal(stateResponse.tabId, TAB_ID);
 
-  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
-  assert.equal(startResponse.ok, true);
-  assert.equal(startResponse.tabId, TAB_ID);
-  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
-  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, true);
-  assert.equal((harness.state[focusedTabKey] as TabUiState).selectionMode, false);
-  assert.equal(
-    harness.tabMessageTargets.some(({ tabId, message }) => tabId === TAB_ID && message.type === "selection/start-tab"),
-    true
-  );
-  assert.equal(
-    harness.tabMessageTargets.some(({ tabId, message }) => tabId === OTHER_TAB_ID && message.type === "selection/start-tab"),
-    false
-  );
 
-  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
-  assert.equal(cancelResponse.ok, true);
-  assert.equal(cancelResponse.tabId, TAB_ID);
-  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
-  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, false);
 });
 
 test("background mutateSnapshot serializes real snapshot writes", async () => {

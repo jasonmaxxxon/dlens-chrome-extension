@@ -3,15 +3,7 @@ import test from "node:test";
 
 import type { Signal, Topic } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import {
-  applyTopicListResponses,
-  buildTopicHydrateTraceTerminalSequence,
-  buildSignalPreviewById,
-  filterSignalsWithBackingItems,
-  findSignalsMissingBackingItems,
-  navigateToTopicImmediately,
-  resolveTopicCollectionTargetId
-} from "../src/ui/useTopicState.ts";
+import { applyTopicListResponses, buildTopicHydrateTraceTerminalSequence, filterSignalsWithBackingItems, findSignalsMissingBackingItems } from "../src/ui/useTopicState.ts";
 
 const topic: Topic = {
   id: "topic-1",
@@ -108,34 +100,6 @@ test("popup.topic.hydrate.request is always followed by exactly one terminal hyd
   assert.equal(errorSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
 });
 
-test("buildSignalPreviewById falls back to author and URL instead of generic threads", () => {
-  const session = createSessionRecord("work", "2026-05-22T00:00:00.000Z", "topic");
-  const item = createSessionItem({
-    target_type: "post",
-    page_url: "https://www.threads.net/",
-    post_url: "https://www.threads.net/@alpha/post/abc",
-    author_hint: "alpha",
-    text_snippet: "",
-    time_token_hint: "1h",
-    dom_anchor: "card-1",
-    engagement: {},
-    engagement_present: {},
-    captured_at: "2026-05-22T00:00:00.000Z"
-  });
-  session.items.push(item);
-
-  const previewById = buildSignalPreviewById(session, [{ ...signal, itemId: item.id }]);
-
-  assert.equal(previewById["signal-1"], "@alpha · https://www.threads.net/@alpha/post/abc");
-});
-
-test("buildSignalPreviewById labels signals with missing backing items instead of falling back to generic source", () => {
-  const session = createSessionRecord("love", "2026-05-22T00:00:00.000Z", "topic");
-  const previewById = buildSignalPreviewById(session, [{ ...signal, itemId: "missing-item" }]);
-
-  assert.equal(previewById["signal-1"], "資料不完整的 Threads 訊號");
-});
-
 test("findSignalsMissingBackingItems detects item-backed orphan signals only", () => {
   const session = createSessionRecord("love", "2026-05-22T00:00:00.000Z", "topic");
   const item = createSessionItem({
@@ -230,55 +194,4 @@ test("filterSignalsWithBackingItems hides stale signals from a previous active f
     filterSignalsWithBackingItems(topicSession, [staleProductSignal, validTopicSignal]).map((entry) => entry.id),
     ["signal-topic"]
   );
-});
-
-test("resolveTopicCollectionTargetId persists the visible selected topic when storage target is missing", () => {
-  const topics = [
-    { ...topic, id: "topic-work", name: "work" },
-    { ...topic, id: "topic-love", name: "love" }
-  ];
-
-  assert.equal(resolveTopicCollectionTargetId(topics, "topic-love", null), "topic-love");
-});
-
-test("resolveTopicCollectionTargetId does not silently choose from multiple topics without a visible selection", () => {
-  const topics = [
-    { ...topic, id: "topic-work", name: "work" },
-    { ...topic, id: "topic-love", name: "love" }
-  ];
-
-  assert.equal(resolveTopicCollectionTargetId(topics, null, null), null);
-});
-
-test("navigateToTopicImmediately routes before the collection target storage write resolves", async () => {
-  const calls: string[] = [];
-  let resolvePersist: (() => void) | null = null;
-
-  const navigation = navigateToTopicImmediately({
-    topicId: "topic-love",
-    setSelectedTopicId: (topicId) => calls.push(`select:${topicId}`),
-    persistCollectionTarget: async (topicId) => {
-      calls.push(`persist-start:${topicId}`);
-      await new Promise<void>((resolve) => {
-        resolvePersist = resolve;
-      });
-      calls.push(`persist-done:${topicId}`);
-    },
-    onNavigate: async (page) => {
-      calls.push(`navigate:${page}`);
-    }
-  });
-
-  assert.deepEqual(calls, ["select:topic-love", "persist-start:topic-love", "navigate:topic-detail"]);
-
-  resolvePersist?.();
-  await navigation;
-  await Promise.resolve();
-
-  assert.deepEqual(calls, [
-    "select:topic-love",
-    "persist-start:topic-love",
-    "navigate:topic-detail",
-    "persist-done:topic-love"
-  ]);
 });

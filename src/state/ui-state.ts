@@ -2,17 +2,6 @@ import type { TargetDescriptor } from "../contracts/target-descriptor.ts";
 import type { HoverCandidateStrength, InlineToast, InlineToastKind, InlineToastUndo, SessionRecord, TabUiState } from "./types.ts";
 import { normalizePostUrl } from "./store-helpers.ts";
 
-export function setCollectModeState(tabState: TabUiState, enabled: boolean): TabUiState {
-  return {
-    ...tabState,
-    selectionMode: enabled,
-    collectModeBannerVisible: enabled,
-    hoveredTarget: enabled ? tabState.hoveredTarget : null,
-    hoveredTargetStrength: enabled ? tabState.hoveredTargetStrength : null,
-    flashPreview: enabled ? tabState.flashPreview : null
-  };
-}
-
 export function applyHoveredPreview(
   tabState: TabUiState,
   descriptor: TargetDescriptor | null,

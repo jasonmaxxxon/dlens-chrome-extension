@@ -84,14 +84,6 @@ test("content wheel keeps the shared reduced-motion keyframe registry", () => {
   assert.match(source, /root\.setAttribute\("data-dlens-control", "true"\)/);
 });
 
-test("launcher and popup surfaces opt back into pointer events inside the inert root host", () => {
-  const overlaySource = readFileSync(new URL("../src/ui/InPageCollectorOverlays.tsx", import.meta.url), "utf8");
-  const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
-
-  assert.match(overlaySource, /pointerEvents: "auto"/);
-  assert.match(popupSource, /pointerEvents: "auto"/);
-});
-
 test("content no longer intercepts native post clicks for hover saves", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /session\/save-current-preview|selection\/hovered|function onClick|startSelectionMode/);
@@ -102,7 +94,7 @@ test("Threads pages no longer mount the old workspace popup; the side panel host
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /InPageCollectorApp|ReactDOM|createRoot/);
   const panel = readFileSync(new URL("../entrypoints/sidepanel/main.tsx", import.meta.url), "utf8");
-  assert.match(panel, /<InPageCollectorApp embedded \/>/);
+  assert.match(panel, /<InPageCollectorApp \/>/);
   assert.match(panel, /sidepanel\/take-workspace-open/);
 });
 

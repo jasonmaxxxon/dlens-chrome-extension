@@ -25,9 +25,9 @@ export function resolveAllowedPagesForBuildVariant(
     return defaultPages;
   }
   return {
-    archive: ["pr-evidence", "collect"],
-    topic: ["pr-evidence", "collect"],
-    product: ["pr-evidence", "collect"],
-    "pr-evidence": ["pr-evidence", "collect"]
+    archive: ["pr-evidence"],
+    topic: ["pr-evidence"],
+    product: ["pr-evidence"],
+    "pr-evidence": ["pr-evidence"]
   };
 }

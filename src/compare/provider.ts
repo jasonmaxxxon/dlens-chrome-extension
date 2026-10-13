@@ -1,26 +1,5 @@
 import { buildTopicReadingPrompt, parseTopicReadingResponse, TOPIC_READING_SYSTEM_PROMPT, type TopicReadingInput } from "./topic-reading.ts";
 import { buildDeepReadingPrompt, parseDeepReadingResponse, DEEP_READING_SYSTEM_PROMPT, DEEP_OUTPUT_TOKENS, deepModel, type DeepReadingInput } from "./deep-reading.ts";
-import { buildCompareOneLinerPrompt, type CompareOneLinerRequest } from "./one-liner.ts";
-import {
-  buildCompareBriefPrompt,
-  parseCompareBriefResponse,
-  type CompareBrief,
-  type CompareBriefRequest
-} from "./brief.ts";
-import { buildJudgmentPrompt, parseJudgmentResponse } from "./judgment.ts";
-import {
-  buildCompareClusterSummaryPrompt,
-  buildDeterministicClusterInterpretations,
-  parseCompareClusterSummaryResponse,
-  type ClusterInterpretation,
-  type CompareClusterSummaryRequest
-} from "./cluster-interpretation.ts";
-import {
-  buildEvidenceAnnotationPrompt,
-  parseEvidenceAnnotationResponse,
-  type EvidenceAnnotation,
-  type EvidenceAnnotationRequest
-} from "./evidence-annotation.ts";
 import {
   buildProductSignalAnalyzerPrompt,
   PRODUCT_SIGNAL_ANALYSIS_JSON_SCHEMA,
@@ -55,43 +34,15 @@ import {
   type PrNarrativeSynthesisDraft
 } from "./pr-narrative.ts";
 import {
-  buildSignalTagsPrompt,
-  parseSignalTagsResponse,
-  SIGNAL_TAGS_SYSTEM_PROMPT,
-  type SignalTagsInput
-} from "./signal-tags.ts";
-import {
-  buildTopicSignalReadingPrompt,
-  parseTopicSignalReadingResponse,
-  TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
-  type TopicSignalReadingInput
-} from "./topic-signal-reading.ts";
-import {
   buildInlineReadingPrompt,
   INLINE_READING_SYSTEM_PROMPT,
   parseInlineReadingResponse,
   type InlineReading,
   type InlineReadingInput
 } from "./inline-reading.ts";
-import {
-  parseAuditPromptEnvelopeResult,
-  type AuditPromptEnvelope
-} from "./topic-audit-prompts.ts";
-import {
-  TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA,
-  TOPIC_AUDIT_REPAIR_SUFFIX,
-  TopicAuditEnvelopeError,
-  type TopicAuditEnvelopeFailureKind
-} from "./topic-audit-envelope-contract.ts";
-import type { TopicAuditStageName } from "./topic-audit.ts";
 import type { PrCampaign, PrCriteriaMatches, PrEvidenceRow } from "../state/pr-evidence-storage.ts";
-import type { JudgmentResult, ProductProfile, ProductSignalAnalysis, SignalTagsRecord, TopicSignalReading } from "../state/types.ts";
+import type { ProductSignalAnalysis } from "../state/types.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
-
-export const COMPARE_BRIEF_PROMPT_VERSION = "v8";
-export const COMPARE_ONE_LINER_PROMPT_VERSION = "v2";
-export const COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION = "v3";
-export const COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION = "v1";
 export const OPENAI_COMPARE_MODEL = "gpt-4.1-mini";
 export const CLAUDE_COMPARE_MODEL = "claude-sonnet-5"; // 3.5 Sonnet retired 2025-10-28; sonnet-5 is the drop-in. Sonnet 5 rejects temperature and defaults to adaptive thinking, so Claude bodies below send no temperature and thinking:{type:"disabled"}.
 export const GOOGLE_COMPARE_MODEL = "gemini-3.1-flash-lite";
@@ -367,378 +318,6 @@ function buildProductSignalAnalysisBody(
   };
 }
 
-export async function generateCompareBrief(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  request: CompareBriefRequest
-): Promise<CompareBrief> {
-  const prompt = buildCompareBriefPrompt(request);
-  const system = "你是社群分析助手。只回傳 JSON，不要加任何解釋。";
-
-  let raw = "";
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1400, responseMimeType: "application/json" }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    raw = readGoogleContent(await response.json());
-  } else if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    raw = readOpenAiContent(await response.json());
-  } else {
-    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: CLAUDE_COMPARE_MODEL,
-        max_tokens: 1400,
-        thinking: { type: "disabled" },
-        system,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`Claude ${response.status}: ${await response.text()}`);
-    }
-    raw = readClaudeContent(await response.json());
-  }
-
-  const parsed = parseCompareBriefResponse(raw, request);
-  if (!parsed) {
-    throw new Error("Invalid compare brief payload");
-  }
-  return parsed;
-}
-
-export async function generateCompareClusterSummaries(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  request: CompareClusterSummaryRequest
-): Promise<ClusterInterpretation[]> {
-  const prompt = buildCompareClusterSummaryPrompt(request);
-  const system = "你是社群分析助手。只回傳 JSON，不要加任何解釋。";
-
-  let raw = "";
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    raw = readGoogleContent(await response.json());
-  } else if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    raw = readOpenAiContent(await response.json());
-  } else {
-    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: CLAUDE_COMPARE_MODEL,
-        max_tokens: 1200,
-        thinking: { type: "disabled" },
-        system,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`Claude ${response.status}: ${await response.text()}`);
-    }
-    raw = readClaudeContent(await response.json());
-  }
-
-  const parsed = parseCompareClusterSummaryResponse(raw, request);
-  if (!request.clusters.length) {
-    return parsed;
-  }
-  if (parsed.length === request.clusters.length) {
-    return parsed;
-  }
-
-  const parsedByKey = new Map<string, ClusterInterpretation>(
-    parsed.map((item) => [`${item.captureId}:${item.clusterKey}`, item])
-  );
-  const fallback = buildDeterministicClusterInterpretations(request);
-  const merged = request.clusters.map((cluster) => {
-    const key = `${cluster.captureId}:${cluster.clusterKey}`;
-    return parsedByKey.get(key) || fallback.find((item) => item.captureId === cluster.captureId && item.clusterKey === cluster.clusterKey)!;
-  });
-  return merged;
-}
-
-export async function generateCompareOneLiner(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  request: CompareOneLinerRequest
-): Promise<string> {
-  const prompt = buildCompareOneLinerPrompt(request);
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。" }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 120 }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    const json = await response.json();
-    return readGoogleContent(json);
-  }
-
-  if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        max_tokens: 120,
-        temperature: 0.3,
-        messages: [
-          {
-            role: "system",
-            content: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。"
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    const json = await response.json();
-    return readOpenAiContent(json);
-  }
-
-  const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: CLAUDE_COMPARE_MODEL,
-      max_tokens: 120,
-      thinking: { type: "disabled" },
-      system: "你是社群分析助手。只回傳一句繁體中文比較句，不要解釋。",
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
-    })
-  });
-  if (!response.ok) {
-    throw new Error(`Claude ${response.status}: ${await response.text()}`);
-  }
-  const json = await response.json();
-  return readClaudeContent(json);
-}
-
-export async function generateEvidenceAnnotations(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  request: EvidenceAnnotationRequest
-): Promise<EvidenceAnnotation[]> {
-  const prompt = buildEvidenceAnnotationPrompt(request);
-  const system = "你是社群分析助手。只回傳 JSON，不要加任何解釋。";
-
-  let raw = "";
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1200, responseMimeType: "application/json" }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    raw = readGoogleContent(await response.json());
-  } else if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    raw = readOpenAiContent(await response.json());
-  } else {
-    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: CLAUDE_COMPARE_MODEL,
-        max_tokens: 1200,
-        thinking: { type: "disabled" },
-        system,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`Claude ${response.status}: ${await response.text()}`);
-    }
-    raw = readClaudeContent(await response.json());
-  }
-
-  const parsed = parseEvidenceAnnotationResponse(raw, request);
-  if (!parsed.length && request.quotes.length) {
-    throw new Error("Invalid evidence annotation payload");
-  }
-  return parsed;
-}
-
-export async function generateJudgment(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  brief: CompareBrief,
-  productProfile: ProductProfile
-): Promise<JudgmentResult> {
-  const prompt = buildJudgmentPrompt(brief, productProfile);
-  const system = "你是產品判斷助手。只回傳 JSON，不要加任何解釋。";
-
-  let raw = "";
-
-  if (provider === "google") {
-    const request = googleGenerateContentRequest(apiKey, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 800, responseMimeType: "application/json" }
-    });
-    const response = await fetchWithRetry("Google", request.input, request.init);
-    if (!response.ok) {
-      throwGoogleResponseError(response);
-    }
-    raw = readGoogleContent(await response.json());
-  } else if (provider === "openai") {
-    const response = await fetchWithRetry("OpenAI", "https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_COMPARE_MODEL,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: prompt }
-        ]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`OpenAI ${response.status}: ${await response.text()}`);
-    }
-    raw = readOpenAiContent(await response.json());
-  } else {
-    const response = await fetchWithRetry("Claude", "https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: CLAUDE_COMPARE_MODEL,
-        max_tokens: 800,
-        thinking: { type: "disabled" },
-        system,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-    if (!response.ok) {
-      throw new Error(`Claude ${response.status}: ${await response.text()}`);
-    }
-    raw = readClaudeContent(await response.json());
-  }
-
-  const parsed = parseJudgmentResponse(raw);
-  if (!parsed) {
-    throw new Error("Invalid judgment payload");
-  }
-  return parsed;
-}
-
 export async function generateProductSignalAnalysis(
   provider: "openai" | "claude" | "google",
   apiKey: string,
@@ -819,33 +398,6 @@ export async function generateProductSignalAnalysis(
   throw new Error(`Invalid product signal analysis payload: ${repaired.rejection}`);
 }
 
-export async function generateTopicSignalReading(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  input: TopicSignalReadingInput
-): Promise<TopicSignalReading> {
-  if (!apiKey) {
-    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
-  }
-  const model = provider === "google"
-    ? `google:${GOOGLE_COMPARE_MODEL}`
-    : provider === "openai"
-      ? `openai:${OPENAI_COMPARE_MODEL}`
-      : `claude:${CLAUDE_COMPARE_MODEL}`;
-  const raw = await generateJsonText(
-    provider,
-    apiKey,
-    buildTopicSignalReadingPrompt(input),
-    TOPIC_SIGNAL_READING_SYSTEM_PROMPT,
-    1200
-  );
-  const parsed = parseTopicSignalReadingResponse(raw, input, model);
-  if (!parsed) {
-    throw new Error("Invalid topic signal reading payload");
-  }
-  return parsed;
-}
-
 /** Settings' 儲存並測試: list one model with the key. Nothing is generated, so nothing is billed. */
 export async function testProviderKey(provider: "openai" | "claude" | "google", apiKey: string): Promise<{ ok: boolean; message: string }> {
   const name = provider === "google" ? "Google" : provider === "openai" ? "OpenAI" : "Claude";
@@ -881,123 +433,13 @@ export async function generateInlineReading(
   return parsed;
 }
 
-export async function generateSignalTags(
-  provider: "openai" | "claude" | "google",
-  apiKey: string,
-  input: SignalTagsInput
-): Promise<SignalTagsRecord> {
-  if (!apiKey) {
-    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
-  }
-  const model = provider === "google"
-    ? `google:${GOOGLE_COMPARE_MODEL}`
-    : provider === "openai"
-      ? `openai:${OPENAI_COMPARE_MODEL}`
-      : `claude:${CLAUDE_COMPARE_MODEL}`;
-  const raw = await generateJsonText(
-    provider,
-    apiKey,
-    buildSignalTagsPrompt(input),
-    SIGNAL_TAGS_SYSTEM_PROMPT,
-    450
-  );
-  const parsed = parseSignalTagsResponse(raw, input, model);
-  if (!parsed) {
-    throw new Error("Invalid signal tags payload");
-  }
-  return parsed;
-}
-
-export async function generateTopicAuditEnvelope(
-  provider: CompareProvider,
-  apiKey: string,
-  stageName: TopicAuditStageName,
-  prompt: string,
-  maxOutputTokens = 2200,
-  options: { onAttempt?: (attempt: 1 | 2) => Promise<void> | void } = {}
-): Promise<AuditPromptEnvelope> {
-  if (!apiKey) {
-    throw new Error("尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。");
-  }
-
-  let previousKind: TopicAuditEnvelopeFailureKind | null = null;
-  for (const attempt of [1, 2] as const) {
-    await options.onAttempt?.(attempt);
-    const outputTokenCeiling = attempt === 2 && previousKind === "truncated"
-      ? Math.round(maxOutputTokens * 1.5)
-      : maxOutputTokens;
-    const attemptPrompt = attempt === 1
-      ? prompt
-      : `${prompt}\n\n${TOPIC_AUDIT_REPAIR_SUFFIX}${previousKind === "truncated" ? " 請縮短 prose，確保 JSON 完整閉合。" : ""}`;
-    const response = await requestTopicAuditJson(provider, apiKey, attemptPrompt, outputTokenCeiling);
-    const parsed = parseAuditPromptEnvelopeResult(response.text, undefined, { finishReason: response.finishReason });
-    emitTopicAuditEnvelopeAttempt({
-      provider,
-      model: modelForProvider(provider),
-      stageName,
-      attempt,
-      outputTokenCeiling,
-      finishReason: response.finishReason,
-      outputChars: parsed.ok ? response.text.trim().length : parsed.outputChars,
-      result: parsed.ok ? "success" : attempt === 1 ? "retrying" : "terminal",
-      ...(!parsed.ok ? { failureKind: parsed.kind } : {})
-    });
-    if (parsed.ok) {
-      return parsed.envelope;
-    }
-    previousKind = parsed.kind;
-    if (attempt === 2) {
-      throw new TopicAuditEnvelopeError(stageName, parsed.kind, attempt, parsed.finishReason, parsed.outputChars);
-    }
-  }
-
-  throw new Error("unreachable topic audit retry state");
-}
-
-interface TopicAuditJsonResponse {
+interface JsonTextResponse {
   text: string;
   finishReason?: string;
 }
 
 function finishReason(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function emitTopicAuditEnvelopeAttempt(detail: {
-  provider: CompareProvider;
-  model: string;
-  stageName: TopicAuditStageName;
-  attempt: 1 | 2;
-  outputTokenCeiling: number;
-  finishReason?: string;
-  outputChars: number;
-  result: "success" | "retrying" | "terminal";
-  failureKind?: TopicAuditEnvelopeFailureKind;
-}): void {
-  emitPipelineEvent({
-    phase: "llm.call",
-    step: "topic-audit.envelope.attempt",
-    target: {},
-    result: detail.result === "success" ? "ok" : detail.result === "retrying" ? "pending" : "error",
-    detail
-  });
-}
-
-async function requestTopicAuditJson(
-  provider: CompareProvider,
-  apiKey: string,
-  prompt: string,
-  maxOutputTokens: number
-): Promise<TopicAuditJsonResponse> {
-  return requestJsonResponse(
-    provider,
-    apiKey,
-    prompt,
-    "你是 DLens 的 topic audit pipeline worker。只回傳 JSON envelope；不要改寫或捏造 evidence。",
-    maxOutputTokens,
-    undefined,
-    true
-  );
 }
 
 async function requestJsonResponse(
@@ -1007,17 +449,10 @@ async function requestJsonResponse(
   system: string,
   maxOutputTokens: number,
   traceLabel?: string,
-  useTopicAuditSchema = false,
   modelOverride?: string
-): Promise<TopicAuditJsonResponse> {
+): Promise<JsonTextResponse> {
   const label = (base: string) => (traceLabel ? `${base}.${traceLabel}` : base);
   if (provider === "google") {
-    // Deliberately no responseJsonSchema here: schema-constrained decoding on
-    // gemini-3.1-flash-lite runs away on the loose audit envelope (replayed
-    // 2026-07-18: 31k chars at a 16k ceiling, MAX_TOKENS every time; the same
-    // prompt without the schema stops at STOP inside the prose budget).
-    // Envelope shape is enforced by parseAuditPromptEnvelopeResult + one repair
-    // retry instead.
     const request = googleGenerateContentRequest(apiKey, {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -1043,16 +478,7 @@ async function requestJsonResponse(
         model: modelOverride || OPENAI_COMPARE_MODEL,
         temperature: 0.2,
         max_tokens: maxOutputTokens,
-        response_format: useTopicAuditSchema
-          ? {
-              type: "json_schema",
-              json_schema: {
-                name: "topic_audit_envelope",
-                strict: false,
-                schema: TOPIC_AUDIT_ENVELOPE_JSON_SCHEMA
-              }
-            }
-          : { type: "json_object" },
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
           { role: "user", content: prompt }
@@ -1097,7 +523,7 @@ async function generateJsonText(
   traceLabel?: string,
   modelOverride?: string
 ): Promise<string> {
-  return (await requestJsonResponse(provider, apiKey, prompt, system, maxOutputTokens, traceLabel, false, modelOverride)).text;
+  return (await requestJsonResponse(provider, apiKey, prompt, system, maxOutputTokens, traceLabel, modelOverride)).text;
 }
 
 export async function generatePrCampaignSetupSuggestion(

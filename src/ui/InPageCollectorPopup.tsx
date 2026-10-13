@@ -1,72 +1,58 @@
-import { discourseQuestionPatch, restoreDiscourseReaderOrigin } from "./topic-discourse-controller";
-import { isProductContextSourceReady } from "../compare/product-context";
-import { useCollectionProducts } from "./useCollectionProducts";
-import { buildCollectionInView } from "../viewmodel/collection-browser";
-import { collectionReadingSource, resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
-import { useTopicReadings } from "./useTopicReadings";
-import { buildTopicReadingModel } from "../viewmodel/topic-reading";
-import { EMPTY_DISCOURSE_UI, type DiscourseUiState } from "../viewmodel/topic-discourse";
-import { useDeepReadings } from "./useDeepReadings";
-import { useOpenedReadings } from "./useOpenedReadings";
-import { collectionAudienceSource } from "../viewmodel/collection-reader";
-import { useCollectionReaderTopics, useCollectionReaderLive } from "./useCollectionReaderTopics";
-import { buildCollectionPosts } from "../viewmodel/collection-browser";
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type Dispatch,
-  type RefObject,
-  type SetStateAction
+useEffect,
+useLayoutEffect,
+useRef,
+useState,
+type CSSProperties,
+type Dispatch,
+type RefObject,
+type SetStateAction
 } from "react";
-import type { FolderMode, PopupPage } from "../state/types";
-import { CasebookView } from "./CasebookView";
-import { CompareSetupView } from "./CompareSetupView";
-import { CollectView } from "./CollectView";
-import { DLENS_BUTTON_CSS, StatusRail, WorkspaceSurface, type WorkspaceMaterial } from "./components";
-import { LanguageProvider } from "./i18n";
-import { getModeHomePage } from "../state/processing-state";
-import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
-import { LibraryView } from "./LibraryView";
-import { ProcessingStrip } from "./ProcessingStrip";
-import { ProductSignalView } from "./ProductSignalViews";
+import { isProductContextSourceReady } from "../compare/product-context";
+import { getProcessingFailureMessage } from "../state/processing-errors";
+import { getModeHomePage } from "../state/processing-state";
+import type { FolderMode,PopupPage } from "../state/types";
+import type { CollectionFilter,CollectionSort } from "../viewmodel/collection-browser";
+import { buildCollectionInView,buildCollectionPosts } from "../viewmodel/collection-browser";
+import { collectionReadingSource,resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
+import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
+import { EMPTY_DISCOURSE_UI,buildTopicDiscourseViewModel,type DiscourseUiState } from "../viewmodel/topic-discourse";
+import { buildTopicReadingModel } from "../viewmodel/topic-reading";
+import { workspaceCollectionDestination } from "../viewmodel/workspace-destination";
+import { CollectionBrowser } from "./CollectionBrowser";
+import { CollectionSignalPacketExport } from "./CollectionSignalPacketExport";
+import { CollectionWorkspaceShell,type CollectionTab } from "./CollectionWorkspaceShell";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
-import { TopicDetailView } from "./TopicDetailView";
-import { TopicDiscourseView, type TopicDiscourseCommand } from "./TopicDiscourseView";
-import { useDiscourseFeeds } from "./useDiscourseFeeds";
-import { buildTopicDiscourseViewModel } from "../viewmodel/topic-discourse";
-import { tokens } from "./tokens";
-import { OPEN_WORKSPACE_EVENT, consumeWorkspaceOpen, consumeReaderOpen } from "./inpage-helpers";
-import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
-import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
-import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
-import { getProcessingFailureMessage } from "../state/processing-errors";
-import { CollectionWorkspaceShell, type CollectionTab } from "./CollectionWorkspaceShell";
-import type { CollectionSort } from "../viewmodel/collection-browser";
-import { useCollectionClock } from "./useCollectionMotion";
-import { CollectionBrowser } from "./CollectionBrowser";
+import { TopicDiscourseView,type TopicDiscourseCommand } from "./TopicDiscourseView";
 import { WorkspaceHomeView } from "./WorkspaceHomeView";
-import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
+import { DLENS_BUTTON_CSS,StatusRail,WorkspaceSurface } from "./components";
+import { LanguageProvider } from "./i18n";
+import { OPEN_WORKSPACE_EVENT,consumeReaderOpen,consumeWorkspaceOpen } from "./inpage-helpers";
 import {
-  buildPrEvidenceUiReadyEvent,
-  buildProductUiReadyEvent,
-  buildTopicUiReadyEvent,
-  usePipelineUiReadyTrace
+buildPrEvidenceUiReadyEvent,
+usePipelineUiReadyTrace
 } from "./pipeline-ui-ready";
+import { tokens } from "./tokens";
+import { discourseQuestionPatch,restoreDiscourseReaderOrigin } from "./topic-discourse-controller";
+import { useCollectionClock } from "./useCollectionMotion";
+import { useCollectionProducts } from "./useCollectionProducts";
+import { useCollectionReaderLive,useCollectionReaderTopics } from "./useCollectionReaderTopics";
+import { useDeepReadings } from "./useDeepReadings";
+import { useDiscourseFeeds } from "./useDiscourseFeeds";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+import { useOpenedReadings } from "./useOpenedReadings";
+import { useTopicReadings } from "./useTopicReadings";
 import { useWorkspaceScrollMotion } from "./useWorkspaceScrollMotion";
 
 interface ReadingNavigation {
   tab: CollectionTab;
   workspaceOpen: boolean;
-  collecting: boolean;
   settingsOpen: boolean;
   query: string;
   sort: CollectionSort;
+  filter: CollectionFilter;
   selectedKey: string | null;
   requestedLens?: string | null;
   readerRequest?: number;
@@ -74,21 +60,8 @@ interface ReadingNavigation {
   returnPage?: PopupPage;
   workspaceSessionId?: string;
   workspacePage?: PopupPage;
-  workspaceTopicId?: string;
 }
 
-// Reserved breathing room below the last card. This MUST be a real scrollable
-// spacer element (see the bottom of the scroll viewport), NOT the container's
-// `padding-bottom`: Chrome will not scroll into the padding-bottom of a flex
-// column scroll container, so padding-bottom silently clips the last card /
-// action button in every mode. Do not "simplify" this back into padding-bottom.
-const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.xl;
-// One shared height keeps mode switching stable while trimming the empty canvas
-// left by the earlier marketing-scale frame. Long workspaces still scroll.
-const POPUP_VIEWPORT_HEIGHT = tokens.layout.workspacePopupHeight;
-// Variant D's 28px frame radius is part of the glass silhouette. Keeping the
-// scroll viewport on the same radius makes the bottom curve remain visible.
-const POPUP_FRAME_RADIUS = 28;
 const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
   padding: 0,
   background: "transparent",
@@ -97,31 +70,11 @@ const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
   overflow: "visible"
 };
 
-function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
-  if (folderMode === "product" || folderMode === "pr-evidence") {
-    return false;
-  }
-  if (folderMode === "topic") {
-    return page === "compare" || page === "result";
-  }
-  return page === "library" || page === "compare" || page === "result";
-}
-
-function workspaceMaterialForFolderMode(folderMode: string): WorkspaceMaterial {
-  return folderMode === "topic" || folderMode === "product" || folderMode === "pr-evidence"
-    ? "glass"
-    : "paper";
-}
-
-function isProductSignalPage(page: PopupPage): boolean {
-  return getPageComponentKind(page) === "product-signal";
-}
-
-export function InPageCollectorPopup({ app, embedded = false }: { app: InPageCollectorAppModel; embedded?: boolean }) {
+export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const popupOpen = app.popupOpen;
   const [readingNavigation, setReadingNavigation] = useState<ReadingNavigation>({
-    tab: IS_PR_ONLY_BUILD ? "workspaces" : "collection", workspaceOpen: IS_PR_ONLY_BUILD, collecting: false,
-    settingsOpen: false, query: "", sort: "saved", selectedKey: null
+    tab: IS_PR_ONLY_BUILD ? "workspaces" : "collection", workspaceOpen: IS_PR_ONLY_BUILD,
+    settingsOpen: false, query: "", sort: "saved", filter: "all", selectedKey: null
   });
   const navigationPending = useRef(false);
   const [navigationBusy, setNavigationBusy] = useState(false);
@@ -136,8 +89,6 @@ export function InPageCollectorPopup({ app, embedded = false }: { app: InPageCol
         app.activeFolder?.mode ?? "archive",
         app.page,
         app.activeFolder?.id ?? "",
-        app.activeTopic?.id ?? "",
-        app.activeSavedAnalysis?.resultId ?? "",
         app.activePrCampaign?.id ?? ""
       ].join(":")
     : "";
@@ -159,14 +110,12 @@ export function InPageCollectorPopup({ app, embedded = false }: { app: InPageCol
       navigationControl={{ pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError }}
       readingNavigation={readingNavigation}
       setReadingNavigation={setReadingNavigation}
-      embedded={embedded}
     />
   );
 }
 
 function OpenInPageCollectorPopup({
   app,
-  embedded,
   scrollRef,
   scrollTrackRef,
   scrollPositions,
@@ -175,7 +124,6 @@ function OpenInPageCollectorPopup({
   navigationControl
 }: {
   app: InPageCollectorAppModel;
-  embedded: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollTrackRef: RefObject<HTMLDivElement | null>;
   scrollPositions: Map<string, number>;
@@ -183,19 +131,15 @@ function OpenInPageCollectorPopup({
   setReadingNavigation: Dispatch<SetStateAction<ReadingNavigation>>;
   navigationControl: { pending: RefObject<boolean>; busy: boolean; setBusy: Dispatch<SetStateAction<boolean>>; error: string | null; setError: Dispatch<SetStateAction<string | null>> };
 }) {
-  const { snapshot, page, activeFolder, resultItemA, resultItemB } = app;
-  const productCrawlPendingRef = useRef(false);
+  const { snapshot, page, activeFolder } = app;
   const { pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError } = navigationControl;
-  const workspaceAllowed = !IS_PR_ONLY_BUILD || (activeFolder?.mode === "pr-evidence" && (page === "pr-evidence" || page === "collect" || page === "settings"));
+  const workspaceAllowed = !IS_PR_ONLY_BUILD || (activeFolder?.mode === "pr-evidence" && (page === "pr-evidence" || page === "settings"));
   const nowMs = useCollectionClock();
   const domainPage = readingNavigation.settingsOpen ? "settings"
-    : readingNavigation.collecting ? "collect"
     : readingNavigation.tab === "workspaces" && readingNavigation.workspaceOpen && workspaceAllowed ? page : null;
   const guardedPage = page as PopupPage;
   const activeFolderMode = activeFolder?.mode ?? "archive";
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
-  const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
-  const workspaceGlass = tokens.material.workspaceGlass;
   // Explicit home/topic selection; feed visibility is owned by F1's collection bar.
   const [discourseSelection, setDiscourseSelection] = useState<Record<string,string|null>>({});
   const discourseTopicId = discourseSelection[activeFolder?.id ?? ""] ?? null;
@@ -229,8 +173,8 @@ function OpenInPageCollectorPopup({
         now: app.readWallClockNowMs()
       })
     : null;
-  const selectedDiscourseTopic = app.topics.find(t=>t.id===discourseTopicId);
-  const discourseItems = (activeFolder?.items ?? []).filter(item=>app.signals.some(signal=>signal.itemId===item.id && signal.topicId===discourseTopicId));
+  const selectedDiscourseTopic = domainPage === "topics" ? app.topics.find(t=>t.id===discourseTopicId) : undefined;
+  const discourseItems = domainPage === "topics" ? (activeFolder?.items ?? []).filter(item=>app.signals.some(signal=>signal.itemId===item.id && signal.topicId===discourseTopicId)) : [];
   const topicReadingModel = selectedDiscourseTopic && snapshot ? buildTopicReadingModel(selectedDiscourseTopic,discourseItems,snapshot.global.settings,topicReadings.records[selectedDiscourseTopic.id],new Date(nowMs).toISOString(),topicReadings.pending[selectedDiscourseTopic.id],topicReadings.errors[selectedDiscourseTopic.id] || null,discourseFeeds.readings,deepReadings.records) : null;
   function onDiscourseCommand(command: TopicDiscourseCommand) {
     const fail = (e:unknown) => setNavigationError(e instanceof Error ? e.message : "操作失敗");
@@ -247,7 +191,7 @@ function OpenInPageCollectorPopup({
     } else if (command.kind === "run-reading") void topicReadings.run(command.topicId);
     else if (command.kind === "open-reader") {
       const target=resolveCollectionReaderOpen(collectionPosts,command.itemId);
-      if(target && activeFolder) setReadingNavigation(current=>({...current,tab:'collection',collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:null,readerRequest:(current.readerRequest ?? 0)+1,discourseReturn:{...command.returnTo,sessionId:activeFolder.id}}));
+      if(target && activeFolder) setReadingNavigation(current=>({...current,tab:'collection',settingsOpen:false,selectedKey:target.key,requestedLens:null,readerRequest:(current.readerRequest ?? 0)+1,discourseReturn:{...command.returnTo,sessionId:activeFolder.id}}));
     } else void app.onDeleteTopic(command.topicId).catch(fail);
   }
   const readerBack = async () => {
@@ -261,166 +205,18 @@ function OpenInPageCollectorPopup({
         if(result && !result.ok)throw new Error("未能返回觀眾反應");
       },app.onNavigate);
       setDiscourseSelection(current=>({...current,[origin.sessionId]:origin.topicId}));
-      setReadingNavigation(current=>({...current,tab:'workspaces',workspaceOpen:true,workspaceSessionId:origin.sessionId,workspacePage:'topics',workspaceTopicId:undefined,selectedKey:null,discourseReturn:undefined,requestedLens:null}));
+      setReadingNavigation(current=>({...current,tab:'workspaces',workspaceOpen:true,workspaceSessionId:origin.sessionId,workspacePage:'topics',selectedKey:null,discourseReturn:undefined,requestedLens:null}));
     } catch(e) {setNavigationError(e instanceof Error ? e.message : "未能返回觀眾反應");}
     finally {navigationPending.current=false;setNavigationBusy(false);}
   };
-  const productExportFolders = (snapshot?.global.sessions ?? [])
-    .filter((session) => session.mode === "product")
-    .map((session) => ({
-      id: session.id,
-      name: session.name,
-      itemCount: session.items.length
-    }));
-  const productSignalViewModel = !IS_PR_ONLY_BUILD && snapshot && domainPage && isProductSignalPage(domainPage)
-    ? buildProductSignalWorkspaceViewModel({
-        snapshot,
-        signals: app.signals,
-        analyses: app.productSignalAnalyses,
-        signalReadings: app.signalReadings,
-        productContext: app.compiledProductContext,
-        aiProviderReady: app.productAiProviderReady,
-        backendError: app.productBackendError,
-        analysisError: app.productSignalAnalysisError,
-        analysisNotice: app.productSignalAnalysisNotice,
-        isHydrating: app.isHydratingProductSignals,
-        isAnalyzing: app.isAnalyzingProductSignals,
-        isProcessing: app.isStartingProcessing || app.bulkAnalyzingFolderId === activeFolder?.id,
-        optimisticQueuedItemIds: app.optimisticQueuedIds
-      })
-    : null;
-  const topicDetailViewModel = domainPage === "topic-detail" && app.activeTopic
-    ? buildTopicDetailViewModel({
-        topic: app.activeTopic,
-        signals: app.activeTopicSignals,
-        pairs: app.activeTopicPairs,
-        loadState: app.topicLoadState,
-        sessionMode: app.activeFolderMode,
-        sessionItems: activeFolder?.items ?? [],
-        savedAnalyses: app.savedAnalyses,
-        signalReadingsBySignalId: app.topicSignalReadingsBySignalId,
-        signalTagsByItemId: app.signalTagsByItemId,
-        synthLayout: snapshot?.global.settings.layoutPreferences.topicSynthesisLayout,
-        auditEvidence: app.activeTopicAudit?.auditEvidence,
-        auditMemos: app.activeTopicAudit?.auditMemos,
-        auditReport: app.activeTopicAudit?.auditReport,
-        auditEpisodes: app.activeTopicAudit?.auditEpisodes,
-        auditSummary: app.activeTopicAudit?.summary,
-        auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
-        auditRunStatus: app.activeTopicAudit?.auditRunStatus,
-        p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
-          ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
-          : [],
-        p1ErrorBySignalId: app.activeTopic ? app.topicAuditP1ErrorBySignalId[app.activeTopic.id] : undefined,
-        optimisticQueuedItemIds: app.optimisticQueuedIds,
-        isBulkAnalyzing: app.bulkAnalyzingFolderId === activeFolder?.id,
-        isStartingProcessing: app.isStartingProcessing,
-        workerStatus: app.workerStatus,
-        backendWorkUiState: app.backendWorkUiState
-      })
-    : null;
-
-  function onProductSignalCommand(command: ProductSignalCommand): Promise<unknown> | unknown {
-    switch (command.kind) {
-      case "crawlSources": {
-        if (command.target.sessionId !== activeFolder?.id || productCrawlPendingRef.current) {
-          return { ok: false };
-        }
-        productCrawlPendingRef.current = true;
-        return Promise.resolve(app.onAnalyzeItems(command.target.itemIds))
-          .finally(() => { productCrawlPendingRef.current = false; });
-      }
-      case "analyzeInbox":
-        return app.onAnalyzeProductSignals();
-      case "remove":
-        return app.onRemoveProductSignal(command.target.signalId);
-      case "reviewReading":
-        return app.onReviewSignalReading(command.target.cacheKey, command.decision, command.note);
-      case "exportSignalPackets":
-        return app.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format });
-      default:
-        return undefined;
-    }
-  }
-
-  function onTopicDetailCommand(command: TopicDetailCommand): Promise<unknown> | unknown {
-    switch (command.kind) {
-      case "back":
-        return app.onBackFromTopicDetail();
-      case "openPair":
-        return app.onOpenTopicPair(command.target.resultId, command.target.topicId);
-      case "updateTopic":
-        return app.onUpdateTopic(command.patch);
-      case "analyzeItems":
-        return app.onAnalyzeItems(command.target.itemIds);
-      case "analyzeItem":
-        return app.onAnalyzeItems([command.target.itemId]);
-      case "queueItem":
-      case "queueSignalItem":
-        return app.onQueueItemById(command.target.itemId);
-      case "startProcessing":
-        return app.onStartProcessing();
-      case "openAnalysis":
-        return app.onOpenSavedAnalysis(command.target.resultId);
-      case "openSignalAnalysis":
-        return app.onOpenSavedAnalysis(command.target.resultId);
-      case "addToCompare":
-        return app.onAddToCompare(command.target.itemId);
-      case "addSignalToCompare":
-        return app.onAddToCompare(command.target.itemId);
-      case "saveJudgmentOverride":
-        return app.onSaveJudgmentOverride(command.target.resultId, command.patch);
-      case "generateSynthesis":
-        return app.onGenerateTopicSynthesis(command.target.topicId);
-      case "generateSignalReading":
-        return app.onGenerateTopicSignalReading(command.target.signalId, command.target.topicId);
-      case "deleteSignal":
-        return app.onSignalDeleted(command.target.signalId);
-      case "runAudit":
-        return app.onRunTopicAudit(command.target.topicId, command.fromStage, command.force);
-      case "runAuditP1":
-        return app.onRunTopicAuditP1(command.target.topicId, command.target.signalId);
-      case "openAuditReport":
-        return app.onOpenAuditReport(command.target.topicId, command.stale);
-      default:
-        return undefined;
-    }
-  }
-  const pageComponentKind = domainPage ? getPageComponentKind(domainPage) : null;
-  const homePage = getModeHomePage(activeFolderMode);
-  const attachedTopicIds = app.activeSavedAnalysis
-    ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
-    : [];
-  const collectTargetName = activeFolderMode === "topic"
-    ? app.activeTopic?.name || "未選主題"
-    : activeFolder?.name || "No folder yet";
-  const collectionTopicId = app.selectedTopicId || snapshot?.tab.collectionTopicId || "";
-  const collectCanSave = activeFolderMode === "topic"
-    ? Boolean(collectionTopicId)
-    : activeFolderMode !== "pr-evidence" || Boolean(app.activePrCampaign);
-  const collectDisabledReason = activeFolderMode === "topic" && !collectionTopicId
-    ? "先在上方選擇主題，Collect 才會寫入正確主題。"
-    : activeFolderMode === "pr-evidence" && !app.activePrCampaign
-      ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。"
-      : "";
-
-  usePipelineUiReadyTrace(productSignalViewModel
-    ? buildProductUiReadyEvent(productSignalViewModel)
-    : null);
-  usePipelineUiReadyTrace(domainPage === "topic-detail" && topicDetailViewModel
-    ? buildTopicUiReadyEvent(topicDetailViewModel)
-    : null);
-  usePipelineUiReadyTrace(domainPage === "pr-evidence"
-    ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel)
-    : null);
+  usePipelineUiReadyTrace(domainPage === "pr-evidence" ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel) : null);
 
   const prBriefInputRef = useRef<HTMLInputElement>(null);
 
   const scrollKey = readingNavigation.settingsOpen ? "settings"
-    : readingNavigation.collecting ? "collection-capture"
     : readingNavigation.tab === "collection" ? JSON.stringify(["collection", readingNavigation.selectedKey ?? "list"])
     : !readingNavigation.workspaceOpen || !workspaceAllowed ? "workspace-list"
-    : JSON.stringify(["workspace", activeFolder?.id, guardedPage, guardedPage === "topics" ? discourseTopicId ?? "home" : app.activeTopic?.id ?? "", app.activeSavedAnalysis?.resultId ?? ""]);
+    : JSON.stringify(["workspace", activeFolder?.id, guardedPage, guardedPage === "topics" ? discourseTopicId ?? "home" : ""]);
 
   // Save on scroll, before a shorter route can clamp the viewport during DOM
   // replacement. The facade map survives closing the popup and unmounting this view.
@@ -476,13 +272,12 @@ function OpenInPageCollectorPopup({
   }, [scrollKey, scrollPositions, scrollRef, scrollTrackRef]);
 
   useEffect(() => {
-    if (navigationPending.current || !activeFolder || !workspaceAllowed || readingNavigation.tab !== "workspaces" || !readingNavigation.workspaceOpen || readingNavigation.settingsOpen || readingNavigation.collecting || page === "settings") return;
+    if (navigationPending.current || !activeFolder || !workspaceAllowed || readingNavigation.tab !== "workspaces" || !readingNavigation.workspaceOpen || readingNavigation.settingsOpen || page === "settings") return;
     setReadingNavigation((current) => {
-      const topicId = app.activeTopic?.id;
-      if (current.workspaceSessionId === activeFolder.id && current.workspacePage === page && current.workspaceTopicId === topicId) return current;
-      return { ...current, workspaceSessionId: activeFolder.id, workspacePage: page, workspaceTopicId: topicId };
+      if (current.workspaceSessionId === activeFolder.id && current.workspacePage === page) return current;
+      return { ...current, workspaceSessionId: activeFolder.id, workspacePage: page };
     });
-  }, [activeFolder?.id, page, app.activeTopic?.id, readingNavigation.tab, readingNavigation.workspaceOpen, readingNavigation.settingsOpen, readingNavigation.collecting, workspaceAllowed]);
+  }, [activeFolder?.id, page, readingNavigation.tab, readingNavigation.workspaceOpen, readingNavigation.settingsOpen, workspaceAllowed]);
 
   async function selectPrimaryTab(tab: CollectionTab) {
     if (navigationPending.current) return;
@@ -495,15 +290,11 @@ function OpenInPageCollectorPopup({
           const result = await app.onSetActiveSession(readingNavigation.workspaceSessionId);
           if (result && !result.ok) throw new Error("workspace unavailable");
         }
-        if (readingNavigation.workspacePage === "topic-detail" && readingNavigation.workspaceTopicId) {
-          await app.onNavigateToTopic(readingNavigation.workspaceTopicId);
-        } else {
-          await app.onNavigate(readingNavigation.workspacePage ?? readingNavigation.returnPage ?? getModeHomePage(activeFolderMode));
-        }
+        await app.onNavigate(readingNavigation.workspacePage ?? readingNavigation.returnPage ?? getModeHomePage(activeFolderMode));
       } catch { setNavigationError("未能返回工作區，請再試。"); return; }
       finally { navigationPending.current = false; setNavigationBusy(false); }
     }
-    setReadingNavigation((current) => ({ ...current, tab, collecting: false, settingsOpen: false, discourseReturn: undefined }));
+    setReadingNavigation((current) => ({ ...current, tab,  settingsOpen: false, discourseReturn: undefined }));
   }
 
   async function openWorkspace(sessionId: string) {
@@ -516,7 +307,7 @@ function OpenInPageCollectorPopup({
       const result = await app.onSetActiveSession(sessionId);
       if (result && !result.ok) throw new Error("workspace unavailable");
       await app.onNavigate(getModeHomePage(session.mode));
-      setReadingNavigation((current) => ({ ...current, tab: "workspaces", workspaceOpen: true, collecting: false, settingsOpen: false, workspaceSessionId: sessionId, workspacePage: getModeHomePage(session.mode), workspaceTopicId: undefined }));
+      setReadingNavigation((current) => ({ ...current, ...workspaceCollectionDestination(session.mode), selectedKey: null, requestedLens: null, discourseReturn: undefined, settingsOpen: false, workspaceSessionId: sessionId, workspacePage: getModeHomePage(session.mode) }));
     } catch {
       setNavigationError("未能開啟工作區，請再試。");
     } finally { navigationPending.current = false; setNavigationBusy(false); }
@@ -528,7 +319,7 @@ function OpenInPageCollectorPopup({
       const reader=consumeReaderOpen(snapshot?.global.sessions.flatMap(s=>s.items.map(i=>i.id)) ?? []);
       if (reader) {
         const target=resolveCollectionReaderOpen(collectionPosts,reader.itemId,reader.lens);
-        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,discourseReturn:undefined,readerRequest:(current.readerRequest ?? 0)+1}));
+        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,discourseReturn:undefined,readerRequest:(current.readerRequest ?? 0)+1}));
         return;
       }
       const sessionId = consumeWorkspaceOpen(snapshot?.global.sessions.map((session) => session.id) ?? []);
@@ -553,7 +344,7 @@ function OpenInPageCollectorPopup({
       const result = await app.onCreateWorkspace(name, mode);
       if (!result.ok) return result;
       await app.onNavigate(getModeHomePage(mode));
-      setReadingNavigation((current) => ({ ...current, tab: "workspaces", workspaceOpen: true, collecting: false, settingsOpen: false, workspaceSessionId: result.snapshot?.global.activeSessionId ?? undefined, workspacePage: getModeHomePage(mode), workspaceTopicId: undefined }));
+      setReadingNavigation((current) => ({ ...current, ...workspaceCollectionDestination(mode), selectedKey: null, settingsOpen: false, workspaceSessionId: result.snapshot?.global.activeSessionId ?? undefined, workspacePage: getModeHomePage(mode) }));
       return result;
     } finally { navigationPending.current = false; setNavigationBusy(false); }
   }
@@ -579,19 +370,6 @@ function OpenInPageCollectorPopup({
     }
   }
 
-  async function openCollectionCapture() {
-    if (navigationPending.current) return;
-    navigationPending.current = true;
-    setNavigationBusy(true);
-    setNavigationError(null);
-    try {
-      // The inline wheel chooses its destination; opening help keeps the current workspace.
-      await app.onNavigate("collect");
-      setReadingNavigation((current) => ({ ...current, tab: "collection", collecting: true, settingsOpen: false }));
-    } catch { setNavigationError("未能開啟採集，請再試。"); }
-    finally { navigationPending.current = false; setNavigationBusy(false); }
-  }
-
   function handlePrEvidenceCommand(command: PrEvidenceCommand) {
     if (command.kind === "requestBriefUpload") {
       prBriefInputRef.current?.click();
@@ -603,58 +381,16 @@ function OpenInPageCollectorPopup({
   return (
     <LanguageProvider value={uiLang}>
     <div
-      ref={app.popupRef}
       data-dlens-control="true"
       data-workspace-popup="shell"
-      data-workspace-popup-material={workspaceMaterial}
-      style={{
-        position: "fixed",
-        right: 12,
-        top: 82,
-        width: getPageWidth(guardedPage),
-        maxWidth: "calc(100vw - 24px)",
-        height: POPUP_VIEWPORT_HEIGHT,
-        maxHeight: "calc(100vh - 94px)",
-        overflow: "hidden",
-        borderRadius: POPUP_FRAME_RADIUS,
-        border: `1px solid ${workspaceMaterial === "glass" ? workspaceGlass.edge : tokens.color.glassBorder}`,
-        boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 ${tokens.color.shellSurface}`,
-        zIndex: 2147483640,
-        color: tokens.color.ink,
-        fontFamily: tokens.font.sans,
-        animation: "dlens-slide-in 280ms cubic-bezier(0.16, 1, 0.3, 1)",
-        transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-        pointerEvents: "auto",
-        isolation: "isolate",
-        transform: "translateZ(0)",
-        contain: "paint",
-        // The side panel is the frame: fill it instead of floating over a page.
-        ...(embedded ? { position: "relative", right: undefined, top: undefined, width: "100%", maxWidth: "none", height: "100vh", maxHeight: "none", borderRadius: 0, border: "none", boxShadow: "none", animation: "none" } : {})
-      }}
+      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", color: tokens.color.ink, fontFamily: tokens.font.sans }}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
     >
       <style>{DLENS_BUTTON_CSS}</style>
-      <div aria-hidden style={{
-        position: "absolute",
-        inset: 0,
-        borderRadius: embedded ? 0 : POPUP_FRAME_RADIUS,
-        background: embedded ? tokens.collection.paper : workspaceMaterial === "glass"
-          ? workspaceGlass.canvas
-          : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
-        zIndex: 0,
-        pointerEvents: "none"
-      }} />
-      {embedded ? <>
-        <div aria-hidden="true" data-collection-mist="" style={{ position: "absolute", zIndex: 0, width: tokens.collection.mistWidth, height: tokens.collection.mistHeight, top: tokens.collection.mistTop, left: tokens.collection.mistLeft, borderRadius: tokens.radius.round, background: tokens.collection.mist, pointerEvents: "none" }} />
-        <div aria-hidden="true" data-collection-grain="" style={{ position: "absolute", inset: 0, zIndex: 0, opacity: tokens.collection.grainOpacity, backgroundImage: tokens.collection.grain, pointerEvents: "none" }} />
-      </> : workspaceMaterial === "glass" ? (
-        <>
-          <div aria-hidden="true" data-workspace-aura="teal" style={{ position: "absolute", zIndex: 0, width: 320, height: 320, top: -120, right: -90, borderRadius: tokens.radius.round, background: workspaceGlass.auraTeal, filter: "blur(64px)", opacity: 0.55, pointerEvents: "none" }} />
-          <div aria-hidden="true" data-workspace-aura="amber" style={{ position: "absolute", zIndex: 0, width: 280, height: 280, top: "38%", left: -130, borderRadius: tokens.radius.round, background: workspaceGlass.auraAmber, filter: "blur(68px)", opacity: 0.48, pointerEvents: "none" }} />
-          <div aria-hidden="true" data-workspace-aura="violet" style={{ position: "absolute", zIndex: 0, width: 300, height: 300, bottom: -120, right: -80, borderRadius: tokens.radius.round, background: workspaceGlass.auraViolet, filter: "blur(70px)", opacity: 0.46, pointerEvents: "none" }} />
-        </>
-      ) : null}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: tokens.collection.paper, pointerEvents: "none" }} />
+      <div aria-hidden="true" data-collection-mist="" style={{ position: "absolute", width: tokens.collection.mistWidth, height: tokens.collection.mistHeight, top: tokens.collection.mistTop, left: tokens.collection.mistLeft, borderRadius: tokens.radius.round, background: tokens.collection.mist, pointerEvents: "none" }} />
+      <div aria-hidden="true" data-collection-grain="" style={{ position: "absolute", inset: 0, opacity: tokens.collection.grainOpacity, backgroundImage: tokens.collection.grain, pointerEvents: "none" }} />
       <div
         ref={scrollRef}
         data-workspace-popup-scroll="viewport"
@@ -663,17 +399,17 @@ function OpenInPageCollectorPopup({
           zIndex: 1,
           boxSizing: "border-box",
           height: "100%",
-          maxHeight: embedded ? "none" : POPUP_VIEWPORT_HEIGHT,
+          maxHeight: "none",
           overflowY: "auto",
           overflowX: "hidden",
           overscrollBehaviorY: "contain",
-          borderRadius: embedded ? 0 : POPUP_FRAME_RADIUS,
+          borderRadius: 0,
           padding: `0 ${tokens.spacing.section}px`,
           paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
           // In the side panel a reserved gutter shows as an empty strip beside the header.
-          scrollbarGutter: embedded ? "auto" : "stable both-edges"
+          scrollbarGutter: "auto"
         }}
       >
         <div
@@ -696,165 +432,31 @@ function OpenInPageCollectorPopup({
             onTabChange={selectPrimaryTab}
             onSettings={() => {
               if (navigationPending.current) return;
-              setReadingNavigation((current) => ({ ...current, settingsOpen: true, collecting: false, returnPage: page }));
+              setReadingNavigation((current) => ({ ...current, settingsOpen: true,  returnPage: page }));
               void app.onNavigate("settings");
             }}
             inView={inView}
-            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
+            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
             diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
             {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser filter={readingNavigation.filter} onFilterChange={filter => setReadingNavigation(current => ({ ...current, filter }))} exportRow={readingNavigation.filter === "product" ? <CollectionSignalPacketExport key={activeFolder?.id} sessions={snapshot?.global.sessions ?? []} defaultSessionId={activeFolder?.id} onExport={app.onExportSignalPackets} /> : undefined} readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null, discourseReturn:undefined }))}
-                onCollect={() => void openCollectionCapture()} onOpenWorkspace={(id) => void openWorkspace(id)}
+                onOpenWorkspace={(id) => void openWorkspace(id)}
                 isLoading={!snapshot} />
             ) : null}
             {!domainPage && readingNavigation.tab === "workspaces" ? (
               <WorkspaceHomeView nowMs={nowMs} sessions={IS_PR_ONLY_BUILD ? (snapshot?.global.sessions ?? []).filter((session) => session.mode === "pr-evidence") : snapshot?.global.sessions ?? []} activeSessionId={activeFolder?.id ?? null}
                 onOpen={openWorkspace} onCreate={createWorkspace} onRename={(id, name) => manageWorkspace(id, "rename", name)} onDelete={(id) => manageWorkspace(id, "delete")} externalError={navigationError} busy={navigationBusy} allowedCreationModes={IS_PR_ONLY_BUILD ? ["pr-evidence"] : undefined} />
             ) : null}
-            {domainPage && !readingNavigation.settingsOpen ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: tokens.spacing.md }}>
-                <button type="button" onClick={() => {
-                  if (readingNavigation.collecting) selectPrimaryTab("collection");
-                  else setReadingNavigation((current) => ({ ...current, workspaceOpen: false }));
-                }} style={{ border: 0, background: "transparent", color: tokens.color.subInk, cursor: "pointer", padding: tokens.spacing.sm }}>
-                  {readingNavigation.collecting ? "← 收藏" : "← 工作區"}
-                </button>
-                {!readingNavigation.collecting && domainPage !== "collect" ? <button type="button" onClick={() => void app.onNavigate("collect")} style={{ border: 0, background: "transparent", color: tokens.color.accent, cursor: "pointer", padding: tokens.spacing.sm }}>加入貼文</button> : null}
-              </div>
-            ) : null}
-          {domainPage === "library" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <LibraryView
-                activeFolder={activeFolder}
-                activeItem={app.activeItem}
-                optimisticQueuedIds={app.optimisticQueuedIds}
-                workerStatus={app.workerStatus}
-                isStartingProcessing={app.isStartingProcessing}
-                processAllLabel={app.processAllLabel}
-                processingSummary={app.processingSummary}
-                canPrev={app.canPrev}
-                canNext={app.canNext}
-                onSelectItem={(itemId) => void app.onSelectItem(itemId)}
-                onProcessAll={() => void app.onProcessAll()}
-                onMoveSelection={(direction) => void app.moveSelection(direction)}
-                onQueueItem={() => void app.onQueueItem()}
-                renderMetrics={app.renderMetrics}
-                techniqueReadings={app.techniqueReadings}
-                savedAnalyses={app.savedAnalyses}
-                topicSignalItemIds={activeFolderMode === "topic" ? app.signals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)) : undefined}
-                topicInboxCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}
-                topicCount={app.topics.length}
-                onGoToCollect={() => void app.onNavigate("collect")}
-                onGoToCompare={() => void app.onNavigate("compare")}
-                onOpenSavedAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
-                folderSynthesis={app.folderSynthesis}
-                isGeneratingFolderSynthesis={app.isGeneratingFolderSynthesis}
-                folderSynthesisError={app.folderSynthesisError}
-                nowMs={app.readWallClockNowMs()}
-                folderAnalyzedCount={app.folderAnalyzedCount}
-                folderContributingTopicCount={app.folderContributingTopicCount}
-                onGenerateFolderSynthesis={() => void app.onGenerateFolderSynthesis()}
-                onClearFolderSynthesis={() => void app.onClearFolderSynthesis()}
-              />
-            </WorkspaceSurface>
-          ) : null}
-
+            {domainPage && !readingNavigation.settingsOpen ? <button type="button" onClick={() => setReadingNavigation(current => ({ ...current, workspaceOpen: false }))} style={{ border: 0, background: "transparent", color: tokens.color.subInk, cursor: "pointer", padding: tokens.spacing.sm }}>← 工作區</button> : null}
           {domainPage === "topics" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} readingModel={topicReadingModel} uiState={discourseUi[discourseUiKey] ?? EMPTY_DISCOURSE_UI} onUiStateChange={next=>setDiscourseUi(current=>({...current,[discourseUiKey]:next}))} /> : null}
-            </WorkspaceSurface>
-          ) : null}
-
-          {domainPage === "topic-detail" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              {topicDetailViewModel ? (
-                <TopicDetailView
-                  viewModel={topicDetailViewModel}
-                  onCommand={onTopicDetailCommand}
-                />
-              ) : (
-                <CasebookView
-                  sessionId={activeFolder?.id || ""}
-                  initialTopics={app.topics}
-                  signals={app.signals}
-                  signalPreviewById={app.signalPreviewById}
-                  signalTagsByItemId={app.signalTagsByItemId}
-                  sessionItems={activeFolder?.items ?? []}
-                  savedAnalyses={app.savedAnalyses}
-                  pendingSignalCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}
-                  onNavigateToTopic={(topicId) => void app.onNavigateToTopic(topicId)}
-                  onCreateTopic={() => void app.onCreateTopic()}
-                  onSignalTriaged={(signalId, action) => void app.onSignalTriaged(signalId, action)}
-                  onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
-                  onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
-                  onQueueItemById={(itemId) => void app.onQueueItemById(itemId)}
-                  optimisticQueuedItemIds={app.optimisticQueuedIds}
-                  onOpenAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
-                  onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
-                />
-              )}
-            </WorkspaceSurface>
-          ) : null}
-
-          {domainPage === "collect" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <CollectView
-                preview={app.preview ?? null}
-                folderName={collectTargetName}
-                mode={activeFolderMode}
-                isSaved={app.previewSaved}
-                canSavePreview={collectCanSave}
-                disabledReason={collectDisabledReason}
-                selectionMode={Boolean(snapshot?.tab.selectionMode)}
-                recentItems={activeFolder?.items ?? []}
-                processingSummary={app.processingSummary}
-                untriagedSignals={app.signals}
-                signalPreviewById={app.signalPreviewById}
-                signalTagsByItemId={app.signalTagsByItemId}
-                onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
-                onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
-                onSavePreview={() => void app.onSavePreview()}
-                onOpenPreview={app.openPreview}
-                onToggleCollectMode={() => void app.onToggleCollectMode()}
-              />
-            </WorkspaceSurface>
-          ) : null}
-
-          {domainPage === "compare" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              {activeFolder ? (
-                <CompareSetupView
-                  readyItems={app.readyCompareItems}
-                  selectedA={app.selectedCompareA}
-                  selectedB={app.selectedCompareB}
-                  teaserState={app.compareTeaserState}
-                  teaser={app.compareTeaser}
-                  onChangeA={app.setSelectedCompareA}
-                  onChangeB={app.setSelectedCompareB}
-                  onOpenResult={() => void app.onOpenCompareResult()}
-                  onReset={app.onResetCompareSelection}
-                />
-              ) : (
-                <div style={{ padding: 16, color: tokens.color.subInk, fontSize: 13, textAlign: "center" }}>
-                  Create a folder and queue posts before comparing.
-                </div>
-              )}
-            </WorkspaceSurface>
-          ) : null}
-
-          {domainPage && pageComponentKind === "product-signal" && productSignalViewModel ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <ProductSignalView
-                viewModel={productSignalViewModel}
-                exportFolders={productExportFolders}
-                onCommand={onProductSignalCommand}
-              />
             </WorkspaceSurface>
           ) : null}
 
@@ -876,17 +478,6 @@ function OpenInPageCollectorPopup({
                 onCommand={handlePrEvidenceCommand}
               />
             </WorkspaceSurface>
-          ) : null}
-
-          {domainPage === "result" ? (
-            <InPageCollectorResultWorkspace
-              app={app}
-              activeFolder={activeFolder}
-              resultItemA={resultItemA}
-              resultItemB={resultItemB}
-              attachedTopicIds={attachedTopicIds}
-              homePage={homePage}
-            />
           ) : null}
 
           {domainPage === "settings" ? (
@@ -936,14 +527,7 @@ function OpenInPageCollectorPopup({
             </div>
           ) : null}
 
-          {/* Scrollable bottom spacer — keeps the last card + action button fully
-              reachable. See POPUP_VIEWPORT_BOTTOM_PADDING for why this is an
-              element and not the scroll container's padding-bottom. */}
-          <div
-            data-workspace-popup-bottom-spacer="true"
-            aria-hidden="true"
-            style={{ height: POPUP_VIEWPORT_BOTTOM_PADDING, flexShrink: 0 }}
-          />
+          <div aria-hidden="true" style={{ height: tokens.spacing.xl, flexShrink: 0 }} />
         </div>
       </div>
     </div>
@@ -951,11 +535,4 @@ function OpenInPageCollectorPopup({
   );
 }
 
-export const inPageCollectorPopupTestables = {
-  shouldShowProcessingContextStrip,
-  workspaceMaterialForFolderMode,
-  popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
-  popupViewportHeight: POPUP_VIEWPORT_HEIGHT,
-  popupFrameRadius: POPUP_FRAME_RADIUS,
-  settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
-};
+export const inPageCollectorPopupTestables = { settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE };

@@ -14,7 +14,7 @@ import type { InlineCardEntryKey } from "../viewmodel/inline-card";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { Topic, Signal } from "../state/types";
 import { CollectionAudienceReading } from "./CollectionAudienceReading";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 import type { SessionRecord } from "../state/types";
@@ -59,7 +59,9 @@ export interface CollectionBrowserProps {
   onQueryChange: (value: string) => void;
   selectedKey: string | null;
   onSelect: (key: string | null) => void;
-  onCollect: () => void;
+  filter?: CollectionFilter;
+  onFilterChange?: (filter: CollectionFilter) => void;
+  exportRow?: ReactNode;
   onOpenWorkspace: (sessionId: string) => void;
   isLoading?: boolean;
 }
@@ -180,11 +182,13 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
 // A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
 const NO_OPENED: OpenedReadings = {};
 
-export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest, readerBackLabel, onReaderBack }: CollectionBrowserProps) {
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, filter: controlledFilter, onFilterChange, exportRow, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest, readerBackLabel, onReaderBack }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
-  const [filter,setFilter]=useState<CollectionFilter>("all");
+  const [localFilter,setLocalFilter]=useState<CollectionFilter>("all");
+  const filter = controlledFilter ?? localFilter;
+  const setFilter = onFilterChange ?? setLocalFilter;
   const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, false,{analyses:productAnalyses,signals:productSignals,settings,hasContext:productHasContext,loaded:productLoaded}), [posts, readings, opened, nowMs, productAnalyses,productSignals,settings,productHasContext,productLoaded]);
-  const filtered=buildCollectionFilters(posts,arrival,filter);
+  const filtered=buildCollectionFilters(posts,arrival,filter,sessions);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(filtered.posts, query, sort, nowMs), [posts,arrival,filter, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
@@ -217,6 +221,7 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
           </div>
         </div>
       </header>
+      {filter === "product" ? exportRow : null}
       <div style={{ minWidth: 0 }}>
         <ul ref={motion.listRef} style={{ listStyle: "none", margin: 0, padding: 0, position: "relative" }}>
           {motion.rows.map(({ post, dayLabel, postedRelative, comments, exiting }, index) => (
@@ -243,7 +248,6 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
         {!model.count ? <p role="status" style={{ ...textStyles.bodyTight, color: tokens.color.softInk, padding: `${tokens.spacing.xl}px 0`, margin: 0 }}>
           {isLoading ? "正在載入收藏…" : posts.length ? "找不到符合搜尋的收藏。" : "尚未收藏貼文。從 Threads 收集感興趣的內容後，便可在這裡閱讀。"}
         </p> : null}
-        <button type="button" data-collection-action="collect" onClick={onCollect} style={{ ...quietButton, marginTop: tokens.spacing.md }}>收集貼文</button>
       </div>
     </section>
   );

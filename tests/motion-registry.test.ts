@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import * as motionModule from "../src/ui/motion.ts";
 import { tokens } from "../src/ui/tokens.ts";
-import { readSourceFamily, readUiSourceFamily, type UiSourceFamilyName } from "./helpers/read-ui-source-family.ts";
+import { readUiSourceFamily, type UiSourceFamilyName } from "./helpers/read-ui-source-family.ts";
 
 const {
   DLENS_ATTENTION_CSS,
@@ -16,21 +16,7 @@ const {
   DLENS_KEYFRAMES_STYLE_ID,
   ensureDlensKeyframes
 } = motionModule;
-const motionTestables = motionModule as unknown as {
-  resolveMotionScrollBehavior: (matchMedia: (query: string) => { matches: boolean }) => ScrollBehavior;
-  scrollWorkspaceViewportToTop: (
-    queryRoot: { querySelector: (selector: string) => { scrollTo: (options: ScrollToOptions) => void } | null },
-    fallbackTarget: { scrollTo: (options: ScrollToOptions) => void },
-    behavior: ScrollBehavior
-  ) => "workspace" | "fallback";
-  planCausalListTransitions: (
-    previous: ReadonlyMap<string, { left: number; top: number }>,
-    current: ReadonlyMap<string, { left: number; top: number }>
-  ) => Array<{ key: string; kind: "move" | "enter"; deltaX: number; deltaY: number }>;
-};
-
 const MOTION_PATH = fileURLToPath(new URL("../src/ui/motion.ts", import.meta.url));
-const ATLAS_REACTION_MAP_PATH = fileURLToPath(new URL("../src/ui/AtlasReactionMap.tsx", import.meta.url));
 
 // Every workspace route's card/motion marker either lives in a single file
 // (no split is planned for it) or in a UI source family (facade file today,
@@ -41,19 +27,10 @@ type RouteCardSource = { kind: "file"; relativePath: string } | { kind: "family"
 
 const WORKSPACE_ROUTE_CARD_SOURCES: readonly RouteCardSource[] = [
   { kind: "file", relativePath: "../src/ui/TopicDiscourseView.tsx" },
-  { kind: "family", family: "TopicDetailView" },
-  { kind: "file", relativePath: "../src/ui/CollectView.tsx" },
-  { kind: "family", family: "LibraryView" },
-  { kind: "file", relativePath: "../src/ui/CasebookView.tsx" },
   { kind: "file", relativePath: "../src/ui/SettingsView.tsx" },
-  { kind: "file", relativePath: "../src/ui/CompareSetupView.tsx" },
-  { kind: "family", family: "CompareView" },
-  { kind: "file", relativePath: "../src/ui/TechniqueView.tsx" },
-  { kind: "family", family: "ProductSignalViews" },
-  { kind: "family", family: "PrEvidenceViews" },
-  { kind: "file", relativePath: "../src/ui/InPageCollectorResultWorkspace.tsx" }
+  { kind: "family", family: "PrEvidenceViews" }
 ];
-const SCAN_ROOTS = ["../src/ui", "../src/compare", "../src/state", "../entrypoints"]
+const SCAN_ROOTS = ["../src/ui", "../src/content", "../src/compare", "../src/state", "../entrypoints"]
   .map((rel) => fileURLToPath(new URL(rel, import.meta.url)));
 
 function walk(dir: string): string[] {
@@ -97,12 +74,6 @@ function sliceBalancedBlock(source: string, fromIndex: number): string {
   throw new Error("unbalanced braces while slicing block");
 }
 
-function productReadingCssSlice(source: string): string {
-  return [...source.matchAll(/[^{}]*\[data-product-reading-beam[^{]*\{[^}]*\}/g)]
-    .map((match) => match[0])
-    .join("");
-}
-
 test("keyframe registry names are unique (guards the dlens-success-pulse dup-name class of bug)", () => {
   const names = registryKeyframeNames();
   assert.deepEqual([...names].sort(), [...new Set(names)].sort());
@@ -137,146 +108,12 @@ test("every inline `animation:` keyframe name resolves to a registry keyframe", 
   assert.deepEqual([...missing], []);
 });
 
-test("Product Action stage keyframes enter from opposite token-owned x offsets", () => {
-  const distancePx = tokens.motion.presence.cardRisePx;
-  const directions = [
-    {
-      keyframe: "dlens-product-stage-forward-in",
-      expectedFromTransform: `translateX(${distancePx}px)`
-    },
-    {
-      keyframe: "dlens-product-stage-backward-in",
-      expectedFromTransform: `translateX(-${distancePx}px)`
-    }
-  ] as const;
-
-  for (const { keyframe, expectedFromTransform } of directions) {
-    const start = DLENS_KEYFRAMES_CSS.indexOf(`@keyframes ${keyframe}`);
-    assert.notEqual(start, -1, `expected ${keyframe} in the single motion registry`);
-    const block = sliceBalancedBlock(DLENS_KEYFRAMES_CSS, start);
-    assert.ok(block.includes(`from { transform: ${expectedFromTransform}; }`));
-    assert.ok(block.includes("to { transform: translateX(0); }"));
-  }
-
-  const source = readFileSync(MOTION_PATH, "utf8");
-  assert.match(
-    source,
-    /@keyframes dlens-product-stage-forward-in[\s\S]*?translateX\(\$\{tokens\.motion\.presence\.cardRisePx\}px\)/
-  );
-  assert.match(
-    source,
-    /@keyframes dlens-product-stage-backward-in[\s\S]*?translateX\(-\$\{tokens\.motion\.presence\.cardRisePx\}px\)/
-  );
-});
-
-test("Product Action stage direction selectors animate only when motion is preferred", () => {
-  const mediaStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: no-preference)");
-  assert.notEqual(mediaStart, -1, "expected an explicit no-preference motion gate");
-  const mediaBlock = sliceBalancedBlock(DLENS_MOTION_CSS, mediaStart);
-
-  for (const [direction, keyframe] of [
-    ["forward", "dlens-product-stage-forward-in"],
-    ["backward", "dlens-product-stage-backward-in"]
-  ] as const) {
-    const selector = `[data-dlens-control="true"] [data-product-action-stage][data-direction="${direction}"]`;
-    const selectorStart = mediaBlock.indexOf(selector);
-    assert.notEqual(selectorStart, -1, `expected ${direction} Product Action stage selector`);
-    const rule = sliceBalancedBlock(mediaBlock, selectorStart);
-    assert.ok(
-      rule.includes(
-        `animation: ${keyframe} ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance} both;`
-      )
-    );
-  }
-
-  const cssOutsideGate = DLENS_MOTION_CSS.replace(mediaBlock, "");
-  assert.doesNotMatch(cssOutsideGate, /animation:\s*dlens-product-stage-(?:forward|backward)-in/);
-
-  const source = readFileSync(MOTION_PATH, "utf8");
-  assert.match(
-    source,
-    /animation: dlens-product-stage-forward-in \$\{tokens\.motion\.duration\.slow\} \$\{tokens\.motion\.easing\.entrance\} both;/
-  );
-  assert.match(
-    source,
-    /animation: dlens-product-stage-backward-in \$\{tokens\.motion\.duration\.slow\} \$\{tokens\.motion\.easing\.entrance\} both;/
-  );
-});
-
-test("Product Action stage explicitly removes animation and transforms for reduced motion", () => {
-  const mediaStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
-  assert.notEqual(mediaStart, -1, "expected an explicit reduced-motion block");
-  const mediaBlock = sliceBalancedBlock(DLENS_MOTION_CSS, mediaStart);
-  const selector = '[data-dlens-control="true"] [data-product-action-stage]';
-  const selectorStart = mediaBlock.indexOf(selector);
-  assert.notEqual(selectorStart, -1, "expected Product Action stage reduced-motion selector");
-  const rule = sliceBalancedBlock(mediaBlock, selectorStart);
-
-  assert.match(rule, /animation:\s*none\s*!important/);
-  assert.match(rule, /transform:\s*none\s*!important/);
-});
-
-test("Product Action verdict tiles have token-owned plate and count motion with a reduced-motion fallback", () => {
-  assert.match(DLENS_MOTION_CSS, /data-verdict-filter-plate/);
-  assert.match(DLENS_MOTION_CSS, /data-verdict-tile-count/);
-
-  const plateSelector = '[data-dlens-control="true"] [data-verdict-filter-plate]';
-  const plateRule = sliceBalancedBlock(DLENS_MOTION_CSS, DLENS_MOTION_CSS.indexOf(plateSelector));
-  assert.match(plateRule, /transition:\s*transform/);
-  assert.match(plateRule, /background-color/);
-
-  const countSelector = '[data-dlens-control="true"] [data-verdict-tile-count]';
-  const countRule = sliceBalancedBlock(DLENS_MOTION_CSS, DLENS_MOTION_CSS.indexOf(countSelector));
-  assert.match(countRule, /transition:\s*transform/);
-  assert.match(DLENS_MOTION_CSS, /\[data-verdict-tile\]:hover \[data-verdict-tile-count\][^]*transform:\s*scale\(/);
-  assert.match(DLENS_MOTION_CSS, /\[data-verdict-tile\]\[aria-pressed="true"\] \[data-verdict-tile-count\][^]*transform:\s*scale\(/);
-
-  const reduceStart = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
-  const reduceBlock = sliceBalancedBlock(DLENS_MOTION_CSS, reduceStart);
-  assert.match(reduceBlock, /data-verdict-filter-plate[^]*transition:\s*none\s*!important/);
-  assert.match(reduceBlock, /data-verdict-tile-count[^]*transform:\s*none\s*!important/);
-});
-
 test("reduced-motion safety net is scoped to DLens roots and neutralises animation", () => {
   assert.match(DLENS_REDUCED_MOTION_CSS, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-duration:\s*0\.01ms\s*!important/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-iteration-count:\s*1\s*!important/);
-});
-
-test("Product Reading beam is masked to the perimeter and freezes for reduced motion", () => {
-  const productReadingCss = productReadingCssSlice(DLENS_ATTENTION_CSS);
-
-  assert.match(DLENS_ATTENTION_CSS, /\[data-product-reading-beam\]/);
-  // The ring mask is now composited with the rotating sweep window, so the
-  // perimeter-only guarantee reads as "<sweep>,exclude" rather than "exclude".
-  assert.match(productReadingCss, /mask-composite:(?:intersect,)?exclude/);
-  assert.match(productReadingCss, /-webkit-mask-composite:(?:source-in,)?xor/);
-  assert.match(productReadingCss, /pointer-events:none/);
-  assert.match(productReadingCss, /--dlens-reading-beam-angle:42deg/);
-  // The spin lives on the element, not on ::after: `--dlens-reading-beam-angle`
-  // inherits, so one animation drives both the crisp perimeter (::after) and the
-  // soft edge wash (::before). Animating it on ::after alone left ::before static.
-  assert.match(productReadingCss, /\[data-product-reading-beam="generating"\]\{[^}]*animation:dlens-product-reading-beam/);
-  assert.match(DLENS_KEYFRAMES_CSS, /@keyframes dlens-product-reading-beam/);
-  // Registered custom properties are the whole reason the beam moves at all.
-  assert.match(DLENS_PROPERTY_CSS, /@property --dlens-reading-beam-angle[^}]*syntax: "<angle>"/);
-  assert.match(DLENS_PROPERTY_CSS, /@property --dlens-reading-beam-glow[^}]*syntax: "<number>"/);
-  assert.match(DLENS_REDUCED_MOTION_CSS, /data-product-reading-beam/);
-  assert.match(DLENS_REDUCED_MOTION_CSS, /--dlens-reading-beam-angle:\s*42deg/);
-  assert.doesNotMatch(productReadingCss, /linear-gradient\(90deg[^}]*signalGlow/);
-});
-
-test("source-session motion stays under the global control-root reduced-motion wildcard", () => {
-  const cardSource = readFileSync(fileURLToPath(new URL("../src/ui/TopicSourceSessionCard.tsx", import.meta.url)), "utf8");
-  const popupSource = readFileSync(fileURLToPath(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url)), "utf8");
-
-  assert.match(cardSource, /data-topic-source-session-spinner/);
-  assert.match(cardSource, /data-topic-source-session-progress/);
-  assert.match(cardSource, /tokens\.motion\.keyframes\.(spin|indeterminate)/);
-  assert.match(popupSource, /data-dlens-control="true"/);
-  assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
 });
 
 test("active status rail motion stays under the global control-root reduced-motion wildcard", () => {
@@ -305,13 +142,7 @@ test("AI attention primitives become explicitly static under reduced motion", ()
   assert.match(componentsSource, /prefers-reduced-motion: reduce/);
   assert.match(componentsSource, /requestAnimationFrame/);
   assert.match(DLENS_ATTENTION_CSS, /dlens-popup-indeterminate/);
-  // width:100% without border-box pushed every attention surface past its frame
-  // by its own horizontal padding — the readiness panel's rounded box was clipped.
-  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam\],\[data-attention-surface="true"\]\{[^}]*box-sizing:border-box/);
-  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*display:grid/);
-  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\{[^}]*overflow:hidden/);
-  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\]\[data-attention-beam="actionable"\]::after/);
-  assert.doesNotMatch(DLENS_ATTENTION_CSS, /\[data-attention-surface="true"\][^}]*border-radius:[^}]*button/);
+  assert.match(DLENS_ATTENTION_CSS, /\[data-attention-beam\]\{[^}]*box-sizing:border-box/);
   const reduceStart = DLENS_REDUCED_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce)");
   const reduceBlock = sliceBalancedBlock(DLENS_REDUCED_MOTION_CSS, reduceStart);
   const orbSelector = '[data-dlens-control="true"] [data-searching-orb="true"]';
@@ -335,36 +166,6 @@ test("approved hover preset A gives dense actionable rows the same pronounced li
   assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:hover[\s\S]*box-shadow:[^;]*0 18px 40px/);
   assert.match(DLENS_MOTION_CSS, /\.dlens-tactile-row:active[\s\S]*translateY\(1px\) scale\(0\.995\)/);
   assert.match(DLENS_MOTION_CSS, /prefers-reduced-motion:\s*reduce[\s\S]*\.dlens-tactile-row:active[\s\S]*transform:\s*none\s*!important/);
-});
-
-test("Atlas distribution rows acknowledge hover without borrowing card lift or shadow", () => {
-  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-distribution-row\s*\{[^}]*transition:\s*background-color/);
-  assert.match(DLENS_MOTION_CSS, /\.dlens-atlas-distribution-row:hover[\s\S]*?background:\s*[^;]+;/);
-  const quietRule = DLENS_MOTION_CSS.match(/\.dlens-atlas-distribution-row:hover\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.doesNotMatch(quietRule, /transform|box-shadow/);
-});
-
-test("Atlas focus rings disable their opacity transition when reduced motion is requested", () => {
-  const source = readFileSync(ATLAS_REACTION_MAP_PATH, "utf8");
-  assert.match(
-    source,
-    /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.dlens-atlas-focus-ring\s*\{\s*transition:\s*none !important;\s*\}/
-  );
-});
-
-test("popup opening still wakes masthead, rail, then main in order", () => {
-  const popupRoot = '[data-dlens-control="true"][data-workspace-popup-material]';
-  const masthead = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-masthead="editorial"]`);
-  const rail = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-header="workspace"]`);
-  const main = DLENS_MOTION_CSS.indexOf(`${popupRoot} [data-shell-main="workspace"]`);
-
-  assert.ok(masthead >= 0);
-  assert.ok(rail > masthead);
-  assert.ok(main > rail);
-  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*0ms/);
-  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*35ms/);
-  assert.match(DLENS_MOTION_CSS, /animation-delay:\s*70ms/);
-  assert.doesNotMatch(DLENS_MOTION_CSS, /\[data-dlens-control="true"\]\s+\[data-workspace-popup-material\]/);
 });
 
 test("motion tokens carry the approved presence and bottom-rebound values", () => {
@@ -432,31 +233,6 @@ test("every workspace route family opts real cards into the shared presence gram
   );
 });
 
-test("causal list planner moves retained rows and only enters rows created by a state change", () => {
-  const plan = motionTestables.planCausalListTransitions;
-  assert.equal(typeof plan, "function");
-
-  const transitions = plan(
-    new Map([
-      ["a", { left: 12, top: 40 }],
-      ["b", { left: 12, top: 92 }]
-    ]),
-    new Map([
-      ["b", { left: 12, top: 40 }],
-      ["c", { left: 12, top: 92 }]
-    ])
-  );
-
-  assert.deepEqual(transitions, [
-    { key: "b", kind: "move", deltaX: 0, deltaY: 52 },
-    { key: "c", kind: "enter", deltaX: 0, deltaY: 0 }
-  ]);
-  assert.deepEqual(plan(new Map(), new Map([["a", { left: 0, top: 0 }]])), [
-    { key: "a", kind: "enter", deltaX: 0, deltaY: 0 }
-  ]);
-  assert.deepEqual(plan(new Map([["a", { left: 0, top: 0 }]]), new Map([["a", { left: 0, top: 0 }]])), []);
-});
-
 test("ensureDlensKeyframes injects the registry + reduced-motion exactly once per document", () => {
   const appended: Array<{ id: string; textContent: string }> = [];
   const byId = new Map<string, { id: string; textContent: string }>();
@@ -477,111 +253,9 @@ test("ensureDlensKeyframes injects the registry + reduced-motion exactly once pe
 
   assert.equal(appended.length, 1);
   assert.equal(appended[0]!.id, DLENS_KEYFRAMES_STYLE_ID);
-  assert.match(appended[0]!.textContent, /@keyframes dlens-spin/);
+  assert.match(appended[0]!.textContent, /@keyframes dlens-card-shimmer/);
   assert.match(appended[0]!.textContent, /prefers-reduced-motion:\s*reduce/);
 });
-
-test("resolveMotionScrollBehavior returns auto when reduced motion is requested", () => {
-  const resolveBehavior = motionTestables.resolveMotionScrollBehavior;
-  const queries: string[] = [];
-
-  assert.equal(typeof resolveBehavior, "function");
-  assert.equal(resolveBehavior((query) => {
-    queries.push(query);
-    return { matches: true };
-  }), "auto");
-  assert.deepEqual(queries, ["(prefers-reduced-motion: reduce)"]);
-});
-
-test("resolveMotionScrollBehavior returns smooth when reduced motion is not requested", () => {
-  const resolveBehavior = motionTestables.resolveMotionScrollBehavior;
-
-  assert.equal(typeof resolveBehavior, "function");
-  assert.equal(resolveBehavior(() => ({ matches: false })), "smooth");
-});
-
-test("scrollWorkspaceViewportToTop scrolls the DLens viewport without touching the host window", () => {
-  const scrollWorkspace = motionTestables.scrollWorkspaceViewportToTop;
-  const workspaceCalls: ScrollToOptions[] = [];
-  const fallbackCalls: ScrollToOptions[] = [];
-  const selectors: string[] = [];
-
-  assert.equal(typeof scrollWorkspace, "function");
-  const target = scrollWorkspace({
-    querySelector: (selector) => {
-      selectors.push(selector);
-      return { scrollTo: (options) => workspaceCalls.push(options) };
-    }
-  }, { scrollTo: (options) => fallbackCalls.push(options) }, "auto");
-
-  assert.equal(target, "workspace");
-  assert.deepEqual(selectors, ['[data-workspace-popup-scroll="viewport"]']);
-  assert.deepEqual(workspaceCalls, [{ top: 0, behavior: "auto" }]);
-  assert.deepEqual(fallbackCalls, []);
-});
-
-test("scrollWorkspaceViewportToTop falls back for a standalone Compare surface", () => {
-  const scrollWorkspace = motionTestables.scrollWorkspaceViewportToTop;
-  const fallbackCalls: ScrollToOptions[] = [];
-
-  assert.equal(typeof scrollWorkspace, "function");
-  const target = scrollWorkspace(
-    { querySelector: () => null },
-    { scrollTo: (options) => fallbackCalls.push(options) },
-    "smooth"
-  );
-
-  assert.equal(target, "fallback");
-  assert.deepEqual(fallbackCalls, [{ top: 0, behavior: "smooth" }]);
-});
-
-test("Compare scrolling uses the shared motion preference instead of hard-coded smooth behavior", () => {
-  const family = readUiSourceFamily("CompareView");
-  const openTechniqueMarker = 'const openTechniqueView = (side: "A" | "B") => {';
-  const owner = family.find((entry) => entry.source.includes(openTechniqueMarker));
-  assert.ok(
-    owner,
-    `expected some file in the CompareView family (${family.map((entry) => entry.relativePath).join(", ")}) to define openTechniqueView`
-  );
-
-  const start = owner!.source.indexOf(openTechniqueMarker);
-  const openTechniqueBlock = sliceBalancedBlock(owner!.source, start);
-  const familySource = family.map((entry) => entry.source).join("\n");
-
-  assert.doesNotMatch(familySource, /behavior:\s*["']smooth["']/);
-  assert.match(familySource, /resolveMotionScrollBehavior/);
-  assert.match(openTechniqueBlock, /scrollWorkspaceViewportToTop/);
-  assert.doesNotMatch(openTechniqueBlock, /window\.scrollTo/);
-});
-
-test("family reader catches a hard-coded scroll behavior hidden in a nested family sibling (RED-first proof)", () => {
-  const FIXTURE_FACADE = "tests/fixtures/ui-source-family/FacadeView.tsx";
-  const FIXTURE_SIBLING_DIR = "tests/fixtures/ui-source-family/sibling";
-  const hardcodedSmooth = /behavior:\s*["']smooth["']/;
-
-  // RED: a guard that only reads the single hardcoded facade file (the old
-  // approach this task replaces) never looks at the sibling directory, so
-  // it misses the violation planted in sibling/nested/BadScrollView.tsx.
-  const facadeOnlySource = readFileSync(
-    fileURLToPath(new URL("./fixtures/ui-source-family/FacadeView.tsx", import.meta.url)),
-    "utf8"
-  );
-  assert.doesNotMatch(
-    facadeOnlySource,
-    hardcodedSmooth,
-    "sanity check: the violation must live in the nested sibling, not the facade file itself"
-  );
-
-  // GREEN: the family reader walks the sibling directory recursively (via
-  // readSourceTree) and surfaces the violation the facade-only read missed.
-  const family = readSourceFamily(FIXTURE_FACADE, FIXTURE_SIBLING_DIR);
-  const offenders = family.filter((entry) => hardcodedSmooth.test(entry.source));
-  assert.ok(
-    offenders.some((entry) => entry.relativePath.includes("sibling/nested/")),
-    `expected the family scan to catch the nested fixture violation among: ${family.map((entry) => entry.relativePath).join(", ")}`
-  );
-});
-
 
 test("collection B owns rise, fold, glide, image and mist keyframes and current shell markers", () => {
   const names = new Set(registryKeyframeNames());

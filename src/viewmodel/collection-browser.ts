@@ -9,7 +9,10 @@ import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
 import type { OpenedReadings } from "../state/opened-readings-storage";
 import { postedAt } from "./topic-discourse";
-import { parseLibrarySearchTokens } from "./library-search";
+/** AND-combined local search tokens; leading @ matches stored author handles. */
+export function parseLibrarySearchTokens(rawQuery: string): string[] {
+  return rawQuery.trim().toLowerCase().split(/\s+/).map(token => token.replace(/^@+/, "")).filter(Boolean);
+}
 
 export interface CollectionMembership {
   sessionId: string;
@@ -258,11 +261,17 @@ export function buildCollectionArrivalModel(posts: CollectionPost[], readings: R
 }
 
 export interface CollectionProductInputs {analyses?: Record<string,ProductSignalAnalysis>; signals?:Signal[]; settings?:ExtensionSettings; hasContext?:boolean; loaded?:boolean}
-export type CollectionFilter='all'|'topic'|'product'|'reading'|'finished';
-export function buildCollectionFilters(posts:CollectionPost[], arrival:ReturnType<typeof buildCollectionArrivalModel>, selected:CollectionFilter) {
- const matches=(p:CollectionPost,key:CollectionFilter)=>key==='all' || key==='topic' || key==='product' ? key==='all' || p.memberships.some(m=>m.mode===key) : key==='reading' ? arrival.states[p.key]==='arc' : arrival.finished.some(r=>r.post.key===p.key);
- const chips=([{key:'all',label:'全部'},{key:'topic',label:'觀眾反應'},{key:'product',label:'個人應用'},{key:'reading',label:'讀緊'},{key:'finished',label:'讀完'}] as const).map(c=>({...c,count:posts.filter(p=>matches(p,c.key)).length,selected:c.key===selected}));
- return {chips,posts:posts.filter(p=>matches(p,selected))};
+export type CollectionFilter='all'|'topic'|'product'|'archive'|'reading'|'finished';
+export function buildCollectionFilters(posts: CollectionPost[], arrival: ReturnType<typeof buildCollectionArrivalModel>, selected: CollectionFilter, sessions: SessionRecord[] = []) {
+  const matches = (post: CollectionPost, key: CollectionFilter) => {
+    if (key === "all") return true;
+    if (key === "topic" || key === "product" || key === "archive") return post.memberships.some(member => member.mode === key);
+    return key === "reading" ? arrival.states[post.key] === "arc" : arrival.finished.some(row => row.post.key === post.key);
+  };
+  const options: Array<{ key: CollectionFilter; label: string }> = [{ key: "all", label: "全部" }, { key: "topic", label: "觀眾反應" }, { key: "product", label: "個人應用" }];
+  if (sessions.some(session => session.mode === "archive")) options.push({ key: "archive", label: "收藏整理" });
+  options.push({ key: "reading", label: "讀緊" }, { key: "finished", label: "讀完" });
+  return { chips: options.map(chip => ({ ...chip, count: posts.filter(post => matches(post, chip.key)).length, selected: chip.key === selected })), posts: posts.filter(post => matches(post, selected)) };
 }
 export function buildCollectionInView(posts:CollectionPost[], inView:string|null, openKey:string|null) {
  if (!inView) return null;

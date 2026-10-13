@@ -13,10 +13,9 @@ export type TriageAction =
   | { kind: "archive" }
   | { kind: "reject" };
 
-/** Signal-filter routes collapsed into one `signals` page (0.4.1): the former
- *  casebook / inbox / saved-signals / classification / actionable-filter keys
- *  are now filters inside it, not separate rail destinations. */
+/** Legacy route literals remain readable without migrating stored tabs. */
 export type MainPage =
+  | "collection"
   | "library"
   | "collect"
   | "compare"
@@ -591,8 +590,8 @@ export function createEmptyTabState(): TabUiState {
     selectionMode: false,
     collectModeBannerVisible: false,
     popupOpen: false,
-    popupPage: "library",
-    currentMainPage: "library",
+    popupPage: "collection",
+    currentMainPage: "collection",
     currentPreview: null,
     hoveredTarget: null,
     hoveredTargetStrength: null,

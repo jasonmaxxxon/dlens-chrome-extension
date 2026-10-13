@@ -1,5 +1,11 @@
 import type { ProductSignalAnalysis, ProductSignalReferenceTarget, ProductSignalReferenceType, ProductSignalType, ProductSignalVerdict } from "../state/types";
-import type { ProductSignalViewModel } from "./product-signal";
+/** Compact input shared by readers/exporters; independent of the retired Product page. */
+export interface AgentBriefSignal {
+  signalId: string;
+  analysis?: ProductSignalAnalysis;
+  sourcePreview: { displayText: string; displayUrl: string };
+  evidence?: ProductSignalEvidenceEntry[];
+}
 import type { ProductSignalEvidenceEntry } from "../compare/product-signal-analysis";
 export type AgentBriefMode = "original" | "decision";
 const SIGNAL_TYPE_LABELS: Record<ProductSignalType, string> = {
@@ -85,7 +91,7 @@ export function buildAgentBrief({
   evidenceBySignalId = {}
 }: {
   mode: AgentBriefMode;
-  selectedSignals: Array<ProductSignalViewModel | { id: string }>;
+  selectedSignals: Array<AgentBriefSignal | { id: string }>;
   analysesBySignal: Map<string, ProductSignalAnalysis>;
   signalPreviewById: Record<string, string>;
   signalUrlById: Record<string, string>;

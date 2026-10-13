@@ -28,6 +28,6 @@ void (chrome.runtime.sendMessage({ type: "sidepanel/take-workspace-open" } satis
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
-    <InPageCollectorApp embedded />
+    <InPageCollectorApp />
   </React.StrictMode>
 );

@@ -54,11 +54,7 @@ test("settings and tab-only message handlers route RMW writes through mutateSnap
     "settings/set-one-liner-config",
     "settings/set-layout-preferences",
     "popup/navigate-active-tab",
-    "selection/selected",
-    "selection/mode-changed",
-    "topic/set-collection-target",
-    "compare/set-active-draft",
-    "compare/set-active-result"
+    "topic/set-collection-target"
   ]) {
     const caseSource = extractSource(
       new RegExp(`case "${messageType.replace("/", "\\/")}":[\\s\\S]*?\\n\\s*return;`),

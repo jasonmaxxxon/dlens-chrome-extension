@@ -259,36 +259,7 @@ export async function handleTopicMessage(
         topics: await loadTopics(storageArea, topic.sessionId)
       };
     }
-    case "topic/add-pair": {
-      const topics = await readAllTopics(storageArea);
-      const topic = topics.find((entry) => entry.id === message.topicId);
-      if (!topic) {
-        throw new Error("Topic not found");
-      }
-      await saveTopic(storageArea, {
-        ...topic,
-        pairIds: Array.from(new Set([...topic.pairIds, message.resultId])),
-        updatedAt: new Date().toISOString()
-      });
-      return {
-        topics: await loadTopics(storageArea, topic.sessionId)
-      };
-    }
-    case "topic/remove-pair": {
-      const topics = await readAllTopics(storageArea);
-      const topic = topics.find((entry) => entry.id === message.topicId);
-      if (!topic) {
-        throw new Error("Topic not found");
-      }
-      await saveTopic(storageArea, {
-        ...topic,
-        pairIds: topic.pairIds.filter((pairId) => pairId !== message.resultId),
-        updatedAt: new Date().toISOString()
-      });
-      return {
-        topics: await loadTopics(storageArea, topic.sessionId)
-      };
-    }
+
     case "signal/list":
       return {
         signals: await loadSignals(storageArea, message.sessionId, message.status)
