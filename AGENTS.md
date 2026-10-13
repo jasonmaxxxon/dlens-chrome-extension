@@ -127,7 +127,14 @@ regenerating. PR-only builds expose only their existing PR domain.
   words always describe the same cluster, the largest non-noise one. Shares
   stay the backend's quant percentages and no counts are generated. A
   reading from an older `INLINE_READING_PROMPT_VERSION` is regenerated. A method or split side without a valid catalog ref is dropped;
-  a split needs exactly two sides. 大家問咩 stays the question rule plus the
+  a split needs exactly two sides. Prompt v3 keeps author replies as explanatory
+  context, never audience opinion; pure `reply-thread.ts` pairs parent ids first
+  (adjacency fallback is labelled inferred), reserves questions and author replies
+  under a 24,000-character rendered-reply budget / 200-reply safety ceiling, and
+  scans technical terms deterministically. When questions and author replies alone
+  exceed either limit, the most-liked of them are kept; size never fails a reading. Technical means 3+ distinct terms / 4+ occurrences / 2+ known
+  technical terms; only its gist may use 60 characters (general stays 40).
+  大家問咩 stays the question rule plus the
   reply chain. Without a reading the card keeps the no-AI entries
   (樣本內最高讚 / 作者回應) and says why (整理中 / 未接 AI / 失敗).
 - 展開證據 renders the replies behind the open answer in Threads' reply shape

@@ -191,7 +191,7 @@ function OpenInPageCollectorPopup({
   const readerSource = !domainPage && readingNavigation.tab === "collection"
     ? collectionAudienceSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
   const readerSessionId = readerSource?.session.id ?? null;
-  useCollectionReaderLive(readerSource);
+  useCollectionReaderLive(readerSource, readerSource ? discourseFeeds.readings[readerSource.item.id] : undefined);
   const readerTopics = useCollectionReaderTopics(readerSessionId);
   const discourseViewModel = domainPage === "topics"
     ? buildTopicDiscourseViewModel({

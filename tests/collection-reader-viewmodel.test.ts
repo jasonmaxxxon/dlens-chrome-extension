@@ -30,3 +30,16 @@ test("reader state uses the crawl estimate and actual failure reason; other mode
   sessions[0].mode = "product";
   assert.equal(buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], {}, 0), null);
 });
+
+test("a reader asks for a reading when a finished crawl has none or an older prompt's, never after a stored error", async () => {
+  const { readerNeedsReading } = await import("../src/viewmodel/collection-reader.ts");
+  const { INLINE_READING_PROMPT_VERSION } = await import("../src/compare/inline-reading.ts");
+  const { item, capture } = await import("./collection-browser.fixtures.ts");
+  const done = item("d", { status: "succeeded", latestCapture: capture({}, { analysis: { status: "succeeded", clusters: [], evidence: [] } as never }) });
+  const reading = (promptVersion: string) => ({ status: "complete", itemId: "d", captureId: "capture-1", reading: { promptVersion } }) as never;
+  assert.equal(readerNeedsReading(done, undefined), true);
+  assert.equal(readerNeedsReading(done, reading("v2")), true);
+  assert.equal(readerNeedsReading(done, reading(INLINE_READING_PROMPT_VERSION)), false);
+  assert.equal(readerNeedsReading(done, { status: "error", itemId: "d", captureId: "capture-1", error: "x" } as never), false);
+  assert.equal(readerNeedsReading(item("q", { status: "queued" }), undefined), false);
+});

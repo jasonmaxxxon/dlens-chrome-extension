@@ -11,13 +11,21 @@ export function collectionAudienceSource(post: CollectionPost | undefined, sessi
   return session && item ? { session, item } : null;
 }
 
+/** A finished crawl with no stored reading, or one from an older prompt, should be (re)generated when its reader opens.
+ * A stored error is left alone; the reader shows it with its own retry. */
+export function readerNeedsReading(item: SessionRecord["items"][number], stored: InlineReadingRecord | undefined): boolean {
+  if (item.status !== "succeeded" || item.latestCapture?.analysis?.status !== "succeeded") return false;
+  return !stored || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
+}
+
 /** Projection only: the reading and evidence remain owned by inline-card. */
 export function buildCollectionReaderModel(post: CollectionPost, sessions: SessionRecord[], topics: Topic[], signals: Signal[], readings: Record<string, InlineReadingRecord>, now: number, lens: InlineCardEntryKey | null = null) {
   const source = collectionAudienceSource(post, sessions);
   if (!source) return null;
   const { session, item } = source;
   const stored = readings[item.id];
-  const ai = stored?.status !== "complete" || stored.reading.promptVersion === INLINE_READING_PROMPT_VERSION ? stored : null;
+  // An older prompt's reading stays on screen while the reader asks for a fresh one (readerNeedsReading).
+  const ai = stored ?? null;
   const card = buildInlineCardViewModel(item, "topic", session.name, { ai, now, queue: sessions.flatMap(s => s.items) });
   const selected = card.entries.find(e => e.key === lens)?.key ?? card.entries[0]?.key ?? null;
   const ownTopics = topics.filter(t => t.sessionId === session.id);

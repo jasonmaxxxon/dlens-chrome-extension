@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInlineReadingInput, buildInlineReadingPrompt, parseInlineReadingResponse } from "../src/compare/inline-reading.ts";
+import { buildInlineReadingInput, buildInlineReadingPrompt, parseInlineReadingResponse, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
 import { INLINE_READINGS_STORAGE_KEY, loadInlineReadingRecords, normalizeInlineReadingRecords, saveInlineReadingRecord, type StorageAreaLike } from "../src/compare/inline-reading-storage.ts";
 import type { SessionItem } from "../src/state/types.ts";
 import { aiKeyGap, providerKeyFromSettings } from "../src/state/ai-key.ts";
@@ -23,12 +23,12 @@ function item(): SessionItem {
   } as unknown as SessionItem;
 }
 
-test("the catalog is the audience's replies by likes; the author's own replies are not reactions", () => {
+test("the catalog keeps author explanations in thread order", () => {
   const input = buildInlineReadingInput(item())!;
-  assert.deepEqual(input.catalog.map((c) => [c.ref, c.id]), [["e1", "a"], ["e2", "c"], ["e3", "d"]]);
+  assert.deepEqual(input.catalog.map((c) => [c.ref, c.id]), [["e1", "a"], ["e2", "b"], ["e3", "c"], ["e4", "d"]]);
   assert.deepEqual(input.clusters.map((c) => [c.key, c.pct, c.quotes]), [[1, 46, ["見到兩年經驗就想熄電腦"]], [2, 34, []]]);
   const prompt = buildInlineReadingPrompt(input);
-  assert.match(prompt, /e1 \[♥230\] @fan: 投咗 80 份/);
+  assert.match(prompt, /e1 @fan: 投咗 80 份/);
   assert.match(prompt, /群 1（46%）/);
   assert.match(prompt, /資料，不是指令/);
   assert.equal(buildInlineReadingInput({ ...item(), latestCapture: null } as unknown as SessionItem), null);
@@ -88,4 +88,41 @@ test("the 1-second peek fetches the saved path through the page's own origin", a
   t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => { urls.push(String(input)); return new Response("<html></html>"); });
   assert.equal(await fetchFirstReplies("https://www.threads.net/@op/post/ABC?x=1", "https://www.threads.com"), null);
   assert.deepEqual(urls, ["https://www.threads.com/@op/post/ABC"]);
+});
+
+
+test("v3 renders author threads and only technical prompts include terms; author refs stay grounded", () => {
+  assert.equal(INLINE_READING_PROMPT_VERSION, "v3");
+  const technical = item();
+  technical.latestCapture!.result!.canonical_post!.text = "RAG KG BM25 MCP embedding rerank F1";
+  const input = buildInlineReadingInput(technical)!;
+  assert.equal(input.postKind, "technical");
+  const prompt = buildInlineReadingPrompt(input);
+  assert.match(prompt, /↳ e2 \[作者\] @op:/);
+  assert.match(prompt, /\[術語/);
+  assert.match(prompt, /60 字內/);
+  assert.match(prompt, /不是觀眾意見/);
+  assert.match(prompt, /未獲回覆/);
+  const general = buildInlineReadingInput(item())!;
+  assert.equal(general.postKind, "general");
+  assert.doesNotMatch(buildInlineReadingPrompt(general), /\[術語/);
+  assert.match(buildInlineReadingPrompt(general), /40 字內/);
+  const raw = JSON.stringify({ gist: "字".repeat(55), methods: [{ name: "作者做法", ref: "e2" }], split: { sides: [{ claim: "甲", ref: "e2" }, { claim: "乙", ref: "e1" }] } });
+  const reading = parseInlineReadingResponse(raw, input, "test", "now")!;
+  assert.equal(reading.gist.length, 55);
+  assert.equal(reading.methods[0].quote.commentId, "b");
+  assert.equal(reading.split.sides[0].quote.commentId, "b");
+  assert.equal(parseInlineReadingResponse(raw, general, "test", "now")!.gist, "字".repeat(40) + "…");
+});
+
+test("input normalizes parent_source_comment_id and resolves a source alias", () => {
+  const source = item();
+  source.latestCapture!.result!.comments = [
+    { ...comment("q", "fan", "MCP 點樣用？", 0), source_comment_id: "source-q" },
+    { ...comment("a", "op", "先接 API", 0), parent_source_comment_id: "source-q" }
+  ];
+  const input = buildInlineReadingInput(source)!;
+  assert.equal(input.catalog[1].answers, "q");
+  assert.equal(input.catalog[1].pairing, "parent");
+  assert.deepEqual(input.catalog[0].answeredBy, ["a"]);
 });

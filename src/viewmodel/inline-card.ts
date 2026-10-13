@@ -1,3 +1,4 @@
+import { isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
 import { readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
@@ -70,7 +71,6 @@ export function awaitingAnalysis(item: SessionItem, now: number): boolean {
 // Fitted to the ingest log 2026-08-24 → 09-21 (p50 84s, p90 163s): a fixed overhead plus time per reply.
 export const estimateCrawlSeconds = (item: SessionItem) =>
   Math.round(55 + Math.min(item.descriptor.engagement?.comments ?? 0, 500) * 0.22);
-const QUESTION = /[？?]|點解|點樣|點算|有冇|係咪|會唔會|可唔可以|幾時|邊度|邊個|幾多|\b(what|why|how|when|where|who)\b/i;
 
 type Comment = CrawlComment;
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
@@ -117,7 +117,7 @@ function readThread(item: SessionItem) {
   // 作者回應: the author's replies under someone else's comment.
   const opReplies = comments.filter((c) => op && handle(c.author) === op && c.parent && byId.has(c.parent) && handle(byId.get(c.parent)!.author) !== op);
   // 大家問咩: a question rule plus the reply chain. A reply is not proof of an answer.
-  const asks = comments.filter((c) => handle(c.author) !== op && QUESTION.test(c.text)).map((c) => {
+  const asks = comments.filter((c) => handle(c.author) !== op && isReplyQuestion(c.text)).map((c) => {
     const kids = children.get(c.id) ?? [];
     const status: "author" | "other" | "none" = kids.some((k) => handle(k.author) === op) ? "author" : kids.length ? "other" : "none";
     return { c, status, reply: kids.find((k) => handle(k.author) === op) ?? kids[0] ?? null };

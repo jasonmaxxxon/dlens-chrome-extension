@@ -1,4 +1,6 @@
 import { awaitingAnalysis } from "../viewmodel/inline-card";
+import { readerNeedsReading } from "../viewmodel/collection-reader";
+import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import { useEffect, useRef, useState } from "react";
 import type { Signal, Topic } from "../state/types";
 import type { ExtensionResponse } from "../state/messages";
@@ -50,9 +52,19 @@ export function useCollectionReaderTopics(sessionId: string | null) {
 }
 
 /** Refresh the selected saved source even while another workspace owns the panel context. */
-export function useCollectionReaderLive(source: ReturnType<typeof import("../viewmodel/collection-reader").collectionAudienceSource>) {
+export function useCollectionReaderLive(source: ReturnType<typeof import("../viewmodel/collection-reader").collectionAudienceSource>, reading?: InlineReadingRecord) {
   const item = source?.item;
   const sessionId = source?.session.id;
+  // Opening a reader is enough to (re)generate its reading; the card under the post is no longer the only trigger.
+  const asked = useRef(new Set<string>());
+  const needsReading = item ? readerNeedsReading(item, reading) : false;
+  useEffect(() => {
+    if (!item || !sessionId || !needsReading) return;
+    const key = `${item.id}:${item.latestCapture?.id ?? ""}`;
+    if (asked.current.has(key)) return;
+    asked.current.add(key);
+    void sendExtensionMessage<ExtensionResponse>({ type: "inline-reading/ensure", sessionId, itemId: item.id }).catch(() => asked.current.delete(key));
+  }, [sessionId, item?.id, item?.latestCapture?.id, needsReading]);
   const analysisStatus = item?.latestCapture?.analysis?.status;
   useEffect(() => {
     if (!item || !sessionId || !(item.status === "queued" || item.status === "running" || (item.status === "succeeded" && analysisStatus !== "succeeded" && analysisStatus !== "failed"))) return;
