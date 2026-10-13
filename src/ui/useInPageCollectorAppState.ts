@@ -2177,6 +2177,11 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
 
   const compareViewSettings = effectiveSettings || createDefaultSettings();
 
+  async function onMoveAudienceItem(sessionId: string, itemId: string) {
+    const response = await sendAndSync({ type: "session/move-to-product", sessionId, itemId });
+    if (!response.ok) throw new Error(response.error);
+  }
+
   async function onCreateWorkspace(name: string, mode: FolderMode) {
     return sendAndSync({ type: "session/create", name: name.trim(), mode });
   }
@@ -3234,6 +3239,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync, embed
     onProcessAll,
     onSetActiveSession,
     onCreateWorkspace,
+    onMoveAudienceItem,
     onSelectItem,
     onSaveSettings,
     onSaveAndTestAi,

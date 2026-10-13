@@ -71,6 +71,7 @@ export type ExtensionMessagePayload =
   | { type: "pipeline-trace/enable-background" }
   | { type: "pipeline-trace/background-event"; event: PipelineTraceEntry }
   | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode; descriptor?: TargetDescriptor }
+  | { type: "session/move-to-product"; sessionId: string; itemId: string }
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }

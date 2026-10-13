@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { renderToStaticMarkup } from "react-dom/server";
 import { JSDOM } from "jsdom";
 import React from "react";
 import { act } from "react";
@@ -10,7 +11,7 @@ const post = (author: string, text: string, inView = false) => ({ signalId: `s-$
 const vm: TopicDiscourseViewModel = {
   postCount: 5, topicCount: 2,
   chips: [{ id: "t1", name: "AI 工具額度", count: 4, selected: true }, { id: "t2", name: "香港拍拖", count: 0, selected: false }],
-  inbox: [{ signalId: "s-anna", author: "anna", text: "香港有咩調情好地方？", meta: "19h · 85 則留言", inView: false }],
+  inbox: [{ signalId: "s-anna", author: "anna", text: "香港有咩調情好地方？", meta: "19h · 85 則留言", inView: false, suggestion: { topicId: "t1", name: "AI 工具額度", reason: "都提到 Codex" } }],
   picks: [{ id: "t1", name: "AI 工具額度" }, { id: "t2", name: "香港拍拖" }],
   topic: {
     id: "t1", name: "AI 工具額度", coverage: "4 篇貼文 · 已抓留言 40 則 · 更新 10:38",
@@ -55,6 +56,25 @@ test("the 觀眾反應 view leads with 話題, 未分流, 畫面上, 發現 and 
       { kind: "open-atlas", topicId: "t1" }
     ]);
 
+    const suggested = host.querySelector<HTMLButtonElement>("[data-discourse-suggestion]")!;
+    assert.equal(suggested.textContent, "建議：〈AI 工具額度〉✓");
+    assert.match(host.querySelector("[data-discourse-inbox-row]")!.textContent!, /都提到 Codex/);
+    await act(async () => suggested.click());
+    assert.deepEqual(commands.at(-1), { kind: "assign", signalId: "s-anna", topicId: "t1" });
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-discourse-new-topic]")!.click());
+    for (const [selector, value] of [["[data-discourse-new-topic-name]", "Codex"], ["[data-discourse-research-question]", "額度夠唔夠？"]]) {
+      const field = host.querySelector<HTMLInputElement>(selector)!;
+      assert.ok(field);
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(field, value);
+        field.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      });
+    }
+    await act(async () => host.querySelector<HTMLFormElement>("[data-discourse-topic-form]")!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })));
+    assert.deepEqual(commands.at(-1), { kind: "create-topic", name: "Codex", researchQuestion: "額度夠唔夠？" });
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-discourse-move]")!.click());
+    assert.deepEqual(commands.at(-1), { kind: "move-product", signalId: "s-anna" });
+
     assert.equal(host.querySelector('[data-discourse-frame="grok"] a'), null);
     await act(async () => host.querySelector<HTMLButtonElement>('[data-discourse-frame="grok"] button')!.click());
     assert.equal(host.querySelector('[data-discourse-frame="grok"] a')!.getAttribute("href"), "https://www.threads.com/@grok_fan/post/x", "a 講法 opens to its posts, each linking to Threads");
@@ -65,4 +85,13 @@ test("the 觀眾反應 view leads with 話題, 未分流, 畫面上, 發現 and 
     Object.assign(globalThis, previous);
     dom.window.close();
   }
+});
+
+test("zero topics shows the three-step guide and both create fields", () => {
+  const html = renderToStaticMarkup(<TopicDiscourseView viewModel={{ ...vm, topicCount: 0, chips: [], picks: [], inbox: [], topic: null }} onCommand={() => {}} />);
+  assert.match(html, /① 建話題/);
+  assert.match(html, /② 放帖子入去/);
+  assert.match(html, /③ 睇講法同發現/);
+  assert.match(html, /data-discourse-research-question/);
+  assert.match(html, /data-discourse-new-topic-name/);
 });

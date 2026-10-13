@@ -8,7 +8,7 @@ export type TopicStatus = "pending" | "watching" | "learning" | "testing" | "arc
 export type SignalSource = "threads" | "manual";
 export type SignalInboxStatus = "unprocessed" | "assigned" | "archived" | "rejected";
 export type TriageAction =
-  | { kind: "assign"; topicId: string }
+  | { kind: "assign"; topicId: string | null }
   | { kind: "create-topic"; name: string; description?: string }
   | { kind: "archive" }
   | { kind: "reject" };

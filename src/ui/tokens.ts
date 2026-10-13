@@ -30,6 +30,7 @@ const WORKSPACE_GLASS = {
 
 export const tokens = {
   collection: {
+    modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
     headerHeight: 48, logoSize: 21, tabWidth: 54, tabGap: 18, searchHeight: 36,
     thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,

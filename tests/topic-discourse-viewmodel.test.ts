@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCardTopicLine, buildTopicDiscourseViewModel, frameOf, postedAt } from "../src/viewmodel/topic-discourse.ts";
+import { suggestTopic, buildCardTopicLine, buildTopicDiscourseViewModel, frameOf, postedAt } from "../src/viewmodel/topic-discourse.ts";
 import type { SessionItem, Signal, Topic } from "../src/state/types.ts";
 
 const NOW = Date.parse("2026-10-08T12:00:00+08:00");
@@ -80,4 +80,17 @@ test("the card line offers recent topics for an unsorted post and names the 講�
   assert.deepEqual(buildCardTopicLine("f", topics, signals, items), { kind: "unassigned", signalId: "sf", picks: [{ id: "t1", name: "AI 工具額度" }, { id: "t2", name: "香港拍拖" }] });
   assert.deepEqual(buildCardTopicLine("a", topics, signals, items), { kind: "assigned", topicId: "t1", topicName: "AI 工具額度", frameName: "reset / 額度", count: 5 });
   assert.equal(buildCardTopicLine("zzz", topics, signals, items), null);
+});
+
+ test("topic suggestion uses literal overlap, reports the shared word, and ignores weak matches", () => {
+  const candidate = item("new", { author: "fan", text: "Codex 額度夠唔夠用", daysAgo: 0, likes: 0 });
+  const named = topic("codex", "Codex 使用");
+  assert.equal(suggestTopic(candidate, [named], [], [])?.reason, "都提到 Codex");
+  assert.equal(suggestTopic(candidate, [topic("other", "香港拍拖")], [], []), null);
+  candidate.descriptor.text_snippet = "AI";
+  assert.equal(suggestTopic(candidate, [topic("weak", "AI 工具")], [], []), null);
+  candidate.descriptor.text_snippet = "Codex";
+  assert.equal(suggestTopic(candidate, [{ ...named, name: "工具", context: { researchQuestion: "Codex 點用？" } }], [], [])?.topicId, "codex");
+  assert.equal(suggestTopic(candidate, [topic("t1", "工具")], signals, items) ?? null, null);
+  assert.equal(suggestTopic(candidate, [topic("t1", "工具")], [signal("sa", "a", "t1")], [item("a", { author: "fan", text: "", daysAgo: 0, likes: 0, keywords: [["Codex"]] })])?.topicId, "t1");
 });

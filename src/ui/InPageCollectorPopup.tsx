@@ -1,3 +1,6 @@
+import { collectionAudienceSource } from "../viewmodel/collection-reader";
+import { useCollectionReaderTopics, useCollectionReaderLive } from "./useCollectionReaderTopics";
+import { buildCollectionPosts } from "../viewmodel/collection-browser";
 import {
   useEffect,
   useLayoutEffect,
@@ -182,7 +185,12 @@ function OpenInPageCollectorPopup({
   const workspaceGlass = tokens.material.workspaceGlass;
   // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
   const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
-  const discourseFeeds = useDiscourseFeeds(domainPage === "topics");
+  const discourseFeeds = useDiscourseFeeds(domainPage === "topics" || readingNavigation.tab === "collection");
+  const readerSource = !domainPage && readingNavigation.tab === "collection"
+    ? collectionAudienceSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
+  const readerSessionId = readerSource?.session.id ?? null;
+  useCollectionReaderLive(readerSource);
+  const readerTopics = useCollectionReaderTopics(readerSessionId);
   const discourseViewModel = domainPage === "topics"
     ? buildTopicDiscourseViewModel({
         topics: app.topics,
@@ -197,7 +205,11 @@ function OpenInPageCollectorPopup({
   function onDiscourseCommand(command: TopicDiscourseCommand) {
     if (command.kind === "select-topic") setDiscourseTopicId(command.topicId);
     else if (command.kind === "assign") void app.onSignalTriaged(command.signalId, { kind: "assign", topicId: command.topicId });
-    else if (command.kind === "create-topic") void (command.signalId ? app.onSignalTriaged(command.signalId, { kind: "create-topic", name: command.name }) : app.onCreateTopicNamed(command.name));
+    else if (command.kind === "create-topic") void app.onCreateTopicNamed(command.name, command.researchQuestion).catch(e => setNavigationError(e instanceof Error ? e.message : "建立話題失敗"));
+    else if (command.kind === "move-product") {
+      const signal = app.signals.find(s => s.id === command.signalId);
+      if (signal?.itemId) void app.onMoveAudienceItem(signal.sessionId, signal.itemId).catch(e => setNavigationError(e instanceof Error ? e.message : "搬移失敗"));
+    }
     else if (command.kind === "open-atlas") void app.onNavigateToTopic(command.topicId);
     else void app.onDeleteTopic(command.topicId);
   }
@@ -625,9 +637,10 @@ function OpenInPageCollectorPopup({
             }}
             diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
+            {readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey }))}

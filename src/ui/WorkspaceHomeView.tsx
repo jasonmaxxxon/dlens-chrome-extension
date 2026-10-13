@@ -1,10 +1,11 @@
+import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { DEFAULT_SESSION_NAME_BY_MODE, getSessionDisplayName } from "../state/store-helpers";
 import type { FolderMode, SessionRecord } from "../state/types";
 import { MoreHorizontal } from "lucide-react";
 import { buildWorkspaceCards } from "../viewmodel/collection-browser";
 import { CollectionThumbnail } from "./CollectionBrowser";
-import { getModeTheme, textStyles, tokens } from "./tokens";
+import { textStyles, tokens } from "./tokens";
 
 interface WorkspaceHomeViewProps {
   sessions: SessionRecord[];
@@ -198,7 +199,7 @@ export function WorkspaceHomeView({ sessions, nowMs = 0, activeSessionId, onOpen
               onClick={(event) => { if (!(event.target as Element).closest("button, summary, details")) void openWorkspace(session.id); }}
               style={{ cursor: disabled ? "default" : "pointer",  "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.section, border: `1px solid ${tokens.collection.hairline}`, borderRadius: tokens.radius.cardLg, background: tokens.color.surface } as CSSProperties}>
               <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm }}>
-                <span aria-hidden="true" style={{ width: tokens.collection.dotSize, height: tokens.collection.dotSize, borderRadius: tokens.radius.round, background: getModeTheme(session.mode).accent, flexShrink: 0 }} />
+                <WorkspaceModeIcon mode={session.mode} />
                 <button type="button" data-workspace-session={session.id} aria-current={session.id === activeSessionId ? "true" : undefined}
                   disabled={disabled} onClick={() => void openWorkspace(session.id)}
                   style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, fontWeight: 600, flex: 1, minWidth: 0, textAlign: "left", padding: 0, border: 0, background: "transparent", color: tokens.color.ink, cursor: disabled ? "default" : "pointer", overflowWrap: "anywhere" }}>

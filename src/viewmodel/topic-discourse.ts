@@ -12,6 +12,25 @@ export const DISCOURSE_MIN_POSTS = 3;
 const WEEK_MS = 7 * 24 * 3600_000;
 const QUESTION = /[？?]|點解|點樣|點算|有冇|係咪|會唔會|可唔可以|幾時|邊度|邊個|幾多/;
 
+export interface TopicSuggestion { topicId: string; name: string; reason: string }
+const suggestionWords = (text: string): string[] => [...new Set((text.match(/[a-z][a-z0-9_+-]{2,}|[\u3400-\u9fff]{2,}/gi) ?? []).flatMap(word =>
+  /^[a-z]/i.test(word) ? [word] : Array.from({ length: word.length - 1 }, (_, i) => word.slice(i, i + 2))))];
+/** One substantive Latin word or two CJK bigrams; short generic words never suggest a topic. */
+export function suggestTopic(item: SessionItem, topics: Topic[], signals: Signal[], items: SessionItem[]): TopicSuggestion | null {
+  const rootText = item.latestCapture?.result?.canonical_post?.text;
+  const source = new Set(suggestionWords([item.descriptor.text_snippet ?? "", typeof rootText === "string" ? rootText : ""].join(" ")).map(w => w.toLowerCase()));
+  const candidates = topics.map(topic => {
+    const ids = new Set(signals.filter(s => s.sessionId === topic.sessionId && s.topicId === topic.id).map(s => s.itemId));
+    const keywords = items.filter(i => i.id !== item.id && ids.has(i.id)).flatMap(i => (i.latestCapture?.analysis?.clusters ?? []).flatMap(c => c.keywords));
+    const words = suggestionWords([topic.name, topic.context?.researchQuestion ?? "", ...keywords].join(" "));
+    const hits = [...new Map(words.filter(w => source.has(w.toLowerCase())).map(w => [w.toLowerCase(), w])).values()];
+    const score = hits.reduce((n, w) => n + (/^[a-z]/i.test(w) && w.length >= 4 ? 2 : 1), 0);
+    return { topic, hits, score };
+  }).filter(c => c.score >= 2).sort((a, b) => b.score - a.score || b.topic.updatedAt.localeCompare(a.topic.updatedAt) || a.topic.id.localeCompare(b.topic.id));
+  const best = candidates[0];
+  return best ? { topicId: best.topic.id, name: best.topic.name, reason: `都提到 ${best.hits.join("、")}` } : null;
+}
+
 export interface DiscoursePost {
   signalId: string;
   itemId: string;
@@ -41,7 +60,7 @@ export type DiscourseInView =
   | { kind: "elsewhere"; author: string; topicName: string }
   | { kind: "unassigned"; author: string; signalId: string }
   | null;
-export interface DiscourseInboxRow { signalId: string; author: string; text: string; meta: string; inView: boolean }
+export interface DiscourseInboxRow { signalId: string; author: string; text: string; meta: string; inView: boolean; suggestion?: TopicSuggestion | null }
 export interface TopicDiscourseViewModel {
   postCount: number;
   topicCount: number;
@@ -52,6 +71,7 @@ export interface TopicDiscourseViewModel {
   topic: null | {
     id: string;
     name: string;
+    researchQuestion?: string;
     coverage: string;
     inView: DiscourseInView;
     findings: DiscourseFinding[];
@@ -136,7 +156,7 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
     const item = itemById.get(signal.itemId!)!;
     const post = toPost(signal, item, input.inViewPostKey);
     const comments = item.descriptor.engagement?.comments;
-    return { signalId: signal.id, author: post.author, text: post.text, inView: post.inView, meta: [str(item.descriptor.time_token_hint), typeof comments === "number" ? `${comments} 則留言` : ""].filter(Boolean).join(" · ") };
+    return { suggestion: suggestTopic(item, topics, live, input.items), signalId: signal.id, author: post.author, text: post.text, inView: post.inView, meta: [str(item.descriptor.time_token_hint), typeof comments === "number" ? `${comments} 則留言` : ""].filter(Boolean).join(" · ") };
   });
 
   const vm: TopicDiscourseViewModel = {
@@ -190,6 +210,7 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   vm.topic = {
     id: topic.id,
     name: topic.name,
+    researchQuestion: topic.context?.researchQuestion,
     coverage: [`${posts.length} 篇貼文`, `已抓留言 ${comments} 則`, updated ? `更新 ${hhmm(updated)}` : ""].filter(Boolean).join(" · "),
     inView,
     findings: frames && frames.length >= 2 ? buildFindings(frames, posts.map((row) => ({ item: row.item, post: row.post, frameKey: row.frame?.key ?? null })), input.now) : [],

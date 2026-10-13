@@ -247,3 +247,8 @@ test("the whole workspace card opens it once, while its menu keeps its own click
     assert.deepEqual(opened, ["one", "one"], "purpose text and name each open once; the ⋯ menu opens nothing");
   });
 });
+
+test("workspace cards render the wheel's icon for each mode", () => {
+  const html = renderToStaticMarkup(<WorkspaceHomeView sessions={(["topic", "product", "pr-evidence", "archive"] as const).map(mode => ({ id: mode, name: mode, mode, createdAt: "", updatedAt: "", items: [] }))} activeSessionId={null} onOpen={() => {}} onCreate={() => {}} />);
+  for (const name of ["compass", "box", "shield", "archive"]) assert.match(html, new RegExp(`lucide-${name}`));
+});

@@ -1,3 +1,4 @@
+import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { avatarGradient, modeThemes, tokens } from "./tokens";
 import type { DiscourseFinding, DiscourseFrame, DiscoursePost, TopicDiscourseViewModel } from "../viewmodel/topic-discourse";
@@ -5,7 +6,8 @@ import type { DiscourseFinding, DiscourseFrame, DiscoursePost, TopicDiscourseVie
 export type TopicDiscourseCommand =
   | { kind: "select-topic"; topicId: string }
   | { kind: "assign"; signalId: string; topicId: string }
-  | { kind: "create-topic"; name: string; signalId?: string }
+  | { kind: "create-topic"; name: string; researchQuestion: string }
+  | { kind: "move-product"; signalId: string }
   | { kind: "open-atlas"; topicId: string }
   | { kind: "delete-topic"; topicId: string };
 
@@ -42,16 +44,19 @@ function PostRow({ post }: { post: DiscoursePost }) {
   );
 }
 
-function NewTopic({ onCreate, label = "＋ 新話題" }: { onCreate: (name: string) => void; label?: string }) {
-  const [editing, setEditing] = useState(false);
+function NewTopic({ onCreate, label = "＋ 新話題", initiallyOpen = false }: { onCreate: (name: string, question: string) => void; label?: string; initiallyOpen?: boolean }) {
+  const [editing, setEditing] = useState(initiallyOpen);
   const [name, setName] = useState("");
-  if (!editing) return <button type="button" data-discourse-new-topic="true" style={{ ...pill(false), background: "none", boxShadow: `inset 0 0 0 1px ${tokens.color.line}`, color: d.soft }} onClick={() => setEditing(true)}>{label}</button>;
-  const submit = () => { const value = name.trim(); if (value) onCreate(value); setEditing(false); setName(""); };
-  return (
-    <input autoFocus data-discourse-new-topic-name="true" value={name} placeholder="話題名稱，Enter 確認" aria-label="新話題名稱" onChange={(event) => setName(event.target.value)}
-      onKeyDown={(event) => { if (event.key === "Enter") submit(); if (event.key === "Escape") setEditing(false); }} onBlur={submit}
-      style={{ padding: "4px 10px", borderRadius: 999, border: `1px solid ${tokens.color.line}`, font: "inherit", fontSize: 12, minWidth: 150 }} />
-  );
+  const [question, setQuestion] = useState("");
+  if (!editing) return <button type="button" data-discourse-new-topic="true" style={pill(false)} onClick={() => setEditing(true)}>{label}</button>;
+  const field: CSSProperties = { ...pill(false), border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, minWidth: 0, width: "100%", boxSizing: "border-box", cursor: "text" };
+  return <form data-discourse-topic-form="" style={{ display: "grid", gap: d.gap, width: "100%" }} onSubmit={event => {
+    event.preventDefault(); if (!name.trim()) return; onCreate(name.trim(), question.trim()); setEditing(false); setName(""); setQuestion("");
+  }}>
+    <label>名稱<input autoFocus required maxLength={80} data-discourse-new-topic-name="" aria-label="新話題名稱" value={name} onChange={e => setName(e.target.value)} style={field} /></label>
+    <label>研究問題（可選）<input maxLength={240} data-discourse-research-question="" aria-label="研究問題（可選）" value={question} onChange={e => setQuestion(e.target.value)} style={field} /></label>
+    <div><button type="submit" style={pill(true)}>建立</button> <button type="button" style={pill(false)} onClick={() => setEditing(false)}>取消</button></div>
+  </form>;
 }
 
 function Finding({ finding, onOpenFrame }: { finding: DiscourseFinding; onOpenFrame: (key: string) => void }) {
@@ -125,25 +130,32 @@ function FrameRow({ frame, open, onToggle }: { frame: DiscourseFrame; open: bool
 
 /** 工作區 › 觀眾反應: 話題 → 講法 → 發現, with the 未分流 posts sorted by hand. */
 export function TopicDiscourseView({ viewModel: vm, onCommand }: { viewModel: TopicDiscourseViewModel; onCommand: (command: TopicDiscourseCommand) => void }) {
-  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(!vm.topicCount);
   const [openFrame, setOpenFrame] = useState<string | null>(null);
   const topic = vm.topic;
-  const picks = (signalId: string) => (
+  const picks = (signalId: string, suggestion = vm.inbox.find(row => row.signalId === signalId)?.suggestion) => (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0 0 32px" }}>
-      {vm.picks.map((p) => <button type="button" key={p.id} data-discourse-assign={p.id} onClick={() => onCommand({ kind: "assign", signalId, topicId: p.id })} style={{ border: 0, padding: d.pickPad, borderRadius: 999, fontSize: 12, cursor: "pointer", background: tokens.color.cyanSoft, color: acc }}>{p.name}</button>)}
-      <NewTopic onCreate={(name) => onCommand({ kind: "create-topic", name, signalId })} />
+      {suggestion ? <button type="button" data-discourse-suggestion={suggestion.topicId} onClick={() => onCommand({ kind: "assign", signalId, topicId: suggestion.topicId })} style={pill(false)}>建議：〈{suggestion.name}〉✓</button> : null}
+      {vm.picks.filter(p => p.id !== suggestion?.topicId).map((p) => <button type="button" key={p.id} data-discourse-assign={p.id} onClick={() => onCommand({ kind: "assign", signalId, topicId: p.id })} style={{ border: 0, padding: d.pickPad, borderRadius: 999, fontSize: 12, cursor: "pointer", background: tokens.color.cyanSoft, color: acc }}>{p.name}</button>)}
+      <button type="button" data-discourse-move={signalId} style={pill(false)} onClick={() => onCommand({ kind: "move-product", signalId })}>移去 個人應用</button>
+      {suggestion ? <small style={{ color: d.soft }}>{suggestion.reason} · 字詞重疊，無 AI</small> : null}
     </div>
   );
   return (
     <div data-topic-discourse="true" style={{ padding: `4px ${d.pad - 4}px 28px`, fontFamily: tokens.font.sans, fontSize: d.bodyFont, color: tokens.color.ink }}>
-      <div style={{ display: "flex", justifyContent: "flex-end", fontSize: d.smallFont, color: d.soft, fontVariantNumeric: "tabular-nums" }}>{vm.postCount} 篇 · {vm.topicCount} 話題</div>
+      <header style={{ display: "flex", alignItems: "center", gap: d.gap }}><WorkspaceModeIcon mode="topic" /><b>觀眾反應</b></header>
+      {!vm.topicCount ? <div data-discourse-guide="" style={{ ...card, padding: d.pad, marginTop: d.gap }}>
+        <p>① 建話題：名稱 + 你想答嘅問題（研究問題，可選）</p>
+        <p>② 放帖子入去：轉盤外圈，或者下面未分流</p>
+        <p>③ 睇講法同發現</p>
+      </div> : null}
       <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 6 }}>
         {vm.chips.map((chip) => (
           <button type="button" role="tab" aria-selected={chip.selected} key={chip.id} data-discourse-topic={chip.id} onClick={() => onCommand({ kind: "select-topic", topicId: chip.id })} style={pill(chip.selected)}>
             {chip.name}<em style={{ fontStyle: "normal", marginLeft: 6, color: chip.selected ? d.chipCountOn : d.soft, fontVariantNumeric: "tabular-nums" }}>{chip.count}</em>
           </button>
         ))}
-        <NewTopic onCreate={(name) => onCommand({ kind: "create-topic", name })} />
+        <NewTopic initiallyOpen={!vm.topicCount} onCreate={(name, researchQuestion) => onCommand({ kind: "create-topic", name, researchQuestion })} />
       </div>
 
       {vm.inbox.length ? (
@@ -172,6 +184,7 @@ export function TopicDiscourseView({ viewModel: vm, onCommand }: { viewModel: To
         <>
           <div style={{ marginTop: 20 }}>
             <h2 style={{ margin: 0, font: `700 ${d.titleFont}px/1.3 ${tokens.font.serifCjk}`, letterSpacing: ".01em" }}>{topic.name}</h2>
+            {topic.researchQuestion ? <p data-discourse-question="" style={{ fontSize: d.smallFont, color: d.soft }}>研究問題：{topic.researchQuestion}</p> : null}
             <div style={{ marginTop: 4, fontSize: d.smallFont, color: d.soft, fontVariantNumeric: "tabular-nums" }}>{topic.coverage}</div>
           </div>
           {topic.inView ? (
@@ -220,9 +233,7 @@ export function TopicDiscourseView({ viewModel: vm, onCommand }: { viewModel: To
             </span>
           </div>
         </>
-      ) : (
-        <p style={{ margin: "18px 2px 0", fontSize: 12.5, color: d.soft }}>未有話題。喺上面「＋ 新話題」建一個，再把未分流嘅帖子放入去。</p>
-      )}
+      ) : null}
     </div>
   );
 }

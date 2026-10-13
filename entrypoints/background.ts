@@ -158,6 +158,7 @@ import {
   expireStaleInFlightItems,
   getActiveSession,
   getSessionById,
+  getPostIdentity,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
@@ -2916,6 +2917,40 @@ export default defineBackground(() => {
                 run: () => collectInline(tabId, message)
               });
             sendResponse({ ok: true, tabId, ...result } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/move-to-product": {
+            const tabId = await resolveTabId(sender);
+            const snapshot = await mutateSnapshot(tabId, async current => {
+              if (IS_PR_ONLY_BUILD) throw new Error("此版本未提供個人應用。");
+              const source = current.global.sessions.find(s => s.id === message.sessionId);
+              const item = source?.items.find(i => i.id === message.itemId);
+              if (!source || source.mode !== "topic" || !item) throw new Error("Saved audience post not found.");
+              const destination = current.global.sessions.find(s => s.mode === "product")
+                ?? createSessionRecord(INLINE_COLLECT_MODE_NAMES.product, new Date().toISOString(), "product");
+              if (destination.items.some(i => i.id === item.id || getPostIdentity(i.descriptor.post_url) === getPostIdentity(item.descriptor.post_url))) throw new Error("呢篇已喺個人應用，未有搬移。");
+              // Reuse signal cleanup seams; preserve the saved item and its crawl identity.
+              for (const signal of await loadSignals(chrome.storage.local, source.id)) {
+                if (signal.itemId === item.id) await deleteSignalStorageRecords(chrome.storage.local, signal.id);
+              }
+              await clearFolderSynthesis(chrome.storage.local, destination.id);
+              const now = new Date().toISOString();
+              const remaining = source.items.filter(i => i.id !== item.id);
+              const moved = { ...destination, items: [...destination.items, item], updatedAt: now };
+              const base = removeSessionItem(current.global, source.id, item.id).sessions;
+              // An existing 個人應用 keeps its place in the workspace list.
+              const sessions = base.some(s => s.id === destination.id) ? base.map(s => (s.id === destination.id ? moved : s)) : [...base, moved];
+              const movingSelected = current.global.activeSessionId === source.id && current.tab.activeItemId === item.id;
+              const nextActiveItemId = movingSelected ? ensureActiveItemId({ ...source, items: remaining }, null) : current.tab.activeItemId;
+              invalidateInlineCollectUndo(item.descriptor);
+              return { global: { ...current.global, sessions, updatedAt: now }, tab: {
+                ...current.tab,
+                activeItemId: nextActiveItemId,
+                currentPreview: movingSelected ? remaining.find(i => i.id === nextActiveItemId)?.descriptor ?? current.tab.hoveredTarget : current.tab.currentPreview,
+                lastSavedToast: null
+              } };
+            });
+            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
           case "session/create": {

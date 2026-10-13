@@ -624,14 +624,16 @@ export function useTopicState({
   }
 
   /** Create a topic from a typed name (the discourse view's inline field), without the prompt dialogs. */
-  async function onCreateTopicNamed(name: string) {
+  async function onCreateTopicNamed(name: string, researchQuestion = "") {
     if (!activeFolder || !name.trim()) return;
     const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
       type: "topic/create",
       sessionId: activeFolder.id,
-      name: name.trim()
+      name: name.trim(),
+      context: { researchQuestion: researchQuestion.trim() }
     });
-    if (response.ok) setTopics(response.topics ?? topics);
+    if (!response.ok) throw new Error(response.error);
+    setTopics(response.topics ?? topics);
   }
 
   function onSelectTopicTarget(topicId: string | null) {

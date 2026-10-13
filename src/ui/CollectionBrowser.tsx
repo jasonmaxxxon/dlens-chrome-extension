@@ -1,3 +1,8 @@
+import { buildCollectionReaderModel } from "../viewmodel/collection-reader";
+import type { InlineCardEntryKey } from "../viewmodel/inline-card";
+import type { InlineReadingRecord } from "../compare/inline-reading-storage";
+import type { Topic, Signal } from "../state/types";
+import { CollectionAudienceReading } from "./CollectionAudienceReading";
 import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
@@ -9,6 +14,11 @@ import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
+  assignmentPending?: boolean;
+  topics?: Topic[];
+  signals?: Signal[];
+  readings?: Record<string, InlineReadingRecord>;
+  onAssignTopic?: (signalId: string, topicId: string | null) => void;
   query: string;
   sort?: CollectionSort;
   onSortChange?: (sort: CollectionSort) => void;
@@ -67,9 +77,12 @@ export function CollectionThumbnail({ post, miniature = false }: { post: Collect
   </span>;
 }
 
-function CollectionReader({ post, onBack, onOpenWorkspace }: {
+function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending }: Pick<CollectionBrowserProps, "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
   post: CollectionPost; onBack: () => void; onOpenWorkspace: CollectionBrowserProps["onOpenWorkspace"];
 }) {
+  const [lens, setLens] = useState<InlineCardEntryKey | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const reading = buildCollectionReaderModel(post, sessions, topics, signals, readings, nowMs, lens);
   const workspaces = [...new Map(post.memberships.map((membership) => [membership.sessionId, membership])).values()];
   return (
     <section data-collection-browser="reader" aria-label="收藏原文" style={rootStyle}>
@@ -95,6 +108,7 @@ function CollectionReader({ post, onBack, onOpenWorkspace }: {
         <div data-collection-reader-body="" style={{ ...textStyles.body, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: tokens.color.ink }}>
           {post.body || "沒有已保存的原文文字。"}
         </div>
+        {reading ? <CollectionAudienceReading assignmentPending={assignmentPending} model={reading} evidenceOpen={evidenceOpen} onEvidence={() => setEvidenceOpen(open => !open)} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
         {post.captureLimit ? <p style={{ ...textStyles.meta, color: tokens.color.softInk, marginTop: tokens.spacing.lg }}>{post.captureLimit}</p> : null}
         <details style={{ borderTop: `1px solid ${tokens.color.line}`, marginTop: tokens.spacing.xl, paddingTop: tokens.spacing.md }}>
           <summary style={{ ...textStyles.meta, color: tokens.color.softInk, cursor: "pointer", padding: tokens.spacing.sm }}>詳情</summary>
@@ -122,12 +136,12 @@ function CollectionReader({ post, onBack, onOpenWorkspace }: {
 }
 
 /** Controlled source browsing: the shell owns query/selection across close and tab changes. */
-export function CollectionBrowser({ sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false }: CollectionBrowserProps) {
+export function CollectionBrowser({ sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(posts, query, sort, nowMs), [posts, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  if (selected) return <CollectionReader key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} />;
+  if (selected) return <CollectionReader assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} />;
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>

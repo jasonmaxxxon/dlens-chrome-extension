@@ -1363,7 +1363,7 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
     onNavigate: async (page) => { navCalls.push(page); }
   });
   const createdNames: string[] = [];
-  app.onCreateTopicNamed = (name: string) => { createdNames.push(name); };
+  app.onCreateTopicNamed = async (name: string) => { createdNames.push(name); };
   try {
     await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
     const shell = host.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
@@ -1406,17 +1406,14 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
     await act(async () => row.click());
     assert.deepEqual(openCalls, [topicSession.id]);
     assert.deepEqual(navCalls, ["topics"]);
-    // 觀眾反應 home is the discourse view (side panel A): ＋ 新話題 names the topic in place, no prompt dialog.
-    const createButton = host.querySelector<HTMLButtonElement>('[data-discourse-new-topic="true"]');
-    assert.ok(createButton, "the selected workspace renders the 觀眾反應 discourse view");
-    await act(async () => createButton.click());
-    const nameInput = host.querySelector<HTMLInputElement>('[data-discourse-new-topic-name="true"]');
-    assert.ok(nameInput);
+    // 觀眾反應 home is the discourse view: with no 話題 yet, the new-話題 form (名稱 + 研究問題) is already open; no prompt dialog.
+    const nameInput = host.querySelector<HTMLInputElement>('[data-discourse-new-topic-name]');
+    assert.ok(nameInput, "the selected workspace renders the 觀眾反應 discourse view with its new-話題 form open");
     await act(async () => {
       Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(nameInput, "畢業生搵工");
       nameInput.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     });
-    await act(async () => nameInput.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    await act(async () => nameInput.form!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })));
     assert.deepEqual(createdNames, ["畢業生搵工"]);
     assert.equal(host.querySelector('[data-workspace-popup-scroll="viewport"]'), viewport, "in-popup navigation keeps the shared viewport ref");
   } finally {

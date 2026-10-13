@@ -25,7 +25,7 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
     const [selectedKey, setSelectedKey] = useState<string | null>(props.selectedKey ?? null);
-    return <CollectionBrowser sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
+    return <CollectionBrowser topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
       onCollect={() => { collected++; }} onOpenWorkspace={(id) => opened.push(id)} />;
@@ -186,4 +186,40 @@ test("collection search folds removed rows in place, survives rapid changes and 
     assert.equal(view.container.querySelector('[data-collection-exiting="true"]'), null);
     assert.match(view.container.querySelector("[data-collection-post]")?.textContent ?? "", /apple/);
   } finally { await view.close(); }
+});
+
+test("audience reader reuses four entries, horizontal evidence headers and topic chips", async () => {
+  const comments = Array.from({ length: 12 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: i === 3 ? "點樣用？" : `留言 ${i}`, like_count: i }));
+  const saved = item("audience", { status: "succeeded", latestCapture: capture({}, {
+    analysis: { status: "succeeded", clusters: [{ cluster_key: 0, size_share: 1, like_share: 1, keywords: ["Codex"] }],
+      evidence: [{ cluster_key: 0, comments: comments.slice(0, 3).map(c => ({ ...c, comment_id: c.comment_id })) }] },
+    result: { ...capture().result!, comments }
+  }) });
+  const sessions = [session("topic-workspace", [saved], "topic")];
+  const assign: Array<[string, string | null]> = [];
+  const reading: import("../src/compare/inline-reading-storage.ts").InlineReadingRecord = { status: "complete", itemId: saved.id, captureId: "capture-1", reading: {
+    itemId: saved.id, captureId: "capture-1", promptVersion: "v2", model: "test", generatedAt: "", gist: "支持工具", find: { method: "試下", split: "未見分歧", ask: "用法" },
+    clusterNames: { "0": "支持" }, noiseClusters: [], methods: [], split: { agree: "同意", sides: [] }
+  } };
+  const h = await mount({ sessions, selectedKey: buildCollectionPosts(sessions)[0].key,
+    topics: [{ id: "t1", sessionId: sessions[0].id, name: "工具", status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: "", updatedAt: "" }],
+    signals: [{ id: "s1", sessionId: sessions[0].id, itemId: saved.id, source: "threads", inboxStatus: "unprocessed", capturedAt: "" }],
+    readings: { [saved.id]: reading }, onAssignTopic: (id, topicId) => assign.push([id, topicId]) });
+  try {
+    assert.deepEqual([...h.container.querySelectorAll("[data-reader-entry]")].map(e => e.getAttribute("data-reader-entry")), ["stance", "method", "split", "ask"]);
+    assert.match(h.container.querySelector("[data-reader-answer]")!.textContent!, /支持工具/);
+    assert.equal(h.container.querySelector<HTMLDivElement>("[data-reader-entries]")!.style.gridTemplateColumns, "repeat(2, minmax(0, 1fr))");
+    await h.click("[data-reader-evidence-toggle]");
+    const header = h.container.querySelector<HTMLDivElement>("[data-reader-evidence-header]")!;
+    assert.equal(header.style.display, "grid");
+    assert.equal(header.children.length, 3);
+    assert.equal(header.textContent, "支持100%");
+    assert.ok(h.container.querySelector("[data-reader-reply]"));
+    await h.click('[data-reader-topic="t1"]');
+    await h.click('[data-reader-topic=""]');
+    assert.deepEqual(assign, [["s1", "t1"], ["s1", null]]);
+    assert.equal(h.container.querySelector("select"), null);
+    await h.click("[data-reader-evidence-toggle]");
+    assert.equal(h.container.querySelector("[data-reader-evidence]"), null);
+  } finally { await h.close(); }
 });

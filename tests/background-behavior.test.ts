@@ -3887,3 +3887,67 @@ test("inline collect mutation traces preserve requestId for success and error wh
     assert.match(JSON.stringify(events[3].detail), /Missing post identity/);
   } finally { disablePipelineTraceForTest(); }
 });
+
+for (const existing of [false, true]) test(`session/move-to-product preserves capture, drops source signal and keeps navigation (existing=${existing})`, async () => {
+  const source = makeSession("audience", "topic");
+  const saved = makeSucceededItem("move");
+  source.items = [saved];
+  const product = makeSession("product", "product");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal(existing ? [source, product] : [source], source.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: source.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: { ...createEmptyTabState(), activeItemId: saved.id, currentPreview: saved.descriptor, popupPage: "topics" },
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-move", source.id, saved.id, "topic-move")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-move", source.id, ["signal-move"])]
+  });
+  const response = await harness.dispatch({ type: "session/move-to-product", sessionId: source.id, itemId: saved.id });
+  assert.ok(response.ok);
+  const global = response.snapshot!.global;
+  assert.equal(global.activeSessionId, source.id);
+  assert.equal(global.sessions.find(s => s.id === source.id)!.items.length, 0);
+  assert.deepEqual(global.sessions.find(s => s.mode === "product")!.items, [saved]);
+  assert.equal(global.sessions.filter(s => s.mode === "product").length, 1);
+  assert.equal(response.snapshot!.tab.popupPage, "topics");
+  assert.equal(response.snapshot!.tab.activeItemId, null);
+  assert.equal(response.snapshot!.tab.currentPreview, null);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).some(s => s.id === "signal-move"), false);
+  assert.deepEqual((harness.state[TOPICS_STORAGE_KEY] as Topic[])[0].signalIds, []);
+});
+
+test("reader triage assign clears a topic and returns the post to 未分流", async () => {
+  const source = makeSession("audience", "topic");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source], source.id),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("s1", source.id, "i1", "t1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("t1", source.id, ["s1"])]
+  });
+  const response = await harness.dispatch({ type: "signal/triage", signalId: "s1", action: { kind: "assign", topicId: null } });
+  assert.ok(response.ok);
+  assert.equal(response.signals![0].topicId, undefined);
+  assert.equal(response.signals![0].inboxStatus, "unprocessed");
+  assert.deepEqual(response.topics![0].signalIds, []);
+});
+
+test("move rejects the same post with another ID before dropping its source signal", async () => {
+  const source = makeSession("audience", "topic");
+  const product = makeSession("product", "product");
+  const saved = makeSucceededItem("duplicate");
+  source.items = [saved];
+  product.items = [{ ...saved, id: "different-id" }];
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source, product], source.id),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("s1", source.id, saved.id)]
+  });
+  const response = await harness.dispatch({ type: "session/move-to-product", sessionId: source.id, itemId: saved.id });
+  assert.equal(response.ok, false);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[])[0].id, "s1");
+  assert.equal((harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0].items[0].id, saved.id);
+});
+
+test("topic/create persists the optional research question", async () => {
+  const source = makeSession("audience", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source], source.id) });
+  const response = await harness.dispatch({ type: "topic/create", sessionId: source.id, name: "Codex", context: { researchQuestion: "額度夠唔夠？" } });
+  assert.ok(response.ok);
+  assert.equal(response.topics![0].context?.researchQuestion, "額度夠唔夠？");
+});
