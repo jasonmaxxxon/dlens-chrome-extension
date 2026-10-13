@@ -233,3 +233,17 @@ test("workspace B cards expose purpose, count, last save and at most four stacke
   assert.equal(tiles.length, 2);
   assert.ok(tiles.every(preview => preview.querySelector("[data-collection-type-tile]")?.textContent === "收"));
 });
+
+test("the whole workspace card opens it once, while its menu keeps its own click", async () => {
+  const opened: string[] = [];
+  await withView({
+    sessions: [session("one", "觀眾反應", "topic")], activeSessionId: null,
+    onOpen: (id) => { opened.push(id); }, onCreate: async () => undefined, onRename: async () => undefined
+  }, async (host) => {
+    const card = host.querySelector<HTMLElement>('[data-workspace-card]')!;
+    await act(async () => card.querySelector("p")!.click());
+    await act(async () => card.querySelector<HTMLElement>("[data-workspace-session]")!.click());
+    await act(async () => card.querySelector<HTMLElement>("summary")!.click());
+    assert.deepEqual(opened, ["one", "one"], "purpose text and name each open once; the ⋯ menu opens nothing");
+  });
+});

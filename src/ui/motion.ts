@@ -345,6 +345,7 @@ export const DLENS_MOTION_CSS = `
   [data-collection-workspace-shell] [data-collection-post], [data-collection-workspace-shell] [data-workspace-card] { transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.entrance}, background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.base} ${tokens.motion.easing.standard}; }
   [data-collection-workspace-shell] [data-collection-post]:hover, [data-collection-workspace-shell] [data-workspace-card]:hover { transform: translateY(${tokens.collection.rowLift}px); }
   [data-collection-workspace-shell] [data-workspace-card]:hover { box-shadow: ${tokens.shadow.card}; }
+  [data-collection-workspace-shell] [data-workspace-card]:active { transform: scale(${tokens.collection.cardPress}); transition-duration: ${tokens.motion.duration.instant}; }
   [data-collection-search] { transition: background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance}; }
   [data-collection-image-loaded="false"] { opacity: 0; }
   [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.motion.collection.fadeMs}ms ${tokens.motion.easing.entrance} backwards; }

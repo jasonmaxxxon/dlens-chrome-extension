@@ -33,7 +33,7 @@ export const tokens = {
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
     headerHeight: 48, logoSize: 21, tabWidth: 54, tabGap: 18, searchHeight: 36,
     thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,
-    rowPadding: 10, rowLift: -2, indicatorHeight: 2, segmentPadding: 2,
+    rowPadding: 10, rowLift: -2, cardPress: .985, indicatorHeight: 2, segmentPadding: 2,
     segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,
     paper: "#fbfbf9", header: "rgba(251,251,249,.78)", wash: "rgba(27,26,23,.035)",
     hover: "rgba(27,26,23,.04)", hairline: "rgba(27,26,23,.08)",

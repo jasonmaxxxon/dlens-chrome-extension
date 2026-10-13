@@ -193,7 +193,10 @@ export function WorkspaceHomeView({ sessions, nowMs = 0, activeSessionId, onOpen
       {sessions.length ? (
         <div style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
           {cards.map(({ session, purpose, count, previews, lastSavedRelative }, index) => (
-            <article key={session.id} data-workspace-card="" data-collection-arrival="" style={{ "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.section, border: `1px solid ${tokens.collection.hairline}`, borderRadius: tokens.radius.cardLg, background: tokens.color.surface } as CSSProperties}>
+            <article key={session.id} data-workspace-card="" data-collection-arrival=""
+              // The whole card opens the workspace; its name button and ⋯ menu keep their own clicks.
+              onClick={(event) => { if (!(event.target as Element).closest("button, summary, details")) void openWorkspace(session.id); }}
+              style={{ cursor: disabled ? "default" : "pointer",  "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.section, border: `1px solid ${tokens.collection.hairline}`, borderRadius: tokens.radius.cardLg, background: tokens.color.surface } as CSSProperties}>
               <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm }}>
                 <span aria-hidden="true" style={{ width: tokens.collection.dotSize, height: tokens.collection.dotSize, borderRadius: tokens.radius.round, background: getModeTheme(session.mode).accent, flexShrink: 0 }} />
                 <button type="button" data-workspace-session={session.id} aria-current={session.id === activeSessionId ? "true" : undefined}
