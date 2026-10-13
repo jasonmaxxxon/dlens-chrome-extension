@@ -47,24 +47,19 @@ test("a post joins the 講法 of its largest comment cluster that the AI did not
   assert.equal(frameOf(spam, reading)?.name, "南丫 / 丫島");
 });
 
-test("the workspace view groups a topic's posts into 講法 and follows the post in view", () => {
-  const vm = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: null, inViewPostKey: null, now: NOW });
-  assert.equal(vm.postCount, 6);
-  assert.deepEqual(vm.chips.map((c) => [c.name, c.count, c.selected]), [["AI 工具額度", 5, true], ["香港拍拖", 0, false]]);
-  assert.deepEqual(vm.inbox.map((r) => r.author), ["anna"]);
-  const t = vm.topic!;
-  assert.deepEqual(t.frames!.map((f) => [f.name, f.posts.length, f.isNew]), [["grok / agent", 2, false], ["reset / 額度", 2, true]]);
-  assert.deepEqual(t.loose.map((p) => p.author), ["newbie"], "a post without comment analysis waits outside the 講法");
-  assert.match(t.coverage, /^5 篇貼文 · 已抓留言 3 則/);
-  assert.equal(t.meme?.phrase, "grok");
-
-  const inView = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t2", inViewPostKey: "threads-post:b", now: NOW });
-  assert.equal(inView.topic!.id, "t2", "a topic the user chose wins over the post in view");
-  const follow = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: null, inViewPostKey: "threads-post:b", now: NOW });
-  assert.deepEqual(follow.topic!.inView, { kind: "here", author: "jth_0508", text: "突然就被重置了", frameName: "Reset / 重置" });
-  assert.equal(follow.topic!.frames!.find((f) => f.key === "reset")!.inView, true);
-  const loose = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: "threads-post:f", now: NOW });
-  assert.deepEqual(loose.topic!.inView, { kind: "unassigned", author: "anna", signalId: "sf" });
+test("home does not auto-follow; list is newest first with question and today's additions", () => {
+  const vm = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: null, inViewPostKey: "threads-post:b", now: NOW });
+  assert.equal(vm.topic, null);
+  assert.equal(vm.emptyLine, null);
+  assert.deepEqual(vm.topicRows.map(c => [c.name, c.count, c.todayAdded, c.secondLine]), [["AI 工具額度", 5, 1, "未寫研究問題"], ["香港拍拖", 0, 0, "未寫研究問題"]]);
+  const selected = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: "threads-post:f", now: NOW }).topic!;
+  assert.deepEqual(selected.frames!.map(f => [f.name, f.posts.length]), [["grok / agent", 2], ["reset / 額度", 2]]);
+  assert.equal(selected.posts.length, 5);
+  assert.match(selected.coverage, /^5 篇 · 3 則留言 · 今日 \+1/);
+  const empty = buildTopicDiscourseViewModel({ topics: [], signals: [], items: [], selectedTopicId: null, inViewPostKey: null, now: NOW });
+  assert.equal(empty.emptyLine, "話題＝你想答嘅問題。建一個，之後轉盤外圈可以直接放。");
+  const q = buildTopicDiscourseViewModel({ topics: [{...topics[0],context:{researchQuestion:'點用？'}}], signals,items,selectedTopicId:null,inViewPostKey:null,now:NOW });
+  assert.equal(q.topicRows[0].secondLine, '想答：點用？');
 });
 
 test("發現 fill fixed templates with counts: a new 講法, likes per post and a question asked under two posts", () => {
@@ -93,4 +88,10 @@ test("the card line offers recent topics for an unsorted post and names the 講�
   assert.equal(suggestTopic(candidate, [{ ...named, name: "工具", context: { researchQuestion: "Codex 點用？" } }], [], [])?.topicId, "codex");
   assert.equal(suggestTopic(candidate, [topic("t1", "工具")], signals, items) ?? null, null);
   assert.equal(suggestTopic(candidate, [topic("t1", "工具")], [signal("sa", "a", "t1")], [item("a", { author: "fan", text: "", daysAgo: 0, likes: 0, keywords: [["Codex"]] })])?.topicId, "t1");
+});
+
+test('inbox suggestions precede other topic picks', () => {
+ const candidate = item('new',{author:'x',text:'Codex 額度',daysAgo:0,likes:0});
+ const vm=buildTopicDiscourseViewModel({topics:[topic('a','香港'),topic('b','Codex')],signals:[signal('new','new')],items:[candidate],selectedTopicId:null,inViewPostKey:null,now:NOW});
+ assert.deepEqual(vm.inbox[0].picks.map(p=>[p.id,p.suggested]),[['b',true],['a',false]]);
 });

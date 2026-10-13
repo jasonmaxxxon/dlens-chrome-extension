@@ -1,6 +1,6 @@
 import type { SessionItem, Signal, Topic } from "../state/types";
 import { inlineCollectPostKey } from "../state/inline-collect";
-import { readCrawlComments, readOpHandle, normalizeHandle } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION, readCrawlComments, readOpHandle, normalizeHandle } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 
 /**
@@ -41,6 +41,8 @@ export interface DiscoursePost {
   likes: number | null;
   url: string;
   inView: boolean;
+  state?: "new" | "crawling" | "ready" | "saved" | "failed";
+  stateLabel?: string;
 }
 export interface DiscourseFrame {
   key: string;
@@ -55,16 +57,12 @@ export type DiscourseFinding =
   | { kind: "trend"; text: string; frameKey: string | null; weeks: { label: string; count: number; hot: boolean }[] }
   | { kind: "like"; text: string; frameKey: string | null; rows: { name: string; avg: number; hot: boolean }[] }
   | { kind: "ask"; text: string; question: string; where: { author: string; replied: boolean; postKey: string }[] };
-export type DiscourseInView =
-  | { kind: "here"; author: string; text: string; frameName: string | null }
-  | { kind: "elsewhere"; author: string; topicName: string }
-  | { kind: "unassigned"; author: string; signalId: string }
-  | null;
-export interface DiscourseInboxRow { signalId: string; author: string; text: string; meta: string; inView: boolean; suggestion?: TopicSuggestion | null }
+export interface DiscourseInboxRow { itemId: string; picks: { id: string; name: string; suggested: boolean }[]; signalId: string; author: string; text: string; meta: string; inView: boolean; suggestion?: TopicSuggestion | null }
 export interface TopicDiscourseViewModel {
   postCount: number;
   topicCount: number;
-  chips: { id: string; name: string; count: number; selected: boolean }[];
+  emptyLine: string | null;
+  topicRows: { id: string; name: string; count: number; todayAdded: number; secondLine: string }[];
   inbox: DiscourseInboxRow[];
   /** Topics for the 放入 chips, most recently touched first. */
   picks: { id: string; name: string }[];
@@ -73,7 +71,7 @@ export interface TopicDiscourseViewModel {
     name: string;
     researchQuestion?: string;
     coverage: string;
-    inView: DiscourseInView;
+    posts: DiscoursePost[];
     findings: DiscourseFinding[];
     frames: DiscourseFrame[] | null;
     /** Below DISCOURSE_MIN_POSTS, or posts whose comments are not analysed yet. */
@@ -123,6 +121,7 @@ export interface TopicDiscourseInput {
   selectedTopicId: string | null;
   inViewPostKey: string | null;
   now: number;
+  opened?: Record<string, string>;
 }
 
 function toPost(signal: Signal, item: SessionItem, inViewPostKey: string | null): DiscoursePost {
@@ -144,25 +143,35 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   const live = input.signals.filter((signal) => signal.itemId && itemById.has(signal.itemId));
   const topics = [...input.topics].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const inTopic = (topicId: string) => live.filter((signal) => signal.topicId === topicId);
-  const inViewSignal = input.inViewPostKey
-    ? live.find((signal) => inlineCollectPostKey(itemById.get(signal.itemId!)!.descriptor) === input.inViewPostKey) ?? null
-    : null;
-  // The panel follows the feed: the post in view picks its topic unless the user chose one.
-  const selectedId = input.selectedTopicId && topics.some((t) => t.id === input.selectedTopicId)
-    ? input.selectedTopicId
-    : inViewSignal?.topicId && topics.some((t) => t.id === inViewSignal.topicId) ? inViewSignal.topicId : topics[0]?.id ?? null;
+  // Home is an explicit route. Feed visibility belongs exclusively to F1's bar.
+  const selectedId = input.selectedTopicId;
+  const sameDay = (at: string | undefined) => !!at && new Date(at).toDateString() === new Date(input.now).toDateString();
+  const todayAdded = (topicId: string) => inTopic(topicId).filter(signal => sameDay(signal.triagedAt || signal.capturedAt || itemById.get(signal.itemId!)?.savedAt)).length;
+  const postFor = (signal: Signal, item: SessionItem): DiscoursePost => {
+    const post = toPost(signal, item, null);
+    const reading = input.readings?.[item.id];
+    const complete = reading?.status === "complete" && reading.captureId === item.latestCapture?.id && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION;
+    const newReading = complete && (!input.opened?.[item.id] || Date.parse(input.opened[item.id]) < Date.parse(reading.reading.generatedAt));
+    const noise = new Set(complete ? reading.reading.noiseClusters : []);
+    const count = item.latestCapture?.analysis?.clusters?.filter(cluster => !noise.has(String(cluster.cluster_key))).length ?? 0;
+    const state = item.status === "queued" || item.status === "running" ? "crawling" : item.status === "failed" ? "failed" : newReading ? "new" : item.latestCapture ? "ready" : "saved";
+    return {...post, state, stateLabel: state === "crawling" ? "讀緊" : state === "failed" ? "抓取失敗" : state === "new" ? "新" : state === "saved" ? "未讀" : count ? `${count} 種講法` : "已讀"};
+  };
 
   const inbox = live.filter((signal) => !signal.topicId && signal.inboxStatus === "unprocessed").map((signal) => {
     const item = itemById.get(signal.itemId!)!;
-    const post = toPost(signal, item, input.inViewPostKey);
+    const post = toPost(signal, item, null);
     const comments = item.descriptor.engagement?.comments;
-    return { suggestion: suggestTopic(item, topics, live, input.items), signalId: signal.id, author: post.author, text: post.text, inView: post.inView, meta: [str(item.descriptor.time_token_hint), typeof comments === "number" ? `${comments} 則留言` : ""].filter(Boolean).join(" · ") };
+    const suggestion = suggestTopic(item, topics, live, input.items);
+    const ordered = [...topics].sort((a,b) => Number(b.id === suggestion?.topicId) - Number(a.id === suggestion?.topicId));
+    return { itemId: item.id, picks: ordered.map(t => ({id:t.id,name:t.name,suggested:t.id === suggestion?.topicId})), suggestion, signalId: signal.id, author: post.author, text: post.text, inView: post.inView, meta: [str(item.descriptor.time_token_hint), typeof comments === "number" ? `${comments} 則留言` : ""].filter(Boolean).join(" · ") };
   });
 
   const vm: TopicDiscourseViewModel = {
     postCount: live.length,
     topicCount: topics.length,
-    chips: topics.map((topic) => ({ id: topic.id, name: topic.name, count: inTopic(topic.id).length, selected: topic.id === selectedId })),
+    emptyLine: topics.length ? null : "話題＝你想答嘅問題。建一個，之後轉盤外圈可以直接放。",
+    topicRows: topics.map(topic => ({id:topic.id,name:topic.name,count:inTopic(topic.id).length,todayAdded:todayAdded(topic.id),secondLine:topic.context?.researchQuestion?.trim() ? `想答：${topic.context.researchQuestion.trim()}` : "未寫研究問題"})),
     inbox,
     picks: topics.map((topic) => ({ id: topic.id, name: topic.name })),
     topic: null
@@ -171,11 +180,9 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   if (!topic) return vm;
 
   const members = inTopic(topic.id).map((signal) => ({ signal, item: itemById.get(signal.itemId!)! }));
-  const posts = members.map(({ signal, item }) => ({ post: toPost(signal, item, input.inViewPostKey), item, frame: frameOf(item, input.readings?.[item.id]) }))
+  const posts = members.map(({ signal, item }) => ({ post: postFor(signal, item), item, frame: frameOf(item, input.readings?.[item.id]) }))
     .sort((a, b) => (postedAt(b.item) ?? 0) - (postedAt(a.item) ?? 0));
   const comments = members.reduce((sum, { item }) => sum + readCrawlComments(item).length, 0);
-  const updated = members.map(({ item }) => Date.parse(item.lastStatusAt ?? item.savedAt ?? "")).filter(Number.isFinite).sort((a, b) => b - a)[0];
-  const hhmm = (ms: number) => { const d = new Date(ms); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
   // 講法: posts sharing the keyword of their largest real comment cluster.
   const groups = new Map<string, { name: string; rows: typeof posts }>();
@@ -185,7 +192,7 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
     group.rows.push(row);
     groups.set(row.frame.key, group);
   }
-  const enough = posts.length >= DISCOURSE_MIN_POSTS && groups.size > 0;
+  const enough = groups.size > 0;
   const frames: DiscourseFrame[] | null = enough ? [...groups.entries()].map(([key, group]) => {
     const dates = group.rows.map((row) => postedAt(row.item)).filter((ms): ms is number => ms !== null);
     const first = dates.length ? Math.min(...dates) : null;
@@ -198,21 +205,13 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
     };
   }).sort((a, b) => b.posts.length - a.posts.length || a.name.localeCompare(b.name)) : null;
 
-  const inViewRow = posts.find((row) => row.post.inView);
-  let inView: DiscourseInView = null;
-  if (inViewRow) inView = { kind: "here", author: inViewRow.post.author, text: inViewRow.post.text, frameName: inViewRow.frame?.name ?? null };
-  else if (inViewSignal) {
-    const author = toPost(inViewSignal, itemById.get(inViewSignal.itemId!)!, null).author;
-    const other = topics.find((t) => t.id === inViewSignal.topicId);
-    inView = other ? { kind: "elsewhere", author, topicName: other.name } : { kind: "unassigned", author, signalId: inViewSignal.id };
-  }
 
   vm.topic = {
     id: topic.id,
     name: topic.name,
     researchQuestion: topic.context?.researchQuestion,
-    coverage: [`${posts.length} 篇貼文`, `已抓留言 ${comments} 則`, updated ? `更新 ${hhmm(updated)}` : ""].filter(Boolean).join(" · "),
-    inView,
+    coverage: `${posts.length} 篇 · ${comments} 則留言 · 今日 +${todayAdded(topic.id)}`,
+    posts: posts.map(row => row.post),
     findings: frames && frames.length >= 2 ? buildFindings(frames, posts.map((row) => ({ item: row.item, post: row.post, frameKey: row.frame?.key ?? null })), input.now) : [],
     frames,
     loose: frames ? posts.filter((row) => !row.frame).map((row) => row.post) : posts.map((row) => row.post),
@@ -317,4 +316,25 @@ export function buildCardTopicLine(itemId: string, topics: Topic[], signals: Sig
   const count = signals.filter((entry) => entry.topicId === topic.id && items.some((i) => i.id === entry.itemId)).length;
   const frame = item && count >= DISCOURSE_MIN_POSTS ? frameOf(item, readings?.[itemId]) : null;
   return { kind: "assigned", topicId: topic.id, topicName: topic.name, frameName: frame?.name ?? null, count };
+}
+
+export interface DiscourseUiState {
+  sheet: null | { signalId?: string };
+  name: string;
+  question: string;
+  openFrame: string | null;
+  more: boolean;
+}
+export const EMPTY_DISCOURSE_UI: DiscourseUiState = { sheet:null,name:"",question:"",openFrame:null,more:false };
+export function topicSheetCommand(state: DiscourseUiState) {
+  const name = state.name.trim().slice(0,80);
+  return name ? {kind:"create-topic" as const,name,researchQuestion:state.question.trim().slice(0,240),...(state.sheet?.signalId ? {signalId:state.sheet.signalId} : {})} : null;
+}
+export function toggleDiscourseFrame(state: DiscourseUiState, key: string): DiscourseUiState { return {...state,openFrame:state.openFrame === key ? null : key}; }
+export function questionEditCommand(topicId: string, original: string, draft: string, cancelled=false) {
+  const researchQuestion = draft.trim().slice(0,240);
+  return cancelled || researchQuestion === original ? null : {kind:"update-question" as const,topicId,researchQuestion};
+}
+export function discourseReaderTarget(itemId: string, topic: {id:string;name:string} | null) {
+  return {kind:"open-reader" as const,itemId,returnTo:topic ? {topicId:topic.id,label:topic.name} : {topicId:null,label:"觀眾反應"}};
 }

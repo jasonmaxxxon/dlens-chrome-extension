@@ -1406,7 +1406,10 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
     await act(async () => row.click());
     assert.deepEqual(openCalls, [topicSession.id]);
     assert.deepEqual(navCalls, ["topics"]);
-    // 觀眾反應 home is the discourse view: with no 話題 yet, the new-話題 form (名稱 + 研究問題) is already open; no prompt dialog.
+    // 觀眾反應 home is the discourse view: with no 話題 yet it shows one line and the ＋ 新話題 pill, which opens the 名稱 + 研究問題 sheet; no prompt dialog.
+    const newTopic = host.querySelector<HTMLButtonElement>('[data-discourse-new-topic]');
+    assert.ok(newTopic, "the empty 觀眾反應 home offers ＋ 新話題");
+    await act(async () => newTopic.click());
     const nameInput = host.querySelector<HTMLInputElement>('[data-discourse-new-topic-name]');
     assert.ok(nameInput, "the selected workspace renders the 觀眾反應 discourse view with its new-話題 form open");
     await act(async () => {

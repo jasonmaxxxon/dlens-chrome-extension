@@ -309,7 +309,7 @@ export const tokens = {
     chipBg: "rgba(27,26,23,.05)", chipCountOn: "rgba(255,255,255,.72)", hover: "rgba(27,26,23,.04)", hair: "rgba(27,26,23,.06)", card: "#ffffff",
     cardShadow: "0 1px 2px rgba(27,26,23,.04)", soft: "#6c695e", faint: "#a19e93",
     inbox: "#a06a17", inboxWash: "rgba(160,106,23,.08)", trend: "#3f5a3b", like: "#a06a17", ask: "#7b4a8a", replied: "#234f7a",
-    titleFont: 21, bodyFont: 13, smallFont: 12, tinyFont: 11.5, avatar: 22, faceAvatar: 20, weekBar: 34
+    titleFont: 19, inputBorder: "rgba(27,26,23,.18)", inputPad: "9px 11px", rowPad: "10px 12px", titleLineHeight: 1.35, bodyFont: 13, smallFont: 12, tinyFont: 11.5, avatar: 22, faceAvatar: 20, weekBar: 34
   },
 
   /* The card under a saved post, from the owner's v9 mockup: status line, four entries, one answer at a time. */

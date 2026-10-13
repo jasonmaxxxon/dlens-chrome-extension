@@ -1,3 +1,5 @@
+import { createTopicReadingRunner, selectTopicReadingItems } from "../src/state/topic-reading-run";
+import { loadDeepReadingRecords } from "../src/compare/deep-reading-storage";
 import { createDeepReadingRunner } from "../src/state/deep-reading-run";
 import { defineBackground } from "wxt/utils/define-background";
 import { getInlineCollectDestination, getInlineCollectLastMode, inlineCollectPostKey, INLINE_COLLECT_MODE_NAMES, isInlineCollectMode, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../src/state/inline-collect";
@@ -2404,6 +2406,7 @@ const runDeepReading = (item: SessionItem, settings: ExtensionSettings) => {
   return deepReadingRunner(item, settings);
 };
 let deepReadingRunner: ReturnType<typeof createDeepReadingRunner> | undefined;
+let topicReadingRunner: ReturnType<typeof createTopicReadingRunner> | undefined;
 const inlineReadingsInFlight = new Set<string>();
 const INLINE_READING_STALE_MS = 3 * 60_000;
 const INLINE_READING_MIN_COMMENTS = 10;
@@ -2602,6 +2605,19 @@ export default defineBackground(() => {
           case "inline/in-view-get": {
             const tabId = await resolveTabId(sender);
             sendResponse({ ok: true, tabId, inViewPostKey: inViewPostByTab.get(tabId) ?? null } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic-reading/run": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) throw new Error("找不到話題");
+            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
+            const items = selectTopicReadingItems(topic, current.global.sessions, signals);
+            const [inline, deep] = await Promise.all([loadInlineReadingRecords(chrome.storage.local), loadDeepReadingRecords(chrome.storage.local)]);
+            topicReadingRunner ??= createTopicReadingRunner(chrome.storage.local);
+            const topicReading = await topicReadingRunner(topic, items, current.global.settings, inline, deep);
+            sendResponse({ ok: true, topicReading } satisfies ExtensionResponse);
             return;
           }
           case "deep-reading/run": {

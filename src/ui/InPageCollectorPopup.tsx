@@ -1,7 +1,11 @@
+import { discourseQuestionPatch, restoreDiscourseReaderOrigin } from "./topic-discourse-controller";
 import { isProductContextSourceReady } from "../compare/product-context";
 import { useCollectionProducts } from "./useCollectionProducts";
 import { buildCollectionInView } from "../viewmodel/collection-browser";
 import { collectionReadingSource, resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
+import { useTopicReadings } from "./useTopicReadings";
+import { buildTopicReadingModel } from "../viewmodel/topic-reading";
+import { EMPTY_DISCOURSE_UI, type DiscourseUiState } from "../viewmodel/topic-discourse";
 import { useDeepReadings } from "./useDeepReadings";
 import { useOpenedReadings } from "./useOpenedReadings";
 import { collectionAudienceSource } from "../viewmodel/collection-reader";
@@ -66,6 +70,7 @@ interface ReadingNavigation {
   selectedKey: string | null;
   requestedLens?: string | null;
   readerRequest?: number;
+  discourseReturn?: { topicId: string | null; label: string; sessionId: string };
   returnPage?: PopupPage;
   workspaceSessionId?: string;
   workspacePage?: PopupPage;
@@ -191,8 +196,13 @@ function OpenInPageCollectorPopup({
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
   const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
   const workspaceGlass = tokens.material.workspaceGlass;
-  // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
-  const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
+  // Explicit home/topic selection; feed visibility is owned by F1's collection bar.
+  const [discourseSelection, setDiscourseSelection] = useState<Record<string,string|null>>({});
+  const discourseTopicId = discourseSelection[activeFolder?.id ?? ""] ?? null;
+  const setDiscourseTopicId = (topicId:string|null) => setDiscourseSelection(current=>({...current,[activeFolder?.id ?? ""]:topicId}));
+  const [discourseUi, setDiscourseUi] = useState<Record<string,DiscourseUiState>>({});
+  const discourseUiKey = `${activeFolder?.id ?? ""}:${discourseTopicId ?? "home"}`;
+  const topicReadings = useTopicReadings(true);
   const deepReadings = useDeepReadings(true);
   const discourseFeeds = useDiscourseFeeds(true);
   const products=useCollectionProducts(snapshot?.global.sessions ?? []);
@@ -201,7 +211,7 @@ function OpenInPageCollectorPopup({
   useEffect(()=>setCopyStatus(''),[readingNavigation.selectedKey]);
   const collectionPosts=buildCollectionPosts(snapshot?.global.sessions ?? []);
   const inView=IS_PR_ONLY_BUILD ? null : buildCollectionInView(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null);
-  const openedReadings = useOpenedReadings(!domainPage && readingNavigation.tab === "collection", readingNavigation.selectedKey, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
+  const openedReadings = useOpenedReadings(true, !domainPage && readingNavigation.tab === "collection" ? readingNavigation.selectedKey : null, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
   const readerSource = !domainPage && readingNavigation.tab === "collection"
     ? collectionReadingSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
   const readerSessionId = readerSource?.session.mode === "topic" ? readerSource.session.id : null;
@@ -214,21 +224,47 @@ function OpenInPageCollectorPopup({
         items: activeFolder?.items ?? [],
         readings: discourseFeeds.readings,
         selectedTopicId: discourseTopicId,
-        inViewPostKey: discourseFeeds.inViewPostKey,
+        inViewPostKey: null,
+        opened: openedReadings.opened,
         now: app.readWallClockNowMs()
       })
     : null;
+  const selectedDiscourseTopic = app.topics.find(t=>t.id===discourseTopicId);
+  const discourseItems = (activeFolder?.items ?? []).filter(item=>app.signals.some(signal=>signal.itemId===item.id && signal.topicId===discourseTopicId));
+  const topicReadingModel = selectedDiscourseTopic && snapshot ? buildTopicReadingModel(selectedDiscourseTopic,discourseItems,snapshot.global.settings,topicReadings.records[selectedDiscourseTopic.id],new Date(nowMs).toISOString(),topicReadings.pending[selectedDiscourseTopic.id],topicReadings.errors[selectedDiscourseTopic.id] || null,discourseFeeds.readings,deepReadings.records) : null;
   function onDiscourseCommand(command: TopicDiscourseCommand) {
+    const fail = (e:unknown) => setNavigationError(e instanceof Error ? e.message : "操作失敗");
     if (command.kind === "select-topic") setDiscourseTopicId(command.topicId);
-    else if (command.kind === "assign") void app.onSignalTriaged(command.signalId, { kind: "assign", topicId: command.topicId });
-    else if (command.kind === "create-topic") void app.onCreateTopicNamed(command.name, command.researchQuestion).catch(e => setNavigationError(e instanceof Error ? e.message : "建立話題失敗"));
+    else if (command.kind === "assign") void app.onSignalTriaged(command.signalId, { kind: "assign", topicId: command.topicId }).catch(fail);
+    else if (command.kind === "create-topic") void app.onCreateTopicNamed(command.name, command.researchQuestion,command.signalId).catch(fail);
     else if (command.kind === "move-product") {
       const signal = app.signals.find(s => s.id === command.signalId);
-      if (signal?.itemId) void app.onMoveAudienceItem(signal.sessionId, signal.itemId).catch(e => setNavigationError(e instanceof Error ? e.message : "搬移失敗"));
-    }
-    else if (command.kind === "open-atlas") void app.onNavigateToTopic(command.topicId);
-    else void app.onDeleteTopic(command.topicId);
+      if (signal?.itemId) void app.onMoveAudienceItem(signal.sessionId, signal.itemId).catch(fail);
+    } else if (command.kind === "delete-signal") void app.onSignalDeleted(command.signalId).catch(fail);
+    else if (command.kind === "update-question") {
+      const topic=app.topics.find(t=>t.id===command.topicId);
+      if(topic) {const update=discourseQuestionPatch(topic,command.researchQuestion);void app.onUpdateTopic(update.patch,update.id).catch(fail);}
+    } else if (command.kind === "run-reading") void topicReadings.run(command.topicId);
+    else if (command.kind === "open-reader") {
+      const target=resolveCollectionReaderOpen(collectionPosts,command.itemId);
+      if(target && activeFolder) setReadingNavigation(current=>({...current,tab:'collection',collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:null,readerRequest:(current.readerRequest ?? 0)+1,discourseReturn:{...command.returnTo,sessionId:activeFolder.id}}));
+    } else void app.onDeleteTopic(command.topicId).catch(fail);
   }
+  const readerBack = async () => {
+    const origin=readingNavigation.discourseReturn;
+    if(!origin) {setReadingNavigation(current=>({...current,selectedKey:null}));return;}
+    if(navigationPending.current)return;
+    navigationPending.current=true;setNavigationBusy(true);setNavigationError(null);
+    try {
+      await restoreDiscourseReaderOrigin(origin,activeFolder?.id,page,async id=>{
+        const result=await app.onSetActiveSession(id);
+        if(result && !result.ok)throw new Error("未能返回觀眾反應");
+      },app.onNavigate);
+      setDiscourseSelection(current=>({...current,[origin.sessionId]:origin.topicId}));
+      setReadingNavigation(current=>({...current,tab:'workspaces',workspaceOpen:true,workspaceSessionId:origin.sessionId,workspacePage:'topics',workspaceTopicId:undefined,selectedKey:null,discourseReturn:undefined,requestedLens:null}));
+    } catch(e) {setNavigationError(e instanceof Error ? e.message : "未能返回觀眾反應");}
+    finally {navigationPending.current=false;setNavigationBusy(false);}
+  };
   const productExportFolders = (snapshot?.global.sessions ?? [])
     .filter((session) => session.mode === "product")
     .map((session) => ({
@@ -384,7 +420,7 @@ function OpenInPageCollectorPopup({
     : readingNavigation.collecting ? "collection-capture"
     : readingNavigation.tab === "collection" ? JSON.stringify(["collection", readingNavigation.selectedKey ?? "list"])
     : !readingNavigation.workspaceOpen || !workspaceAllowed ? "workspace-list"
-    : JSON.stringify(["workspace", activeFolder?.id, guardedPage, app.activeTopic?.id ?? "", app.activeSavedAnalysis?.resultId ?? ""]);
+    : JSON.stringify(["workspace", activeFolder?.id, guardedPage, guardedPage === "topics" ? discourseTopicId ?? "home" : app.activeTopic?.id ?? "", app.activeSavedAnalysis?.resultId ?? ""]);
 
   // Save on scroll, before a shorter route can clamp the viewport during DOM
   // replacement. The facade map survives closing the popup and unmounting this view.
@@ -467,7 +503,7 @@ function OpenInPageCollectorPopup({
       } catch { setNavigationError("未能返回工作區，請再試。"); return; }
       finally { navigationPending.current = false; setNavigationBusy(false); }
     }
-    setReadingNavigation((current) => ({ ...current, tab, collecting: false, settingsOpen: false }));
+    setReadingNavigation((current) => ({ ...current, tab, collecting: false, settingsOpen: false, discourseReturn: undefined }));
   }
 
   async function openWorkspace(sessionId: string) {
@@ -492,7 +528,7 @@ function OpenInPageCollectorPopup({
       const reader=consumeReaderOpen(snapshot?.global.sessions.flatMap(s=>s.items.map(i=>i.id)) ?? []);
       if (reader) {
         const target=resolveCollectionReaderOpen(collectionPosts,reader.itemId,reader.lens);
-        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,readerRequest:(current.readerRequest ?? 0)+1}));
+        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,discourseReturn:undefined,readerRequest:(current.readerRequest ?? 0)+1}));
         return;
       }
       const sessionId = consumeWorkspaceOpen(snapshot?.global.sessions.map((session) => session.id) ?? []);
@@ -664,16 +700,16 @@ function OpenInPageCollectorPopup({
               void app.onNavigate("settings");
             }}
             inView={inView}
-            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null}))}
+            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,collecting:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
             diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
             {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
-                onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null }))}
+                onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null, discourseReturn:undefined }))}
                 onCollect={() => void openCollectionCapture()} onOpenWorkspace={(id) => void openWorkspace(id)}
                 isLoading={!snapshot} />
             ) : null}
@@ -731,7 +767,7 @@ function OpenInPageCollectorPopup({
 
           {domainPage === "topics" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} /> : null}
+              {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} readingModel={topicReadingModel} uiState={discourseUi[discourseUiKey] ?? EMPTY_DISCOURSE_UI} onUiStateChange={next=>setDiscourseUi(current=>({...current,[discourseUiKey]:next}))} /> : null}
             </WorkspaceSurface>
           ) : null}
 

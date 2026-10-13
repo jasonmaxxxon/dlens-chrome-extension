@@ -35,6 +35,8 @@ export interface CollectionBrowserProps {
   onSettings?: ()=>void;
   onCopy?: (text:string)=>void;
   copyStatus?: string;
+  readerBackLabel?: string;
+  onReaderBack?: () => void;
   requestedLens?: string | null;
   readerRequest?: number;
 
@@ -108,7 +110,7 @@ export function CollectionThumbnail({ post, miniature = false }: { post: Collect
   </span>;
 }
 
-export function CollectionReader({ productAnalyses = {}, productSignals = [], productHasContext = false, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: Pick<CollectionBrowserProps, "productAnalyses" | "productSignals" | "productHasContext" | "productLoaded" | "productPending" | "productErrors" | "onProductAnalyze" | "onSettings" | "onCopy" | "copyStatus" | "requestedLens" | "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
+export function CollectionReader({ productAnalyses = {}, productSignals = [], productHasContext = false, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerBackLabel = "收藏", post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun }: Pick<CollectionBrowserProps, "readerBackLabel" | "productAnalyses" | "productSignals" | "productHasContext" | "productLoaded" | "productPending" | "productErrors" | "onProductAnalyze" | "onSettings" | "onCopy" | "copyStatus" | "requestedLens" | "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
   post: CollectionPost; onBack: () => void; onOpenWorkspace: CollectionBrowserProps["onOpenWorkspace"];
 }) {
   const [disclosure, setDisclosure] = useState(EMPTY_DEEP_DISCLOSURE);
@@ -126,7 +128,7 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
     <section data-collection-browser="reader" aria-label="收藏原文" style={rootStyle}>
       <div style={{ display: "flex", alignItems: "center", flexShrink: 0, justifyContent: "space-between", marginTop: -tokens.spacing.md }}>
         <button type="button" data-collection-action="back" onClick={onBack} style={quietButton}>
-          ‹ 收藏
+          ‹ {readerBackLabel}
         </button>
         {post.postUrl ? <a href={post.postUrl} target="_blank" rel="noopener noreferrer" style={{...quietButton,textDecoration:"none"}}>原帖 ↗</a> : null}
       </div>
@@ -178,7 +180,7 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
 // A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
 const NO_OPENED: OpenedReadings = {};
 
-export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest }: CollectionBrowserProps) {
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest, readerBackLabel, onReaderBack }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
   const [filter,setFilter]=useState<CollectionFilter>("all");
   const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, false,{analyses:productAnalyses,signals:productSignals,settings,hasContext:productHasContext,loaded:productLoaded}), [posts, readings, opened, nowMs, productAnalyses,productSignals,settings,productHasContext,productLoaded]);
@@ -186,7 +188,7 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(filtered.posts, query, sort, nowMs), [posts,arrival,filter, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
+  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader readerBackLabel={readerBackLabel} productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={onReaderBack ?? (() => onSelect(null))} onOpenWorkspace={onOpenWorkspace} /></>;
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>

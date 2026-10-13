@@ -19,7 +19,7 @@ import { tokens } from "./tokens";
  */
 export const DLENS_KEYFRAMES_CSS = `
 @media (prefers-reduced-motion: no-preference) {
-  [data-deep-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
+  [data-deep-skeleton], [data-topic-reading-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
 }
 
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
@@ -347,7 +347,7 @@ export const DLENS_MOTION_CSS = `
 @media (prefers-reduced-motion: no-preference) {
   [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} var(--collection-delay, 0ms) backwards; }
   [data-reading-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} backwards; }
-  [data-collection-state="arc"] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
+  [data-collection-state="arc"], [data-discourse-arc] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
   [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.motion.collection.glideMs}ms ${tokens.motion.easing.entrance} backwards; }
   [data-collection-row][data-collection-exiting="true"] { animation: dlens-collection-fold ${tokens.motion.collection.foldMs}ms ${tokens.motion.easing.exit} forwards; }
   [data-collection-tab-indicator], [data-collection-sort-knob] { transition: transform ${tokens.motion.duration.slower} ${tokens.motion.easing.entrance}; }

@@ -25,7 +25,7 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
     const [selectedKey, setSelectedKey] = useState<string | null>(props.selectedKey ?? null);
-    return <CollectionBrowser settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
+    return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
       onCollect={() => { collected++; }} onOpenWorkspace={(id) => opened.push(id)} />;
@@ -265,4 +265,13 @@ test('reader evidence is present initially and 再睇 expands just one group',as
   const count=()=>[...h.container.querySelectorAll('[data-reader-evidence] section')].map(g=>g.querySelectorAll('[data-reader-reply]').length);
   assert.deepEqual(count(),[3,3]);await h.click('[data-reader-more="cluster:0"]');assert.deepEqual(count(),[13,3]);
  }finally{await h.close();}
+});
+
+test('reader back label and action use the discourse origin while collection keeps its default',async()=>{
+ let returned=0;
+ const sessions=[session('audience',[item('one')],'topic')];
+ const h=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key,readerBackLabel:'Codex',onReaderBack:()=>{returned++;}});
+ try{assert.equal(h.container.querySelector('[data-collection-action="back"]')!.textContent?.trim(),'‹ Codex');await h.click('[data-collection-action="back"]');assert.equal(returned,1);assert.deepEqual(h.selected,[]);}finally{await h.close();}
+ const collection=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key});
+ try{assert.equal(collection.container.querySelector('[data-collection-action="back"]')!.textContent?.trim(),'‹ 收藏');}finally{await collection.close();}
 });

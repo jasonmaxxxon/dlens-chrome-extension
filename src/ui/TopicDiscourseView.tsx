@@ -1,239 +1,62 @@
-import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
-import { useState, type CSSProperties, type ReactNode } from "react";
-import { avatarGradient, modeThemes, tokens } from "./tokens";
-import type { DiscourseFinding, DiscourseFrame, DiscoursePost, TopicDiscourseViewModel } from "../viewmodel/topic-discourse";
-
+import { useState, useRef, type CSSProperties } from 'react';
+import { WorkspaceModeIcon } from './WorkspaceModeIcon';
+import { avatarGradient, modeThemes, tokens } from './tokens';
+import { EMPTY_DISCOURSE_UI, discourseReaderTarget, questionEditCommand, topicSheetCommand, toggleDiscourseFrame, type DiscourseUiState, type DiscoursePost, type TopicDiscourseViewModel } from '../viewmodel/topic-discourse';
+import { TopicReadingView } from './TopicReadingView';
+import type { TopicReadingModel } from '../viewmodel/topic-reading';
 export type TopicDiscourseCommand =
-  | { kind: "select-topic"; topicId: string }
-  | { kind: "assign"; signalId: string; topicId: string }
-  | { kind: "create-topic"; name: string; researchQuestion: string }
-  | { kind: "move-product"; signalId: string }
-  | { kind: "open-atlas"; topicId: string }
-  | { kind: "delete-topic"; topicId: string };
-
-const d = tokens.discourse;
-const acc = modeThemes.topic.accent;
-
-function Avatar({ handle, size = d.avatar }: { handle: string; size?: number }) {
-  return (
-    <span aria-hidden style={{ width: size, height: size, flex: "none", borderRadius: "50%", display: "grid", placeItems: "center", color: tokens.color.inverse, fontSize: size * 0.45, fontWeight: 700, background: avatarGradient(handle), boxShadow: `0 0 0 2px ${d.card}` }}>
-      {[...(handle || "?")][0].toUpperCase()}
-    </span>
-  );
+ | {kind:'select-topic';topicId:string|null}
+ | {kind:'assign';signalId:string;topicId:string}
+ | {kind:'create-topic';name:string;researchQuestion:string;signalId?:string}
+ | {kind:'move-product';signalId:string}
+ | {kind:'delete-signal';signalId:string}
+ | {kind:'update-question';topicId:string;researchQuestion:string}
+ | {kind:'run-reading';topicId:string}
+ | {kind:'delete-topic';topicId:string}
+ | ReturnType<typeof discourseReaderTarget>;
+const d=tokens.discourse, r=tokens.reader, acc=modeThemes.topic.accent;
+const card:CSSProperties={borderRadius:d.radius,background:d.card,border:`1px solid ${d.hair}`,boxShadow:d.cardShadow,minWidth:0};
+const quiet:CSSProperties={border:0,background:'transparent',color:tokens.color.subInk,cursor:'pointer',font:'inherit',fontSize:r.secondary,padding:tokens.spacing.sm,textAlign:'left'};
+const pill=(filled=false):CSSProperties=>({...quiet,borderRadius:tokens.radius.pill,padding:d.pickPad,whiteSpace:'nowrap',background:filled?acc:d.chipBg,color:filled?tokens.color.inverse:acc});
+const field:CSSProperties={width:'100%',minWidth:0,boxSizing:'border-box',border:`1px solid ${d.inputBorder}`,borderRadius:tokens.radius.card,padding:d.inputPad,font:'inherit',fontSize:r.body,background:d.card,color:tokens.color.ink};
+const ellipsis:CSSProperties={whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'};
+function Avatar({handle,small=false}:{handle:string;small?:boolean}) {const size=small?d.faceAvatar:d.avatar;return <span aria-hidden="true" style={{width:size,height:size,flexShrink:0,borderRadius:tokens.radius.round,display:'grid',placeItems:'center',fontSize:r.meta,color:tokens.color.inverse,background:avatarGradient(handle),boxShadow:`0 0 0 1px ${d.card}`}}>{[...handle][0]?.toUpperCase() || '？'}</span>;}
+function PostRow({post,onOpen}:{post:DiscoursePost;onOpen:()=>void}) {return <button type="button" data-discourse-post={post.postKey} onClick={onOpen} style={{...quiet,width:'100%',display:'flex',gap:d.gap,alignItems:'center',minWidth:0,padding:d.rowPad}}><Avatar handle={post.author}/><span style={{display:'grid',minWidth:0,flex:1,gap:tokens.spacing.xs}}><span style={{...ellipsis,fontSize:r.secondary}}><b>@{post.author}</b><small style={{color:d.soft}}> · {post.date}</small></span><span style={{...ellipsis,fontSize:r.secondary}}>{post.text}</span></span><span style={{fontSize:r.meta,color:d.soft,flexShrink:0,display:'flex',gap:tokens.spacing.xs,alignItems:'center'}}>{post.state==='crawling'?<i aria-hidden="true" data-discourse-arc="" style={{width:tokens.collectCard.arcSize,height:tokens.collectCard.arcSize,borderRadius:tokens.radius.round,border:`${tokens.collectCard.arcBorder}px solid ${d.hair}`,borderTopColor:acc}}/>:post.state==='new'?<i aria-hidden="true" style={{width:tokens.collection.dotSize,height:tokens.collection.dotSize,borderRadius:tokens.radius.round,background:acc}}/>:null}{post.stateLabel}</span></button>;}
+function Question({topic,onCommand}:{topic:NonNullable<TopicDiscourseViewModel['topic']>;onCommand:(c:TopicDiscourseCommand)=>void}) {
+ const [editing,setEditing]=useState(false),[draft,setDraft]=useState(topic.researchQuestion || '');
+ const active=useRef(false);
+ const save=()=>{if(!active.current)return;active.current=false;const command=questionEditCommand(topic.id,topic.researchQuestion || '',draft);setEditing(false);if(command)onCommand(command);};
+ return <div data-dlens-presence="card" data-discourse-question="" style={{...card,padding:tokens.spacing.md,display:'flex',gap:d.gap,alignItems:'baseline',marginTop:tokens.spacing.md}}><b style={{fontSize:r.meta,color:acc,flexShrink:0}}>想答</b>{editing?<input autoFocus aria-label="研究問題" data-discourse-question-input="" maxLength={240} value={draft} onChange={e=>setDraft(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();save();}else if(e.key==='Escape'){e.preventDefault();active.current=false;setDraft(topic.researchQuestion || '');setEditing(false);}}} style={field}/>:<button type="button" data-discourse-question-edit="" style={{...quiet,padding:0,flex:1,overflowWrap:'anywhere',fontSize:r.body}} onClick={()=>{active.current=true;setDraft(topic.researchQuestion || '');setEditing(true);}}>{topic.researchQuestion || '寫低你想答嘅問題'} ✎</button>}</div>;
 }
-
-const pill = (on: boolean): CSSProperties => ({ border: 0, padding: d.chipPad, borderRadius: 999, background: on ? acc : d.chipBg, color: on ? tokens.color.inverse : tokens.color.subInk, fontSize: 12.5, fontWeight: 500, cursor: "pointer", font: "inherit" });
-const card: CSSProperties = { borderRadius: d.radius, background: d.card, border: `1px solid ${d.hair}`, boxShadow: d.cardShadow };
-const k = (label: string, note?: string) => (
-  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: `${d.sectionTop}px 2px ${d.gap}px`, fontSize: d.smallFont, color: d.soft }}>
-    <b style={{ color: tokens.color.subInk, fontWeight: 600 }}>{label}</b>{note ? <span style={{ fontSize: 10.5, color: d.faint }}>{note}</span> : null}
-  </div>
-);
-
-/** One row per post: avatar, handle · date, the post's first line, likes. Opens the post on Threads. */
-function PostRow({ post }: { post: DiscoursePost }) {
-  return (
-    <a href={post.url} target="_blank" rel="noreferrer" data-discourse-post={post.postKey} style={{ display: "grid", gridTemplateColumns: `${d.avatar}px minmax(0,1fr) auto`, gap: 10, padding: "8px 6px", borderRadius: 8, color: "inherit", textDecoration: "none", background: post.inView ? tokens.color.cyanSoft : "transparent" }}>
-      <Avatar handle={post.author} />
-      <span style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.45 }}>
-        <b style={{ fontWeight: 600 }}>{post.author}<span style={{ fontWeight: 400, color: d.soft, marginLeft: 6 }}>{post.date}</span></b>
-        <em style={{ display: "block", fontStyle: "normal", color: tokens.color.subInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{post.text}</em>
-      </span>
-      <span style={{ fontSize: d.tinyFont, color: d.soft, fontVariantNumeric: "tabular-nums" }}>{post.likes === null ? "" : `♡ ${post.likes}`}</span>
-    </a>
-  );
-}
-
-function NewTopic({ onCreate, label = "＋ 新話題", initiallyOpen = false }: { onCreate: (name: string, question: string) => void; label?: string; initiallyOpen?: boolean }) {
-  const [editing, setEditing] = useState(initiallyOpen);
-  const [name, setName] = useState("");
-  const [question, setQuestion] = useState("");
-  if (!editing) return <button type="button" data-discourse-new-topic="true" style={pill(false)} onClick={() => setEditing(true)}>{label}</button>;
-  const field: CSSProperties = { ...pill(false), border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, minWidth: 0, width: "100%", boxSizing: "border-box", cursor: "text" };
-  return <form data-discourse-topic-form="" style={{ display: "grid", gap: d.gap, width: "100%" }} onSubmit={event => {
-    event.preventDefault(); if (!name.trim()) return; onCreate(name.trim(), question.trim()); setEditing(false); setName(""); setQuestion("");
-  }}>
-    <label>名稱<input autoFocus required maxLength={80} data-discourse-new-topic-name="" aria-label="新話題名稱" value={name} onChange={e => setName(e.target.value)} style={field} /></label>
-    <label>研究問題（可選）<input maxLength={240} data-discourse-research-question="" aria-label="研究問題（可選）" value={question} onChange={e => setQuestion(e.target.value)} style={field} /></label>
-    <div><button type="submit" style={pill(true)}>建立</button> <button type="button" style={pill(false)} onClick={() => setEditing(false)}>取消</button></div>
-  </form>;
-}
-
-function Finding({ finding, onOpenFrame }: { finding: DiscourseFinding; onOpenFrame: (key: string) => void }) {
-  const color = finding.kind === "trend" ? d.trend : finding.kind === "like" ? d.like : d.ask;
-  const label = finding.kind === "trend" ? "走勢" : finding.kind === "like" ? "共鳴" : "重複問題";
-  let shape: ReactNode = null;
-  if (finding.kind === "trend") {
-    const max = Math.max(1, ...finding.weeks.map((w) => w.count));
-    shape = (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 10 }}>
-        {finding.weeks.map((week) => (
-          <span key={week.label} style={{ display: "grid", gap: 4, fontSize: 10.5, color: d.soft, textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
-            <i style={{ height: d.weekBar, display: "flex", alignItems: "flex-end", borderRadius: 4, background: d.hair, overflow: "hidden" }}>
-              <b style={{ width: "100%", height: `${Math.round((week.count / max) * 100)}%`, borderRadius: 4, background: week.hot ? color : `color-mix(in srgb, ${color} 45%, transparent)` }} />
-            </i>{week.label} · {week.count}
-          </span>
-        ))}
-      </div>
-    );
-  } else if (finding.kind === "like") {
-    const max = Math.max(1, ...finding.rows.map((r) => r.avg));
-    shape = (
-      <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
-        {finding.rows.map((row) => (
-          <div key={row.name} style={{ display: "grid", gridTemplateColumns: "96px minmax(0,1fr) 44px", gap: 8, alignItems: "center", fontSize: d.tinyFont, color: row.hot ? tokens.color.ink : d.soft, fontWeight: row.hot ? 600 : 400 }}>
-            <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.name}</span>
-            <i style={{ height: 6, borderRadius: 3, background: d.hair, overflow: "hidden" }}><b style={{ display: "block", height: "100%", width: `${Math.round((row.avg / max) * 100)}%`, borderRadius: 3, background: row.hot ? color : `color-mix(in srgb, ${color} 40%, transparent)` }} /></i>
-            <span style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.avg}</span>
-          </div>
-        ))}
-      </div>
-    );
-  } else {
-    shape = (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 10, fontSize: d.tinyFont, color: d.soft }}>
-        {finding.where.map((w) => (
-          <span key={w.postKey} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <i style={{ width: 8, height: 8, borderRadius: "50%", background: w.replied ? d.replied : "none", boxShadow: w.replied ? "none" : `inset 0 0 0 1.5px ${d.inbox}` }} />@{w.author}
-          </span>
-        ))}
-      </div>
-    );
-  }
-  const frameKey = finding.kind === "ask" ? null : finding.frameKey;
-  return (
-    <div data-discourse-finding={finding.kind} data-dlens-presence="card" style={{ ...card, marginTop: d.gap, padding: "13px 14px 12px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: d.smallFont, fontWeight: 600, color }}>{label}<span style={{ marginLeft: "auto", fontWeight: 400, fontSize: 10.5, color: d.faint }}>無 AI</span></div>
-      <p style={{ margin: "6px 0 0", fontSize: 13.5, lineHeight: 1.6 }}>{finding.text}</p>
-      {shape}
-      {frameKey ? <button type="button" onClick={() => onOpenFrame(frameKey)} style={{ marginTop: 8, border: 0, background: "none", padding: "3px 0", color, fontSize: d.smallFont, fontWeight: 600, cursor: "pointer" }}>睇呢個講法 ↗</button> : null}
-    </div>
-  );
-}
-
-function FrameRow({ frame, open, onToggle }: { frame: DiscourseFrame; open: boolean; onToggle: () => void }) {
-  return (
-    <div data-discourse-frame={frame.key} style={{ borderRadius: d.rowRadius, background: frame.inView ? tokens.color.cyanSoft : "transparent" }}>
-      <button type="button" aria-expanded={open} onClick={onToggle} style={{ width: "100%", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: "7px 12px", padding: "12px 10px 13px", border: 0, background: "none", textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit", borderRadius: d.rowRadius }}>
-        <span style={{ fontSize: 14.5, fontWeight: 600 }}>{frame.name}{frame.isNew ? <i style={{ fontStyle: "normal", fontSize: 11, fontWeight: 700, color: d.inbox, marginLeft: 8 }}>新</i> : null}</span>
-        <span style={{ fontSize: 12.5, color: tokens.color.subInk, fontVariantNumeric: "tabular-nums" }}>{frame.posts.length} 篇</span>
-        <span style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, fontSize: d.tinyFont, color: d.soft, fontVariantNumeric: "tabular-nums" }}>
-          <span style={{ display: "inline-flex" }}>{frame.posts.slice(0, 4).map((p, i) => <span key={p.postKey} style={{ marginLeft: i ? -6 : 0 }}><Avatar handle={p.author} size={d.faceAvatar} /></span>)}</span>
-          {frame.first ? `最早 ${frame.first} · ` : ""}本週 +{frame.thisWeek}
-          {frame.inView ? <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: acc }}>◉ 畫面上</span> : null}
-        </span>
-      </button>
-      {open ? <div style={{ display: "grid", gap: 2, padding: "0 4px 10px" }}>{frame.posts.map((post) => <PostRow key={post.postKey} post={post} />)}</div> : null}
-    </div>
-  );
-}
-
-/** 工作區 › 觀眾反應: 話題 → 講法 → 發現, with the 未分流 posts sorted by hand. */
-export function TopicDiscourseView({ viewModel: vm, onCommand }: { viewModel: TopicDiscourseViewModel; onCommand: (command: TopicDiscourseCommand) => void }) {
-  const [inboxOpen, setInboxOpen] = useState(!vm.topicCount);
-  const [openFrame, setOpenFrame] = useState<string | null>(null);
-  const topic = vm.topic;
-  const picks = (signalId: string, suggestion = vm.inbox.find(row => row.signalId === signalId)?.suggestion) => (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0 0 32px" }}>
-      {suggestion ? <button type="button" data-discourse-suggestion={suggestion.topicId} onClick={() => onCommand({ kind: "assign", signalId, topicId: suggestion.topicId })} style={pill(false)}>建議：〈{suggestion.name}〉✓</button> : null}
-      {vm.picks.filter(p => p.id !== suggestion?.topicId).map((p) => <button type="button" key={p.id} data-discourse-assign={p.id} onClick={() => onCommand({ kind: "assign", signalId, topicId: p.id })} style={{ border: 0, padding: d.pickPad, borderRadius: 999, fontSize: 12, cursor: "pointer", background: tokens.color.cyanSoft, color: acc }}>{p.name}</button>)}
-      <button type="button" data-discourse-move={signalId} style={pill(false)} onClick={() => onCommand({ kind: "move-product", signalId })}>移去 個人應用</button>
-      {suggestion ? <small style={{ color: d.soft }}>{suggestion.reason} · 字詞重疊，無 AI</small> : null}
-    </div>
-  );
-  return (
-    <div data-topic-discourse="true" style={{ padding: `4px ${d.pad - 4}px 28px`, fontFamily: tokens.font.sans, fontSize: d.bodyFont, color: tokens.color.ink }}>
-      <header style={{ display: "flex", alignItems: "center", gap: d.gap }}><WorkspaceModeIcon mode="topic" /><b>觀眾反應</b></header>
-      {!vm.topicCount ? <div data-discourse-guide="" style={{ ...card, padding: d.pad, marginTop: d.gap }}>
-        <p>① 建話題：名稱 + 你想答嘅問題（研究問題，可選）</p>
-        <p>② 放帖子入去：轉盤外圈，或者下面未分流</p>
-        <p>③ 睇講法同發現</p>
-      </div> : null}
-      <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 6 }}>
-        {vm.chips.map((chip) => (
-          <button type="button" role="tab" aria-selected={chip.selected} key={chip.id} data-discourse-topic={chip.id} onClick={() => onCommand({ kind: "select-topic", topicId: chip.id })} style={pill(chip.selected)}>
-            {chip.name}<em style={{ fontStyle: "normal", marginLeft: 6, color: chip.selected ? d.chipCountOn : d.soft, fontVariantNumeric: "tabular-nums" }}>{chip.count}</em>
-          </button>
-        ))}
-        <NewTopic initiallyOpen={!vm.topicCount} onCreate={(name, researchQuestion) => onCommand({ kind: "create-topic", name, researchQuestion })} />
-      </div>
-
-      {vm.inbox.length ? (
-        <div data-discourse-inbox="true" data-dlens-presence="card" style={{ ...card, marginTop: 14 }}>
-          <button type="button" aria-expanded={inboxOpen} onClick={() => setInboxOpen(!inboxOpen)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", border: 0, background: "none", textAlign: "left", cursor: "pointer", font: "inherit", color: "inherit" }}>
-            <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: d.inboxWash, color: d.inbox, fontSize: 11.5, fontWeight: 700, display: "grid", placeItems: "center" }}>{vm.inbox.length}</span>
-            <b style={{ fontWeight: 600 }}>未分流</b><span style={{ color: d.soft, fontSize: d.smallFont }}>放入話題先計入講法</span>
-            <i style={{ marginLeft: "auto", fontStyle: "normal", color: d.soft }}>{inboxOpen ? "⌃" : "⌄"}</i>
-          </button>
-          {inboxOpen ? vm.inbox.map((row) => (
-            <div key={row.signalId} data-discourse-inbox-row={row.signalId} style={{ padding: "10px 14px 12px", borderTop: `1px solid ${d.hair}`, background: row.inView ? tokens.color.cyanSoft : "transparent" }}>
-              <div style={{ display: "grid", gridTemplateColumns: `${d.avatar}px minmax(0,1fr)`, gap: 10 }}>
-                <Avatar handle={row.author} />
-                <div style={{ minWidth: 0, fontSize: 12.5, lineHeight: 1.45 }}>
-                  <b style={{ fontWeight: 600 }}>{row.author}<span style={{ fontWeight: 400, color: d.soft, marginLeft: 6 }}>{row.meta}</span></b>
-                  <em style={{ display: "block", fontStyle: "normal", color: tokens.color.subInk, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.text}</em>
-                </div>
-              </div>
-              {picks(row.signalId)}
-            </div>
-          )) : null}
-        </div>
-      ) : null}
-
-      {topic ? (
-        <>
-          <div style={{ marginTop: 20 }}>
-            <h2 style={{ margin: 0, font: `700 ${d.titleFont}px/1.3 ${tokens.font.serifCjk}`, letterSpacing: ".01em" }}>{topic.name}</h2>
-            {topic.researchQuestion ? <p data-discourse-question="" style={{ fontSize: d.smallFont, color: d.soft }}>研究問題：{topic.researchQuestion}</p> : null}
-            <div style={{ marginTop: 4, fontSize: d.smallFont, color: d.soft, fontVariantNumeric: "tabular-nums" }}>{topic.coverage}</div>
-          </div>
-          {topic.inView ? (
-            <div data-discourse-in-view={topic.inView.kind} style={{ marginTop: 14, display: "grid", gridTemplateColumns: "auto minmax(0,1fr)", gap: "4px 10px", padding: "10px 12px", borderRadius: 12, fontSize: 12.5, lineHeight: 1.5, color: tokens.color.subInk, background: topic.inView.kind === "here" ? tokens.color.cyanSoft : "none", boxShadow: topic.inView.kind === "here" ? "none" : `inset 0 0 0 1px ${tokens.color.line}` }}>
-              <span style={{ width: 9, height: 9, marginTop: 5, borderRadius: "50%", boxShadow: `0 0 0 2px ${topic.inView.kind === "here" ? acc : d.faint}` }} />
-              {topic.inView.kind === "here" ? (
-                <div><b style={{ color: tokens.color.ink, fontWeight: 600 }}>畫面上：@{topic.inView.author}</b>{topic.inView.frameName ? ` 屬〈${topic.inView.frameName}〉` : " 未有留言分群"}<small style={{ display: "block", fontSize: d.tinyFont, color: d.soft }}>{topic.inView.text}</small></div>
-              ) : topic.inView.kind === "elsewhere" ? (
-                <div>畫面上 @{topic.inView.author} 屬另一個話題〈{topic.inView.topicName}〉</div>
-              ) : (
-                <div>畫面上 @{topic.inView.author} 未放入話題{picks(topic.inView.signalId)}</div>
-              )}
-            </div>
-          ) : null}
-          {topic.findings.length ? (
-            <>
-              {k("發現", "跨帖先見到；每句由規則 + 數字組成")}
-              {topic.findings.map((finding) => <Finding key={finding.kind} finding={finding} onOpenFrame={(key) => setOpenFrame(key)} />)}
-            </>
-          ) : null}
-          {topic.frames ? (
-            <>
-              {k("講法", "按留言字詞分組 · 篇")}
-              {topic.frames.map((frame) => <FrameRow key={frame.key} frame={frame} open={openFrame === frame.key} onToggle={() => setOpenFrame(openFrame === frame.key ? null : frame.key)} />)}
-            </>
-          ) : (
-            <p style={{ margin: "16px 2px 4px", fontSize: 12.5, color: d.soft }}>{topic.loose.length} 篇貼文；放夠 3 篇並抓完留言先分講法。</p>
-          )}
-          {topic.loose.length ? (
-            <>
-              {topic.frames ? k("未有留言分群", "抓完留言後自動分") : null}
-              <div style={{ display: "grid", gap: 2 }}>{topic.loose.map((post) => <PostRow key={post.postKey} post={post} />)}</div>
-            </>
-          ) : null}
-          {topic.meme ? (
-            <>
-              {k("重複用語", "無 AI")}
-              <div data-dlens-presence="card" style={{ ...card, padding: "12px 14px", fontSize: 13, color: tokens.color.subInk }}>「<b style={{ color: tokens.color.ink }}>{topic.meme.phrase}</b>」喺 {topic.meme.posts} 篇貼文嘅留言分群出現。</div>
-            </>
-          ) : null}
-          <div data-dlens-presence="card" style={{ marginTop: 18, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: d.radius, border: `1px dashed ${tokens.color.line}`, fontSize: 12.5, color: d.soft }}>
-            <span>想睇成個話題嘅深入分析？</span>
-            <span style={{ display: "flex", gap: 4, marginLeft: "auto", whiteSpace: "nowrap" }}>
-              <button type="button" data-discourse-delete={topic.id} onClick={() => onCommand({ kind: "delete-topic", topicId: topic.id })} style={{ border: 0, background: "none", color: d.soft, cursor: "pointer", fontSize: 12.5 }}>移除話題</button>
-              <button type="button" data-discourse-atlas={topic.id} onClick={() => onCommand({ kind: "open-atlas", topicId: topic.id })} style={{ border: 0, background: "none", color: acc, fontWeight: 600, cursor: "pointer", fontSize: 12.5 }}>完整分析（Atlas）↗</button>
-            </span>
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
+/** Home and topic share a controlled disclosure state, retained by the shell across reader visits. */
+export function TopicDiscourseView({viewModel:vm,onCommand,uiState,onUiStateChange,readingModel}:{viewModel:TopicDiscourseViewModel;onCommand:(c:TopicDiscourseCommand)=>void;uiState?:DiscourseUiState;onUiStateChange?:(s:DiscourseUiState)=>void;readingModel?:TopicReadingModel|null}) {
+ const [local,setLocal]=useState(EMPTY_DISCOURSE_UI),[menu,setMenu]=useState<string|null>(null);
+ const state=uiState ?? local;const update=(next:DiscourseUiState)=>{if(onUiStateChange)onUiStateChange(next);else setLocal(next);};
+ const sheet=(signalId?:string)=>update({...state,sheet:{signalId},name:'',question:''});
+ const topic=vm.topic;
+ const heading=(label:string,note?:string)=><div style={{display:'flex',justifyContent:'space-between',gap:d.gap,marginTop:d.sectionTop,marginBottom:d.gap,fontSize:r.secondary}}><b>{label}</b>{note?<small style={{color:d.soft}}>{note}</small>:null}</div>;
+ const open=(post:DiscoursePost)=>onCommand(discourseReaderTarget(post.itemId,topic));
+ return <section data-topic-discourse={topic?'topic':'home'} style={{padding:tokens.spacing.sm,fontFamily:tokens.font.sans,fontSize:r.body,lineHeight:r.lineHeight,color:tokens.color.ink,minWidth:0}}>
+ {!topic?<>
+  <header style={{display:'flex',alignItems:'center',gap:d.gap}}><WorkspaceModeIcon mode="topic"/><b style={{fontSize:r.headline}}>觀眾反應</b><button type="button" data-discourse-new-topic="" onClick={()=>sheet()} style={{...pill(true),marginLeft:'auto',background:tokens.color.ink}}>＋ 新話題</button></header>
+  {state.sheet?<form data-discourse-topic-form="" style={{...card,padding:tokens.spacing.md,display:'grid',gap:d.gap,marginTop:tokens.spacing.md}} onSubmit={e=>{e.preventDefault();const command=topicSheetCommand(state);if(!command)return;onCommand(command);update({...state,sheet:null,name:'',question:''});}}>
+   <input autoFocus required maxLength={80} aria-label="新話題名稱" placeholder="話題名稱，例如：AI 寫 code 嘅代價" data-discourse-new-topic-name="" value={state.name} onChange={e=>update({...state,name:e.target.value})} style={field}/>
+   <input maxLength={240} aria-label="研究問題（可選）" placeholder="想答咩問題？（可選）" data-discourse-research-question="" value={state.question} onChange={e=>update({...state,question:e.target.value})} style={field}/>
+   <div style={{display:'flex',justifyContent:'flex-end',gap:d.gap}}><button type="button" style={pill()} onClick={()=>update({...state,sheet:null})}>取消</button><button type="submit" aria-disabled={!topicSheetCommand(state)} style={pill(true)}>建立</button></div>
+  </form>:null}
+  {vm.emptyLine?<p style={{fontSize:r.secondary,color:d.soft}}>{vm.emptyLine}</p>:<>{heading('話題','按最近更新')}<div data-dlens-presence="card" data-discourse-topic-list="" style={card}>{vm.topicRows.map(row=><button type="button" key={row.id} data-discourse-topic={row.id} onClick={()=>onCommand({kind:'select-topic',topicId:row.id})} style={{...quiet,padding:d.rowPad,width:'100%',borderBottom:`1px solid ${d.hair}`,display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:tokens.spacing.xs,minWidth:0}}><b style={{...ellipsis,fontSize:r.body}}>{row.name}</b><span style={{whiteSpace:'nowrap',fontSize:r.meta,color:d.soft}}>{row.count} 篇{row.todayAdded?<span style={{color:d.inbox}}> · 今日 +{row.todayAdded}</span>:null}</span><small style={{...ellipsis,gridColumn:'1 / -1',color:d.soft,fontSize:r.meta}}>{row.secondLine}</small></button>)}</div></>}
+  {vm.inbox.length?<div data-dlens-presence="card" data-discourse-inbox="" style={{...card,marginTop:d.sectionTop}}><header style={{display:'flex',gap:d.gap,padding:d.rowPad,alignItems:'center',flexWrap:'wrap'}}><span style={{...pill(),background:d.inboxWash,color:d.inbox}}>{vm.inbox.length}</span><b style={{fontSize:r.secondary}}>未分流</b><small style={{fontSize:r.meta,color:d.soft}}>放入話題先計入講法</small></header>{vm.inbox.map(row=><div key={row.signalId} data-discourse-inbox-row={row.signalId} style={{padding:d.rowPad,borderTop:`1px solid ${d.hair}`}}><div style={{display:'flex',gap:d.gap,alignItems:'center'}}><button type="button" data-discourse-inbox-open={row.itemId} onClick={()=>onCommand(discourseReaderTarget(row.itemId,null))} style={{...quiet,padding:0,display:'flex',gap:d.gap,minWidth:0,flex:1,alignItems:'center'}}><Avatar handle={row.author}/><span style={{display:'grid',minWidth:0,flex:1}}><span style={{...ellipsis,fontSize:r.secondary}}><b>@{row.author}</b><small style={{fontSize:r.meta,color:d.soft}}> · {row.meta}</small></span><span style={{...ellipsis,fontSize:r.secondary}}>{row.text}</span></span></button><button type="button" data-discourse-menu={row.signalId} aria-label={`@${row.author} 更多`} aria-expanded={menu===row.signalId} onClick={()=>setMenu(menu===row.signalId?null:row.signalId)} style={quiet}>⋯</button></div>{menu===row.signalId?<div role="menu" style={{display:'flex',gap:d.gap,justifyContent:'flex-end'}}><button role="menuitem" type="button" data-discourse-move={row.signalId} style={quiet} onClick={()=>{onCommand({kind:'move-product',signalId:row.signalId});setMenu(null);}}>移去 個人應用</button><button role="menuitem" type="button" style={quiet} onClick={()=>{onCommand({kind:'delete-signal',signalId:row.signalId});setMenu(null);}}>刪除</button></div>:null}<div style={{display:'flex',gap:d.gap,overflowX:'auto',marginTop:d.gap,paddingBottom:tokens.spacing.xs}}>{row.picks.map(p=><button type="button" key={p.id} data-discourse-suggestion={p.suggested?p.id:undefined} data-discourse-assign={p.id} style={pill(p.suggested)} onClick={()=>onCommand({kind:'assign',signalId:row.signalId,topicId:p.id})}>{p.suggested?`放入〈${p.name}〉`:p.name}</button>)}<button type="button" data-discourse-new-from={row.signalId} style={{...pill(),background:'transparent',border:`1px dashed ${d.inputBorder}`}} onClick={()=>sheet(row.signalId)}>＋ 新話題</button></div></div>)}</div>:null}
+ </>:<>
+  <button type="button" style={quiet} onClick={()=>onCommand({kind:'select-topic',topicId:null})}>‹ 觀眾反應</button>
+  <h1 style={{fontFamily:tokens.font.serifCjk,fontSize:d.titleFont,lineHeight:d.titleLineHeight,margin:0,overflowWrap:'anywhere'}}>{topic.name}</h1><small style={{fontSize:r.meta,color:d.soft}}>{topic.coverage}</small>
+  <Question key={topic.id} topic={topic} onCommand={onCommand}/>
+  {readingModel?<TopicReadingView model={readingModel} onRun={()=>onCommand({kind:'run-reading',topicId:topic.id})} onRef={itemId=>onCommand(discourseReaderTarget(itemId,topic))}/>:null}
+  {heading('講法','按留言字詞分組')}{topic.frames?.map(frame=><div key={frame.key} data-discourse-frame={frame.key}><button type="button" aria-expanded={state.openFrame===frame.key} onClick={()=>update(toggleDiscourseFrame(state,frame.key))} style={{...quiet,padding:d.rowPad,width:'100%',display:'flex',alignItems:'center',gap:d.gap}}><b style={{...ellipsis,flex:1,fontSize:r.body}}>{frame.name}</b><span style={{display:'flex'}}>{frame.posts.slice(0,3).map((p,i)=><span key={p.itemId} style={{marginLeft:i?-tokens.spacing.sm:0}}><Avatar handle={p.author} small/></span>)}</span><small style={{fontSize:r.meta,color:d.soft,whiteSpace:'nowrap'}}>{frame.posts.length} 篇 {state.openFrame===frame.key?'▴':'▾'}</small></button>{state.openFrame===frame.key?frame.posts.map(post=><PostRow key={post.itemId} post={post} onOpen={()=>open(post)}/>):null}</div>)}
+  {!topic.frames?.length?<p style={{fontSize:r.secondary,color:d.soft}}>讀完留言後會按字詞分組。</p>:null}
+  {heading('貼文',`${topic.posts.length} 篇`)}<div style={card}>{topic.posts.map(post=><PostRow key={post.itemId} post={post} onOpen={()=>open(post)}/>)}</div>
+  <button type="button" data-discourse-more="" aria-expanded={state.more} style={{...quiet,width:'100%',marginTop:tokens.spacing.md,background:d.chipBg,borderRadius:d.rowRadius}} onClick={()=>update({...state,more:!state.more})}>更多：走勢 · 共鳴 · 重複問題（無 AI）{state.more?'▴':'▾'}</button>
+  {state.more?<div>{topic.findings.map((finding,i)=><div key={i} data-discourse-finding={finding.kind} style={{padding:tokens.spacing.md,fontSize:r.secondary}}><b>{{trend:'走勢',like:'共鳴',ask:'重複問題'}[finding.kind]}</b><p>{finding.text}</p></div>)}{topic.meme?<p style={{fontSize:r.secondary,color:d.soft}}>重複用語：{topic.meme.phrase} · {topic.meme.posts} 篇</p>:null}{!topic.findings.length&&!topic.meme?<p style={{fontSize:r.secondary,color:d.soft}}>樣本未見可比較的發現。</p>:null}</div>:null}
+  <footer style={{marginTop:d.sectionTop}}><button type="button" style={{...quiet,color:d.soft}} onClick={()=>onCommand({kind:'delete-topic',topicId:topic.id})}>移除話題</button></footer>
+ </>}
+ </section>;
 }

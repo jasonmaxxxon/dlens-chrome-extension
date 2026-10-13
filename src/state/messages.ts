@@ -1,3 +1,4 @@
+import type { TopicReadingRecord } from "../compare/topic-reading-storage";
 import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
 import type { CompareBrief, CompareBriefRequest } from "../compare/brief";
@@ -56,6 +57,7 @@ export type ExtensionMessagePayload =
   | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string }
   | { type: "sidepanel/take-workspace-open" }
   | { type: "deep-reading/run"; itemId: string }
+  | { type: "topic-reading/run"; topicId: string }
   | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
   /** The post crossing the middle of the Threads viewport; the side panel follows it. */
   | { type: "inline/in-view"; postKey: string | null }
@@ -190,6 +192,7 @@ export type ExtensionSuccessResponse = {
   readerItemId?: string;
   readerLens?: string;
   deepReading?: DeepReadingRecord;
+  topicReading?: TopicReadingRecord;
   inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
   inViewPostKey?: string | null;
   aiKeyTest?: { ok: boolean; message: string };

@@ -1,3 +1,4 @@
+import { createDiscourseTopic } from "./topic-discourse-controller";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
@@ -326,7 +327,7 @@ export function useTopicState({
     [collectionTargetOverride, collectionTopicId, selectedTopicId, topics]
   );
 
-  // Cards on Threads sort posts into topics directly; re-read when those writes land so the side panel follows.
+  // Cards on Threads sort posts into topics directly; re-read when those writes land so the side panel refreshes its manual topic assignments.
   const [topicStoreVersion, setTopicStoreVersion] = useState(0);
   useEffect(() => {
     if (typeof chrome === "undefined" || !chrome.storage?.onChanged) return;
@@ -624,16 +625,11 @@ export function useTopicState({
   }
 
   /** Create a topic from a typed name (the discourse view's inline field), without the prompt dialogs. */
-  async function onCreateTopicNamed(name: string, researchQuestion = "") {
+  async function onCreateTopicNamed(name: string, researchQuestion = "", signalId?: string) {
     if (!activeFolder || !name.trim()) return;
-    const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
-      type: "topic/create",
-      sessionId: activeFolder.id,
-      name: name.trim(),
-      context: { researchQuestion: researchQuestion.trim() }
-    });
-    if (!response.ok) throw new Error(response.error);
-    setTopics(response.topics ?? topics);
+    const result = await createDiscourseTopic(sendExtensionMessage,activeFolder.id,name,researchQuestion,signalId);
+    setTopics(result.topics ?? topics);
+    if (result.signals) setSignals(result.signals);
   }
 
   function onSelectTopicTarget(topicId: string | null) {
@@ -677,13 +673,13 @@ export function useTopicState({
     });
   }
 
-  async function onUpdateTopic(patch: Partial<Topic>) {
-    if (!activeTopic) {
+  async function onUpdateTopic(patch: Partial<Topic>, topicId = activeTopic?.id) {
+    if (!topicId) {
       return;
     }
     const response = await sendExtensionMessage<{ ok: true; topics?: Topic[] } | { ok: false; error: string }>({
       type: "topic/update",
-      id: activeTopic.id,
+      id: topicId,
       patch: {
         name: patch.name,
         status: patch.status,
@@ -692,9 +688,8 @@ export function useTopicState({
         context: patch.context
       }
     });
-    if (response.ok) {
-      setTopics(response.topics ?? []);
-    }
+    if (!response.ok) throw new Error(response.error);
+    setTopics(response.topics ?? []);
   }
 
   async function onSignalTriaged(signalId: string, action: TriageAction) {

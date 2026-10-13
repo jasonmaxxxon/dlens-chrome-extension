@@ -1,3 +1,4 @@
+import { buildTopicReadingPrompt, parseTopicReadingResponse, TOPIC_READING_SYSTEM_PROMPT, type TopicReadingInput } from "./topic-reading.ts";
 import { buildDeepReadingPrompt, parseDeepReadingResponse, DEEP_READING_SYSTEM_PROMPT, DEEP_OUTPUT_TOKENS, deepModel, type DeepReadingInput } from "./deep-reading.ts";
 import { buildCompareOneLinerPrompt, type CompareOneLinerRequest } from "./one-liner.ts";
 import {
@@ -1291,4 +1292,15 @@ export async function generateDeepReading(provider: CompareProvider, apiKey: str
   const result = parseDeepReadingResponse(repaired, input);
   if (!result) throw new Error("深入解讀回應格式無效");
   return result;
+}
+
+/** One repair only; the shared transport policy remains unchanged. */
+export async function generateTopicReading(provider: CompareProvider, apiKey: string, input: TopicReadingInput, modelOverride?: string) {
+  const model=modelOverride?.trim() || deepModel(provider);
+  const prompt=buildTopicReadingPrompt(input);
+  const call=(body:string,label:string)=>generateJsonText(provider,apiKey,body,TOPIC_READING_SYSTEM_PROMPT,DEEP_OUTPUT_TOKENS,label,model);
+  const raw=await call(prompt,"topic-reading");
+  const parsed=parseTopicReadingResponse(raw,input);if(parsed)return parsed;
+  const repaired=await call(`${prompt}\n[修復：上次 JSON 無效；依原資料重寫，不加入新事實]\n${raw.slice(0,24000)}`,"topic-reading.repair");
+  const result=parseTopicReadingResponse(repaired,input);if(!result)throw new Error("話題解讀回應格式無效");return result;
 }
