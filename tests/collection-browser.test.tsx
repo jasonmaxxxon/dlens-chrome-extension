@@ -223,3 +223,23 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
     assert.equal(h.container.querySelector("[data-reader-evidence]"), null);
   } finally { await h.close(); }
 });
+
+test("recent readings sit above search, 全部 filters finished posts and a strip row opens reader", async () => {
+  const now = Date.parse("2026-10-13T12:00:00Z");
+  const completedAt = new Date(now - 60000).toISOString();
+  const ready = item("done", { status: "succeeded", completedAt, latestCapture: capture({}, { analysis: { status: "succeeded", generated_at: completedAt, clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>["analysis"]> }) });
+  const waiting = item("waiting", { descriptor: descriptor({ post_url: "https://www.threads.com/@b/post/WAIT" }), status: "queued" });
+  const view = await mount({ sessions: [session("one", [ready, waiting], "topic")], nowMs: now });
+  try {
+    const strip = view.container.querySelector("[data-reading-strip]")!;
+    assert.match(strip.textContent!, /剛讀完|讀完 · 0 種講法|1 分前/);
+    assert.ok(strip.compareDocumentPosition(view.container.querySelector("[data-collection-search]")!) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.equal(view.container.querySelectorAll('[data-collection-state="arc"]').length, 1);
+    assert.equal(view.container.querySelectorAll('[data-collection-state="dot"]').length, 1);
+    await view.click("[data-collection-finished-filter]");
+    // Exiting rows remain briefly for the existing fold motion; only active rows are clickable.
+    assert.equal(view.container.querySelectorAll('[data-collection-row]:not([data-collection-exiting="true"])').length, 1);
+    await view.click("[data-reading-arrival]");
+    assert.ok(view.container.querySelector('[data-collection-browser="reader"]'));
+  } finally { await view.close(); }
+});

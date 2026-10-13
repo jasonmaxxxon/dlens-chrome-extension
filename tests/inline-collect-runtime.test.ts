@@ -1,3 +1,4 @@
+import { OPENED_READING_PREFIX } from "../src/state/opened-readings-storage";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { JSDOM } from "jsdom";
@@ -17,12 +18,18 @@ const base: InlineCollectState = {
 function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[]; fetch?: typeof fetch } = {}) {
   const dom = new JSDOM(`<article><a href="/@author">author</a><a href="/@author/post/a">1h</a><p>The original source text.</p><div>${["Like", "Reply", "Repost", "Share"].map((title) => `<div role="button"><svg><title>${title}</title></svg></div>`).join("")}</div></article><div id="overlay"></div>`, { url: "https://www.threads.com/", pretendToBeVisual: true });
   const calls: { message: ExtensionMessage; resolve: (response: ExtensionResponse) => void; reject: (error: Error) => void }[] = [];
-  const keys = ["window", "document", "Element", "HTMLElement", "Node", "MutationObserver", "CustomEvent", "chrome", "fetch"] as const;
+  const keys = ["window", "document", "Element", "HTMLElement", "Node", "MutationObserver", "CustomEvent", "IntersectionObserver", "chrome", "fetch"] as const;
   const fetchStub = options.fetch ?? (() => Promise.reject(new Error("offline in tests")));
   const saved = keys.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
   const storageListeners = new Set<(changes: Record<string, chrome.storage.StorageChange>, area: string) => void>();
   let releaseSnapshot: ((response: ExtensionResponse) => void) | null = null;
-  const chrome = { storage: { onChanged: {
+  const stored: Record<string, unknown> = {};
+  let observer: IntersectionObserverCallback;
+  class Observer {
+    constructor(callback: IntersectionObserverCallback) { observer = callback; }
+    observe() {} unobserve() {} disconnect() {}
+  }
+  const chrome = { storage: { local: { get: async () => ({ ...stored }), set: async (values: Record<string, unknown>) => { Object.assign(stored, values); } }, onChanged: {
     addListener(listener: (changes: Record<string, chrome.storage.StorageChange>, area: string) => void) { storageListeners.add(listener); },
     removeListener(listener: (changes: Record<string, chrome.storage.StorageChange>, area: string) => void) { storageListeners.delete(listener); }
   } }, runtime: { id: "test-extension", sendMessage(message: ExtensionMessage) {
@@ -30,13 +37,14 @@ function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[];
       ? new Promise<ExtensionResponse>(resolve => { releaseSnapshot = resolve; }) : Promise.resolve({ ok: true, inlineCollect: base });
     return new Promise<ExtensionResponse>((resolve, reject) => calls.push({ message, resolve, reject }));
   }, onMessage: { addListener() {}, removeListener() {} } } };
-  keys.forEach((key) => Object.defineProperty(globalThis, key, { configurable: true, value: key === "chrome" ? chrome : key === "fetch" ? fetchStub : dom.window[key] }));
+  keys.forEach((key) => Object.defineProperty(globalThis, key, { configurable: true, value: key === "IntersectionObserver" ? Observer : key === "chrome" ? chrome : key === "fetch" ? fetchStub : dom.window[key] }));
   if (options.intervals) dom.window.setInterval = ((callback: () => void) => options.intervals!.push(callback)) as unknown as typeof dom.window.setInterval;
   const runtime = startInlineCollectRuntime(dom.window.document.getElementById("overlay")!);
   const button = dom.window.document.querySelector<HTMLButtonElement>(".dlens-collect-button")!;
   const chip = dom.window.document.querySelector<HTMLButtonElement>(".dlens-collect-chip")!;
   const click = () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, detail: 0 }));
-  return { dom, runtime, calls, button, chip, click,
+  return { dom, runtime, calls, button, chip, click, stored,
+    intersect(element: Element) { observer([{ target: element, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver); },
     emitGlobal(global: ExtensionGlobalState) { storageListeners.forEach(listener => listener({ [GLOBAL_STATE_STORAGE_KEY]: { newValue: global } }, "local")); },
     emitKey(key: string, value: unknown) { storageListeners.forEach(listener => listener({ [key]: { newValue: value } }, "local")); },
     releaseSnapshot() { releaseSnapshot?.({ ok: true, inlineCollect: base }); },
@@ -286,7 +294,8 @@ test("saving into 觀眾反應 starts the reply crawl and the card polls it whil
     assert.deepEqual(queued.itemIds, ["item-a"]);
     s.calls[1].resolve({ ok: true, processingStatus: "started", queuedItemIds: ["item-a"], failedItemIds: [] } as ExtensionResponse); await tick();
     s.emitGlobal(readingGlobal("topic", "running"));
-    assert.match(s.dom.window.document.querySelector(".dlens-card .head")!.textContent!, /抓取中/);
+    assert.ok(s.dom.window.document.querySelector(".dlens-save-line"));
+    assert.equal(s.dom.window.document.querySelector(".dlens-card"), null, "save-time reading stays compact");
     intervals.forEach((poll) => poll()); await tick();
     const refresh = s.calls[2].message;
     assert.ok(refresh.type === "session/refresh-item" && refresh.itemId === "item-a");
@@ -315,12 +324,12 @@ test("saving into 收藏整理 does not crawl, and a failed crawl start says so"
     s.calls[0].resolve({ ok: true, inlineCollect: archived, snapshot: { global: readingGlobal("archive", "saved"), tab: createEmptyTabState() } }); await tick();
     assert.equal(s.calls.length, 1);
     s.emitGlobal(readingGlobal("topic", "saved"));
-    s.dom.window.document.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="crawl"]')!.click(); await tick();
+    s.dom.window.document.querySelector<HTMLButtonElement>('.dlens-save-line [data-dlens-act="crawl"]')!.click(); await tick();
     s.calls[1].resolve({ ok: true, queuedItemIds: [], failedItemIds: ["item-a"] }); await tick();
     assert.match(s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent!, /未能開始抓取/);
-    const head = s.dom.window.document.querySelector(".dlens-card .head")!.textContent!;
+    const head = s.dom.window.document.querySelector(".dlens-save-line")!.textContent!;
     assert.match(head, /抓取失敗/, "a crawl that never became a job must not look untouched");
-    assert.match(s.dom.window.document.querySelector(".dlens-card .note")!.textContent!, /資料庫/);
+    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /資料庫/);
   } finally { s.cleanup(); }
 });
 
@@ -334,12 +343,13 @@ test("the card shows the post page's top first reply while the crawl is pending"
   const s = fixture({ fetch: (() => new Promise<Response>((resolve) => { release = resolve; })) as typeof fetch });
   try {
     await tick();
-    s.emitGlobal(readingGlobal("topic", "running"));
-    assert.ok(s.dom.window.document.querySelector(".dlens-card .sk"), "skeleton while the page loads");
+    s.click(); await tick();
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("topic", "running"), tab: createEmptyTabState() } }); await tick();
+    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /睇緊第一批留言/);
     release(new Response(html)); await tick(); await tick(); await tick();
-    const quote = s.dom.window.document.querySelector(".dlens-card .q1")!.textContent!;
+    const quote = s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!;
     assert.match(quote, /最多讚/);
-    assert.match(quote, /首批 2 則中最高讚/);
+    assert.match(quote, /♡ 40/);
   } finally { s.cleanup(); }
 });
 
@@ -360,6 +370,10 @@ test("a read 觀眾反應 card asks for its AI pass once and opens 展開證據 
     s.emitGlobal(global);
     await tick();
     assert.equal(ensures().length, 0, "without a key nothing is sent");
+    assert.equal(doc.querySelector(".dlens-card"), null);
+    doc.querySelector<HTMLButtonElement>('[data-dlens-act="toggle-card"]')!.click();
+    await tick();
+    assert.ok(s.stored[OPENED_READING_PREFIX + "item-a"], "opening the full card persists opened-at");
     assert.match(doc.querySelector(".dlens-card .head")!.textContent!, /未接 AI/);
     doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="ai-key"]')!.click();
     assert.match(doc.querySelector(".dlens-collect-toast")!.textContent!, /設定未填 Google API key/);
@@ -395,10 +409,10 @@ test("the button carries the crawl state and a dot for a result that arrived whi
     const doc = s.dom.window.document;
     s.emitGlobal(readingGlobal("topic", "queued"));
     assert.ok(s.button.classList.contains("busy") && s.button.classList.contains("queued"));
-    assert.ok(doc.querySelector(".dlens-card.enter"), "the card enters on first appearance");
+    assert.ok(doc.querySelector(".dlens-save-line"), "the compact line appears on save");
     s.emitGlobal(readingGlobal("topic", "running"));
     assert.ok(s.button.classList.contains("busy") && !s.button.classList.contains("queued"));
-    assert.equal(doc.querySelector(".dlens-card.enter"), null, "a repaint does not replay the entrance");
+    assert.equal(doc.querySelector(".dlens-card"), null, "waiting never mounts the full card");
     s.chip.click();
     assert.equal(doc.querySelector(".dlens-card"), null);
     const done = readingGlobal("topic", "succeeded");
@@ -428,11 +442,13 @@ test("a 觀眾反應 card sorts its post into a 話題 by hand and names where a
   try {
     await tick();
     const doc = s.dom.window.document;
-    const global = readingGlobal("topic", "saved");
+    const global = readingGlobal("topic", "succeeded");
+    global.sessions[0].items[0].latestCapture = { id: "cap-a", result: { comments: [{ text: "一則留言" }] }, analysis: { status: "succeeded", clusters: [], evidence: [] } } as unknown as SessionItem["latestCapture"];
     s.emitGlobal(global);
     const topic = (id: string, name: string, updatedAt: string) => ({ id, sessionId: "topic", name, status: "pending", tags: [], signalIds: [], pairIds: [], createdAt: updatedAt, updatedAt });
     s.emitKey("dlens:v1:topics", [topic("t-old", "香港拍拖", "2026-10-01T00:00:00Z"), topic("t-new", "AI 工具額度", "2026-10-07T00:00:00Z")]);
     s.emitKey("dlens:v1:signals", [{ id: "sig-a", sessionId: "topic", itemId: "item-a", source: "threads", inboxStatus: "unprocessed", capturedAt: "" }]);
+    doc.querySelector<HTMLButtonElement>('[data-dlens-act="toggle-card"]')!.click();
     const picks = [...doc.querySelectorAll<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-pick"]')];
     assert.deepEqual(picks.map((b) => b.textContent), ["AI 工具額度", "香港拍拖"], "most recently used 話題 first");
     picks[0].click(); await tick();
@@ -453,5 +469,57 @@ test("a 觀眾反應 card sorts its post into a 話題 by hand and names where a
     doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-side"]')!.click(); await tick();
     const sent = s.calls.map(({ message }) => message.type);
     assert.ok(sent.includes("inline/in-view") && sent.includes("sidepanel/open"), "the panel opens on this post's 話題");
+  } finally { s.cleanup(); }
+});
+
+
+test("a compact reading completed off-screen glows once on return and disclosure folds", async () => {
+  const s = fixture();
+  try {
+    await tick();
+    s.emitGlobal(readingGlobal("topic", "running"));
+    const doc = s.dom.window.document;
+    const slot = doc.querySelector<HTMLElement>(".dlens-card-slot")!;
+    let visible = false;
+    const rect = () => ({ top: visible ? 100 : -300, bottom: visible ? 150 : -200, right: 500 } as DOMRect);
+    slot.getBoundingClientRect = rect;
+    doc.querySelector<HTMLElement>("article")!.getBoundingClientRect = rect;
+    const done = readingGlobal("topic", "succeeded");
+    done.sessions[0].items[0].latestCapture = { id: "cap-a", result: { comments: [{ text: "完成留言" }] }, analysis: { status: "succeeded", clusters: [], evidence: [] } } as unknown as SessionItem["latestCapture"];
+    s.emitGlobal(done);
+    assert.equal(slot.classList.contains("return-glow"), false);
+    visible = true; s.intersect(slot);
+    assert.equal(slot.classList.contains("return-glow"), true);
+    slot.classList.remove("return-glow");
+    visible = false; s.emitGlobal(done); visible = true; s.intersect(slot);
+    assert.equal(slot.classList.contains("return-glow"), false, "returning twice never replays it");
+    doc.querySelector<HTMLButtonElement>('[data-dlens-act="toggle-card"]')!.click(); await tick();
+    assert.ok(doc.querySelector(".dlens-card"));
+    assert.ok(s.stored[OPENED_READING_PREFIX + "item-a"]);
+    doc.querySelector<HTMLButtonElement>('[data-dlens-act="toggle-card"]')!.click();
+    assert.equal(doc.querySelector(".dlens-card"), null);
+    assert.ok(doc.querySelector(".dlens-save-line"));
+  } finally { s.cleanup(); }
+});
+
+test("unfinished saved posts keep polling after Threads removes their card DOM", async () => {
+  const intervals: (() => void)[] = [];
+  const s = fixture({ intervals });
+  try {
+    await tick();
+    s.emitGlobal(readingGlobal("topic", "running"));
+    s.dom.window.document.querySelector("article")!.remove();
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(s.dom.window.document.querySelector(".dlens-card-slot"), null);
+    intervals.forEach(callback => callback()); await tick();
+    assert.ok(s.calls.some(c => c.message.type === "session/refresh-item" && c.message.itemId === "item-a"));
+    const done = readingGlobal("topic", "succeeded");
+    done.settings = { ...done.settings, oneLinerProvider: "google", googleApiKey: "test-key" };
+    done.sessions[0].items[0].latestCapture = {
+      id: "cap-a", result: { comments: Array.from({ length: 10 }, (_, i) => ({ comment_id: `c${i}`, text: `留言 ${i}` })) },
+      analysis: { status: "succeeded", clusters: [], evidence: [] }
+    } as unknown as SessionItem["latestCapture"];
+    s.emitGlobal(done); await tick();
+    assert.equal(s.calls.filter(c => c.message.type === "inline-reading/ensure").length, 1, "the AI reading starts even without a feed card");
   } finally { s.cleanup(); }
 });

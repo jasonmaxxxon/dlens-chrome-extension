@@ -1,3 +1,4 @@
+import { useOpenedReadings } from "./useOpenedReadings";
 import { collectionAudienceSource } from "../viewmodel/collection-reader";
 import { useCollectionReaderTopics, useCollectionReaderLive } from "./useCollectionReaderTopics";
 import { buildCollectionPosts } from "../viewmodel/collection-browser";
@@ -186,6 +187,7 @@ function OpenInPageCollectorPopup({
   // 觀眾反應 home: 話題 → 講法 → 發現 (side panel A). The panel follows the Threads post in view unless a 話題 is chosen.
   const [discourseTopicId, setDiscourseTopicId] = useState<string | null>(null);
   const discourseFeeds = useDiscourseFeeds(domainPage === "topics" || readingNavigation.tab === "collection");
+  const openedReadings = useOpenedReadings(!domainPage && readingNavigation.tab === "collection", readingNavigation.selectedKey, snapshot?.global.sessions ?? [], discourseFeeds.readings);
   const readerSource = !domainPage && readingNavigation.tab === "collection"
     ? collectionAudienceSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
   const readerSessionId = readerSource?.session.id ?? null;
@@ -640,7 +642,7 @@ function OpenInPageCollectorPopup({
             {readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey }))}

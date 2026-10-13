@@ -36,6 +36,7 @@ export const DLENS_KEYFRAMES_CSS = `
   ${tokens.motion.collectWheel.popPeakAt}% { transform: scale(${tokens.motion.collectWheel.popPeakScale}); }
   100% { transform: scale(1); }
 }
+@keyframes dlens-card-return { 25% { background: color-mix(in srgb, var(--acc) ${tokens.motion.collectCard.returnTint}%, ${tokens.collectCard.wash}); } }
 @keyframes dlens-card-in { from { opacity: 0; transform: translateY(-${tokens.motion.collectCard.enterOffset}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-card-fresh { from { opacity: 0; transform: translateY(${tokens.motion.collectCard.freshOffset}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-card-breathe { 50% { box-shadow: 0 0 0 ${tokens.motion.collectCard.breatheSpread}px color-mix(in srgb, var(--acc) ${tokens.motion.collectCard.breatheTint}%, transparent); } }
@@ -339,6 +340,8 @@ export const DLENS_MOTION_CSS = `
 [data-collection-row]:hover + [data-collection-row] [data-collection-post]::before { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
   [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} var(--collection-delay, 0ms) backwards; }
+  [data-reading-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} backwards; }
+  [data-collection-state="arc"] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
   [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.motion.collection.glideMs}ms ${tokens.motion.easing.entrance} backwards; }
   [data-collection-row][data-collection-exiting="true"] { animation: dlens-collection-fold ${tokens.motion.collection.foldMs}ms ${tokens.motion.easing.exit} forwards; }
   [data-collection-tab-indicator], [data-collection-sort-knob] { transition: transform ${tokens.motion.duration.slower} ${tokens.motion.easing.entrance}; }

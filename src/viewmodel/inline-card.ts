@@ -44,6 +44,7 @@ export interface InlineCardViewModel {
   peek: InlineCardPeek | null;
   error: string | null;
   countLabel: string | null;
+  readingCounts: { frames: number; comments: number };
   /** Fewer than MIN_COMMENTS read: list them instead of grouping. */
   few: InlineCardQuote[] | null;
   entries: InlineCardEntry[];
@@ -149,7 +150,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     eta: etaOf(item, phase, context.queue ?? []),
     peek: reads && phase !== "done" ? peekOf(context.peek) : null,
     error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
-    countLabel: null, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
+    countLabel: null, readingCounts: { frames: 0, comments: 0 }, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
   };
   if (phase !== "done" || mode !== "topic") return base;
   base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
@@ -157,6 +158,9 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   const t = readThread(item);
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
+  const currentReading = readingOf(item, context.ai);
+  base.readingCounts = { comments: t.comments.length, frames: t.comments.length < INLINE_CARD_MIN_COMMENTS ? 0
+    : (item.latestCapture?.analysis?.clusters ?? []).filter(cluster => !isNoise(cluster, currentReading)).length };
   if (t.comments.length < INLINE_CARD_MIN_COMMENTS) {
     base.few = t.comments.slice(0, 9).map(quote);
     return base;
@@ -301,4 +305,40 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
     section,
     groups: groups.filter((group) => group.chains.length || group.context)
   };
+}
+
+/** Completion belongs to the captured reading, never a newly invented backend clock. */
+export function inlineReadingFinishedAt(item: SessionItem, ai: InlineCardAiInput | null | undefined, now: number): string | null {
+  if (item.status !== "succeeded") return null;
+  const current = ai && "captureId" in ai && ai.captureId === item.latestCapture?.id ? ai : null;
+  if (current?.status === "running" || awaitingAnalysis(item, now)) return null;
+  if (current?.status === "complete") return current.reading.generatedAt;
+  return item.latestCapture?.analysis?.generated_at ?? item.completedAt ?? item.latestCapture?.result?.fetched_at ?? item.latestCapture?.captured_at ?? null;
+}
+export interface InlineSaveLine {
+  destination: string; status: string; busy: boolean; ready: boolean; retry: boolean;
+}
+export function buildInlineSaveLine(vm: InlineCardViewModel, now: number, savedAt: number | null, topicName: string | null): InlineSaveLine {
+  const ready = vm.phase === "done" && !vm.analysisPending && vm.ai?.state !== "running";
+  const busy = vm.phase === "queued" || vm.phase === "running" || vm.analysisPending || vm.ai?.state === "running";
+  let status: string;
+  if (vm.phase === "failed") status = `抓取失敗 · ${vm.error ?? "原因不明"}`;
+  else if (busy && savedAt !== null && now - savedAt < 1000) {
+    const top = vm.peek?.state === "ready" ? vm.peek.top : null;
+    status = top ? `「${top.text}」 ♡ ${top.likes ?? 0}` : "睇緊第一批留言";
+  } else if (ready) {
+    status = `讀完 · ${vm.readingCounts.frames} 種講法 · ${vm.readingCounts.comments} 則留言`;
+  } else if (busy) {
+    const left = vm.eta ? vm.eta.seconds - Math.floor((now - Date.parse(vm.eta.from)) / 1000) : null;
+    status = vm.analysisPending || vm.ai?.state === "running" ? "整理緊留言" : `讀緊留言${left === null ? "" : ` · ${!Number.isFinite(left) || left < 0 ? "比平常久" : `約 ${Math.max(1, Math.ceil(left / 60))} 分`}`}`;
+  } else status = "未抓取留言";
+  return { destination: `已存入 觀眾反應${topicName ? `〈${topicName}〉` : " · 未分流"}`, status, busy, ready, retry: vm.phase === "failed" || vm.phase === "saved" };
+}
+export function nextInlineDisclosure(expanded: boolean, ready: boolean) {
+  return { expanded: ready && !expanded, markOpened: ready && !expanded };
+}
+export interface InlineReturnGlow { ready: boolean; pending: boolean; glow: boolean }
+export function nextReturnGlow(previous: InlineReturnGlow | undefined, ready: boolean, visible: boolean): InlineReturnGlow {
+  const pending = ready && (!!previous?.pending || (!!previous && !previous.ready && !visible));
+  return { ready, pending: pending && !visible, glow: pending && visible };
 }

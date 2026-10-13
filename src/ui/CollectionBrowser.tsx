@@ -1,3 +1,5 @@
+import type { OpenedReadings } from "../state/opened-readings-storage";
+import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 import { buildCollectionReaderModel } from "../viewmodel/collection-reader";
 import type { InlineCardEntryKey } from "../viewmodel/inline-card";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
@@ -7,13 +9,15 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 import type { SessionRecord } from "../state/types";
-import { buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
 import { useCollectionMotion } from "./useCollectionMotion";
 import { SavedPostMetrics } from "./SavedPostPreview";
 import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
+  opened?: OpenedReadings;
+  openedError?: string | null;
   assignmentPending?: boolean;
   topics?: Topic[];
   signals?: Signal[];
@@ -136,15 +140,29 @@ function CollectionReader({ post, onBack, onOpenWorkspace, sessions, topics = []
 }
 
 /** Controlled source browsing: the shell owns query/selection across close and tab changes. */
-export function CollectionBrowser({ sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending }: CollectionBrowserProps) {
+// A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
+const NO_OPENED: OpenedReadings = {};
+
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, onCollect, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
+  const [finishedOnly, setFinishedOnly] = useState(false);
+  const arrival = useMemo(() => buildCollectionArrivalModel(posts, readings ?? {}, opened, nowMs, finishedOnly), [posts, readings, opened, nowMs, finishedOnly]);
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
-  const model = useMemo(() => buildCollectionBrowserModel(posts, query, sort, nowMs), [posts, query, sort, nowMs]);
+  const model = useMemo(() => buildCollectionBrowserModel(arrival.posts, query, sort, nowMs), [arrival.posts, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  if (selected) return <CollectionReader assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} />;
+  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={selected.key} post={selected} onBack={() => onSelect(null)} onOpenWorkspace={onOpenWorkspace} /></>;
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>
+      <div data-reading-strip="" style={{ display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.sm }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={metaStyle}>剛讀完</span><button type="button" data-collection-finished-filter="" aria-pressed={finishedOnly} onClick={() => setFinishedOnly(value => !value)} style={quietButton}>{finishedOnly ? "睇全部收藏" : "全部 ↗"}</button>
+        </div>
+        {arrival.recent.length ? arrival.recent.map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)} style={{ ...quietButton, color: tokens.color.ink, textAlign: "left", width: "100%" }}>
+          <WorkspaceModeIcon mode={row.mode} /><span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}><b>@{row.post.author.replace(/^@/, "") || "匿名"}</b><span style={metaStyle}>{row.summary}</span></span><time style={metaStyle} dateTime={row.at}>{row.ago}</time>
+        </button>) : <p style={{ ...metaStyle, margin: 0 }}>讀完會喺呢度出現，唔使留喺原帖等。</p>}
+        {openedError ? <p role="alert" style={{ ...metaStyle, margin: 0 }}>{openedError}</p> : null}
+      </div>
       <header style={{ display: "grid", gap: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
         <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, height: tokens.collection.searchHeight, width: "100%", minWidth: 0, boxSizing: "border-box", borderRadius: tokens.collection.thumbnailRadius, padding: `0 ${tokens.spacing.md}px` }}>
           <Search size={tokens.spacing.section} aria-hidden="true" style={{ color: tokens.color.softInk, flexShrink: 0 }} />
@@ -177,6 +195,7 @@ export function CollectionBrowser({ sessions, query, onQueryChange, sort = "save
                       {postedRelative ? <span>· {postedRelative}</span> : null}<span>· 留言 {comments ?? "—"}</span>
                     </span>
                   </span>
+                  {arrival.states[post.key] !== "none" ? <span data-collection-state={arrival.states[post.key]} role="img" aria-label={arrival.states[post.key] === "arc" ? "讀緊留言" : "未打開結果"} style={{ flexShrink: 0, width: arrival.states[post.key] === "arc" ? tokens.collectCard.arcSize : tokens.collection.dotSize, height: arrival.states[post.key] === "arc" ? tokens.collectCard.arcSize : tokens.collection.dotSize, borderRadius: tokens.radius.round, background: arrival.states[post.key] === "dot" ? getModeTheme(post.memberships[0]?.mode ?? "archive").accent : "transparent", border: arrival.states[post.key] === "arc" ? `${tokens.collectCard.arcBorder}px solid ${tokens.color.line}` : undefined, borderTopColor: getModeTheme(post.memberships[0]?.mode ?? "archive").accent, boxSizing: "border-box" }} /> : null}
                 </button>
               </div>
             </li>

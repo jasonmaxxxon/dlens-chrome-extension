@@ -307,6 +307,7 @@ export const tokens = {
 
   /* The card under a saved post, from the owner's v9 mockup: status line, four entries, one answer at a time. */
   collectCard: {
+    lineHeightPx: 36, lineGap: 7, linePadding: "0 10px", lineButtonPadding: "3px 4px", lineStatusMax: "65%", arcSize: 12, arcBorder: 1.5,
     wash: "#fbfbfa", hair: "rgba(27,26,23,.08)", sub: "#4a4840", soft: "#8a877c", fail: "#a8462e",
     hover: "rgba(0,0,0,.05)", track: "rgba(27,26,23,.06)", radius: 14, padding: "14px 16px", margin: "10px 0 6px",
     font: 13, lineHeight: 1.55, headFont: 12, headline: 16, entryLabel: 14, entryFinding: 12.5, quoteFont: 13, citeFont: 11.5,
@@ -344,7 +345,7 @@ export const tokens = {
     },
     /* The card under a post: enters once, results fade up once, the live dot breathes, the peek shimmers. */
     collection: { riseMs: 420, risePx: 8, staggerMs: 28, staggerCap: 10, foldMs: 240, glideMs: 420, fadeMs: 280, mistMs: 18000, mistX: 24, mistY: 12, clockMs: 60000 },
-    collectCard: { enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
+    collectCard: { returnMs: 1200, returnTint: 16, enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
     /* Primitive durations — pair with easings to build named transitions. */
     duration: {
       instant: "80ms",

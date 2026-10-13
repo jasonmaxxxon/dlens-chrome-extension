@@ -1,6 +1,10 @@
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { SessionItem, SessionRecord } from "../state/types";
 import { stripThreadsTranslationChrome } from "../state/source-text";
+import { buildInlineCardViewModel, buildInlineSaveLine, inlineReadingFinishedAt } from "./inline-card";
+import type { InlineReadingRecord } from "../compare/inline-reading-storage";
+import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
+import type { OpenedReadings } from "../state/opened-readings-storage";
 import { postedAt } from "./topic-discourse";
 import { parseLibrarySearchTokens } from "./library-search";
 
@@ -12,6 +16,7 @@ export interface CollectionMembership {
   savedAt: string;
   status: SessionItem["status"];
   captureId: string | null;
+  item: SessionItem;
 }
 
 export interface CollectionPost {
@@ -140,7 +145,7 @@ export function buildCollectionPosts(sessions: SessionRecord[]): CollectionPost[
       captureLimit: !bodySource && body ? "目前保存的是收藏時擷取的文字；完整內容可查看原帖。" : null,
       memberships: sources.map(({ session, item }) => ({
         sessionId: session.id, sessionName: session.name, mode: session.mode, itemId: item.id,
-        savedAt: item.savedAt, status: item.status, captureId: item.captureId
+        savedAt: item.savedAt, status: item.status, captureId: item.captureId, item
       }))
     };
   }).sort((a, b) => timestamp(b.savedAt) - timestamp(a.savedAt) || a.key.localeCompare(b.key));
@@ -221,4 +226,27 @@ export function buildWorkspaceCards(sessions: SessionRecord[], nowMs: number) {
     return { session, purpose: WORKSPACE_PURPOSE[session.mode], count: session.items.length,
       previews: posts.slice(0, 4), lastSavedRelative: collectionRelativeTime(saved, nowMs) };
   });
+}
+
+
+export function buildCollectionArrivalModel(posts: CollectionPost[], readings: Record<string, InlineReadingRecord>, opened: OpenedReadings, now: number, finishedOnly: boolean) {
+  const finished = posts.flatMap(post => post.memberships.flatMap(m => {
+    if (m.mode !== "topic" && m.mode !== "product") return [];
+    const record = readings[m.itemId];
+    const ai = record?.status === "complete" && record.reading.promptVersion !== INLINE_READING_PROMPT_VERSION ? null : record;
+    const at = inlineReadingFinishedAt(m.item, ai, now);
+    if (!at || !Number.isFinite(Date.parse(at)) || Date.parse(at) > now) return [];
+    const card = buildInlineCardViewModel(m.item, "topic", m.sessionName, { ai, now });
+    const line = buildInlineSaveLine(card, now, null, null);
+    return [{ post, mode: m.mode, itemId: m.itemId, at, summary: line.status.replace(/ · \d+ 則留言$/, ""),
+      ago: now - Date.parse(at) < 60000 ? "啱啱" : `${Math.floor((now - Date.parse(at)) / 60000)} 分前` }];
+  })).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.itemId.localeCompare(b.itemId));
+  const unique = finished.filter((r, i) => finished.findIndex(other => other.post.key === r.post.key) === i);
+  const states = Object.fromEntries(posts.map(post => {
+    const live = post.memberships.some(m => m.status === "queued" || m.status === "running" || (m.status === "succeeded" && (m.mode === "topic" || m.mode === "product") && !inlineReadingFinishedAt(m.item, readings[m.itemId], now)));
+    const unread = finished.some(r => r.post.key === post.key && (!opened[r.itemId] || Date.parse(opened[r.itemId]) < Date.parse(r.at)));
+    return [post.key, live ? "arc" : unread ? "dot" : "none"] as const;
+  }));
+  return { recent: unique.filter(r => now - Date.parse(r.at) <= 86400000).slice(0, 3),
+    posts: finishedOnly ? unique.map(r => r.post) : posts, states, finished };
 }

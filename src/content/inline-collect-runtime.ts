@@ -1,3 +1,4 @@
+import { markReadingOpened } from "../state/opened-readings-storage";
 import type { ExtensionMessage, ExtensionResponse, QueueItemsAndStartProcessingResponse } from "../state/messages";
 import { INLINE_COLLECT_MODES, INLINE_COLLECT_MODE_NAMES, inlineCollectPostKey, projectInlineCollectState, type InlineCollectMessage, type InlineCollectSavedPost, type InlineCollectState } from "../state/inline-collect";
 import { buildTargetDescriptor } from "../targeting/threads";
@@ -6,13 +7,13 @@ import { createInlineCollectWheel, INLINE_COLLECT_BUTTON_HTML, updateSavedButton
 import { createEmptyGlobalState, type ExtensionGlobalState, type FolderMode } from "../state/types";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace";
 import { GLOBAL_STATE_STORAGE_KEY } from "../state/storage-keys";
-import { awaitingAnalysis, buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
+import { awaitingAnalysis, buildInlineCardEvidence, buildInlineSaveLine, nextInlineDisclosure, nextReturnGlow, type InlineReturnGlow, buildInlineCardViewModel, type InlineCardAiInput, type InlineCardEntryKey, type InlineCardPeekInput } from "../viewmodel/inline-card";
 import { aiKeyGap } from "../state/ai-key";
 import type { SessionItem, Signal, Topic } from "../state/types";
 import { normalizeSignal, normalizeTopic, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../state/topic-storage";
 import { buildCardTopicLine } from "../viewmodel/topic-discourse";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
-import { renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
+import { renderInlineSaveLine, renderInlineCard, renderInlineEvidenceWindow, formatEta } from "./inline-collect-card";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
 import { tokens } from "../ui/tokens";
 import { fetchFirstReplies } from "./inline-collect-peek";
@@ -39,11 +40,25 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const send = (message: ExtensionMessage) => chrome.runtime.sendMessage(message) as Promise<ExtensionResponse>;
   // The card under a saved post (v9): shown on save, × hides it, the chip toggles it back.
   let global: ExtensionGlobalState | null = null;
-  const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null; evidence: boolean }>();
-  const closedView = { hidden: false, lens: null, evidence: false };
+  const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null; evidence: boolean; expanded?: boolean }>();
+  const closedView: { hidden: boolean; lens: InlineCardEntryKey | null; evidence: boolean; expanded?: boolean } = { hidden: false, lens: null, evidence: false };
+  const savedClocks = new Map<string, number>();
+  const returnGlows = new Map<string, InlineReturnGlow>();
+  const glowTimers = new Map<string, number>();
+  const visibility = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      const identity = (entry.target as HTMLElement).dataset.dlensIdentity;
+      if (identity && returnGlows.get(identity)?.pending) repaintCard(identity);
+    }
+  });
   const slots = new Map<string, HTMLElement>();
   function removeCard(identity: string) {
-    slots.get(identity)?.remove(); slots.delete(identity);
+    const slot = slots.get(identity);
+    if (slot) visibility.unobserve(slot);
+    slot?.remove(); slots.delete(identity);
+    const timer = glowTimers.get(identity);
+    if (timer) window.clearTimeout(timer);
+    glowTimers.delete(identity);
     if (evidenceWindow?.dataset.dlensFor === identity) closeEvidenceWindow();
   }
   const itemOf = (destination: InlineCollectSavedPost) =>
@@ -94,11 +109,25 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     post.button.classList.toggle("ready", unseen.has(post.identity));
     return arrived;
   }
+  function trackOffscreenReadings() {
+    for (const destination of state.saved) {
+      if (destination.mode !== "topic") continue;
+      const item = itemOf(destination);
+      if (!item) continue;
+      const post = injection?.entries().find(p => p.identity === destination.postKey);
+      const rect = post?.card.getBoundingClientRect();
+      const vm = buildInlineCardViewModel(item, "topic", destination.sessionName, { ai: aiOf(item), now: Date.now() });
+      if (vm.phase === "done" && vm.entries.length && !vm.ai && !vm.analysisPending) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
+      if (rect && rect.bottom > 0 && rect.top < window.innerHeight) continue;
+      const ready = buildInlineSaveLine(vm, Date.now(), null, null).ready;
+      returnGlows.set(destination.postKey, nextReturnGlow(returnGlows.get(destination.postKey), ready, false));
+    }
+  }
   function renderCard(post: InlineCollectPost) {
     const destination = pending.has(post.identity) ? null : saved(post.identity);
     const view = cards.get(post.identity);
     const item = destination && itemOf(destination);
-    const arrived = paintCrawlState(post, item ?? null, destination?.mode === "topic" || destination?.mode === "product", !!view?.hidden);
+    const arrived = paintCrawlState(post, item ?? null, destination?.mode === "topic" || destination?.mode === "product", destination?.mode === "topic" ? !view?.expanded : !!view?.hidden);
     if (!destination || !item || view?.hidden) { removeCard(post.identity); return; }
     const bar = post.button.parentElement?.parentElement;
     if (!bar) return;
@@ -106,9 +135,11 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const enter = !existing || !existing.isConnected || existing.previousElementSibling !== bar;
     let slot = existing;
     if (!slot || enter) {
-      slot?.remove();
+      if (slot) { visibility.unobserve(slot); slot.remove(); }
       slot = document.createElement("div");
       slot.className = "dlens-card-slot";
+      slot.dataset.dlensIdentity = post.identity;
+      visibility.observe(slot);
       slot.setAttribute("data-dlens-control", "true");
       slot.addEventListener("click", (event) => onCardClick(post, event));
       slot.addEventListener("keydown", (event) => onCardKey(post, event));
@@ -128,8 +159,18 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     });
     // A read 觀眾反應 card asks the background for its AI pass once per capture (after the quant clusters land); the result arrives through storage.
     if (vm.phase === "done" && vm.mode === "topic" && vm.entries.length && !vm.ai && !vm.analysisPending) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
+    const line = buildInlineSaveLine(vm, Date.now(), savedClocks.get(post.identity) ?? null, topicNameOf(item.id));
+    const rect = slot.getBoundingClientRect();
+    const returned = nextReturnGlow(returnGlows.get(post.identity), line.ready, rect.bottom > 0 && rect.top < window.innerHeight);
+    returnGlows.set(post.identity, returned);
+    if (destination.mode === "topic" && returned.glow) {
+      slot.classList.add("return-glow");
+      const oldTimer = glowTimers.get(post.identity);
+      if (oldTimer) window.clearTimeout(oldTimer);
+      glowTimers.set(post.identity, window.setTimeout(() => { slot?.classList.remove("return-glow"); glowTimers.delete(post.identity); }, tokens.motion.collectCard.returnMs));
+    }
     const lens = view?.lens && vm.answers[view.lens] ? view.lens : null;
-    const evidence = view?.evidence ? buildInlineCardEvidence(item, vm, lens, aiOf(item)) : null;
+    const evidence = view?.evidence && (destination.mode !== "topic" || view.expanded) ? buildInlineCardEvidence(item, vm, lens, aiOf(item)) : null;
     // 展開證據 opens beside the feed when there is room (mockup v12), else below the card.
     const card = (post as InlineCollectEntry).card ?? bar;
     const right = card.getBoundingClientRect().right;
@@ -137,7 +178,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const topicLine = destination.mode === "topic"
       ? buildCardTopicLine(item.id, topics, signals, global?.sessions.flatMap((session) => session.items) ?? [], readings)
       : null;
-    slot.innerHTML = renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence, topicLine, naming: naming === post.identity });
+    const full = destination.mode !== "topic" || view?.expanded;
+    const html = (destination.mode === "topic" ? renderInlineSaveLine(line, !!view?.expanded, false) : "")
+      + (full ? renderInlineCard(vm, lens, Date.now(), floating ? null : evidence, { enter, fresh: arrived, evidenceOpen: !!evidence, topicLine, naming: naming === post.identity }) : "");
+    if (slot.innerHTML !== html) slot.innerHTML = html;
     if (naming === post.identity) slot.querySelector<HTMLInputElement>("[data-dlens-topic-name]")?.focus();
     if (evidence && floating) showEvidenceWindow(post.identity, (enter: boolean) => renderInlineEvidenceWindow(evidence, destination.mode, enter), right, slot.getBoundingClientRect().top);
     else if (evidenceWindow?.dataset.dlensFor === post.identity) closeEvidenceWindow();
@@ -169,6 +213,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   let topics: Topic[] = [];
   let signals: Signal[] = [];
   let naming: string | null = null;
+  function topicNameOf(itemId: string) {
+    const signal = signals.find(s => s.itemId === itemId);
+    return topics.find(t => t.id === signal?.topicId)?.name ?? null;
+  }
   const readTopics = (value: unknown) => (Array.isArray(value) ? value.map(normalizeTopic).filter((t): t is Topic => !!t) : []);
   const readSignals = (value: unknown) => (Array.isArray(value) ? value.map(normalizeSignal).filter((s): s is Signal => !!s) : []);
   function triage(post: InlineCollectPost, signalId: string, action: { kind: "assign"; topicId: string } | { kind: "create-topic"; name: string }) {
@@ -222,7 +270,17 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     if (lens) { cards.set(post.identity, { ...view, lens: view.lens === lens ? null : lens }); renderCard(post); return; }
     const act = target?.closest<HTMLElement>("[data-dlens-act]")?.dataset.dlensAct;
     const destination = saved(post.identity);
-    if (act === "close") { cards.set(post.identity, { ...view, hidden: true }); renderCard(post); }
+    if (act === "toggle-card" && destination) {
+      const item = itemOf(destination);
+      if (!item) return;
+      const vm = buildInlineCardViewModel(item, destination.mode, destination.sessionName, { ai: aiOf(item), now: Date.now() });
+      const line = buildInlineSaveLine(vm, Date.now(), null, topicNameOf(item.id));
+      const next = nextInlineDisclosure(!!view.expanded, line.ready);
+      cards.set(post.identity, { ...view, expanded: next.expanded, evidence: false });
+      if (next.markOpened) void markReadingOpened(chrome.storage.local, item.id, new Date().toISOString()).catch(() => wheel.showToast("未能記錄已讀，請再試。"));
+      renderCard(post);
+    }
+    else if (act === "close") { cards.set(post.identity, { ...view, ...(destination?.mode === "topic" ? { expanded: false, evidence: false } : { hidden: true }) }); renderCard(post); }
     else if (act === "open") openWorkspace(post.identity);
     else if (act === "move") wheel.openSticky(post);
     else if (act === "crawl" && destination) crawl(destination);
@@ -249,6 +307,9 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     }
   }
   const waitTimer = window.setInterval(() => {
+    for (const entry of injection?.entries() ?? []) {
+      if (saved(entry.identity)?.mode === "topic") renderCard(entry);
+    }
     for (const slot of slots.values()) slot.querySelectorAll<HTMLElement>("[data-dlens-eta]").forEach((el) => { el.textContent = formatEta(el.dataset.dlensEta ?? "", Number(el.dataset.dlensEtaSec), Date.now()); });
   }, 1000);
   function showReloadNotice() {
@@ -260,15 +321,14 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     document.body.appendChild(notice);
     window.setTimeout(() => notice.remove(), tokens.motion.collectWheel.toastActionMs * 2);
   }
-  // The workspace popup only refreshes jobs while it is open, so a card polls its own crawl, then the quant analysis, until both settle.
+  // Keep unfinished saved posts polling after Threads recycles their DOM; the panel still needs the arriving reading.
   const refreshing = new Set<string>();
   const pollTimer = window.setInterval(() => {
     // After the extension reloads, this script stays on the page cut off from it (Chrome injects the new build only on a
     // page load). Remove its controls so the old build's button, wheel and card do not linger, and say how to get the new one.
     if (!globalThis.chrome?.runtime?.id) { teardown(); showReloadNotice(); return; }
-    for (const identity of slots.keys()) {
-      const destination = saved(identity);
-      const item = destination && itemOf(destination);
+    for (const destination of state.saved) {
+      const item = itemOf(destination);
       const settling = !!item && (item.status === "queued" || item.status === "running" || awaitingAnalysis(item, Date.now()));
       if (!destination || !item || !settling || refreshing.has(item.id)) continue;
       refreshing.add(item.id);
@@ -371,6 +431,10 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   async function save(post: InlineCollectPost, mode?: FolderMode) {
     if (destroyed) return;
     const message: InlineCollectMessage = { type: "session/inline-collect", action: "save", descriptor: post.descriptor, ...(mode ? { mode } : {}) };
+    cards.set(post.identity, { ...closedView });
+    returnGlows.delete(post.identity);
+    peeks.delete(post.identity);
+    savedClocks.set(post.identity, Date.now());
     await request(message);
     // v9: saving into a reading workspace starts the reply crawl at once; the card then shows its progress.
     const destination = saved(post.identity);
@@ -423,7 +487,15 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       const onClick = (event: MouseEvent) => {
         event.preventDefault(); event.stopPropagation();
         const view = cards.get(post.identity) ?? closedView;
-        cards.set(post.identity, { ...view, hidden: !view.hidden });
+        if (saved(post.identity)?.mode === "topic") {
+          const destination = saved(post.identity)!;
+          const item = itemOf(destination);
+          if (!item) return;
+          const vm = buildInlineCardViewModel(item, "topic", destination.sessionName, { ai: aiOf(item), now: Date.now() });
+          const next = nextInlineDisclosure(!!view.expanded, buildInlineSaveLine(vm, Date.now(), null, topicNameOf(item.id)).ready);
+          cards.set(post.identity, { ...view, hidden: false, expanded: next.expanded, evidence: false });
+          if (next.markOpened) void markReadingOpened(chrome.storage.local, item.id, new Date().toISOString()).catch(() => wheel.showToast("未能記錄已讀，請再試。"));
+        } else cards.set(post.identity, { ...view, hidden: !view.hidden });
         renderCard(post);
       };
       post.chip.addEventListener("click", onClick);
@@ -437,6 +509,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       if (INLINE_READINGS_STORAGE_KEY in changes) readings = normalizeInlineReadingRecords(changes[INLINE_READINGS_STORAGE_KEY].newValue);
       if (TOPICS_STORAGE_KEY in changes) topics = readTopics(changes[TOPICS_STORAGE_KEY].newValue);
       if (SIGNALS_STORAGE_KEY in changes) signals = readSignals(changes[SIGNALS_STORAGE_KEY].newValue);
+      trackOffscreenReadings();
       injection?.entries().forEach(renderCard);
     }
     if (!(GLOBAL_STATE_STORAGE_KEY in changes)) return;
@@ -448,6 +521,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     // another tab's navigation state or dispatch its snapshot into this popup.
     state = projectInlineCollectState(global ?? createEmptyGlobalState());
     latestGlobal(global ?? null);
+    trackOffscreenReadings();
     injection?.entries().forEach(paint);
   };
   function latestGlobal(next: ExtensionGlobalState | null) { global = next; }
@@ -483,7 +557,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const onResize = () => { const identity = evidenceWindow?.dataset.dlensFor; if (identity) repaintCard(identity); };
   window.addEventListener("resize", onResize);
   function teardown() {
-    destroyed = true; closeEvidenceWindow(); window.removeEventListener("resize", onResize);
+    destroyed = true; visibility.disconnect(); for (const timer of glowTimers.values()) window.clearTimeout(timer); glowTimers.clear(); closeEvidenceWindow(); window.removeEventListener("resize", onResize);
     document.removeEventListener("scroll", onScroll, { capture: true }); if (inViewFrame) window.cancelAnimationFrame(inViewFrame); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
     try { chrome.storage.onChanged.removeListener(storageListener); } catch { /* the extension context may already be gone */ }
     injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id);

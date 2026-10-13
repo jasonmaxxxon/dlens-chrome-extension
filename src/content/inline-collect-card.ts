@@ -1,7 +1,7 @@
 import { modeThemes, tokens } from "../ui/tokens";
 import type { FolderMode } from "../state/types";
 import type { CardTopicLine } from "../viewmodel/topic-discourse";
-import type { InlineCardAnswer, InlineCardEntryKey, InlineCardEvidence, InlineCardPeek, InlineCardQuote, InlineCardViewModel, InlineEvidenceGroup, InlineEvidenceRow } from "../viewmodel/inline-card";
+import type { InlineSaveLine, InlineCardAnswer, InlineCardEntryKey, InlineCardEvidence, InlineCardPeek, InlineCardQuote, InlineCardViewModel, InlineEvidenceGroup, InlineEvidenceRow } from "../viewmodel/inline-card";
 
 const c = tokens.collectCard;
 const cm = tokens.motion.collectCard;
@@ -115,12 +115,13 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   }
   const tag = vm.ai?.state === "no-key" ? `<button class="tag" data-dlens-act="ai-key" title="${esc(vm.ai.error ?? "")}">未接 AI</button>` : "";
   const head = `<div class="head"><span class="dt ${dot}"></span><span class="nm">${esc(vm.sessionName)}</span><span>· ${status}</span>${tag}<button class="x" data-dlens-act="close" aria-label="收起">×</button></div>`;
-  let body = topicLineHtml(motion.topicLine, !!motion.naming) + peekHtml(vm.peek);
+  const topicMarkup = topicLineHtml(motion.topicLine, !!motion.naming);
+  let body = topicMarkup + peekHtml(vm.peek);
   if (vm.phase === "failed") body += `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
   else if (vm.phase === "saved" && isRead) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
-  else if (vm.phase === "done" && vm.few) body = `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
+  else if (vm.phase === "done" && vm.few) body = topicMarkup + `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
   else if (vm.phase === "done" && vm.entries.length) {
-    body = `<div class="entries" role="tablist">${vm.entries.map((e) => {
+    body = topicMarkup + `<div class="entries" role="tablist">${vm.entries.map((e) => {
       const color = c.entryColors[e.key];
       return `<button class="entry${e.key === open ? " on" : ""}" style="--ec:${color}" role="tab" aria-selected="${e.key === open}" aria-expanded="${e.key === open}" data-dlens-lens="${e.key}"><span class="q"><span class="ei">${ICON[e.key]}</span>${esc(e.label)}</span><span class="f">${e.mark ? `<em>${esc(e.mark)}</em>` : ""}${esc(e.finding)}</span></button>`;
     }).join("")}</div>${open && vm.answers[open] ? `<div class="answer" style="--acc:${c.entryColors[open]}">${answerHtml(vm.answers[open]!)}</div>` : ""}`;
@@ -133,8 +134,29 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   return `<div class="dlens-card${motion.enter ? " enter" : ""}${motion.fresh ? " fresh" : ""}" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
 }
 
+/** Compact topic projection; the full reading markup mounts only after disclosure. */
+export function renderInlineSaveLine(line: InlineSaveLine, expanded: boolean, glow: boolean): string {
+  const compass = svg('<circle cx="12" cy="12" r="9"/><path d="m16 8-3 5-5 3 3-5z"/>');
+  return `<div class="dlens-save-line${glow ? " return-glow" : ""}" style="--acc:${accent("topic")}">
+    ${compass}<span class="save-dest" title="${esc(line.destination)}">${esc(line.destination)}</span>
+    <span class="save-status">${line.busy ? '<i class="crawl-arc" aria-label="讀緊留言"></i>' : ""}<span class="save-text" title="${esc(line.status)}">${esc(line.status)}</span>
+    ${line.ready ? `<button data-dlens-act="toggle-card" aria-expanded="${expanded}">${expanded ? "收起 ▴" : "打開 ▾"}</button>` : line.retry ? '<button data-dlens-act="crawl">重試</button>' : ""}</span></div>`;
+}
+
 export const DLENS_INLINE_CARD_CSS = `
 .dlens-card-slot {display:block;pointer-events:auto}
+.dlens-save-line {display:flex;align-items:center;gap:${c.lineGap}px;min-width:0;height:${c.lineHeightPx}px;margin:${c.margin};padding:${c.linePadding};border-radius:${c.radius}px;background:${c.wash};border:1px solid ${c.hair};font:400 ${c.headFont}px ${tokens.collectWheel.font};color:${c.soft};box-sizing:border-box}
+.dlens-save-line > svg {flex:none;color:var(--acc)}
+.dlens-save-line .save-dest {color:var(--acc);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlens-save-line .save-status {display:flex;align-items:center;gap:${c.lineGap}px;min-width:0;max-width:${c.lineStatusMax};white-space:nowrap}
+.dlens-save-line .save-text {overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dlens-save-line button {border:0;background:none;color:var(--acc);font:inherit;cursor:pointer;flex:none;padding:${c.lineButtonPadding}}
+.dlens-save-line button:focus-visible {outline:2px solid var(--acc);outline-offset:2px}
+.dlens-save-line .crawl-arc {width:${c.arcSize}px;height:${c.arcSize}px;flex:none;border:${c.arcBorder}px solid ${c.hair};border-top-color:var(--acc);border-radius:50%;box-sizing:border-box}
+@media (prefers-reduced-motion: no-preference) {
+.dlens-save-line .crawl-arc {animation:dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite}
+.dlens-card-slot.return-glow .dlens-save-line,.dlens-save-line.return-glow {animation:dlens-card-return ${cm.returnMs}ms ease-out}
+}
 .dlens-card {position:relative;margin:${c.margin};padding:${c.padding};border-radius:${c.radius}px;background:${c.wash};border:1px solid ${c.hair};font:400 ${c.font}px/${c.lineHeight} ${tokens.collectWheel.font};color:${tokens.color.ink};container-type:inline-size;text-align:left}
 .dlens-card * {box-sizing:border-box}
 .dlens-card .head {display:flex;align-items:center;gap:7px;font-size:${c.headFont}px;line-height:1.3;color:${c.soft};min-height:18px}
@@ -192,11 +214,8 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .rp-m span {display:inline-flex;align-items:center;gap:4px}
 .dlens-card .rp-none {margin:4px 0 0 ${c.avatar + 10}px;font-size:12px;color:${c.askColors.none}}
 .dlens-card .sk {margin-top:12px}
-.dlens-card .sk i {display:block;height:${c.skeletonHeight}px;border-radius:5px;background:linear-gradient(90deg,${c.skeleton[0]} 0,${c.skeleton[1]} 40%,${c.skeleton[0]} 80%);background-size:200% 100%;animation:dlens-card-shimmer ${cm.shimmerMs}ms linear infinite}
+.dlens-card .sk i {display:block;height:${c.skeletonHeight}px;border-radius:5px;background:linear-gradient(90deg,${c.skeleton[0]} 0,${c.skeleton[1]} 40%,${c.skeleton[0]} 80%);background-size:200% 100%}
 .dlens-card .sk i + i {width:58%;margin-top:8px}
-.dlens-card.enter {animation:dlens-card-in ${cm.enterMs}ms ${tokens.motion.collectWheel.spring}}
-.dlens-card.fresh .entries,.dlens-card.fresh > .note,.dlens-card.fresh > .reply {animation:dlens-card-fresh ${cm.freshMs}ms ease-out}
-.dlens-card .dt.live {animation:dlens-card-breathe ${cm.breatheMs}ms ease-in-out infinite}
 .dlens-card .acts {display:flex;gap:8px;margin-top:10px}
 .dlens-card .btn {font:600 ${c.btnFont}px ${tokens.collectWheel.font};border-radius:${c.btnRadius}px;padding:${c.btnPadding};border:1px solid ${c.hair};background:${tokens.color.inverse};color:${tokens.color.ink};cursor:pointer}
 .dlens-card .btn.primary {background:var(--acc);border-color:transparent;color:${tokens.color.inverse}}
@@ -241,5 +260,9 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .ln:hover {background:${c.hover};color:${tokens.color.ink}}
 .dlens-card .ln.open {margin-left:auto;color:var(--acc);font-weight:600}
 .dlens-card .ln.open.on {background:${c.hover}}
+@media (prefers-reduced-motion: no-preference) {.dlens-card .sk i {animation:dlens-card-shimmer ${cm.shimmerMs}ms linear infinite}}
+@media (prefers-reduced-motion: no-preference) {.dlens-card.enter {animation:dlens-card-in ${cm.enterMs}ms ${tokens.motion.collectWheel.spring}}}
+@media (prefers-reduced-motion: no-preference) {.dlens-card.fresh .entries,.dlens-card.fresh > .note,.dlens-card.fresh > .reply {animation:dlens-card-fresh ${cm.freshMs}ms ease-out}}
+@media (prefers-reduced-motion: no-preference) {.dlens-card .dt.live {animation:dlens-card-breathe ${cm.breatheMs}ms ease-in-out infinite}}
 @media (prefers-reduced-motion: reduce) {.dlens-card,.dlens-card * {transition:none !important;animation:none !important}}
 `;
