@@ -210,7 +210,7 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
     id: topic.id,
     name: topic.name,
     researchQuestion: topic.context?.researchQuestion,
-    coverage: `${posts.length} 篇 · ${comments} 則留言 · 今日 +${todayAdded(topic.id)}`,
+    coverage: [`${posts.length} 篇`, `${comments} 則留言`, todayAdded(topic.id) ? `今日 +${todayAdded(topic.id)}` : ""].filter(Boolean).join(" · "),
     posts: posts.map(row => row.post),
     findings: frames && frames.length >= 2 ? buildFindings(frames, posts.map((row) => ({ item: row.item, post: row.post, frameKey: row.frame?.key ?? null })), input.now) : [],
     frames,
