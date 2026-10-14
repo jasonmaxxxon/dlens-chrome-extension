@@ -235,6 +235,14 @@ export function buildWorkspaceCards(sessions: SessionRecord[], nowMs: number) {
 }
 
 
+/** How long ago a reading finished, in the largest whole unit: 啱啱, N 分前, N 小時前, N 日前. */
+export function readingAgo(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "啱啱";
+  if (minutes < 60) return `${minutes} 分前`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours} 小時前` : `${Math.floor(hours / 24)} 日前`;
+}
 interface CollectionFinished {post:CollectionPost;mode:"topic"|"product";itemId:string;at:string;summary:string;ago:string}
 export function buildCollectionArrivalModel(posts: CollectionPost[], readings: Record<string, InlineReadingRecord>, opened: OpenedReadings, now: number, finishedOnly: boolean, product: CollectionProductInputs = {}) {
   const finished = posts.flatMap(post => post.memberships.flatMap<CollectionFinished>(m => {
@@ -244,11 +252,11 @@ export function buildCollectionArrivalModel(posts: CollectionPost[], readings: R
     const analysis=product.analyses?.[product.signals?.find(s=>s.itemId===m.itemId && s.sessionId===m.sessionId)?.id ?? ""];
     const at = m.mode === "product" ? productReadingFinishedAt(m.item, analysis, product.loaded === false || (!!product.hasContext && !!product.settings && !!providerKeyFromSettings(product.settings))) : inlineReadingFinishedAt(m.item, ai, now);
     if (!at || !Number.isFinite(Date.parse(at)) || Date.parse(at) > now) return [];
-    if (m.mode === "product") return [{post,mode:m.mode,itemId:m.itemId,at,summary:`讀完${analysis?.status === "complete" ? ` · ${PRODUCT_VERDICT_LABELS[analysis.verdict]}` : ""}`,ago: now-Date.parse(at)<60000 ? "啱啱" : `${Math.floor((now-Date.parse(at))/60000)} 分前`}];
+    if (m.mode === "product") return [{post,mode:m.mode,itemId:m.itemId,at,summary:`讀完${analysis?.status === "complete" ? ` · ${PRODUCT_VERDICT_LABELS[analysis.verdict]}` : ""}`,ago: readingAgo(now - Date.parse(at))}];
     const card = buildInlineCardViewModel(m.item, "topic", m.sessionName, { ai, now });
     const line = buildInlineSaveLine(card, now, null, null);
     return [{ post, mode: m.mode, itemId: m.itemId, at, summary: line.status.replace(/ · \d+ 則留言$/, ""),
-      ago: now - Date.parse(at) < 60000 ? "啱啱" : `${Math.floor((now - Date.parse(at)) / 60000)} 分前` }];
+      ago: readingAgo(now - Date.parse(at)) }];
   })).sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || a.itemId.localeCompare(b.itemId));
   const unique = finished.filter((r, i) => finished.findIndex(other => other.post.key === r.post.key) === i);
   const states = Object.fromEntries(posts.map(post => {

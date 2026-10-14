@@ -18,7 +18,7 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
   allowCollection?: boolean;
 }) {
   return (
-    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gap: 0 }}>
+    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0 }}>
       <header style={{ position: "sticky", top: 0, zIndex: 3, background: tokens.collection.header, backdropFilter: tokens.collection.headerBlur, WebkitBackdropFilter: tokens.collection.headerBlur, height: tokens.collection.headerHeight, boxSizing: "border-box", display: "flex", alignItems: "center", gap: tokens.collection.tabGap, margin: `0 -${tokens.spacing.section}px`, padding: `0 ${tokens.spacing.section}px`, borderBottom: `1px solid ${tokens.color.line}` }}>
         <span style={{ fontFamily: tokens.font.serif, fontSize: tokens.collection.logoSize, color: tokens.color.ink }}>dlens</span>
         <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: tokens.collection.tabGap, height: "100%", flex: 1 }}>
@@ -40,7 +40,7 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
           </div>
         </details>
       </header>
-      {inView ? <div data-collection-in-view="" style={{position:'sticky',top:tokens.collection.headerHeight,zIndex:2,display:'flex',alignItems:'center',gap:tokens.spacing.sm,padding:tokens.spacing.sm,background:tokens.color.accentSoft,borderBottom:`1px solid ${tokens.color.line}`,fontSize:tokens.reader.secondary}}><span style={{minWidth:0,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>畫面上：@{inView.author.replace(/^@/,'')} · {inView.summary}</span><button type="button" onClick={onInView} style={{marginLeft:'auto',flexShrink:0,border:0,background:'transparent',color:tokens.color.accent,cursor:'pointer',fontSize:tokens.reader.secondary}}>睇 ›</button></div> : null}
+      {inView ? <div data-collection-in-view="" style={{minWidth:0,position:'sticky',top:tokens.collection.headerHeight,zIndex:2,display:'flex',alignItems:'center',gap:tokens.spacing.sm,padding:tokens.spacing.sm,background:tokens.color.accentSoft,borderBottom:`1px solid ${tokens.color.line}`,fontSize:tokens.reader.secondary}}><span style={{minWidth:0,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>畫面上：@{inView.author.replace(/^@/,'')} · {inView.summary}</span><button type="button" onClick={onInView} style={{marginLeft:'auto',flexShrink:0,border:0,background:'transparent',color:tokens.color.accent,cursor:'pointer',fontSize:tokens.reader.secondary}}>睇 ›</button></div> : null}
       <main style={{ minWidth: 0, paddingTop:tokens.spacing.lg }}>{children}</main>
     </div>
   );

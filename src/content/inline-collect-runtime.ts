@@ -582,28 +582,40 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   // The side panel follows the feed: report the post crossing the middle of the viewport whenever it changes.
   let inView: string | null = null;
   let inViewFrame = 0;
-  const onScroll = () => {
+  let inViewTimer = 0;
+  // force: report even when unchanged, so a panel that just switched to this tab hears it.
+  const reportInView = (force = false) => {
     if (inViewFrame) return;
     inViewFrame = window.requestAnimationFrame(() => {
       inViewFrame = 0;
       const middle = window.innerHeight * 0.45;
       const entry = injection?.entries().find((candidate) => { const rect = candidate.card.getBoundingClientRect(); return rect.top <= middle && rect.bottom >= middle; });
       const next = entry?.identity ?? null;
-      if (next === inView) return;
+      if (next === inView && !force) return;
       inView = next;
       void send({ type: "inline/in-view", postKey: next }).catch(() => undefined);
     });
   };
+  const onScroll = () => reportInView();
+  // Cards render after the snapshot and after SPA navigation; look again once they have had time to mount.
+  const reportSoon = () => { window.clearTimeout(inViewTimer); inViewTimer = window.setTimeout(() => reportInView(true), 800); };
+  const onVisibility = () => { if (document.visibilityState === "visible") reportInView(true); };
   document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+  document.addEventListener("visibilitychange", onVisibility);
+  void ready.then(reportSoon);
   chrome.storage.onChanged.addListener(storageListener);
   function teardown() {
     destroyed = true; visibility.disconnect(); for (const timer of glowTimers.values()) window.clearTimeout(timer); glowTimers.clear();
-    document.removeEventListener("scroll", onScroll, { capture: true }); if (inViewFrame) window.cancelAnimationFrame(inViewFrame); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
+    document.removeEventListener("scroll", onScroll, { capture: true }); document.removeEventListener("visibilitychange", onVisibility); window.clearTimeout(inViewTimer); if (inViewFrame) window.cancelAnimationFrame(inViewFrame); window.clearInterval(waitTimer); window.clearInterval(pollTimer);
     try { chrome.storage.onChanged.removeListener(storageListener); } catch { /* the extension context may already be gone */ }
     injection?.destroy(); wheel.destroy(); for (const id of [...slots.keys()]) removeCard(id);
   }
   return {
-    reset() { wheel.reset(); injection?.reset(); },
+    reset() {
+      wheel.reset(); injection?.reset();
+      // A new page: the old post is no longer in view.
+      inView = null; void send({ type: "inline/in-view", postKey: null }).catch(() => undefined); reportSoon();
+    },
     destroy: teardown
   };
 }

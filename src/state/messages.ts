@@ -32,7 +32,7 @@ export type ExtensionMessagePayload =
   | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
   /** The post crossing the middle of the Threads viewport; the side panel follows it. */
   | { type: "inline/in-view"; postKey: string | null }
-  | { type: "inline/in-view-get" }
+  | { type: "inline/in-view-get"; tabId?: number }
   /** Ask the chosen provider whether the saved key works (a models listing, no generation). */
   | { type: "settings/test-ai-key" }
   | { type: "popup/navigate-active-tab"; page: PopupPage }

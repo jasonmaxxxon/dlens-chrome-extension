@@ -226,8 +226,11 @@ async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: st
 }
 
 async function getActiveTabId(): Promise<number> {
+  // With DevTools focused, "current window" is the DevTools window, which has no tabs.
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
+  const normal = tabs[0]?.id ? tabs : await chrome.tabs.query({ active: true, lastFocusedWindow: true, windowType: "normal" });
+  const anyNormal = normal[0]?.id ? normal : await chrome.tabs.query({ active: true, windowType: "normal" });
+  const tabId = anyNormal[0]?.id;
   if (!tabId) {
     throw new Error("No active tab available");
   }
@@ -2154,7 +2157,7 @@ export default defineBackground(() => {
             return;
           }
           case "inline/in-view-get": {
-            const tabId = await resolveTabId(sender);
+            const tabId = await resolveTabId(sender, message.tabId);
             sendResponse({ ok: true, tabId, inViewPostKey: inViewPostByTab.get(tabId) ?? null } satisfies ExtensionResponse);
             return;
           }

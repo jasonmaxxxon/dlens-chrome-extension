@@ -34,7 +34,11 @@ export function buildProductReaderModel(item: SessionItem, sessionId: string, si
  const action=stateLine==='未接 AI' || stateLine?.startsWith('未填') ? 'settings' : stateLine==='分析失敗' ? 'retry' : null;
  const tabs=[{key:'what',label:'講咩',mark:''},{key:'fit',label:'啱唔啱你',mark:analysis ? PRODUCT_VERDICT_LABELS[analysis.verdict] : ''},{key:'try',label:'點試',mark:agentBrief ? '有任務' : ''},{key:'add',label:'留言補充',mark:`${replies.length} 則`}] as const;
  const selected=tabs.find(t=>t.key===lens)?.key ?? (analysis ? 'fit' : 'add');
- return {sessionId,itemId:item.id,signalId,tabs,selected,analysis,refs,replies,agentBrief,stateLine,action,error:error ?? stored?.error};
+ // 點試 never renders as a bare heading: without a step, metric, blocker or task it says why, from the verdict.
+ const tryEmpty=!!analysis && !analysis.experimentHint?.trim() && !analysis.validationMetric?.trim() && !analysis.blockers?.length && !agentBrief;
+ const tryNote=!tryEmpty || !analysis ? null : analysis.verdict==='watch' ? '判斷係「觀察」，暫時未有可以即刻試嘅步驟。' : analysis.verdict==='try' ? '判斷係「值得試」，但分析未寫具體步驟。' : `判斷係「${PRODUCT_VERDICT_LABELS[analysis.verdict]}」，暫時唔建議試。`;
+ const tryReason=tryNote ? (analysis?.whyNow?.trim() || analysis?.reason?.trim() || null) : null;
+ return {sessionId,itemId:item.id,signalId,tabs,selected,analysis,refs,replies,agentBrief,stateLine,action,tryNote,tryReason,error:error ?? stored?.error};
 }
 export type ProductReaderModel=ReturnType<typeof buildProductReaderModel>;
 export function buildProductSaveLine(item:SessionItem, analysis:ProductSignalAnalysis|undefined, now:number, savedAt:number|null, peek?:InlineCardPeekInput, startError?:string|null):InlineSaveLine {
