@@ -62,3 +62,29 @@ test("worker polling with DevTools focused falls back to a normal window's activ
   assert.match(body, /windowType: "normal"/);
   assert.match(body, /throw new Error\("No active tab available"\)/);
 });
+
+test("quoted replies render as Threads cards apart from DLens' own words, with long text folded", async () => {
+  const { ReaderReply } = await import("../src/ui/CollectionAudienceReading.tsx");
+  const long = "留言".repeat(200);
+  const html = renderToStaticMarkup(<ReaderReply row={{ author: "alexandranous1019", text: long, likes: 12, replies: 3, time: "2h", isAuthor: false }} />);
+  const doc = new JSDOM(html).window.document;
+  const card = doc.querySelector<HTMLElement>("article[data-reader-reply]")!;
+  assert.ok(card, "a reply is its own card");
+  assert.match(card.style.border, /1px solid/);
+  assert.match(card.textContent!, /alexandranous1019/);
+  assert.ok(doc.querySelector("[data-reader-reply-full]"), "long replies fold behind 全文");
+  assert.match(card.textContent!, /12/);
+  assert.match(card.textContent!, /3/);
+});
+
+test("the reader's 大家問咩 answer is only its headline; the questions appear once, grouped in evidence", async () => {
+  const src = readFileSync(new URL("../src/ui/CollectionAudienceReading.tsx", import.meta.url), "utf8");
+  assert.match(src, /if \(answer\.kind === "ask"\) return <h3 style=\{h3\}>\{answer\.headline\}<\/h3>;/);
+});
+
+test("the 畫面上 bar is near-opaque and spans the panel", () => {
+  const html = renderToStaticMarkup(<CollectionWorkspaceShell tab="workspaces" onTabChange={() => undefined} onSettings={() => undefined} inView={{ author: "s.s_santa", summary: "想問點解香港職場" }} onInView={() => undefined}><p>body</p></CollectionWorkspaceShell>);
+  const bar = new JSDOM(html).window.document.querySelector<HTMLElement>("[data-collection-in-view]")!;
+  assert.match(bar.style.background, /0\.96/);
+  assert.match(bar.style.margin, /^0px -\d+px/);
+});

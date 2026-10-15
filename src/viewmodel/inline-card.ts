@@ -16,7 +16,7 @@ export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark:
 export type InlineCardAnswer =
   | { kind: "clusters"; headline: string; segments: { label: string; pct: number; noise: boolean }[]; quote: InlineCardQuote | null }
   | { kind: "quotes"; rows: InlineCardQuote[] }
-  | { kind: "op"; rows: { text: string; inReplyTo: string }[] }
+  | { kind: "op"; rows: { text: string; inReplyTo: string; author?: string; likes?: number | null }[] }
   | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" }[] }
   | { kind: "methods"; rows: { name: string; fit: string }[]; quote: InlineCardQuote }
   | { kind: "split"; agree: string; sides: { claim: string; why: string; quote: InlineCardQuote }[]; note: string | null }
@@ -219,7 +219,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     }
     base.entries.push({ key: "op", label: "作者回應", mark: t.opReplies.length ? `${t.opReplies.length} 則` : "", finding: t.opReplies[0]?.text ?? "未有回覆留言" });
     base.answers.op = t.opReplies.length
-      ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text) })) }
+      ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text), author: t.op, likes: c.likes ?? null })) }
       : { kind: "empty", text: "作者未有回覆任何留言。" };
   }
 

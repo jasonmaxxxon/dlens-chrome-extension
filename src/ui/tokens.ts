@@ -28,7 +28,12 @@ export const tokens = {
     status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },
     skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10, skeletonBackground: "linear-gradient(90deg, rgba(123,74,138,.04), rgba(123,74,138,.12), rgba(123,74,138,.04))", skeletonBackgroundSize: "200% 100%"
   },
-  reader: { headline: 16, body: 14, secondary: 12.5, meta: 11.5, sourceLines: 3, lineHeight: 1.6 },
+  reader: {
+    headline: 16, body: 14, secondary: 12.5, meta: 11.5, sourceLines: 3, lineHeight: 1.6,
+    /* A quoted reply is a small Threads card nested in DLens' own reading, so the two never read as one voice. */
+    replyCard: { background: "#ffffff", border: "rgba(27,26,23,.09)", radius: 14, padding: "11px 13px 10px", shadow: "0 1px 2px rgba(27,26,23,.04)", avatar: 26, clampLines: 6, clampChars: 180, icon: 13, gap: 8 },
+    group: { background: "rgba(27,26,23,.028)", radius: 16, padding: 12, gap: 8 }
+  },
   collection: {
     modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
@@ -37,6 +42,8 @@ export const tokens = {
     rowPadding: 10, rowLift: -2, cardPress: .985, indicatorHeight: 2, segmentPadding: 2,
     segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,
     paper: "#fbfbf9", header: "rgba(251,251,249,.78)", wash: "rgba(27,26,23,.035)",
+    /* 畫面上 bar: near-opaque frosted sage so scrolled content never shows through it. */
+    inViewBar: "rgba(240,245,238,.96)", inViewBarEdge: "rgba(63,90,59,.14)",
     hover: "rgba(27,26,23,.04)", hairline: "rgba(27,26,23,.08)",
     mist: "radial-gradient(closest-side, rgba(63,90,59,.09), transparent)",
     headerBlur: "blur(14px) saturate(1.2)",
