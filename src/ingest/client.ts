@@ -161,7 +161,7 @@ async function fetchJson<T>(
         }
       });
       terminalEventEmitted = true;
-      throw new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`);
+      throw Object.assign(new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`), { status: response.status });
     }
     const body = await response.json() as T;
     emitPipelineEvent({
@@ -217,16 +217,36 @@ async function fetchJson<T>(
   }
 }
 
+/** Waits before each retry of a capture that the backend never stored: about 40 s in all, enough for a
+ * database that drops out briefly after the laptop wakes. */
+export const CAPTURE_TARGET_RETRY_DELAYS_MS = [4_000, 12_000, 24_000] as const;
+
+/** Each POST creates a capture and a crawl job, so only retry when nothing was stored: the backend answered
+ * 5xx (the transaction failed) or could not be reached at all. A timeout may have stored the capture, so it is not retried. */
+function captureTargetNotStored(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name === "TimeoutError" || error.name === "AbortError") return false;
+  const status = (error as Error & { status?: number }).status;
+  return typeof status === "number" ? status >= 500 : error.message.startsWith("Optional ingest backend unavailable");
+}
+
 export async function submitCaptureTarget(
   baseUrl: string,
   descriptor: TargetDescriptor,
-  folderName?: string
+  folderName?: string,
+  retryDelaysMs: readonly number[] = CAPTURE_TARGET_RETRY_DELAYS_MS
 ): Promise<CaptureTargetResponse> {
-  const requestBody = buildCaptureTargetRequest(descriptor, folderName);
-  return fetchJson<CaptureTargetResponse>(`${normalizeBaseUrl(baseUrl)}/capture-target`, {
-    method: "POST",
-    body: JSON.stringify(requestBody)
-  });
+  const requestBody = JSON.stringify(buildCaptureTargetRequest(descriptor, folderName));
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fetchJson<CaptureTargetResponse>(`${normalizeBaseUrl(baseUrl)}/capture-target`, {
+        method: "POST",
+        body: requestBody
+      });
+    } catch (error) {
+      if (attempt >= retryDelaysMs.length || !captureTargetNotStored(error)) throw error;
+      await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelaysMs[attempt]));
+    }
+  }
 }
 
 export async function fetchJob(baseUrl: string, jobId: string): Promise<JobSnapshot> {
