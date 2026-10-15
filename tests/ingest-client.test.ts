@@ -85,6 +85,36 @@ test("submitCaptureTarget posts the active folder name in client_context", async
   }
 });
 
+test("submitCaptureTarget retries a capture the backend never stored, and only that", async () => {
+  const originalFetch = globalThis.fetch;
+  const ok = () => new Response(JSON.stringify({ capture_id: "cap-1", job_id: "job-1", status: "queued", job_type: "threads_post_comments_crawl", canonical_target_url: "u" }), { status: 202, headers: { "Content-Type": "application/json" } });
+  const run = async (answers: Array<() => Response | Promise<Response>>) => {
+    let calls = 0;
+    globalThis.fetch = (async () => answers[Math.min(calls++, answers.length - 1)]()) as typeof fetch;
+    try { return { result: await submitCaptureTarget("http://127.0.0.1:8000", makeDescriptor(), "Signals", [0, 0, 0]), calls }; }
+    catch (error) { return { error: error as Error, calls }; }
+  };
+  try {
+    // A pool timeout answers 500: nothing was stored, so it retries until the database is back.
+    const recovered = await run([() => new Response("PoolTimeout", { status: 500 }), () => new Response("PoolTimeout", { status: 500 }), ok]);
+    assert.equal(recovered.calls, 3);
+    assert.equal(recovered.result?.job_id, "job-1");
+    // Backend not running at all: also safe to retry.
+    const unreachable = await run([() => { throw new TypeError("Failed to fetch"); }, ok]);
+    assert.equal(unreachable.calls, 2);
+    // A 4xx is a real rejection and is not retried.
+    const rejected = await run([() => new Response("bad descriptor", { status: 422 }), ok]);
+    assert.equal(rejected.calls, 1);
+    assert.match(rejected.error!.message, /^422/);
+    // Gives up after the last delay.
+    const down = await run([() => new Response("down", { status: 503 })]);
+    assert.equal(down.calls, 4);
+    assert.match(down.error!.message, /^503/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("triggerWorkerDrain posts to /worker/drain", async () => {
   const calls: Array<{ input: string; init?: RequestInit }> = [];
   const originalFetch = globalThis.fetch;

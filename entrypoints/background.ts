@@ -1,4 +1,9 @@
+import { createTopicReadingRunner, selectTopicReadingItems } from "../src/state/topic-reading-run";
+import { loadDeepReadingRecords } from "../src/compare/deep-reading-storage";
+import { createDeepReadingRunner } from "../src/state/deep-reading-run";
 import { defineBackground } from "wxt/utils/define-background";
+import { getInlineCollectDestination, getInlineCollectLastMode, inlineCollectPostKey, INLINE_COLLECT_MODE_NAMES, isInlineCollectMode, projectInlineCollectState, type InlineCollectMessage, type InlineCollectState } from "../src/state/inline-collect";
+import { recordInlineCollectRemoval } from "../src/state/inline-collect-storage";
 import { IS_PR_ONLY_BUILD } from "../src/build-variant";
 import {
   fetchBackendHealth,
@@ -21,37 +26,6 @@ import {
   type PipelineTarget
 } from "../src/state/pipeline-trace";
 import { queueItemsSequential } from "../src/state/queue-items";
-import {
-  buildCompareBriefCacheKey,
-  buildDeterministicCompareBrief,
-  normalizeCompareBrief,
-  type CompareBrief,
-  type CompareBriefRequest
-} from "../src/compare/brief";
-import { saveCompareCacheMap } from "../src/compare/compare-cache-storage";
-import { buildCompareBriefRequest } from "../src/compare/brief-request";
-import { buildCompareOneLinerCacheKey, type CompareOneLinerRequest } from "../src/compare/one-liner";
-import {
-  buildCompareClusterSummaryCacheKey,
-  type ClusterInterpretation,
-  type CompareClusterSummaryRequest
-} from "../src/compare/cluster-interpretation";
-import {
-  buildEvidenceAnnotationCacheKey,
-  type EvidenceAnnotation,
-  type EvidenceAnnotationRequest
-} from "../src/compare/evidence-annotation";
-import {
-  buildDeterministicJudgment,
-  buildJudgmentCacheKey,
-  COMPARE_JUDGMENT_PROMPT_VERSION
-} from "../src/compare/judgment";
-import {
-  loadSavedAnalyses,
-  saveSavedAnalysis,
-  saveSavedAnalysisJudgment
-} from "../src/compare/saved-analysis-storage";
-import { loadTechniqueReadings, saveTechniqueReading } from "../src/compare/technique-reading-storage";
 import { generateProductProfileSuggestion } from "../src/compare/product-profile-init";
 import {
   generateProductContext,
@@ -89,38 +63,16 @@ import {
 import { buildDLensSignalPacket, buildSignalPacketIndex } from "../src/compare/signal-packet";
 import { exportSignalPackets } from "../src/compare/signal-packet-export";
 import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
-import {
-  COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION,
-  COMPARE_BRIEF_PROMPT_VERSION,
-  COMPARE_ONE_LINER_PROMPT_VERSION,
-  COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION,
-  OPENAI_COMPARE_MODEL,
-  CLAUDE_COMPARE_MODEL,
-  GOOGLE_COMPARE_MODEL,
-  generateCompareBrief,
-  generateCompareClusterSummaries,
-  generateCompareOneLiner,
-  generateEvidenceAnnotations,
-  generateJudgment,
-  generatePrCampaignSetupSuggestion,
-  generatePrCriteriaMatches,
-  generatePrNarrativePostReadings,
-  generatePrNarrativeSynthesis,
-  generatePrSummaryDraft,
-  generateProductSignalAnalysis,
-  generateSignalTags,
-  generateTopicAuditEnvelope,
-  generateTopicSignalReading
-} from "../src/compare/provider";
+import { OPENAI_COMPARE_MODEL, CLAUDE_COMPARE_MODEL, GOOGLE_COMPARE_MODEL, generatePrCampaignSetupSuggestion, generatePrCriteriaMatches, generatePrNarrativePostReadings, generatePrNarrativeSynthesis, generatePrSummaryDraft, generateProductSignalAnalysis, generateInlineReading, testProviderKey } from "../src/compare/provider";
+import { buildInlineReadingInput, INLINE_READING_PROMPT_VERSION, readCrawlComments } from "../src/compare/inline-reading";
+import { aiKeyGap, providerKeyFromSettings } from "../src/state/ai-key";
+import { loadInlineReadingRecords, saveInlineReadingRecord } from "../src/compare/inline-reading-storage";
 import {
   appendSignalReadingReview,
   getSignalReading,
   listSignalReadings
 } from "../src/compare/signal-reading-storage";
-import { buildSignalTagsInputFromCapture } from "../src/compare/signal-tags";
-import { deleteSignalTagsByItemId, listSignalTags, saveSignalTags } from "../src/compare/signal-tags-storage";
-import { buildTopicSignalReadingInputFromCapture } from "../src/compare/topic-signal-reading";
-import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage";
+import { deleteSignalTagsByItemId } from "../src/compare/signal-tags-storage";
 import {
   buildDeterministicPrCriteria,
   buildDeterministicPrCriteriaMatches,
@@ -128,11 +80,11 @@ import {
   buildPrSummaryFacts,
   type PrCampaignSetupSuggestion
 } from "../src/compare/pr-evidence";
-import { createLlmCallWrapper } from "../src/compare/llm-call-wrapper";
 import {
   createEmptyGlobalState,
   createEmptyTabState,
   type ExtensionGlobalState,
+  type ExtensionSettings,
   type ExtensionSnapshot,
   type FolderMode,
   type ProductContext,
@@ -140,7 +92,8 @@ import {
   type Signal,
   type SessionItem,
   type SessionRecord,
-  type TabUiState
+  type TabUiState,
+  type Topic
 } from "../src/state/types";
 import {
   activateSessionForMode,
@@ -150,6 +103,7 @@ import {
   expireStaleInFlightItems,
   getActiveSession,
   getSessionById,
+  getPostIdentity,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
@@ -157,22 +111,17 @@ import {
   normalizeSessionRecord,
   reconcileSessionItem,
   renameSession,
+  removeSessionItem,
   saveDescriptorToSession,
   setActiveSession,
   updateSessionItem,
   type ItemRefreshResult
 } from "../src/state/store-helpers";
-import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers";
-import { handleTopicAuditMessage } from "../src/state/topic-audit-handlers";
-import { loadAllSignals, loadSignals, loadTopicById, loadTopics, saveTopic, type StorageAreaLike } from "../src/state/topic-storage";
-import { generateTopicSynthesis } from "../src/compare/topic-synthesis";
-import { generateFolderSynthesis } from "../src/compare/folder-synthesis";
+import { ensureSignalForSavedItem, ensureSignalsForSessionItems, handleTopicMessage } from "../src/state/topic-handlers";
+import { loadAllSignals, loadSignals, loadTopicById, loadTopics, type StorageAreaLike } from "../src/state/topic-storage";
+import { clearFolderSynthesis } from "../src/compare/folder-synthesis-storage";
 import {
-  clearFolderSynthesis,
-  loadFolderSynthesis,
-  saveFolderSynthesis
-} from "../src/compare/folder-synthesis-storage";
-import {
+  deletePrEvidenceRowsByItemId,
   loadActivePrCampaign,
   loadPrCampaigns,
   loadPrEvidenceRows,
@@ -199,7 +148,7 @@ import {
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
 import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
-import { applyHoveredPreview, createInlineToast, setCollectModeState } from "../src/state/ui-state";
+import { createInlineToast } from "../src/state/ui-state";
 import { getModeHomePage, projectBackendWorkStatus } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
 import {
@@ -217,12 +166,6 @@ import { GLOBAL_STATE_STORAGE_KEY as GLOBAL_STORAGE_KEY } from "../src/state/sto
 import { runMigrationsFor, STORAGE_MIGRATIONS } from "../src/state/storage-schema";
 const ACTIVE_SESSION_ID_STORAGE_KEY = "dlens:v1:active-session-id";
 const TAB_STORAGE_KEY_PREFIX = "dlens:v0:tab-ui:";
-const COMPARE_BRIEF_CACHE_KEY = "dlens:v1:compare-brief-cache";
-const COMPARE_ONE_LINER_CACHE_KEY = "dlens:v1:compare-one-liner-cache";
-const COMPARE_CLUSTER_SUMMARY_CACHE_KEY = "dlens:v1:compare-cluster-summary-cache";
-const COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY = "dlens:v1:compare-evidence-annotation-cache";
-const COMPARE_JUDGMENT_CACHE_KEY = "dlens:v1:compare-judgment-cache";
-const COMPARE_CACHE_MAX_ENTRIES = 50;
 const DEFAULT_STORAGE_QUOTA_BYTES = 10 * 1024 * 1024;
 const productSignalAnalysisInFlight = new Map<string, Promise<ProductSignalAnalysis[]>>();
 const prCriteriaMatchInFlight = new Map<string, Promise<PrEvidenceRow[]>>();
@@ -249,37 +192,6 @@ const backgroundRequestReconciler = createRequestReconciler();
 // single-threaded, so handlers can read this right after a persist call to
 // surface the storage cost in their response payload (popup-visible).
 let lastSaveSnapshotStorageMs = 0;
-
-interface OneLinerCacheValue {
-  text: string;
-  generatedAt: string;
-}
-
-interface CompareBriefCacheValue {
-  brief: CompareBrief;
-  generatedAt: string;
-}
-
-interface ClusterSummaryCacheValue {
-  items: ClusterInterpretation[];
-  generatedAt: string;
-}
-
-interface EvidenceAnnotationCacheValue {
-  items: EvidenceAnnotation[];
-  generatedAt: string;
-}
-
-interface JudgmentCacheValue {
-  judgmentResult: NonNullable<Awaited<ReturnType<typeof loadSavedAnalyses>>[number]["judgmentResult"]>;
-  generatedAt: string;
-}
-
-type CompareBriefCache = Record<string, CompareBriefCacheValue>;
-type OneLinerCache = Record<string, OneLinerCacheValue>;
-type ClusterSummaryCache = Record<string, ClusterSummaryCacheValue>;
-type EvidenceAnnotationCache = Record<string, EvidenceAnnotationCacheValue>;
-type JudgmentCache = Record<string, JudgmentCacheValue>;
 
 function tabStorageKey(tabId: number): string {
   return `${TAB_STORAGE_KEY_PREFIX}${tabId}`;
@@ -314,8 +226,11 @@ async function persistGlobalStateOnly(global: ExtensionGlobalState, logLabel: st
 }
 
 async function getActiveTabId(): Promise<number> {
+  // With DevTools focused, "current window" is the DevTools window, which has no tabs.
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
+  const normal = tabs[0]?.id ? tabs : await chrome.tabs.query({ active: true, lastFocusedWindow: true, windowType: "normal" });
+  const anyNormal = normal[0]?.id ? normal : await chrome.tabs.query({ active: true, windowType: "normal" });
+  const tabId = anyNormal[0]?.id;
   if (!tabId) {
     throw new Error("No active tab available");
   }
@@ -411,6 +326,7 @@ function normalizeGlobalState(state: ExtensionGlobalState): ExtensionGlobalState
     ...state,
     sessions,
     activeSessionId,
+    ...(isInlineCollectMode(state?.lastCollectMode) ? { lastCollectMode: state.lastCollectMode } : { lastCollectMode: undefined }),
     settings: normalizeExtensionSettings(state?.settings)
   };
 }
@@ -427,70 +343,6 @@ function normalizeTabState(state: Partial<TabUiState> & { popupPage?: string | n
     popupPage,
     currentMainPage
   };
-}
-
-async function loadOneLinerCache(): Promise<OneLinerCache> {
-  const raw = await chrome.storage.local.get(COMPARE_ONE_LINER_CACHE_KEY);
-  return (raw[COMPARE_ONE_LINER_CACHE_KEY] || {}) as OneLinerCache;
-}
-
-async function loadCompareBriefCache(): Promise<CompareBriefCache> {
-  const raw = await chrome.storage.local.get(COMPARE_BRIEF_CACHE_KEY);
-  return (raw[COMPARE_BRIEF_CACHE_KEY] || {}) as CompareBriefCache;
-}
-
-async function saveCompareBriefCache(cache: CompareBriefCache): Promise<void> {
-  await saveCompareCacheMap(chrome.storage.local, COMPARE_BRIEF_CACHE_KEY, cache);
-}
-
-async function getCachedCompareBrief(request: CompareBriefRequest): Promise<{ brief: CompareBrief; cacheKey: string } | null> {
-  const cache = await loadCompareBriefCache();
-  const fallback = buildDeterministicCompareBrief(request, "AI compare brief unavailable.");
-
-  for (const provider of ["google", "openai", "claude"] as const) {
-    const cacheKey = buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION);
-    const cachedBrief = cache[cacheKey]?.brief;
-    if (!cachedBrief) {
-      continue;
-    }
-    return {
-      brief: normalizeCompareBrief(cachedBrief, fallback),
-      cacheKey
-    };
-  }
-
-  return null;
-}
-
-async function saveOneLinerCache(cache: OneLinerCache): Promise<void> {
-  await saveCompareCacheMap(chrome.storage.local, COMPARE_ONE_LINER_CACHE_KEY, cache);
-}
-
-async function loadClusterSummaryCache(): Promise<ClusterSummaryCache> {
-  const raw = await chrome.storage.local.get(COMPARE_CLUSTER_SUMMARY_CACHE_KEY);
-  return (raw[COMPARE_CLUSTER_SUMMARY_CACHE_KEY] || {}) as ClusterSummaryCache;
-}
-
-async function saveClusterSummaryCache(cache: ClusterSummaryCache): Promise<void> {
-  await saveCompareCacheMap(chrome.storage.local, COMPARE_CLUSTER_SUMMARY_CACHE_KEY, cache);
-}
-
-async function loadEvidenceAnnotationCache(): Promise<EvidenceAnnotationCache> {
-  const raw = await chrome.storage.local.get(COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY);
-  return (raw[COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY] || {}) as EvidenceAnnotationCache;
-}
-
-async function saveEvidenceAnnotationCache(cache: EvidenceAnnotationCache): Promise<void> {
-  await saveCompareCacheMap(chrome.storage.local, COMPARE_EVIDENCE_ANNOTATION_CACHE_KEY, cache);
-}
-
-async function loadJudgmentCache(): Promise<JudgmentCache> {
-  const raw = await chrome.storage.local.get(COMPARE_JUDGMENT_CACHE_KEY);
-  return (raw[COMPARE_JUDGMENT_CACHE_KEY] || {}) as JudgmentCache;
-}
-
-async function saveJudgmentCache(cache: JudgmentCache): Promise<void> {
-  await saveCompareCacheMap(chrome.storage.local, COMPARE_JUDGMENT_CACHE_KEY, cache);
 }
 
 async function saveProductContext(
@@ -859,17 +711,7 @@ function findSessionItems(
 }
 
 function providerKeyForRequest(global: ExtensionGlobalState): { provider: "openai" | "claude" | "google"; apiKey: string } | null {
-  const settings = normalizeGlobalState(global).settings;
-  if (settings.oneLinerProvider === "google" && settings.googleApiKey?.trim()) {
-    return { provider: "google", apiKey: settings.googleApiKey.trim() };
-  }
-  if (settings.oneLinerProvider === "openai" && settings.openaiApiKey.trim()) {
-    return { provider: "openai", apiKey: settings.openaiApiKey.trim() };
-  }
-  if (settings.oneLinerProvider === "claude" && settings.claudeApiKey.trim()) {
-    return { provider: "claude", apiKey: settings.claudeApiKey.trim() };
-  }
-  return null;
+  return providerKeyFromSettings(normalizeGlobalState(global).settings);
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -1105,254 +947,6 @@ async function generatePrSummaryForCampaign(global: ExtensionGlobalState, campai
     return fallback;
   }
 }
-
-const getOrGenerateOneLiner = createLlmCallWrapper<
-  ExtensionGlobalState,
-  CompareOneLinerRequest,
-  string | null,
-  OneLinerCacheValue,
-  {}
->({
-  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
-  resolveRequest: async (global) => {
-    const providerConfig = providerKeyForRequest(global);
-    if (!providerConfig) {
-      return { kind: "return", value: null };
-    }
-    return { kind: "continue", providerConfig, context: {} };
-  },
-  buildCacheKey: (request, provider) => buildCompareOneLinerCacheKey(request, provider, COMPARE_ONE_LINER_PROMPT_VERSION),
-  loadCache: loadOneLinerCache,
-  saveCache: saveOneLinerCache,
-  readCachedValue: (entry) => entry?.text || undefined,
-  generate: async (providerConfig, request) => {
-    const text = (await generateCompareOneLiner(providerConfig.provider, providerConfig.apiKey, request)).trim();
-    return text || null;
-  },
-  buildCacheEntry: (result) => {
-    if (!result) {
-      return null;
-    }
-    return {
-      text: result,
-      generatedAt: new Date().toISOString()
-    };
-  }
-});
-
-const getOrGenerateCompareBrief = createLlmCallWrapper<
-  ExtensionGlobalState,
-  CompareBriefRequest,
-  CompareBrief,
-  CompareBriefCacheValue,
-  { fallback: CompareBrief }
->({
-  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
-  resolveRequest: async (global, request) => {
-    const providerConfig = providerKeyForRequest(global);
-    const fallback = buildDeterministicCompareBrief(
-      request,
-      providerConfig ? "AI compare brief unavailable." : "AI compare brief disabled."
-    );
-    if (!providerConfig) {
-      return { kind: "return", value: fallback };
-    }
-    return {
-      kind: "continue",
-      providerConfig,
-      context: { fallback }
-    };
-  },
-  buildCacheKey: (request, provider) => buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION),
-  loadCache: loadCompareBriefCache,
-  saveCache: saveCompareBriefCache,
-  readCachedValue: (entry, context) => {
-    const cached = entry?.brief;
-    if (cached?.source === "ai") {
-      return normalizeCompareBrief(cached, context.context.fallback);
-    }
-    return undefined;
-  },
-  generate: async (providerConfig, request, context) => {
-    const brief = await generateCompareBrief(providerConfig.provider, providerConfig.apiKey, request);
-    return normalizeCompareBrief(brief, context.context.fallback);
-  },
-  buildCacheEntry: (result) => ({
-    brief: result,
-    generatedAt: new Date().toISOString()
-  }),
-  onError: async (error, context) => {
-    console.error("[dlens] compare brief AI call failed:", error instanceof Error ? error.message : error);
-    return context.context.fallback;
-  }
-});
-
-async function getCompareBriefForJudgment(
-  global: ExtensionGlobalState,
-  request: CompareBriefRequest
-): Promise<{ brief: CompareBrief; cacheKey: string }> {
-  const cached = await getCachedCompareBrief(request);
-  if (cached) {
-    return cached;
-  }
-
-  const brief = await getOrGenerateCompareBrief(global, request);
-  const provider = providerKeyForRequest(global)?.provider || normalizeGlobalState(global).settings.oneLinerProvider || "google";
-  return {
-    brief,
-    cacheKey: buildCompareBriefCacheKey(request, provider, COMPARE_BRIEF_PROMPT_VERSION)
-  };
-}
-
-const getOrGenerateClusterSummaries = createLlmCallWrapper<
-  ExtensionGlobalState,
-  CompareClusterSummaryRequest,
-  ClusterInterpretation[],
-  ClusterSummaryCacheValue,
-  {}
->({
-  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
-  resolveRequest: async (global, request) => {
-    const providerConfig = providerKeyForRequest(global);
-    if (!providerConfig || !request.clusters.length) {
-      return { kind: "return", value: [] };
-    }
-    return { kind: "continue", providerConfig, context: {} };
-  },
-  buildCacheKey: (request, provider) =>
-    buildCompareClusterSummaryCacheKey(request, provider, COMPARE_CLUSTER_SUMMARY_PROMPT_VERSION),
-  loadCache: loadClusterSummaryCache,
-  saveCache: saveClusterSummaryCache,
-  readCachedValue: (entry) => (entry?.items?.length ? entry.items : undefined),
-  generate: async (providerConfig, request) =>
-    generateCompareClusterSummaries(providerConfig.provider, providerConfig.apiKey, request),
-  buildCacheEntry: (result) => {
-    if (!result.length) {
-      return null;
-    }
-    return {
-      items: result,
-      generatedAt: new Date().toISOString()
-    };
-  }
-});
-
-const getOrGenerateEvidenceAnnotations = createLlmCallWrapper<
-  ExtensionGlobalState,
-  EvidenceAnnotationRequest,
-  EvidenceAnnotation[],
-  EvidenceAnnotationCacheValue,
-  {}
->({
-  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
-  resolveRequest: async (global, request) => {
-    if (!request.quotes.length) {
-      return { kind: "return", value: [] };
-    }
-    const providerConfig = providerKeyForRequest(global);
-    if (!providerConfig) {
-      return { kind: "return", value: [] };
-    }
-    return { kind: "continue", providerConfig, context: {} };
-  },
-  buildCacheKey: (request, provider) =>
-    buildEvidenceAnnotationCacheKey(request, provider, COMPARE_EVIDENCE_ANNOTATION_PROMPT_VERSION),
-  loadCache: loadEvidenceAnnotationCache,
-  saveCache: saveEvidenceAnnotationCache,
-  readCachedValue: (entry) => (entry?.items?.length ? entry.items : undefined),
-  generate: async (providerConfig, request) =>
-    generateEvidenceAnnotations(providerConfig.provider, providerConfig.apiKey, request),
-  buildCacheEntry: (result) => {
-    if (!result.length) {
-      return null;
-    }
-    return {
-      items: result,
-      generatedAt: new Date().toISOString()
-    };
-  },
-  onError: async (error) => {
-    console.error("[dlens] evidence annotation AI call failed:", error instanceof Error ? error.message : error);
-    return [];
-  }
-});
-
-type JudgmentRequest = {
-  brief: CompareBrief;
-  productProfile: NonNullable<ExtensionGlobalState["settings"]["productProfile"]>;
-  briefHash: string;
-  profileHash: string;
-};
-
-type JudgmentOutcome = {
-  judgmentResult: NonNullable<JudgmentCacheValue["judgmentResult"]>;
-  judgmentSource: "ai" | "fallback";
-};
-
-const getOrGenerateJudgment = createLlmCallWrapper<
-  ExtensionGlobalState,
-  JudgmentRequest,
-  JudgmentOutcome,
-  JudgmentCacheValue,
-  { fallback: JudgmentOutcome }
->({
-  maxEntries: COMPARE_CACHE_MAX_ENTRIES,
-  resolveRequest: async (global, request) => {
-    const providerConfig = providerKeyForRequest(global);
-    const fallback: JudgmentOutcome = {
-      judgmentResult: buildDeterministicJudgment(
-        request.brief,
-        request.productProfile,
-        providerConfig ? "AI judgment unavailable." : "AI judgment disabled."
-      ),
-      judgmentSource: "fallback"
-    };
-    if (!providerConfig) {
-      return { kind: "return", value: fallback };
-    }
-    return {
-      kind: "continue",
-      providerConfig,
-      context: { fallback }
-    };
-  },
-  buildCacheKey: (request) => buildJudgmentCacheKey(
-    request.briefHash,
-    request.profileHash,
-    COMPARE_JUDGMENT_PROMPT_VERSION
-  ),
-  loadCache: loadJudgmentCache,
-  saveCache: saveJudgmentCache,
-  readCachedValue: (entry) =>
-    entry
-      ? {
-        judgmentResult: entry.judgmentResult,
-        judgmentSource: "ai"
-      }
-      : undefined,
-  generate: async (providerConfig, request) => ({
-    judgmentResult: await generateJudgment(
-      providerConfig.provider,
-      providerConfig.apiKey,
-      request.brief,
-      request.productProfile
-    ),
-    judgmentSource: "ai"
-  }),
-  buildCacheEntry: (result) => {
-    if (result.judgmentSource !== "ai") {
-      return null;
-    }
-    return {
-      judgmentResult: result.judgmentResult,
-      generatedAt: new Date().toISOString()
-    };
-  },
-  onError: async (error, context) => {
-    console.error("[dlens] judgment AI call failed:", error instanceof Error ? error.message : error);
-    return context.context.fallback;
-  }
-});
 
 interface BackgroundReconcileOptions {
   reconcileToken?: RequestReconcileToken | null;
@@ -1687,38 +1281,46 @@ function ensureActiveItemId(session: SessionRecord, currentItemId: string | null
   return session.items[0].id;
 }
 
-async function openPopup(tabId: number): Promise<ExtensionSnapshot> {
-  if (IS_PR_ONLY_BUILD) {
-    return mutateSnapshot(tabId, (current) => ({
-      global: activateSessionForMode(current.global, "pr-evidence"),
-      tab: {
-        ...current.tab,
-        popupOpen: true,
-        popupPage: "pr-evidence",
-        currentMainPage: "pr-evidence",
-        error: null
-      }
-    }), { persistActiveSessionId: true });
+type InlineRemovalUndo = {
+  tabId: number;
+  postKey: string;
+  version: number;
+  sessionId: string;
+  item: SessionItem;
+  index: number;
+  restore: () => Promise<void>;
+};
+const inlineMutationVersions = new Map<string, number>();
+const inlineRemovalUndos = new Map<string, InlineRemovalUndo>();
+let inlineUndoSerial = 0;
+
+function invalidateInlineCollectUndo(descriptor: TargetDescriptor): number {
+  const postKey = inlineCollectPostKey(descriptor);
+  const version = (inlineMutationVersions.get(postKey) ?? 0) + 1;
+  inlineMutationVersions.set(postKey, version);
+  for (const [token, undo] of inlineRemovalUndos) {
+    if (undo.postKey === postKey) inlineRemovalUndos.delete(token);
   }
-  return patchSnapshot(tabId, {
-    tab: {
-      popupOpen: true
-    }
-  });
+  return version;
 }
 
-async function closePopup(tabId: number): Promise<ExtensionSnapshot> {
-  const current = await loadSnapshot(tabId);
-  if (current.tab.selectionMode) {
-    await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage).catch(() => undefined);
+/** One save implementation shared by preview, create-with-save and inline collection. */
+async function saveDescriptorAndDerived(
+  global: ExtensionGlobalState,
+  session: SessionRecord,
+  descriptor: TargetDescriptor,
+  topicId?: string
+): Promise<ReturnType<typeof saveDescriptorToSession>> {
+  const saved = saveDescriptorToSession(global, session.id, descriptor);
+  if (session.mode === "pr-evidence") {
+    const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
+    if (!campaign) throw new Error("Create a PR campaign before collecting evidence.");
+    await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
+  } else {
+    await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, topicId);
   }
-  return mutateSnapshot(tabId, (latest) => ({
-    global: latest.global,
-    tab: {
-      ...setCollectModeState(latest.tab, false),
-      popupOpen: false
-    }
-  }));
+  invalidateInlineCollectUndo(descriptor);
+  return saved;
 }
 
 async function saveCurrentPreviewToSession(
@@ -1758,29 +1360,98 @@ async function saveCurrentPreviewToSession(
     }
 
     const collectionTopicId = session.mode === "topic" ? target.topicId ?? undefined : undefined;
-    const saved = saveDescriptorToSession(current.global, target.sessionId, current.tab.currentPreview);
-    if (session.mode === "pr-evidence") {
-      const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-      if (!campaign) {
-        throw new Error("Create a PR campaign before collecting evidence.");
-      }
-      await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-    } else {
-      await ensureSignalForSavedItem(chrome.storage.local, session, saved.item, collectionTopicId);
-    }
+    const saved = await saveDescriptorAndDerived(current.global, session, current.tab.currentPreview, collectionTopicId);
     return {
       snapshot: {
         global: saved.globalState,
         tab: {
           ...current.tab,
           activeItemId: saved.item.id,
-          lastSavedToast: createInlineToast("saved", session.name),
+          lastSavedToast: createInlineToast(
+            "saved",
+            session.name,
+            undefined,
+            saved.created ? { sessionId: session.id, itemId: saved.item.id } : null
+          ),
           error: null
         }
       },
       saveOptions: { persistActiveSessionId: activeSessionRealigned }
     };
   });
+}
+
+/**
+ * Reverse of `saveCurrentPreviewToSession` for the 5-second undo window offered
+ * by the save toast. Only an item the save actually created is undoable, so the
+ * caller's `itemId` is the one stamped on `lastSavedToast.undo`. Every derived
+ * record the save wrote (signal, product analysis, signal tags, PR evidence row)
+ * is removed with the item so undo cannot leave an orphan behind.
+ */
+async function removeSavedItemFromSnapshot(
+  current: ExtensionSnapshot,
+  sessionId: string,
+  itemId: string,
+  storageArea: StorageAreaLike,
+  derivedRef: { signals: Signal[]; topics: Topic[] }
+): Promise<ExtensionSnapshot> {
+  const session = getSessionById(current.global, sessionId);
+  if (!session) {
+    throw new Error("Target folder not found.");
+  }
+  const item = session.items.find((entry) => entry.id === itemId);
+  if (!item) {
+    throw new Error("Saved post is already gone.");
+  }
+
+  if (session.mode === "pr-evidence") {
+    const campaign = await loadActivePrCampaign(storageArea, session.id);
+    if (campaign) {
+      await deletePrEvidenceRowsByItemId(storageArea, campaign.id, itemId);
+    }
+  } else if (session.mode !== "archive") {
+    const signals = await loadSignals(storageArea, session.id);
+    const signal = signals.find((entry) => entry.itemId === itemId);
+    if (signal) {
+      const deletion = await deleteSignalStorageRecords(storageArea, signal.id);
+      await deleteProductSignalAnalysis(storageArea, signal.id);
+      derivedRef.signals = deletion.signals.filter((entry) => entry.sessionId === session.id);
+      derivedRef.topics = deletion.topics.filter((entry) => entry.sessionId === session.id);
+    }
+  }
+  await deleteSignalTagsByItemId(storageArea, itemId);
+
+  invalidateInlineCollectUndo(item.descriptor);
+  const globalState = removeSessionItem(current.global, sessionId, itemId);
+  const nextSession = getSessionById(globalState, sessionId);
+  const nextActiveItemId = current.tab.activeItemId === itemId
+    ? (nextSession ? ensureActiveItemId(nextSession, null) : null)
+    : current.tab.activeItemId;
+  const nextActiveItem = nextSession?.items.find((entry) => entry.id === nextActiveItemId) ?? null;
+  return {
+    global: globalState,
+    tab: {
+      ...current.tab,
+      activeItemId: nextActiveItemId,
+      currentPreview: current.tab.activeItemId === itemId
+        ? nextActiveItem?.descriptor ?? current.tab.hoveredTarget
+        : current.tab.currentPreview,
+      lastSavedToast: null,
+      error: null
+    }
+  };
+}
+
+async function undoSavedItem(
+  tabId: number,
+  sessionId: string,
+  itemId: string
+): Promise<{ snapshot: ExtensionSnapshot; signals: Signal[]; topics: Topic[] }> {
+  const derivedRef: { signals: Signal[]; topics: Topic[] } = { signals: [], topics: [] };
+  const snapshot = await mutateSnapshot(tabId, async (current) => {
+    return removeSavedItemFromSnapshot(current, sessionId, itemId, chrome.storage.local, derivedRef);
+  });
+  return { snapshot, signals: derivedRef.signals, topics: derivedRef.topics };
 }
 
 async function createSession(
@@ -1827,21 +1498,17 @@ async function createSession(
       if (!current.tab.currentPreview) {
         throw new Error("No current post preview to save.");
       }
-      const saved = saveDescriptorToSession(globalState, session.id, current.tab.currentPreview);
+      const saved = await saveDescriptorAndDerived(globalState, session, current.tab.currentPreview);
       globalState = saved.globalState;
-      if (session.mode === "pr-evidence") {
-        const campaign = await loadActivePrCampaign(chrome.storage.local, session.id);
-        if (!campaign) {
-          throw new Error("Create a PR campaign before collecting evidence.");
-        }
-        await savePrEvidenceRow(chrome.storage.local, toPrEvidenceRowFromSessionItem(campaign.id, saved.item));
-      } else {
-        await ensureSignalForSavedItem(chrome.storage.local, session, saved.item);
-      }
       activeItemId = saved.item.id;
-      popupPage = "library";
-      currentMainPage = "library";
-      lastSavedToast = createInlineToast("saved", session.name);
+      popupPage = "collection";
+      currentMainPage = "collection";
+      lastSavedToast = createInlineToast(
+        "saved",
+        session.name,
+        undefined,
+        saved.created ? { sessionId: session.id, itemId: saved.item.id } : null
+      );
     }
 
     return {
@@ -1858,6 +1525,85 @@ async function createSession(
       },
       saveOptions: { persistActiveSessionId: true }
     };
+  });
+}
+
+async function collectInline(
+  tabId: number,
+  message: InlineCollectMessage
+): Promise<{ snapshot: ExtensionSnapshot; inlineCollect: InlineCollectState }> {
+  if (message.action === "snapshot") {
+    const snapshot = await loadSnapshot(tabId);
+    return { snapshot, inlineCollect: projectInlineCollectState(snapshot.global) };
+  }
+  return withSnapshotLock(async () => {
+    let changed = false;
+    let undoToken: string | undefined;
+    const current = await loadSnapshot(tabId);
+    const next = await (async (): Promise<ExtensionSnapshot> => {
+      if (message.action === "save") {
+        if (message.mode !== undefined && !isInlineCollectMode(message.mode)) throw new Error("Unknown collection mode.");
+        if (!inlineCollectPostKey(message.descriptor)) throw new Error("Missing post identity.");
+        const mode = message.mode ?? getInlineCollectLastMode(current.global);
+        let session = getInlineCollectDestination(current.global, mode);
+        let global = current.global;
+        if (!session) {
+          session = createSessionRecord(INLINE_COLLECT_MODE_NAMES[mode], new Date().toISOString(), mode);
+          global = { ...global, sessions: [...global.sessions, session] };
+        }
+        if (mode === "pr-evidence" && !await loadActivePrCampaign(chrome.storage.local, session.id)) {
+          await savePrCampaignDraft(chrome.storage.local, {
+            sessionId: session.id, name: session.name, briefText: "",
+            criteria: ["c1", "c2", "c3", "c4", "c5", "c6"].map(id => ({ id, label: "" })) as PrCampaign["criteria"]
+          });
+        }
+        const saved = await saveDescriptorAndDerived(global, session, message.descriptor);
+        changed = true;
+        return { global: { ...saved.globalState, lastCollectMode: mode }, tab: current.tab };
+      }
+      if (message.action === "remove") {
+        const session = getSessionById(current.global, message.sessionId);
+        const item = session?.items.find(entry => entry.id === message.itemId);
+        if (!session || !item || inlineCollectPostKey(item.descriptor) !== inlineCollectPostKey(message.descriptor)) {
+          return current;
+        }
+        const recorded = recordInlineCollectRemoval(chrome.storage.local);
+        const removed = await removeSavedItemFromSnapshot(current, session.id, item.id, recorded.storage, { signals: [], topics: [] });
+        const postKey = inlineCollectPostKey(item.descriptor);
+        for (const [token, previous] of inlineRemovalUndos) {
+          if (previous.tabId === tabId) inlineRemovalUndos.delete(token);
+        }
+        undoToken = `inline-undo-${++inlineUndoSerial}`;
+        inlineRemovalUndos.set(undoToken, {
+          tabId, postKey, version: inlineMutationVersions.get(postKey)!, sessionId: session.id,
+          item: structuredClone(item), index: session.items.indexOf(item), restore: recorded.restore
+        });
+        changed = true;
+        return { global: removed.global, tab: current.tab };
+      }
+      const undo = inlineRemovalUndos.get(message.token);
+      if (!undo || inlineMutationVersions.get(undo.postKey) !== undo.version) return current;
+      const session = getSessionById(current.global, undo.sessionId);
+      if (!session || session.items.some(item => inlineCollectPostKey(item.descriptor) === undo.postKey)) {
+        inlineRemovalUndos.delete(message.token);
+        return current;
+      }
+      await undo.restore();
+      const items = [...session.items];
+      items.splice(Math.min(undo.index, items.length), 0, undo.item);
+      invalidateInlineCollectUndo(undo.item.descriptor);
+      changed = true;
+      return {
+        global: {
+          ...current.global,
+          sessions: current.global.sessions.map(entry => entry.id === session.id
+            ? { ...entry, items, updatedAt: new Date().toISOString() } : entry)
+        },
+        tab: current.tab
+      };
+    })();
+    const snapshot = changed ? await saveSnapshot(tabId, next) : current;
+    return { snapshot, inlineCollect: { ...projectInlineCollectState(snapshot.global), changed, ...(undoToken ? { undoToken } : {}) } };
   });
 }
 
@@ -1885,8 +1631,8 @@ async function deleteExistingSession(tabId: number, sessionId: string): Promise<
           ...current.tab,
           activeItemId: nextItemId,
           currentPreview: nextItem?.descriptor || current.tab.hoveredTarget,
-          popupPage: "library",
-          currentMainPage: "library",
+          popupPage: "collection",
+          currentMainPage: "collection",
           error: null
         }
       },
@@ -1897,7 +1643,12 @@ async function deleteExistingSession(tabId: number, sessionId: string): Promise<
 
 async function setActiveSessionById(tabId: number, sessionId: string): Promise<ExtensionSnapshot> {
   return mutateSnapshot(tabId, (current) => {
-    const globalState = setActiveSession(current.global, sessionId);
+    const activated = setActiveSession(current.global, sessionId);
+    const globalState = {
+      ...activated,
+      sessions: activated.sessions.map(session => session.id === sessionId
+        ? { ...session, updatedAt: new Date().toISOString() } : session)
+    };
     const activeSession = activeSessionWithFallback(globalState);
     const activeItemId = ensureActiveItemId(activeSession, current.tab.activeItemId);
     const activeItem = activeSession.items.find((item) => item.id === activeItemId) || null;
@@ -1908,8 +1659,8 @@ async function setActiveSessionById(tabId: number, sessionId: string): Promise<E
           ...current.tab,
           activeItemId,
           currentPreview: activeItem?.descriptor || current.tab.hoveredTarget,
-          popupPage: "library",
-          currentMainPage: "library",
+          popupPage: "collection",
+          currentMainPage: "collection",
           error: null
         }
       },
@@ -2181,6 +1932,9 @@ async function refreshAllItems(
 
 function resetBackgroundTestState(): void {
   globalStateCache = null;
+  deepReadingRunner = undefined;
+  inlineMutationVersions.clear();
+  inlineRemovalUndos.clear();
   tabStateCache.clear();
   tabHoverCache.clear();
   backgroundRequestReconciler.reset();
@@ -2199,6 +1953,53 @@ export const backgroundTestables = {
   resetBackgroundTestState,
   tabStorageKey
 };
+
+// 觀眾反應 cards ask for their AI pass; one run per item at a time. A "running" record older than this is a dead worker's.
+const runDeepReading = (item: SessionItem, settings: ExtensionSettings) => {
+  deepReadingRunner ??= createDeepReadingRunner(chrome.storage.local);
+  return deepReadingRunner(item, settings);
+};
+let deepReadingRunner: ReturnType<typeof createDeepReadingRunner> | undefined;
+let topicReadingRunner: ReturnType<typeof createTopicReadingRunner> | undefined;
+const inlineReadingsInFlight = new Set<string>();
+const INLINE_READING_STALE_MS = 3 * 60_000;
+const INLINE_READING_MIN_COMMENTS = 10;
+
+async function ensureInlineReading(tabId: number, sessionId: string, itemId: string, retry: boolean): Promise<"started" | "exists" | "no-key" | "not-ready"> {
+  const current = await loadSnapshot(tabId);
+  const session = getSessionById(current.global, sessionId);
+  const item = session?.items.find((entry) => entry.id === itemId);
+  if (!session || session.mode !== "topic" || !item || item.status !== "succeeded" || readCrawlComments(item).length < INLINE_READING_MIN_COMMENTS) return "not-ready";
+  // The quant clusters land a few seconds after the crawl; reading before them would leave the clusters unnamed.
+  const analysisStatus = item.latestCapture?.analysis?.status;
+  if (analysisStatus === "pending" || analysisStatus === "running") return "not-ready";
+  const input = buildInlineReadingInput(item);
+  if (!input) return "not-ready";
+  const providerConfig = providerKeyForRequest(current.global);
+  if (!providerConfig) return "no-key";
+  const existing = (await loadInlineReadingRecords(chrome.storage.local))[item.id];
+  const stale = existing?.status === "running" && Date.now() - Date.parse(existing.startedAt) > INLINE_READING_STALE_MS;
+  if (inlineReadingsInFlight.has(item.id)) return "exists";
+  const outdated = existing?.status === "complete" && existing.reading.promptVersion !== INLINE_READING_PROMPT_VERSION;
+  if (existing && existing.captureId === input.captureId && !stale && !outdated && !(retry && existing.status === "failed")) return "exists";
+  inlineReadingsInFlight.add(item.id);
+  const storage = chrome.storage.local;
+  await saveInlineReadingRecord(storage, { status: "running", itemId: item.id, captureId: input.captureId, startedAt: new Date().toISOString() });
+  void generateInlineReading(providerConfig.provider, providerConfig.apiKey, input)
+    .then(
+      (reading) => saveInlineReadingRecord(storage, { status: "complete", itemId: item.id, captureId: input.captureId, reading }),
+      (error) => saveInlineReadingRecord(storage, { status: "failed", itemId: item.id, captureId: input.captureId, error: error instanceof Error ? error.message : String(error), at: new Date().toISOString() })
+    )
+    .catch((error) => console.error("[dlens] inline reading could not be saved:", error))
+    .finally(() => inlineReadingsInFlight.delete(item.id));
+  return "started";
+}
+
+// The post in view per Threads tab, for a side panel that opens after the user stopped scrolling.
+const inViewPostByTab = new Map<number, string | null>();
+
+// The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
+let pendingSidePanelWorkspace: { sessionId: string; itemId?:string; lens?:string; at: number } | null = null;
 
 function configureActionSidePanel(): void {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
@@ -2329,6 +2130,65 @@ export default defineBackground(() => {
     void (async () => {
       try {
         switch (message.type) {
+          case "sidepanel/open": {
+            // Before any await: Chrome only opens the side panel inside the click's user gesture.
+            if (sender.tab) openSidePanelFromAction(sender.tab);
+            pendingSidePanelWorkspace = { sessionId: message.sessionId, itemId:message.itemId, lens:message.lens, at: Date.now() };
+            sendResponse({ ok: true } satisfies ExtensionResponse);
+            return;
+          }
+          case "sidepanel/take-workspace-open": {
+            const pending = pendingSidePanelWorkspace;
+            pendingSidePanelWorkspace = null;
+            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null, ...(pending && Date.now()-pending.at < 15_000 ? {readerItemId:pending.itemId,readerLens:pending.lens} : {}) } satisfies ExtensionResponse);
+            return;
+          }
+          case "settings/test-ai-key": {
+            const tabId = await resolveTabId(sender);
+            const settings = normalizeGlobalState((await loadSnapshot(tabId)).global).settings;
+            const config = providerKeyFromSettings(settings);
+            const aiKeyTest = config ? await testProviderKey(config.provider, config.apiKey) : { ok: false, message: aiKeyGap(settings) ?? "未設定 AI key" };
+            sendResponse({ ok: true, tabId, aiKeyTest } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline/in-view": {
+            if (typeof sender.tab?.id === "number") inViewPostByTab.set(sender.tab.id, message.postKey);
+            sendResponse({ ok: true } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline/in-view-get": {
+            const tabId = await resolveTabId(sender, message.tabId);
+            sendResponse({ ok: true, tabId, inViewPostKey: inViewPostByTab.get(tabId) ?? null } satisfies ExtensionResponse);
+            return;
+          }
+          case "topic-reading/run": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const topic = await loadTopicById(chrome.storage.local, message.topicId);
+            if (!topic) throw new Error("找不到話題");
+            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
+            const items = selectTopicReadingItems(topic, current.global.sessions, signals);
+            const [inline, deep] = await Promise.all([loadInlineReadingRecords(chrome.storage.local), loadDeepReadingRecords(chrome.storage.local)]);
+            topicReadingRunner ??= createTopicReadingRunner(chrome.storage.local);
+            const topicReading = await topicReadingRunner(topic, items, current.global.settings, inline, deep);
+            sendResponse({ ok: true, topicReading } satisfies ExtensionResponse);
+            return;
+          }
+          case "deep-reading/run": {
+            const tabId = await resolveTabId(sender);
+            const current = await loadSnapshot(tabId);
+            const item = current.global.sessions.flatMap(s => (s.mode === "topic" || s.mode === "product") ? s.items : []).find(i => i.id === message.itemId);
+            if (!item) throw new Error("找不到已儲存帖子");
+            const deepReading = await runDeepReading(item, current.global.settings);
+            sendResponse({ ok: true, deepReading } satisfies ExtensionResponse);
+            return;
+          }
+          case "inline-reading/ensure": {
+            const tabId = await resolveTabId(sender);
+            const inlineReadingStatus = await ensureInlineReading(tabId, message.sessionId, message.itemId, message.retry === true);
+            sendResponse({ ok: true, tabId, inlineReadingStatus } satisfies ExtensionResponse);
+            return;
+          }
           case "pipeline-trace/enable-background": {
             const tabId = await resolveTabId(sender);
             setPipelineTraceMirrorTab(tabId);
@@ -2461,7 +2321,8 @@ export default defineBackground(() => {
                 provider: message.provider,
                 openaiApiKey: message.openaiApiKey,
                 claudeApiKey: message.claudeApiKey,
-                googleApiKey: message.googleApiKey
+                googleApiKey: message.googleApiKey,
+                deepReadingModels: message.deepReadingModels
               });
               return {
                 global: {
@@ -2495,19 +2356,7 @@ export default defineBackground(() => {
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
             return;
           }
-          case "popup/open-active-tab": {
-            const tabId = await resolveTabId(sender);
-            sendResponse({ ok: true, tabId, snapshot: await openPopup(tabId) } satisfies ExtensionResponse);
-            return;
-          }
-          case "popup/close-tab": {
-            sendResponse({
-              ok: true,
-              tabId: message.tabId,
-              snapshot: await closePopup(message.tabId)
-            } satisfies ExtensionResponse);
-            return;
-          }
+
           case "popup/navigate-active-tab": {
             const tabId = await resolveTabId(sender);
             sendResponse({
@@ -2528,106 +2377,55 @@ export default defineBackground(() => {
             } satisfies ExtensionResponse);
             return;
           }
-          case "selection/start-active-tab": {
-            const startedAt = performance.now();
+
+          case "session/inline-collect": {
             const tabId = await resolveTabId(sender);
-            // Cached read: only the active session mode is needed before the
-            // content script can flip the cursor; mutateSnapshot re-reads
-            // under the lock for the persisted write.
-            const current = await loadSnapshotCached(tabId);
-            const activeMode = getActiveSession(current.global)?.mode ?? "archive";
-            await chrome.tabs.sendMessage(tabId, { type: "selection/start-tab", tabId, mode: activeMode } satisfies ExtensionMessage);
-            const snapshot = await mutateSnapshot(tabId, (latest) => ({
-              snapshot: {
-                global: latest.global,
-                tab: {
-                  ...setCollectModeState(latest.tab, true),
-                  hoveredTarget: null,
-                  hoveredTargetStrength: null,
-                  flashPreview: null,
-                  error: null
-                }
-              },
-              saveOptions: { tabOnly: true }
-            }));
-            console.info("[DLens] selection/start-active-tab", {
-              durationMs: Math.round(performance.now() - startedAt),
-              storageSetMs: lastSaveSnapshotStorageMs
+            const result = message.action === "snapshot"
+              ? await collectInline(tabId, message)
+              : await traceBackgroundPipeline({
+                phase: "signal.saved",
+                step: "background.session.inline-collect",
+                target: message.action === "remove" ? { tabId, sessionId: message.sessionId, itemId: message.itemId } : { tabId },
+                requestId: message.requestId,
+                detail: { action: message.action, mode: message.action === "save" ? message.mode ?? null : null },
+                responseDetail: (collected) => ({ action: message.action, mode: collected.inlineCollect.lastMode, changed: collected.inlineCollect.changed }),
+                run: () => collectInline(tabId, message)
+              });
+            sendResponse({ ok: true, tabId, ...result } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/move-to-product": {
+            const tabId = await resolveTabId(sender);
+            const snapshot = await mutateSnapshot(tabId, async current => {
+              if (IS_PR_ONLY_BUILD) throw new Error("此版本未提供個人應用。");
+              const source = current.global.sessions.find(s => s.id === message.sessionId);
+              const item = source?.items.find(i => i.id === message.itemId);
+              if (!source || source.mode !== "topic" || !item) throw new Error("Saved audience post not found.");
+              const destination = current.global.sessions.find(s => s.mode === "product")
+                ?? createSessionRecord(INLINE_COLLECT_MODE_NAMES.product, new Date().toISOString(), "product");
+              if (destination.items.some(i => i.id === item.id || getPostIdentity(i.descriptor.post_url) === getPostIdentity(item.descriptor.post_url))) throw new Error("呢篇已喺個人應用，未有搬移。");
+              // Reuse signal cleanup seams; preserve the saved item and its crawl identity.
+              for (const signal of await loadSignals(chrome.storage.local, source.id)) {
+                if (signal.itemId === item.id) await deleteSignalStorageRecords(chrome.storage.local, signal.id);
+              }
+              await clearFolderSynthesis(chrome.storage.local, destination.id);
+              const now = new Date().toISOString();
+              const remaining = source.items.filter(i => i.id !== item.id);
+              const moved = { ...destination, items: [...destination.items, item], updatedAt: now };
+              const base = removeSessionItem(current.global, source.id, item.id).sessions;
+              // An existing 個人應用 keeps its place in the workspace list.
+              const sessions = base.some(s => s.id === destination.id) ? base.map(s => (s.id === destination.id ? moved : s)) : [...base, moved];
+              const movingSelected = current.global.activeSessionId === source.id && current.tab.activeItemId === item.id;
+              const nextActiveItemId = movingSelected ? ensureActiveItemId({ ...source, items: remaining }, null) : current.tab.activeItemId;
+              invalidateInlineCollectUndo(item.descriptor);
+              return { global: { ...current.global, sessions, updatedAt: now }, tab: {
+                ...current.tab,
+                activeItemId: nextActiveItemId,
+                currentPreview: movingSelected ? remaining.find(i => i.id === nextActiveItemId)?.descriptor ?? current.tab.hoveredTarget : current.tab.currentPreview,
+                lastSavedToast: null
+              } };
             });
             sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
-            return;
-          }
-          case "selection/cancel-active-tab": {
-            const startedAt = performance.now();
-            const tabId = await resolveTabId(sender);
-            await chrome.tabs.sendMessage(tabId, { type: "selection/cancel-tab", tabId } satisfies ExtensionMessage);
-            const snapshot = await mutateSnapshot(tabId, (current) => ({
-              snapshot: {
-                global: current.global,
-                tab: {
-                  ...setCollectModeState(current.tab, false),
-                  error: null
-                }
-              },
-              saveOptions: { tabOnly: true }
-            }));
-            console.info("[DLens] selection/cancel-active-tab", {
-              durationMs: Math.round(performance.now() - startedAt),
-              storageSetMs: lastSaveSnapshotStorageMs
-            });
-            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
-            return;
-          }
-          case "selection/hovered": {
-            // Hot path — keep hover state in-memory only, no storage writes
-            const tabId = await resolveTabId(sender);
-            const descriptor = message.descriptor;
-            const strength = message.strength || null;
-            tabHoverCache.set(tabId, {
-              hoveredTarget: descriptor,
-              hoveredTargetStrength: strength,
-              flashPreview: descriptor,
-              currentPreview: descriptor
-            });
-            const current = await loadSnapshotCached(tabId);
-            const merged = snapshotWithHover(tabId, current);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: merged
-            } satisfies ExtensionResponse);
-            // Broadcast to tab so the in-page popup also gets the hover update
-            broadcastSnapshotUpdate(tabId, merged);
-            return;
-          }
-          case "selection/selected": {
-            const tabId = await resolveTabId(sender);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (current) => ({
-                global: current.global,
-                tab: {
-                  ...applyHoveredPreview(setCollectModeState(current.tab, false), message.descriptor),
-                  popupOpen: true,
-                  popupPage: "library",
-                  currentMainPage: "library",
-                  error: null
-                }
-              }))
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "selection/mode-changed": {
-            const tabId = await resolveTabId(sender);
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot: await mutateSnapshot(tabId, (current) => ({
-                global: current.global,
-                tab: setCollectModeState(current.tab, message.enabled)
-              }))
-            } satisfies ExtensionResponse);
             return;
           }
           case "session/create": {
@@ -2654,6 +2452,18 @@ export default defineBackground(() => {
               ok: true,
               tabId,
               snapshot: await deleteExistingSession(tabId, message.sessionId)
+            } satisfies ExtensionResponse);
+            return;
+          }
+          case "session/undo-save": {
+            const tabId = await resolveTabId(sender);
+            const undone = await undoSavedItem(tabId, message.sessionId, message.itemId);
+            sendResponse({
+              ok: true,
+              tabId,
+              snapshot: undone.snapshot,
+              signals: undone.signals,
+              topics: undone.topics
             } satisfies ExtensionResponse);
             return;
           }
@@ -2722,8 +2532,7 @@ export default defineBackground(() => {
           case "topic/update":
           case "topic/delete":
           case "topic/set-collection-target":
-          case "topic/add-pair":
-          case "topic/remove-pair":
+
           case "signal/list":
           case "signal/triage": {
             const tabId = await resolveTabId(sender);
@@ -2764,6 +2573,8 @@ export default defineBackground(() => {
             } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
               const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
+              const deletedItem = current.global.sessions.flatMap(session => session.items).find(item => item.id === deletion.deleted.itemId);
+              if (deletedItem) invalidateInlineCollectUndo(deletedItem.descriptor);
               resultRef.value = deletion;
               await deleteProductSignalAnalysis(chrome.storage.local, message.signalId);
               const applied = applySignalDeletionToGlobalState(current.global, deletion);
@@ -2806,64 +2617,7 @@ export default defineBackground(() => {
             } satisfies ExtensionResponse);
             return;
           }
-          case "topic/synthesis/generate": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const topic = await loadTopicById(chrome.storage.local, message.topicId);
-            if (!topic) {
-              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
-              return;
-            }
-            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) ?? null;
-            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
-            const topicSignals = signals.filter((signal) => topic.signalIds.includes(signal.id));
-            const itemsById = new Map((session?.items ?? []).map((item) => [item.id, item]));
-            const synthesis = generateTopicSynthesis({
-              totalSignalCount: topic.signalIds.length,
-              signals: topicSignals.map((signal) => ({
-                signal,
-                item: signal.itemId ? itemsById.get(signal.itemId) : undefined
-              })),
-              generatedAt: new Date().toISOString()
-            });
-            if (!synthesis) {
-              sendResponse({
-                ok: false,
-                error: "Need at least 2 analyzed signals to synthesize."
-              } satisfies ExtensionResponse);
-              return;
-            }
-            await saveTopic(chrome.storage.local, {
-              ...topic,
-              synthesis,
-              updatedAt: new Date().toISOString()
-            });
-            sendResponse({
-              ok: true,
-              tabId,
-              topics: await loadTopics(chrome.storage.local, topic.sessionId)
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "topic/synthesis/clear": {
-            const tabId = await resolveTabId(sender);
-            const topic = await loadTopicById(chrome.storage.local, message.topicId);
-            if (!topic) {
-              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
-              return;
-            }
-            await saveTopic(chrome.storage.local, {
-              ...topic,
-              synthesis: null,
-              updatedAt: new Date().toISOString()
-            });
-            sendResponse({
-              ok: true,
-              tabId,
-              topics: await loadTopics(chrome.storage.local, topic.sessionId)
-            } satisfies ExtensionResponse);
-            return;
-          }
+
           case "extension/open-page": {
             const tabId = await resolveTabId(sender);
             const sanitized = message.path.replace(/^\/+/, "");
@@ -2872,251 +2626,7 @@ export default defineBackground(() => {
             sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
             return;
           }
-          case "topic/audit/build-evidence":
-          case "topic/audit/get":
-          case "topic/audit/validate":
-          case "topic/audit/clear": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const result = await handleTopicAuditMessage(chrome.storage.local, {
-              message,
-              sessions: current.global.sessions
-            });
-            sendResponse({
-              ok: true,
-              tabId,
-              ...result
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "topic/audit/run":
-          case "topic/audit/p1-signal":
-          case "cross-topic/calibrate": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const providerConfig = providerKeyForRequest(current.global);
-            if (!providerConfig) {
-              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
-              return;
-            }
-            const result = await handleTopicAuditMessage(chrome.storage.local, {
-              message,
-              sessions: current.global.sessions,
-              generateEnvelope: async (stageName, prompt, onAttempt) => generateTopicAuditEnvelope(
-                providerConfig.provider,
-                providerConfig.apiKey,
-                stageName,
-                prompt,
-                // final writes the 7-section report and audience carries the full
-                // reactionPatterns envelope — both must survive large topics (100+
-                // posts) without hitting the output ceiling before the retry kicks in.
-                stageName === "final" ? 6000 : stageName === "audience" ? 3200 : 2200,
-                { onAttempt }
-              ),
-              model: providerConfig.provider === "openai"
-                ? `openai:${OPENAI_COMPARE_MODEL}`
-                : providerConfig.provider === "claude"
-                  ? `claude:${CLAUDE_COMPARE_MODEL}`
-                  : `google:${GOOGLE_COMPARE_MODEL}`
-            });
-            sendResponse({
-              ok: true,
-              tabId,
-              ...result
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "topic/generate-signal-reading": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const topic = await loadTopicById(chrome.storage.local, message.topicId);
-            if (!topic) {
-              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
-              return;
-            }
-            const researchQuestion = topic.context?.researchQuestion?.trim() || "";
-            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
-            const signal = signals.find((entry) => entry.id === message.signalId) || null;
-            if (!signal || !topic.signalIds.includes(signal.id)) {
-              sendResponse({ ok: false, error: "找不到該 topic 裡的 signal。" } satisfies ExtensionResponse);
-              return;
-            }
-            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) || null;
-            const item = signal.itemId && session
-              ? session.items.find((entry) => entry.id === signal.itemId) || null
-              : null;
-            if (!item) {
-              sendResponse({ ok: false, error: "找不到該 signal 對應的貼文。" } satisfies ExtensionResponse);
-              return;
-            }
-            const input = buildTopicSignalReadingInputFromCapture({
-              signalId: signal.id,
-              topicId: topic.id,
-              researchQuestion,
-              capture: item.latestCapture
-            });
-            if (!input) {
-              sendResponse({ ok: false, error: "Signal 尚未完成採集，無法生成判讀。" } satisfies ExtensionResponse);
-              return;
-            }
-            const providerConfig = providerKeyForRequest(current.global);
-            if (!providerConfig) {
-              sendResponse({ ok: false, error: "尚未設定 AI key。請先在 Settings 設定 Google / OpenAI / Claude key。" } satisfies ExtensionResponse);
-              return;
-            }
-            try {
-              const reading = await generateTopicSignalReading(
-                providerConfig.provider,
-                providerConfig.apiKey,
-                input
-              );
-              await saveTopicSignalReading(chrome.storage.local, reading);
-              sendResponse({ ok: true, tabId, topicSignalReading: reading } satisfies ExtensionResponse);
-            } catch (error) {
-              sendResponse({
-                ok: false,
-                error: error instanceof Error ? error.message : String(error)
-              } satisfies ExtensionResponse);
-            }
-            return;
-          }
-          case "topic/list-signal-readings": {
-            const readings = await listTopicSignalReadings(chrome.storage.local, message.topicId);
-            sendResponse({ ok: true, topicSignalReadings: readings } satisfies ExtensionResponse);
-            return;
-          }
-          case "signal/list-tags": {
-            const signalTags = await listSignalTags(chrome.storage.local, message.itemIds);
-            sendResponse({ ok: true, signalTags } satisfies ExtensionResponse);
-            return;
-          }
-          case "topic/generate-missing-signal-tags": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const topic = await loadTopicById(chrome.storage.local, message.topicId);
-            if (!topic) {
-              sendResponse({ ok: false, error: "Topic not found" } satisfies ExtensionResponse);
-              return;
-            }
-            const session = current.global.sessions.find((entry) => entry.id === topic.sessionId) || null;
-            if (!session) {
-              sendResponse({ ok: false, error: "Folder not found" } satisfies ExtensionResponse);
-              return;
-            }
-            const signals = await loadSignals(chrome.storage.local, topic.sessionId);
-            const topicSignals = signals.filter((signal) => topic.signalIds.includes(signal.id));
-            const itemIds = Array.from(new Set(topicSignals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId))));
-            const existing = await listSignalTags(chrome.storage.local, itemIds);
-            const taggedItemIds = new Set(existing.map((record) => record.itemId));
-            const providerConfig = providerKeyForRequest(current.global);
-            if (!providerConfig) {
-              sendResponse({ ok: true, tabId, signalTags: existing } satisfies ExtensionResponse);
-              return;
-            }
 
-            const itemsById = new Map(session.items.map((item) => [item.id, item]));
-            for (const itemId of itemIds) {
-              if (taggedItemIds.has(itemId)) {
-                continue;
-              }
-              const item = itemsById.get(itemId);
-              const input = buildSignalTagsInputFromCapture({
-                itemId,
-                capture: item?.latestCapture
-              });
-              if (!input) {
-                continue;
-              }
-              try {
-                const tags = await generateSignalTags(providerConfig.provider, providerConfig.apiKey, input);
-                await saveSignalTags(chrome.storage.local, tags);
-                taggedItemIds.add(itemId);
-              } catch {
-                // Tagging is an auxiliary reading aid; keep Topic Detail usable if one item fails.
-              }
-            }
-
-            sendResponse({
-              ok: true,
-              tabId,
-              signalTags: await listSignalTags(chrome.storage.local, itemIds)
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "folder/synthesis/get": {
-            const tabId = await resolveTabId(sender);
-            sendResponse({
-              ok: true,
-              tabId,
-              folderSynthesis: await loadFolderSynthesis(chrome.storage.local, message.sessionId)
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "folder/synthesis/generate": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const requestId = message.requestId ?? createPipelineRequestId("background.folder.synthesis.generate");
-            const reconcileToken = beginBackgroundSnapshotReconcile(
-              "folder.generateSynthesis",
-              requestId,
-              { sessionId: message.sessionId, tabId }
-            );
-            const storageArea = withDirectStorageReconcile(chrome.storage.local, { reconcileToken });
-            const session = current.global.sessions.find((entry) => entry.id === message.sessionId) ?? null;
-            if (!session) {
-              sendResponse({ ok: false, error: "Folder not found" } satisfies ExtensionResponse);
-              return;
-            }
-            const topics = await loadTopics(storageArea, message.sessionId);
-            const signals = await loadSignals(storageArea, message.sessionId);
-            const signalsByTopic = new Map<string, typeof signals>();
-            for (const topic of topics) {
-              signalsByTopic.set(topic.id, signals.filter((signal) => topic.signalIds.includes(signal.id)));
-            }
-            const itemsById = new Map(session.items.map((item) => [item.id, item]));
-            const synthesis = generateFolderSynthesis({
-              sessionId: message.sessionId,
-              topics: topics.map((topic) => ({
-                topic,
-                signals: signalsByTopic.get(topic.id) ?? []
-              })),
-              itemsById,
-              generatedAt: new Date().toISOString()
-            });
-            if (!synthesis) {
-              sendResponse({
-                ok: false,
-                error: "Need at least 3 analyzed signals spread across 2 topics."
-              } satisfies ExtensionResponse);
-              return;
-            }
-            await saveFolderSynthesis(storageArea, synthesis);
-            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
-            sendResponse({
-              ok: true,
-              tabId,
-              folderSynthesis: synthesis
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "folder/synthesis/clear": {
-            const tabId = await resolveTabId(sender);
-            const current = await loadSnapshot(tabId);
-            const requestId = message.requestId ?? createPipelineRequestId("background.folder.synthesis.clear");
-            const reconcileToken = beginBackgroundSnapshotReconcile(
-              "folder.clearSynthesis",
-              requestId,
-              { sessionId: message.sessionId, tabId }
-            );
-            await clearFolderSynthesis(withDirectStorageReconcile(chrome.storage.local, { reconcileToken }), message.sessionId);
-            broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
-            sendResponse({
-              ok: true,
-              tabId,
-              folderSynthesis: null
-            } satisfies ExtensionResponse);
-            return;
-          }
           case "pr/list-campaigns": {
             const tabId = await resolveTabId(sender);
             sendResponse({
@@ -3773,236 +3283,7 @@ export default defineBackground(() => {
             }
             return;
           }
-          case "compare/get-one-liner": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await loadSnapshot(tabId);
-            const oneLiner = await getOrGenerateOneLiner(snapshot.global, message.request);
-            sendResponse({
-              ok: true,
-              tabId,
-              oneLiner
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/get-brief": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await loadSnapshot(tabId);
-            const compareBrief = await getOrGenerateCompareBrief(snapshot.global, message.request);
-            sendResponse({
-              ok: true,
-              tabId,
-              compareBrief
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/get-cluster-summaries": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await loadSnapshot(tabId);
-            const clusterInterpretations = await getOrGenerateClusterSummaries(snapshot.global, message.request);
-            sendResponse({
-              ok: true,
-              tabId,
-              clusterInterpretations
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/get-evidence-annotations": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await loadSnapshot(tabId);
-            const evidenceAnnotations = await getOrGenerateEvidenceAnnotations(snapshot.global, message.request);
-            sendResponse({
-              ok: true,
-              tabId,
-              evidenceAnnotations
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/get-technique-readings": {
-            const tabId = await resolveTabId(sender);
-            const techniqueReadings = await loadTechniqueReadings(chrome.storage.local);
-            sendResponse({
-              ok: true,
-              tabId,
-              techniqueReadings
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/save-technique-reading": {
-            const tabId = await resolveTabId(sender);
-            await saveTechniqueReading(chrome.storage.local, message.snapshot);
-            sendResponse({
-              ok: true,
-              tabId
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/get-saved-analyses": {
-            const tabId = await resolveTabId(sender);
-            const savedAnalyses = await loadSavedAnalyses(chrome.storage.local);
-            sendResponse({
-              ok: true,
-              tabId,
-              savedAnalyses
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/save-analysis": {
-            const tabId = await resolveTabId(sender);
-            const savedAnalyses = await saveSavedAnalysis(chrome.storage.local, message.snapshot);
-            const snapshot = await mutateSnapshot(tabId, (current) => ({
-              global: current.global,
-              tab: {
-                ...current.tab,
-                lastViewedResultId: message.snapshot.resultId,
-                activeAnalysisResult: {
-                  resultId: message.snapshot.resultId,
-                  compareKey: message.snapshot.compareKey,
-                  itemAId: message.snapshot.itemAId,
-                  itemBId: message.snapshot.itemBId,
-                  saved: true,
-                  viewedAt: message.snapshot.savedAt
-                },
-                popupPage: "result",
-                currentMainPage: "result",
-                error: null
-              }
-            }));
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot,
-              savedAnalyses
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/set-active-draft": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await mutateSnapshot(tabId, (current) => ({
-              global: current.global,
-              tab: {
-                ...current.tab,
-                activeCompareDraft: message.draft,
-                error: null
-              }
-            }));
-            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
-            return;
-          }
-          case "compare/set-active-result": {
-            const tabId = await resolveTabId(sender);
-            const snapshot = await mutateSnapshot(tabId, (current) => ({
-              global: current.global,
-              tab: {
-                ...current.tab,
-                activeAnalysisResult: message.result,
-                lastViewedResultId: message.result?.resultId || current.tab.lastViewedResultId,
-                popupPage: message.result ? "result" : current.tab.popupPage,
-                currentMainPage: message.result ? "result" : current.tab.currentMainPage,
-                error: null
-              }
-            }));
-            sendResponse({ ok: true, tabId, snapshot } satisfies ExtensionResponse);
-            return;
-          }
-          case "judgment/start": {
-            const tabId = await resolveTabId(sender);
-            const requestId = message.requestId ?? createPipelineRequestId("background.judgment.start");
-            const reconcileToken = beginBackgroundSnapshotReconcile(
-              "judgment.start",
-              requestId,
-              { resultId: message.resultId, tabId }
-            );
-            const current = await loadSnapshot(tabId);
-            const productProfile = current.global.settings.productProfile;
-            if (!productProfile) {
-              sendResponse({ ok: true, tabId } satisfies ExtensionResponse);
-              return;
-            }
 
-            const savedAnalyses = await loadSavedAnalyses(chrome.storage.local);
-            const savedAnalysis = savedAnalyses.find((entry) => entry.resultId === message.resultId) || null;
-            if (!savedAnalysis) {
-              throw new Error("Saved analysis snapshot not found.");
-            }
-
-            const compareItems = findSessionItems(current.global.sessions, savedAnalysis.itemAId, savedAnalysis.itemBId);
-            if (!compareItems) {
-              throw new Error("Source posts for this saved analysis are no longer available in local storage.");
-            }
-
-            const briefRequest = buildCompareBriefRequest(compareItems.itemA, compareItems.itemB);
-            if (!briefRequest) {
-              throw new Error("This saved analysis no longer has enough data to rebuild the compare brief request.");
-            }
-
-            const compareBrief = await getCompareBriefForJudgment(current.global, briefRequest);
-
-            const profileHash = [productProfile.name, productProfile.category, productProfile.audience].join("|");
-            const judgment = await getOrGenerateJudgment(current.global, {
-              brief: compareBrief.brief,
-              productProfile,
-              briefHash: compareBrief.cacheKey,
-              profileHash
-            });
-            const nextSavedAnalyses = await saveSavedAnalysisJudgment(withDirectStorageReconcile(chrome.storage.local, { reconcileToken }), {
-              resultId: message.resultId,
-              judgmentResult: judgment.judgmentResult,
-              judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
-              judgmentSource: judgment.judgmentSource
-            });
-            if (!shouldApplyBackgroundReconcile({ reconcileToken })) {
-              sendResponse({
-                ok: true,
-                tabId,
-                savedAnalyses: await loadSavedAnalyses(chrome.storage.local)
-              } satisfies ExtensionResponse);
-              return;
-            }
-            const snapshot = await mutateSnapshot(tabId, (latest) => ({
-              global: latest.global,
-              tab: {
-                ...latest.tab,
-                error: null
-              }
-            }), { reconcileToken });
-            await broadcastToAllTabs({
-              type: "judgment/result",
-              resultId: message.resultId,
-              judgmentResult: judgment.judgmentResult,
-              judgmentVersion: COMPARE_JUDGMENT_PROMPT_VERSION,
-              judgmentSource: judgment.judgmentSource
-            });
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot,
-              savedAnalyses: nextSavedAnalyses
-            } satisfies ExtensionResponse);
-            return;
-          }
-          case "judgment/result": {
-            const tabId = await resolveTabId(sender);
-            const savedAnalyses = await saveSavedAnalysisJudgment(chrome.storage.local, {
-              resultId: message.resultId,
-              judgmentResult: message.judgmentResult,
-              judgmentVersion: message.judgmentVersion,
-              judgmentSource: message.judgmentSource
-            });
-            const snapshot = await mutateSnapshot(tabId, (current) => ({
-              global: current.global,
-              tab: {
-                ...current.tab,
-                error: null
-              }
-            }));
-            sendResponse({
-              ok: true,
-              tabId,
-              snapshot,
-              savedAnalyses
-            } satisfies ExtensionResponse);
-            return;
-          }
           default: {
             sendResponse({ ok: false, error: "Unsupported message" } satisfies ExtensionResponse);
           }

@@ -1,7 +1,7 @@
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../compare/product-context";
-import { GLOBAL_STATE_STORAGE_KEY } from "./storage-keys";
+import { CURRENT_STORAGE_SCHEMA_VERSION, GLOBAL_STATE_STORAGE_KEY } from "./storage-keys";
 
-export const CURRENT_STORAGE_SCHEMA_VERSION = 2;
+export { CURRENT_STORAGE_SCHEMA_VERSION };
 
 export interface StorageSchemaMigration<TFrom = unknown, TTo = unknown> {
   key: string;
@@ -116,6 +116,52 @@ function stripRawPayloadMirrorsFromGlobalState(input: unknown): Record<string, u
 }
 
 /**
+ * Stamps an explicit `image_url: null` on every saved descriptor that predates
+ * the thumbnail field.
+ *
+ * The contract already marks `image_url` optional, so this is not needed to
+ * keep old payloads type-valid. It exists so the render path has exactly one
+ * no-image shape to handle instead of two: `undefined` (saved before v3) and
+ * `null` (saved after v3 from a text-only post) would otherwise be
+ * indistinguishable in behavior but distinguishable in code, which is how a
+ * "records without a thumbnail break the list" bug gets written.
+ *
+ * Only `image_url` is touched. Items without a descriptor, descriptors that
+ * already carry the field, and every other key are passed through unchanged.
+ */
+function stampImageUrlOnDescriptors(input: unknown): Record<string, unknown> {
+  if (!isRecord(input)) {
+    return {};
+  }
+  if (!Array.isArray(input.sessions)) {
+    return { ...input };
+  }
+  return {
+    ...input,
+    sessions: input.sessions.map((session) => {
+      if (!isRecord(session) || !Array.isArray(session.items)) {
+        return session;
+      }
+      return {
+        ...session,
+        items: session.items.map((item) => {
+          if (!isRecord(item) || !isRecord(item.descriptor)) {
+            return item;
+          }
+          if (Object.hasOwn(item.descriptor, "image_url")) {
+            return item;
+          }
+          return {
+            ...item,
+            descriptor: { ...item.descriptor, image_url: null }
+          };
+        })
+      };
+    })
+  };
+}
+
+/**
  * Canonical registry of storage migrations.
  *
  * Each entry maps `(storage key, from version) → (to version, migrate fn)`.
@@ -145,6 +191,16 @@ export const STORAGE_MIGRATIONS: ReadonlyArray<StorageSchemaMigration> = [
     from: 1,
     to: 2,
     migrate: stripRawPayloadMirrorsFromGlobalState
+  }),
+  // Thumbnails: saved descriptors captured before the collection list showed
+  // images have no `image_url`. Give them an explicit null so "this record has
+  // no thumbnail" is one shape, not two. No bytes are stored — see the field
+  // docs on TargetDescriptor for why only the URL is kept.
+  defineMigration<unknown, unknown>({
+    key: GLOBAL_STATE_STORAGE_KEY,
+    from: 2,
+    to: 3,
+    migrate: stampImageUrlOnDescriptors
   }),
   // Same shape, separate key: pre-registry `dlens:v1:product-context` payloads
   // had no schemaVersion field. The horizontal legacy key migration

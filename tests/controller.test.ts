@@ -264,16 +264,6 @@ test("buildSnapshotReconcileDescriptor only guards long async session-scoped wri
       target: { sessionId: "session-6", itemId: "item-6" }
     }
   );
-  assert.deepEqual(
-    buildSnapshotReconcileDescriptor({
-      type: "folder/synthesis/generate",
-      sessionId: "session-4"
-    }),
-    {
-      lane: "snapshot.folder/synthesis/generate",
-      target: { sessionId: "session-4" }
-    }
-  );
   assert.equal(
     buildSnapshotReconcileDescriptor({
       type: "session/set-active",

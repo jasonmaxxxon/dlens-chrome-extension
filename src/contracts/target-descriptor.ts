@@ -44,6 +44,24 @@ export interface TargetDescriptor {
    * stay valid through MIGRATE.
    */
   engagement_source?: EngagementSource;
+  /**
+   * Absolute URL of the post's own attachment image (photo, video poster, or
+   * link-preview card), or null when the post has none we can trust.
+   *
+   * Only the URL is stored, never the bytes: a Threads CDN URL costs ~500
+   * bytes, while a base64 thumbnail would cost ~13KB per saved record and the
+   * whole global state is one JSON blob that is re-serialized on every save.
+   *
+   * Consequence the UI must handle: these URLs are signed and carry an `oe=`
+   * expiry, so a stored URL eventually stops resolving. A saved record with a
+   * dead URL is the same render path as a record that never had an image, and
+   * as a pre-MIGRATE record where the field is absent. All three must show the
+   * no-image state rather than a broken image.
+   *
+   * Optional in the contract so descriptors built before the v3 storage
+   * migration stay valid; the migration stamps an explicit null on them.
+   */
+  image_url?: string | null;
   captured_at: string;
 }
 

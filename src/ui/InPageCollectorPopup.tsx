@@ -1,61 +1,67 @@
 import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type Dispatch,
-  type RefObject,
-  type SetStateAction
+useEffect,
+useLayoutEffect,
+useRef,
+useState,
+type CSSProperties,
+type Dispatch,
+type RefObject,
+type SetStateAction
 } from "react";
-import type { MainPage, PopupPage } from "../state/types";
-import { CasebookView } from "./CasebookView";
-import { CompareSetupView } from "./CompareSetupView";
-import { CollectView } from "./CollectView";
-import { DLENS_BUTTON_CSS, StatusRail, WorkspaceShell, WorkspaceSurface, ModeRail, UtilityEdge, type WorkspaceMaterial, type WorkspaceSwitcherMode } from "./components";
-import { LanguageProvider } from "./i18n";
-import { getModeHomePage, getModeRailPages } from "../state/processing-state";
-import { getPageComponentKind, getPageWidth } from "../state/page-registry";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
-import { LibraryView } from "./LibraryView";
-import { ProcessingStrip } from "./ProcessingStrip";
-import { ProductSignalView, type ProductSignalPageKind } from "./ProductSignalViews";
+import { isProductContextSourceReady } from "../compare/product-context";
+import { getProcessingFailureMessage } from "../state/processing-errors";
+import { getModeHomePage } from "../state/processing-state";
+import type { FolderMode,PopupPage } from "../state/types";
+import type { CollectionFilter,CollectionSort } from "../viewmodel/collection-browser";
+import { buildCollectionInView,buildCollectionPosts } from "../viewmodel/collection-browser";
+import { collectionReadingSource,resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
+import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
+import { EMPTY_DISCOURSE_UI,buildTopicDiscourseViewModel,type DiscourseUiState } from "../viewmodel/topic-discourse";
+import { buildTopicReadingModel } from "../viewmodel/topic-reading";
+import { workspaceCollectionDestination } from "../viewmodel/workspace-destination";
+import { CollectionBrowser } from "./CollectionBrowser";
+import { CollectionSignalPacketExport } from "./CollectionSignalPacketExport";
+import { CollectionWorkspaceShell,type CollectionTab } from "./CollectionWorkspaceShell";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
-import { TopicDetailView } from "./TopicDetailView";
-import { TopicsListView } from "./TopicsListView";
-import { tokens } from "./tokens";
-import { buildProductSignalWorkspaceViewModel, type ProductSignalCommand } from "../viewmodel/product-signal";
-import { buildTopicDetailViewModel, type TopicDetailCommand } from "../viewmodel/topic-detail";
-import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
-import { getProcessingFailureMessage } from "../state/processing-errors";
-import { InPageCollectorFolderControls } from "./InPageCollectorFolderControls";
-import { InPageCollectorResultWorkspace } from "./InPageCollectorResultWorkspace";
+import { TopicDiscourseView,type TopicDiscourseCommand } from "./TopicDiscourseView";
+import { WorkspaceHomeView } from "./WorkspaceHomeView";
+import { DLENS_BUTTON_CSS,StatusRail,WorkspaceSurface } from "./components";
+import { LanguageProvider } from "./i18n";
+import { OPEN_WORKSPACE_EVENT,consumeReaderOpen,consumeWorkspaceOpen } from "./inpage-helpers";
 import {
-  buildPrEvidenceUiReadyEvent,
-  buildProductUiReadyEvent,
-  buildTopicUiReadyEvent,
-  usePipelineUiReadyTrace
+buildPrEvidenceUiReadyEvent,
+usePipelineUiReadyTrace
 } from "./pipeline-ui-ready";
+import { tokens } from "./tokens";
+import { discourseQuestionPatch,restoreDiscourseReaderOrigin } from "./topic-discourse-controller";
+import { useCollectionClock } from "./useCollectionMotion";
+import { useCollectionProducts } from "./useCollectionProducts";
+import { useCollectionReaderLive,useCollectionReaderTopics } from "./useCollectionReaderTopics";
+import { useDeepReadings } from "./useDeepReadings";
+import { useDiscourseFeeds } from "./useDiscourseFeeds";
 import type { InPageCollectorAppModel } from "./useInPageCollectorAppState";
+import { useOpenedReadings } from "./useOpenedReadings";
+import { useTopicReadings } from "./useTopicReadings";
 import { useWorkspaceScrollMotion } from "./useWorkspaceScrollMotion";
 
-const WORKSPACE_SWITCHER_MODES: ReadonlyArray<WorkspaceSwitcherMode> = IS_PR_ONLY_BUILD
-  ? ["pr-evidence"]
-  : ["topic", "product", "pr-evidence"];
+interface ReadingNavigation {
+  tab: CollectionTab;
+  workspaceOpen: boolean;
+  settingsOpen: boolean;
+  query: string;
+  sort: CollectionSort;
+  filter: CollectionFilter;
+  selectedKey: string | null;
+  requestedLens?: string | null;
+  readerRequest?: number;
+  discourseReturn?: { topicId: string | null; label: string; sessionId: string };
+  returnPage?: PopupPage;
+  workspaceSessionId?: string;
+  workspacePage?: PopupPage;
+}
 
-// Reserved breathing room below the last card. This MUST be a real scrollable
-// spacer element (see the bottom of the scroll viewport), NOT the container's
-// `padding-bottom`: Chrome will not scroll into the padding-bottom of a flex
-// column scroll container, so padding-bottom silently clips the last card /
-// action button in every mode. Do not "simplify" this back into padding-bottom.
-const POPUP_VIEWPORT_BOTTOM_PADDING = tokens.spacing.xl;
-// One shared height keeps mode switching stable while trimming the empty canvas
-// left by the earlier marketing-scale frame. Long workspaces still scroll.
-const POPUP_VIEWPORT_HEIGHT = tokens.layout.workspacePopupHeight;
-// Variant D's 28px frame radius is part of the glass silhouette. Keeping the
-// scroll viewport on the same radius makes the bottom curve remain visible.
-const POPUP_FRAME_RADIUS = 28;
 const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
   padding: 0,
   background: "transparent",
@@ -64,37 +70,16 @@ const SETTINGS_WORKSPACE_SURFACE_STYLE: CSSProperties = {
   overflow: "visible"
 };
 
-function shouldShowProcessingContextStrip(folderMode: string, page: PopupPage): boolean {
-  if (folderMode === "product" || folderMode === "pr-evidence") {
-    return false;
-  }
-  if (folderMode === "topic") {
-    return page === "compare" || page === "result";
-  }
-  return page === "library" || page === "compare" || page === "result";
-}
-
-function workspaceMaterialForFolderMode(folderMode: string): WorkspaceMaterial {
-  return folderMode === "topic" || folderMode === "product" || folderMode === "pr-evidence"
-    ? "glass"
-    : "paper";
-}
-
-type RailMode = Exclude<MainPage, "result" | "topic-detail">;
-
-function isRailMode(page: PopupPage): page is RailMode {
-  return page !== "settings" && page !== "audit-report" && page !== "result" && page !== "topic-detail";
-}
-
-function isProductSignalPageKind(page: PopupPage): page is ProductSignalPageKind {
-  return getPageComponentKind(page) === "product-signal";
-}
-
 export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) {
   const popupOpen = app.popupOpen;
-  // Characterization locks this state across close/open: an in-flight mode
-  // switch must stay visible and keep duplicate switches disabled on reopen.
-  const [switchingWorkspaceMode, setSwitchingWorkspaceMode] = useState<WorkspaceSwitcherMode | null>(null);
+  const [readingNavigation, setReadingNavigation] = useState<ReadingNavigation>({
+    tab: IS_PR_ONLY_BUILD ? "workspaces" : "collection", workspaceOpen: IS_PR_ONLY_BUILD,
+    settingsOpen: false, query: "", sort: "saved", filter: "all", selectedKey: null
+  });
+  const navigationPending = useRef(false);
+  const [navigationBusy, setNavigationBusy] = useState(false);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const scrollPositions = useRef(new Map<string, number>());
   // The motion hook also stays facade-owned so its same-route presence history
   // survives the DOM unmount. With active=false it returns before touching the
   // empty route key, so closing does not consume a second lead soft-pop.
@@ -104,8 +89,6 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
         app.activeFolder?.mode ?? "archive",
         app.page,
         app.activeFolder?.id ?? "",
-        app.activeTopic?.id ?? "",
-        app.activeSavedAnalysis?.resultId ?? "",
         app.activePrCampaign?.id ?? ""
       ].join(":")
     : "";
@@ -123,8 +106,10 @@ export function InPageCollectorPopup({ app }: { app: InPageCollectorAppModel }) 
       app={app}
       scrollRef={scrollRef}
       scrollTrackRef={scrollTrackRef}
-      switchingWorkspaceMode={switchingWorkspaceMode}
-      setSwitchingWorkspaceMode={setSwitchingWorkspaceMode}
+      scrollPositions={scrollPositions.current}
+      navigationControl={{ pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError }}
+      readingNavigation={readingNavigation}
+      setReadingNavigation={setReadingNavigation}
     />
   );
 }
@@ -133,231 +118,255 @@ function OpenInPageCollectorPopup({
   app,
   scrollRef,
   scrollTrackRef,
-  switchingWorkspaceMode,
-  setSwitchingWorkspaceMode
+  scrollPositions,
+  readingNavigation,
+  setReadingNavigation,
+  navigationControl
 }: {
   app: InPageCollectorAppModel;
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollTrackRef: RefObject<HTMLDivElement | null>;
-  switchingWorkspaceMode: WorkspaceSwitcherMode | null;
-  setSwitchingWorkspaceMode: Dispatch<SetStateAction<WorkspaceSwitcherMode | null>>;
+  scrollPositions: Map<string, number>;
+  readingNavigation: ReadingNavigation;
+  setReadingNavigation: Dispatch<SetStateAction<ReadingNavigation>>;
+  navigationControl: { pending: RefObject<boolean>; busy: boolean; setBusy: Dispatch<SetStateAction<boolean>>; error: string | null; setError: Dispatch<SetStateAction<string | null>> };
 }) {
-  const { snapshot, page, activeFolder, resultItemA, resultItemB } = app;
+  const { snapshot, page, activeFolder } = app;
+  const { pending: navigationPending, busy: navigationBusy, setBusy: setNavigationBusy, error: navigationError, setError: setNavigationError } = navigationControl;
+  const workspaceAllowed = !IS_PR_ONLY_BUILD || (activeFolder?.mode === "pr-evidence" && (page === "pr-evidence" || page === "settings"));
+  const nowMs = useCollectionClock();
+  const domainPage = readingNavigation.settingsOpen ? "settings"
+    : readingNavigation.tab === "workspaces" && readingNavigation.workspaceOpen && workspaceAllowed ? page : null;
   const guardedPage = page as PopupPage;
   const activeFolderMode = activeFolder?.mode ?? "archive";
   const uiLang = snapshot?.global.settings.layoutPreferences.language ?? "zh";
-  const workspaceMaterial = workspaceMaterialForFolderMode(activeFolderMode);
-  const workspaceGlass = tokens.material.workspaceGlass;
-  const productExportFolders = (snapshot?.global.sessions ?? [])
-    .filter((session) => session.mode === "product")
-    .map((session) => ({
-      id: session.id,
-      name: session.name,
-      itemCount: session.items.length
-    }));
-  const productSignalViewModel = snapshot && isProductSignalPageKind(page)
-    ? buildProductSignalWorkspaceViewModel({
-        kind: page,
-        snapshot,
+  // Explicit home/topic selection; feed visibility is owned by F1's collection bar.
+  const [discourseSelection, setDiscourseSelection] = useState<Record<string,string|null>>({});
+  const discourseTopicId = discourseSelection[activeFolder?.id ?? ""] ?? null;
+  const setDiscourseTopicId = (topicId:string|null) => setDiscourseSelection(current=>({...current,[activeFolder?.id ?? ""]:topicId}));
+  const [discourseUi, setDiscourseUi] = useState<Record<string,DiscourseUiState>>({});
+  const discourseUiKey = `${activeFolder?.id ?? ""}:${discourseTopicId ?? "home"}`;
+  const topicReadings = useTopicReadings(true);
+  const deepReadings = useDeepReadings(true);
+  const discourseFeeds = useDiscourseFeeds(true);
+  const products=useCollectionProducts(snapshot?.global.sessions ?? []);
+  const productHasContext=products.hasContext || isProductContextSourceReady(snapshot?.global.settings.productProfile);
+  const [copyStatus,setCopyStatus]=useState<string>('');
+  useEffect(()=>setCopyStatus(''),[readingNavigation.selectedKey]);
+  const collectionPosts=buildCollectionPosts(snapshot?.global.sessions ?? []);
+  const inView=IS_PR_ONLY_BUILD ? null : buildCollectionInView(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null);
+  const openedReadings = useOpenedReadings(true, !domainPage && readingNavigation.tab === "collection" ? readingNavigation.selectedKey : null, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
+  const readerSource = !domainPage && readingNavigation.tab === "collection"
+    ? collectionReadingSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
+  const readerSessionId = readerSource?.session.mode === "topic" ? readerSource.session.id : null;
+  useCollectionReaderLive(readerSource, readerSource ? discourseFeeds.readings[readerSource.item.id] : undefined);
+  const readerTopics = useCollectionReaderTopics(readerSessionId);
+  const discourseViewModel = domainPage === "topics"
+    ? buildTopicDiscourseViewModel({
+        topics: app.topics,
         signals: app.signals,
-        analyses: app.productSignalAnalyses,
-        signalReadings: app.signalReadings,
-        productContext: app.compiledProductContext,
-        aiProviderReady: app.productAiProviderReady,
-        backendError: app.productBackendError,
-        analysisError: app.productSignalAnalysisError,
-        analysisNotice: app.productSignalAnalysisNotice,
-        isHydrating: app.isHydratingProductSignals,
-        isAnalyzing: app.isAnalyzingProductSignals
+        items: activeFolder?.items ?? [],
+        readings: discourseFeeds.readings,
+        selectedTopicId: discourseTopicId,
+        inViewPostKey: null,
+        opened: openedReadings.opened,
+        now: app.readWallClockNowMs()
       })
     : null;
-  const topicDetailViewModel = guardedPage === "topic-detail" && app.activeTopic
-    ? buildTopicDetailViewModel({
-        topic: app.activeTopic,
-        signals: app.activeTopicSignals,
-        pairs: app.activeTopicPairs,
-        loadState: app.topicLoadState,
-        sessionMode: app.activeFolderMode,
-        sessionItems: activeFolder?.items ?? [],
-        savedAnalyses: app.savedAnalyses,
-        signalReadingsBySignalId: app.topicSignalReadingsBySignalId,
-        signalTagsByItemId: app.signalTagsByItemId,
-        synthLayout: snapshot?.global.settings.layoutPreferences.topicSynthesisLayout,
-        auditEvidence: app.activeTopicAudit?.auditEvidence,
-        auditMemos: app.activeTopicAudit?.auditMemos,
-        auditReport: app.activeTopicAudit?.auditReport,
-        auditEpisodes: app.activeTopicAudit?.auditEpisodes,
-        auditSummary: app.activeTopicAudit?.summary,
-        auditValidatorFlags: app.activeTopicAudit?.auditValidatorFlags,
-        auditRunStatus: app.activeTopicAudit?.auditRunStatus,
-        p1RunningSignalIds: app.activeTopic && app.topicAuditP1RunningBySignalId[app.activeTopic.id]
-          ? Object.keys(app.topicAuditP1RunningBySignalId[app.activeTopic.id])
-          : [],
-        p1ErrorBySignalId: app.activeTopic ? app.topicAuditP1ErrorBySignalId[app.activeTopic.id] : undefined,
-        optimisticQueuedItemIds: app.optimisticQueuedIds,
-        isBulkAnalyzing: app.bulkAnalyzingFolderId === activeFolder?.id,
-        isStartingProcessing: app.isStartingProcessing,
-        workerStatus: app.workerStatus,
-        backendWorkUiState: app.backendWorkUiState
-      })
-    : null;
-
-  function onProductSignalCommand(command: ProductSignalCommand): Promise<unknown> | unknown {
-    switch (command.kind) {
-      case "analyzeInbox":
-        return app.onAnalyzeProductSignals();
-      case "openActionable":
-        return app.onNavigate("actionable-filter");
-      case "remove":
-        return app.onRemoveProductSignal(command.target.signalId);
-      case "reviewReading":
-        return app.onReviewSignalReading(command.target.cacheKey, command.decision, command.note);
-      case "exportSignalPackets":
-        return app.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format });
-      default:
-        return undefined;
-    }
+  const selectedDiscourseTopic = domainPage === "topics" ? app.topics.find(t=>t.id===discourseTopicId) : undefined;
+  const discourseItems = domainPage === "topics" ? (activeFolder?.items ?? []).filter(item=>app.signals.some(signal=>signal.itemId===item.id && signal.topicId===discourseTopicId)) : [];
+  const topicReadingModel = selectedDiscourseTopic && snapshot ? buildTopicReadingModel(selectedDiscourseTopic,discourseItems,snapshot.global.settings,topicReadings.records[selectedDiscourseTopic.id],new Date(nowMs).toISOString(),topicReadings.pending[selectedDiscourseTopic.id],topicReadings.errors[selectedDiscourseTopic.id] || null,discourseFeeds.readings,deepReadings.records) : null;
+  function onDiscourseCommand(command: TopicDiscourseCommand) {
+    const fail = (e:unknown) => setNavigationError(e instanceof Error ? e.message : "操作失敗");
+    if (command.kind === "select-topic") setDiscourseTopicId(command.topicId);
+    else if (command.kind === "assign") void app.onSignalTriaged(command.signalId, { kind: "assign", topicId: command.topicId }).catch(fail);
+    else if (command.kind === "create-topic") void app.onCreateTopicNamed(command.name, command.researchQuestion,command.signalId).catch(fail);
+    else if (command.kind === "move-product") {
+      const signal = app.signals.find(s => s.id === command.signalId);
+      if (signal?.itemId) void app.onMoveAudienceItem(signal.sessionId, signal.itemId).catch(fail);
+    } else if (command.kind === "delete-signal") void app.onSignalDeleted(command.signalId).catch(fail);
+    else if (command.kind === "update-question") {
+      const topic=app.topics.find(t=>t.id===command.topicId);
+      if(topic) {const update=discourseQuestionPatch(topic,command.researchQuestion);void app.onUpdateTopic(update.patch,update.id).catch(fail);}
+    } else if (command.kind === "run-reading") void topicReadings.run(command.topicId);
+    else if (command.kind === "open-reader") {
+      const target=resolveCollectionReaderOpen(collectionPosts,command.itemId);
+      if(target && activeFolder) setReadingNavigation(current=>({...current,tab:'collection',settingsOpen:false,selectedKey:target.key,requestedLens:null,readerRequest:(current.readerRequest ?? 0)+1,discourseReturn:{...command.returnTo,sessionId:activeFolder.id}}));
+    } else void app.onDeleteTopic(command.topicId).catch(fail);
   }
-
-  function onTopicDetailCommand(command: TopicDetailCommand): Promise<unknown> | unknown {
-    switch (command.kind) {
-      case "back":
-        return app.onBackFromTopicDetail();
-      case "openPair":
-        return app.onOpenTopicPair(command.target.resultId, command.target.topicId);
-      case "updateTopic":
-        return app.onUpdateTopic(command.patch);
-      case "analyzeItems":
-        return app.onAnalyzeItems(command.target.itemIds);
-      case "analyzeItem":
-        return app.onAnalyzeItems([command.target.itemId]);
-      case "queueItem":
-      case "queueSignalItem":
-        return app.onQueueItemById(command.target.itemId);
-      case "startProcessing":
-        return app.onStartProcessing();
-      case "openAnalysis":
-        return app.onOpenSavedAnalysis(command.target.resultId);
-      case "openSignalAnalysis":
-        return app.onOpenSavedAnalysis(command.target.resultId);
-      case "addToCompare":
-        return app.onAddToCompare(command.target.itemId);
-      case "addSignalToCompare":
-        return app.onAddToCompare(command.target.itemId);
-      case "saveJudgmentOverride":
-        return app.onSaveJudgmentOverride(command.target.resultId, command.patch);
-      case "generateSynthesis":
-        return app.onGenerateTopicSynthesis(command.target.topicId);
-      case "generateSignalReading":
-        return app.onGenerateTopicSignalReading(command.target.signalId, command.target.topicId);
-      case "deleteSignal":
-        return app.onSignalDeleted(command.target.signalId);
-      case "runAudit":
-        return app.onRunTopicAudit(command.target.topicId, command.fromStage, command.force);
-      case "runAuditP1":
-        return app.onRunTopicAuditP1(command.target.topicId, command.target.signalId);
-      case "openAuditReport":
-        return app.onOpenAuditReport(command.target.topicId, command.stale);
-      default:
-        return undefined;
-    }
-  }
-  const pageComponentKind = getPageComponentKind(guardedPage);
-  const allowedRailModes = getModeRailPages(activeFolderMode).filter(isRailMode);
-  const guardedPrimaryMode: RailMode | null = isRailMode(guardedPage) && allowedRailModes.includes(guardedPage)
-    ? guardedPage
-    : null;
-  const homePage = getModeHomePage(activeFolderMode);
-  const attachedTopicIds = app.activeSavedAnalysis
-    ? app.topics.filter((topic) => topic.pairIds.includes(app.activeSavedAnalysis!.resultId)).map((topic) => topic.id)
-    : [];
-  const collectTargetName = activeFolderMode === "topic"
-    ? app.activeTopic?.name || "未選主題"
-    : activeFolder?.name || "No folder yet";
-  const collectionTopicId = app.selectedTopicId || snapshot?.tab.collectionTopicId || "";
-  const collectCanSave = activeFolderMode === "topic"
-    ? Boolean(collectionTopicId)
-    : activeFolderMode !== "pr-evidence" || Boolean(app.activePrCampaign);
-  const collectDisabledReason = activeFolderMode === "topic" && !collectionTopicId
-    ? "先在上方選擇主題，Collect 才會寫入正確主題。"
-    : activeFolderMode === "pr-evidence" && !app.activePrCampaign
-      ? "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。"
-      : "";
-  const showProcessingContextStrip = Boolean(activeFolder) && shouldShowProcessingContextStrip(activeFolderMode, guardedPage);
-
-  usePipelineUiReadyTrace(productSignalViewModel
-    ? buildProductUiReadyEvent(productSignalViewModel)
-    : null);
-  usePipelineUiReadyTrace(guardedPage === "topic-detail" && topicDetailViewModel
-    ? buildTopicUiReadyEvent(topicDetailViewModel)
-    : null);
-  usePipelineUiReadyTrace(guardedPage === "pr-evidence"
-    ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel)
-    : null);
+  const readerBack = async () => {
+    const origin=readingNavigation.discourseReturn;
+    if(!origin) {setReadingNavigation(current=>({...current,selectedKey:null}));return;}
+    if(navigationPending.current)return;
+    navigationPending.current=true;setNavigationBusy(true);setNavigationError(null);
+    try {
+      await restoreDiscourseReaderOrigin(origin,activeFolder?.id,page,async id=>{
+        const result=await app.onSetActiveSession(id);
+        if(result && !result.ok)throw new Error("未能返回觀眾反應");
+      },app.onNavigate);
+      setDiscourseSelection(current=>({...current,[origin.sessionId]:origin.topicId}));
+      setReadingNavigation(current=>({...current,tab:'workspaces',workspaceOpen:true,workspaceSessionId:origin.sessionId,workspacePage:'topics',selectedKey:null,discourseReturn:undefined,requestedLens:null}));
+    } catch(e) {setNavigationError(e instanceof Error ? e.message : "未能返回觀眾反應");}
+    finally {navigationPending.current=false;setNavigationBusy(false);}
+  };
+  usePipelineUiReadyTrace(domainPage === "pr-evidence" ? buildPrEvidenceUiReadyEvent(app.prEvidenceViewModel) : null);
 
   const prBriefInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset before paint so mode switches do not flash at the prior scrollTop.
+  const scrollKey = readingNavigation.settingsOpen ? "settings"
+    : readingNavigation.tab === "collection" ? JSON.stringify(["collection", readingNavigation.selectedKey ?? "list"])
+    : !readingNavigation.workspaceOpen || !workspaceAllowed ? "workspace-list"
+    : JSON.stringify(["workspace", activeFolder?.id, guardedPage, guardedPage === "topics" ? discourseTopicId ?? "home" : ""]);
+
+  // Save on scroll, before a shorter route can clamp the viewport during DOM
+  // replacement. The facade map survives closing the popup and unmounting this view.
   useLayoutEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+    const target = scrollPositions.get(scrollKey) ?? 0;
+    let restoring = true;
+    let observer: ResizeObserver | undefined;
+    const stopRestoring = () => {
+      restoring = false;
+      observer?.disconnect();
+    };
+    const restore = () => {
+      if (!restoring) return;
+      viewport.scrollTop = target;
+      if (viewport.scrollTop >= target) stopRestoring();
+    };
+    const rememberScroll = () => {
+      // A clamped programmatic scroll must not overwrite the requested offset.
+      if (!restoring) scrollPositions.set(scrollKey, viewport.scrollTop);
+    };
+    const cancelRestoration = () => { stopRestoring(); rememberScroll(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) cancelRestoration();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target === viewport) cancelRestoration();
+    };
+    restore();
+    // Images can be shorter before load. Retry on real size changes only, and
+    // yield immediately to user scrolling instead of pulling them back later.
+    const ResizeObserverClass = viewport.ownerDocument.defaultView?.ResizeObserver;
+    if (restoring && ResizeObserverClass && scrollTrackRef.current) {
+      observer = new ResizeObserverClass(restore);
+      observer.observe(scrollTrackRef.current);
     }
-  }, [guardedPage]);
+    viewport.addEventListener("scroll", rememberScroll, { passive: true });
+    viewport.addEventListener("load", restore, true);
+    viewport.addEventListener("wheel", cancelRestoration, { passive: true });
+    viewport.addEventListener("touchstart", cancelRestoration, { passive: true });
+    viewport.addEventListener("keydown", onKeyDown);
+    viewport.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      stopRestoring();
+      viewport.removeEventListener("scroll", rememberScroll);
+      viewport.removeEventListener("load", restore, true);
+      viewport.removeEventListener("wheel", cancelRestoration);
+      viewport.removeEventListener("touchstart", cancelRestoration);
+      viewport.removeEventListener("keydown", onKeyDown);
+      viewport.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [scrollKey, scrollPositions, scrollRef, scrollTrackRef]);
 
   useEffect(() => {
-    if (switchingWorkspaceMode === activeFolderMode) {
-      setSwitchingWorkspaceMode(null);
-    }
-  }, [activeFolderMode, switchingWorkspaceMode]);
+    if (navigationPending.current || !activeFolder || !workspaceAllowed || readingNavigation.tab !== "workspaces" || !readingNavigation.workspaceOpen || readingNavigation.settingsOpen || page === "settings") return;
+    setReadingNavigation((current) => {
+      if (current.workspaceSessionId === activeFolder.id && current.workspacePage === page) return current;
+      return { ...current, workspaceSessionId: activeFolder.id, workspacePage: page };
+    });
+  }, [activeFolder?.id, page, readingNavigation.tab, readingNavigation.workspaceOpen, readingNavigation.settingsOpen, workspaceAllowed]);
 
-  async function handleSwitchWorkspace(mode: WorkspaceSwitcherMode) {
-    if (switchingWorkspaceMode || mode === activeFolderMode) {
-      return;
+  async function selectPrimaryTab(tab: CollectionTab) {
+    if (navigationPending.current) return;
+    setNavigationError(null);
+    if (tab === "workspaces" && readingNavigation.workspaceOpen && readingNavigation.workspaceSessionId) {
+      navigationPending.current = true;
+      setNavigationBusy(true);
+      try {
+        if (activeFolder?.id !== readingNavigation.workspaceSessionId) {
+          const result = await app.onSetActiveSession(readingNavigation.workspaceSessionId);
+          if (result && !result.ok) throw new Error("workspace unavailable");
+        }
+        await app.onNavigate(readingNavigation.workspacePage ?? readingNavigation.returnPage ?? getModeHomePage(activeFolderMode));
+      } catch { setNavigationError("未能返回工作區，請再試。"); return; }
+      finally { navigationPending.current = false; setNavigationBusy(false); }
     }
-    const startedAt = app.readInteractionNowMs();
-    setSwitchingWorkspaceMode(mode);
+    setReadingNavigation((current) => ({ ...current, tab,  settingsOpen: false, discourseReturn: undefined }));
+  }
+
+  async function openWorkspace(sessionId: string) {
+    const session = snapshot?.global.sessions.find((item) => item.id === sessionId);
+    if (!session || navigationPending.current || (IS_PR_ONLY_BUILD && session.mode !== "pr-evidence")) return;
+    navigationPending.current = true;
+    setNavigationBusy(true);
+    setNavigationError(null);
     try {
-      const response = await app.onSessionModeChange(mode);
-      const popupDurationMs = Math.round(app.readInteractionNowMs() - startedAt);
-      const serverDurationMs = response && "serverDurationMs" in response
-        ? (response.serverDurationMs ?? null)
-        : null;
-      const storageSetMs = response && "storageSetMs" in response
-        ? (response.storageSetMs ?? null)
-        : null;
-      const setModePath = response && "setModePath" in response
-        ? (response.setModePath ?? null)
-        : null;
-      const overheadMs = serverDurationMs != null
-        ? popupDurationMs - serverDurationMs
-        : null;
-      const payload = {
-        from: activeFolderMode,
-        to: mode,
-        popupDurationMs,
-        serverDurationMs,
-        storageSetMs,
-        setModePath,
-        overheadMs
-      };
-      // JSON.stringify so Chrome bridges that flatten object payloads
-      // still surface the breakdown (popup vs background vs IPC+reconcile).
-      console.info("[DLens] workspace switch " + JSON.stringify(payload));
-      if (typeof window !== "undefined") {
-        const w = window as typeof window & {
-          __DLENS_LAST_SWITCH_PERF__?: typeof payload;
-          __DLENS_SWITCH_PERF_LOG__?: Array<typeof payload>;
-        };
-        w.__DLENS_LAST_SWITCH_PERF__ = payload;
-        const log = w.__DLENS_SWITCH_PERF_LOG__ ?? [];
-        log.push(payload);
-        if (log.length > 20) log.shift();
-        w.__DLENS_SWITCH_PERF_LOG__ = log;
+      const result = await app.onSetActiveSession(sessionId);
+      if (result && !result.ok) throw new Error("workspace unavailable");
+      await app.onNavigate(getModeHomePage(session.mode));
+      setReadingNavigation((current) => ({ ...current, ...workspaceCollectionDestination(session.mode), selectedKey: null, requestedLens: null, discourseReturn: undefined, settingsOpen: false, workspaceSessionId: sessionId, workspacePage: getModeHomePage(session.mode) }));
+    } catch {
+      setNavigationError("未能開啟工作區，請再試。");
+    } finally { navigationPending.current = false; setNavigationBusy(false); }
+  }
+
+  useEffect(() => {
+    const listener = () => {
+      if (navigationPending.current) return;
+      const reader=consumeReaderOpen(snapshot?.global.sessions.flatMap(s=>s.items.map(i=>i.id)) ?? []);
+      if (reader) {
+        const target=resolveCollectionReaderOpen(collectionPosts,reader.itemId,reader.lens);
+        if (target && !IS_PR_ONLY_BUILD) setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:target.key,requestedLens:target.lens,discourseReturn:undefined,readerRequest:(current.readerRequest ?? 0)+1}));
+        return;
       }
-    } catch (error) {
-      console.error("[DLens] workspace switch failed", error);
+      const sessionId = consumeWorkspaceOpen(snapshot?.global.sessions.map((session) => session.id) ?? []);
+      if (sessionId) void openWorkspace(sessionId);
+    };
+    window.addEventListener(OPEN_WORKSPACE_EVENT, listener);
+    listener();
+    return () => window.removeEventListener(OPEN_WORKSPACE_EVENT, listener);
+  });
+
+  useEffect(()=>{
+    if (!readingNavigation.readerRequest || domainPage || readingNavigation.tab!=='collection') return;
+    const frame=window.requestAnimationFrame(()=>scrollRef.current?.querySelector('[data-reader-answer]')?.scrollIntoView?.({block:'start'}));
+    return ()=>window.cancelAnimationFrame(frame);
+  },[readingNavigation.readerRequest,readingNavigation.selectedKey,domainPage]);
+
+  async function createWorkspace(name: string, mode: FolderMode) {
+    if (navigationPending.current || (IS_PR_ONLY_BUILD && mode !== "pr-evidence")) return { ok: false };
+    navigationPending.current = true;
+    setNavigationBusy(true);
+    try {
+      const result = await app.onCreateWorkspace(name, mode);
+      if (!result.ok) return result;
+      await app.onNavigate(getModeHomePage(mode));
+      setReadingNavigation((current) => ({ ...current, ...workspaceCollectionDestination(mode), selectedKey: null, settingsOpen: false, workspaceSessionId: result.snapshot?.global.activeSessionId ?? undefined, workspacePage: getModeHomePage(mode) }));
+      return result;
+    } finally { navigationPending.current = false; setNavigationBusy(false); }
+  }
+
+  async function manageWorkspace(sessionId: string, action: "rename" | "delete", name = "") {
+    const session = snapshot?.global.sessions.find((item) => item.id === sessionId);
+    if (navigationPending.current || !session || (IS_PR_ONLY_BUILD && session.mode !== "pr-evidence")) return { ok: false as const };
+    navigationPending.current = true;
+    setNavigationBusy(true);
+    setNavigationError(null);
+    try {
+      const response = action === "rename"
+        ? await app.onRenameWorkspace(sessionId, name)
+        : await app.onDeleteWorkspace(sessionId);
+      if (!response.ok) throw new Error("workspace mutation failed");
+      return response;
+    } catch {
+      setNavigationError(action === "rename" ? "未能重新命名工作區，請再試一次。" : "未能刪除工作區，請再試一次。");
+      return { ok: false as const };
     } finally {
-      setSwitchingWorkspaceMode(null);
+      navigationPending.current = false;
+      setNavigationBusy(false);
     }
   }
 
@@ -372,53 +381,16 @@ function OpenInPageCollectorPopup({
   return (
     <LanguageProvider value={uiLang}>
     <div
-      ref={app.popupRef}
       data-dlens-control="true"
       data-workspace-popup="shell"
-      data-workspace-popup-material={workspaceMaterial}
-      style={{
-        position: "fixed",
-        right: 12,
-        top: 82,
-        width: getPageWidth(guardedPage),
-        maxWidth: "calc(100vw - 24px)",
-        height: POPUP_VIEWPORT_HEIGHT,
-        maxHeight: "calc(100vh - 94px)",
-        overflow: "hidden",
-        borderRadius: POPUP_FRAME_RADIUS,
-        border: `1px solid ${workspaceMaterial === "glass" ? workspaceGlass.edge : tokens.color.glassBorder}`,
-        boxShadow: `${tokens.shadow.popup}, inset 0 1px 0 ${tokens.color.shellSurface}`,
-        zIndex: 2147483640,
-        color: tokens.color.ink,
-        fontFamily: tokens.font.sans,
-        animation: "dlens-slide-in 280ms cubic-bezier(0.16, 1, 0.3, 1)",
-        transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-        pointerEvents: "auto",
-        isolation: "isolate",
-        transform: "translateZ(0)",
-        contain: "paint"
-      }}
+      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", color: tokens.color.ink, fontFamily: tokens.font.sans }}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
     >
       <style>{DLENS_BUTTON_CSS}</style>
-      <div aria-hidden style={{
-        position: "absolute",
-        inset: 0,
-        borderRadius: POPUP_FRAME_RADIUS,
-        background: workspaceMaterial === "glass"
-          ? workspaceGlass.canvas
-          : `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.canvas})`,
-        zIndex: 0,
-        pointerEvents: "none"
-      }} />
-      {workspaceMaterial === "glass" ? (
-        <>
-          <div aria-hidden="true" data-workspace-aura="teal" style={{ position: "absolute", zIndex: 0, width: 320, height: 320, top: -120, right: -90, borderRadius: tokens.radius.round, background: workspaceGlass.auraTeal, filter: "blur(64px)", opacity: 0.55, pointerEvents: "none" }} />
-          <div aria-hidden="true" data-workspace-aura="amber" style={{ position: "absolute", zIndex: 0, width: 280, height: 280, top: "38%", left: -130, borderRadius: tokens.radius.round, background: workspaceGlass.auraAmber, filter: "blur(68px)", opacity: 0.48, pointerEvents: "none" }} />
-          <div aria-hidden="true" data-workspace-aura="violet" style={{ position: "absolute", zIndex: 0, width: 300, height: 300, bottom: -120, right: -80, borderRadius: tokens.radius.round, background: workspaceGlass.auraViolet, filter: "blur(70px)", opacity: 0.46, pointerEvents: "none" }} />
-        </>
-      ) : null}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: tokens.collection.paper, pointerEvents: "none" }} />
+      <div aria-hidden="true" data-collection-mist="" style={{ position: "absolute", width: tokens.collection.mistWidth, height: tokens.collection.mistHeight, top: tokens.collection.mistTop, left: tokens.collection.mistLeft, borderRadius: tokens.radius.round, background: tokens.collection.mist, pointerEvents: "none" }} />
+      <div aria-hidden="true" data-collection-grain="" style={{ position: "absolute", inset: 0, opacity: tokens.collection.grainOpacity, backgroundImage: tokens.collection.grain, pointerEvents: "none" }} />
       <div
         ref={scrollRef}
         data-workspace-popup-scroll="viewport"
@@ -427,16 +399,17 @@ function OpenInPageCollectorPopup({
           zIndex: 1,
           boxSizing: "border-box",
           height: "100%",
-          maxHeight: POPUP_VIEWPORT_HEIGHT,
+          maxHeight: "none",
           overflowY: "auto",
           overflowX: "hidden",
           overscrollBehaviorY: "contain",
-          borderRadius: POPUP_FRAME_RADIUS,
-          padding: `${tokens.spacing.section}px`,
+          borderRadius: 0,
+          padding: `0 ${tokens.spacing.section}px`,
           paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
-          scrollbarGutter: "stable both-edges"
+          // In the side panel a reserved gutter shows as an empty strip beside the header.
+          scrollbarGutter: "auto"
         }}
       >
         <div
@@ -452,193 +425,42 @@ function OpenInPageCollectorPopup({
             gap: tokens.spacing.md
           }}
         >
-          <InPageCollectorFolderControls app={app} />
-
-          <WorkspaceShell
-          mode={guardedPage === "audit-report" ? "topics" : guardedPage}
-          folderMode={activeFolderMode}
-          material={workspaceMaterial}
-          onSwitchWorkspace={(mode) => void handleSwitchWorkspace(mode)}
-          availableWorkspaceModes={WORKSPACE_SWITCHER_MODES}
-          switchingWorkspaceMode={switchingWorkspaceMode}
-          reserveContextStrip={showProcessingContextStrip}
-          statusRail={(
-            <StatusRail
-              scopeLabel="資料夾"
-              backendReachability={app.backendReachability}
-              backendWorkUiState={app.backendWorkUiState}
-              workerStatus={app.workerStatus}
-              ready={app.processingSummary.ready}
-              total={app.processingSummary.total}
-            />
-          )}
-          header={(
-            <div style={{ display: "grid", gap: 10 }}>
-              <ModeRail
-                activeMode={guardedPrimaryMode}
-                modes={allowedRailModes}
-                badgeCounts={{ casebook: app.savedAnalyses?.length ?? 0 }}
-                onSelect={(mode) => void app.onNavigate(mode)}
-              />
-              <UtilityEdge active={guardedPage === "settings"} onSelect={() => void app.onNavigate("settings")} />
-            </div>
-          )}
-          contextStrip={
-            showProcessingContextStrip ? (
-              <ProcessingStrip
-                workerStatus={app.workerStatus}
-                backendWorkUiState={app.backendWorkUiState}
-                backendReachability={app.backendReachability}
-                ready={app.processingSummary.ready}
-                total={app.processingSummary.total}
-                crawling={app.processingSummary.crawling}
-                analyzing={app.processingSummary.analyzing}
-                pending={app.processingSummary.pending}
-              />
-            ) : undefined
-          }
-        >
-          {guardedPage === "library" ? (
+          <CollectionWorkspaceShell
+            tab={readingNavigation.tab}
+            allowCollection={!IS_PR_ONLY_BUILD}
+            busy={navigationBusy}
+            onTabChange={selectPrimaryTab}
+            onSettings={() => {
+              if (navigationPending.current) return;
+              setReadingNavigation((current) => ({ ...current, settingsOpen: true,  returnPage: page }));
+              void app.onNavigate("settings");
+            }}
+            inView={inView}
+            onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
+            diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
+          >
+            {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
+            {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
+            {!domainPage && readingNavigation.tab === "collection" ? (
+              <CollectionBrowser filter={readingNavigation.filter} onFilterChange={filter => setReadingNavigation(current => ({ ...current, filter }))} exportRow={readingNavigation.filter === "product" ? <CollectionSignalPacketExport key={activeFolder?.id} sessions={snapshot?.global.sessions ?? []} defaultSessionId={activeFolder?.id} onExport={app.onExportSignalPackets} /> : undefined} readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+                onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
+                selectedKey={readingNavigation.selectedKey}
+                onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null, discourseReturn:undefined }))}
+                onOpenWorkspace={(id) => void openWorkspace(id)}
+                isLoading={!snapshot} />
+            ) : null}
+            {!domainPage && readingNavigation.tab === "workspaces" ? (
+              <WorkspaceHomeView nowMs={nowMs} sessions={IS_PR_ONLY_BUILD ? (snapshot?.global.sessions ?? []).filter((session) => session.mode === "pr-evidence") : snapshot?.global.sessions ?? []} activeSessionId={activeFolder?.id ?? null}
+                onOpen={openWorkspace} onCreate={createWorkspace} onRename={(id, name) => manageWorkspace(id, "rename", name)} onDelete={(id) => manageWorkspace(id, "delete")} externalError={navigationError} busy={navigationBusy} allowedCreationModes={IS_PR_ONLY_BUILD ? ["pr-evidence"] : undefined} />
+            ) : null}
+            {domainPage && !readingNavigation.settingsOpen && !discourseViewModel?.topic ? <button type="button" onClick={() => setReadingNavigation(current => ({ ...current, workspaceOpen: false }))} style={{ border: 0, background: "transparent", color: tokens.color.subInk, cursor: "pointer", padding: tokens.spacing.sm }}>← 工作區</button> : null}
+          {domainPage === "topics" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <LibraryView
-                activeFolder={activeFolder}
-                activeItem={app.activeItem}
-                optimisticQueuedIds={app.optimisticQueuedIds}
-                workerStatus={app.workerStatus}
-                isStartingProcessing={app.isStartingProcessing}
-                processAllLabel={app.processAllLabel}
-                processingSummary={app.processingSummary}
-                canPrev={app.canPrev}
-                canNext={app.canNext}
-                onSelectItem={(itemId) => void app.onSelectItem(itemId)}
-                onProcessAll={() => void app.onProcessAll()}
-                onMoveSelection={(direction) => void app.moveSelection(direction)}
-                onQueueItem={() => void app.onQueueItem()}
-                renderMetrics={app.renderMetrics}
-                techniqueReadings={app.techniqueReadings}
-                savedAnalyses={app.savedAnalyses}
-                topicSignalItemIds={activeFolderMode === "topic" ? app.signals.map((signal) => signal.itemId).filter((itemId): itemId is string => Boolean(itemId)) : undefined}
-                topicInboxCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}
-                topicCount={app.topics.length}
-                onGoToCollect={() => void app.onNavigate("collect")}
-                onGoToCompare={() => void app.onNavigate("compare")}
-                onOpenSavedAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
-                folderSynthesis={app.folderSynthesis}
-                isGeneratingFolderSynthesis={app.isGeneratingFolderSynthesis}
-                folderSynthesisError={app.folderSynthesisError}
-                nowMs={app.readWallClockNowMs()}
-                folderAnalyzedCount={app.folderAnalyzedCount}
-                folderContributingTopicCount={app.folderContributingTopicCount}
-                onGenerateFolderSynthesis={() => void app.onGenerateFolderSynthesis()}
-                onClearFolderSynthesis={() => void app.onClearFolderSynthesis()}
-              />
+              {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} readingModel={topicReadingModel} uiState={discourseUi[discourseUiKey] ?? EMPTY_DISCOURSE_UI} onUiStateChange={next=>setDiscourseUi(current=>({...current,[discourseUiKey]:next}))} /> : null}
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "topics" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <TopicsListView
-                topics={app.topics}
-                signals={app.signals}
-                sessionItems={activeFolder?.items ?? []}
-                auditSummariesByTopicId={Object.fromEntries(
-                  Object.entries(app.topicAuditByTopicId).map(([topicId, audit]) => [topicId, audit.summary])
-                )}
-                onOpenTopic={(topicId) => void app.onNavigateToTopic(topicId)}
-                onCreateTopic={() => void app.onCreateTopic()}
-                onDeleteTopic={(topicId) => void app.onDeleteTopic(topicId)}
-              />
-            </WorkspaceSurface>
-          ) : null}
-
-          {guardedPage === "topic-detail" || guardedPage === "casebook" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              {topicDetailViewModel ? (
-                <TopicDetailView
-                  viewModel={topicDetailViewModel}
-                  onCommand={onTopicDetailCommand}
-                />
-              ) : (
-                <CasebookView
-                  sessionId={activeFolder?.id || ""}
-                  initialTopics={app.topics}
-                  signals={app.signals}
-                  signalPreviewById={app.signalPreviewById}
-                  signalTagsByItemId={app.signalTagsByItemId}
-                  sessionItems={activeFolder?.items ?? []}
-                  savedAnalyses={app.savedAnalyses}
-                  pendingSignalCount={app.signals.filter((signal) => signal.inboxStatus === "unprocessed").length}
-                  onNavigateToTopic={(topicId) => void app.onNavigateToTopic(topicId)}
-                  onCreateTopic={() => void app.onCreateTopic()}
-                  onSignalTriaged={(signalId, action) => void app.onSignalTriaged(signalId, action)}
-                  onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
-                  onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
-                  onQueueItemById={(itemId) => void app.onQueueItemById(itemId)}
-                  optimisticQueuedItemIds={app.optimisticQueuedIds}
-                  onOpenAnalysis={(resultId) => void app.onOpenSavedAnalysis(resultId)}
-                  onAddToCompare={(itemId) => app.onAddToCompare(itemId)}
-                />
-              )}
-            </WorkspaceSurface>
-          ) : null}
-
-          {guardedPage === "collect" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <CollectView
-                preview={app.preview ?? null}
-                folderName={collectTargetName}
-                mode={activeFolderMode}
-                isSaved={app.previewSaved}
-                canSavePreview={collectCanSave}
-                disabledReason={collectDisabledReason}
-                selectionMode={Boolean(snapshot?.tab.selectionMode)}
-                recentItems={activeFolder?.items ?? []}
-                processingSummary={app.processingSummary}
-                untriagedSignals={app.signals}
-                signalPreviewById={app.signalPreviewById}
-                signalTagsByItemId={app.signalTagsByItemId}
-                onCreateTopicFromSignals={(signalIds) => void app.onCreateTopicFromSignals(signalIds)}
-                onSignalDeleted={(signalId) => void app.onSignalDeleted(signalId)}
-                onSavePreview={() => void app.onSavePreview()}
-                onOpenPreview={app.openPreview}
-                onToggleCollectMode={() => void app.onToggleCollectMode()}
-              />
-            </WorkspaceSurface>
-          ) : null}
-
-          {guardedPage === "compare" ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              {activeFolder ? (
-                <CompareSetupView
-                  readyItems={app.readyCompareItems}
-                  selectedA={app.selectedCompareA}
-                  selectedB={app.selectedCompareB}
-                  teaserState={app.compareTeaserState}
-                  teaser={app.compareTeaser}
-                  onChangeA={app.setSelectedCompareA}
-                  onChangeB={app.setSelectedCompareB}
-                  onOpenResult={() => void app.onOpenCompareResult()}
-                  onReset={app.onResetCompareSelection}
-                />
-              ) : (
-                <div style={{ padding: 16, color: tokens.color.subInk, fontSize: 13, textAlign: "center" }}>
-                  Create a folder and queue posts before comparing.
-                </div>
-              )}
-            </WorkspaceSurface>
-          ) : null}
-
-          {pageComponentKind === "product-signal" && productSignalViewModel ? (
-            <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
-              <ProductSignalView
-                viewModel={productSignalViewModel}
-                exportFolders={productExportFolders}
-                onCommand={onProductSignalCommand}
-              />
-            </WorkspaceSurface>
-          ) : null}
-
-          {guardedPage === "pr-evidence" ? (
+          {domainPage === "pr-evidence" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               <input
                 ref={prBriefInputRef}
@@ -658,26 +480,17 @@ function OpenInPageCollectorPopup({
             </WorkspaceSurface>
           ) : null}
 
-          {guardedPage === "result" ? (
-            <InPageCollectorResultWorkspace
-              app={app}
-              activeFolder={activeFolder}
-              resultItemA={resultItemA}
-              resultItemB={resultItemB}
-              attachedTopicIds={attachedTopicIds}
-              homePage={homePage}
-            />
-          ) : null}
-
-          {guardedPage === "settings" ? (
+          {domainPage === "settings" ? (
             <WorkspaceSurface style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
               <SettingsView
-                sessionMode={activeFolder?.mode ?? "topic"}
+                sessionMode={IS_PR_ONLY_BUILD ? "pr-evidence" : activeFolder?.mode ?? "topic"}
                 draftBaseUrl={app.draftBaseUrl}
                 draftProvider={app.draftProvider}
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
                 draftGoogleKey={app.draftGoogleKey}
+                draftDeepReadingModels={app.draftDeepReadingModels}
+                onDraftDeepReadingModelsChange={(provider, model) => app.setDraftDeepReadingModels(current => ({ ...current, [provider]: model }))}
                 hasOpenAiKey={app.hasOpenAiKey}
                 hasClaudeKey={app.hasClaudeKey}
                 hasGoogleKey={app.hasGoogleKey}
@@ -701,25 +514,20 @@ function OpenInPageCollectorPopup({
                 onClearProductCache={() => void app.onClearProductCache()}
                 createContextFileId={app.createContextFileId}
                 onSaveSettings={() => void app.onSaveSettings()}
+                onSaveAndTestAi={() => void app.onSaveAndTestAi()}
+                aiKeyStatus={app.aiKeyStatus}
               />
             </WorkspaceSurface>
           ) : null}
-          </WorkspaceShell>
+          </CollectionWorkspaceShell>
 
-          {snapshot?.tab.error ? (
+          {domainPage && snapshot?.tab.error ? (
             <div style={{ marginTop: 12, color: tokens.color.failed, fontSize: 12 }}>
               <strong>Error:</strong> {getProcessingFailureMessage(snapshot.tab.error)}
             </div>
           ) : null}
 
-          {/* Scrollable bottom spacer — keeps the last card + action button fully
-              reachable. See POPUP_VIEWPORT_BOTTOM_PADDING for why this is an
-              element and not the scroll container's padding-bottom. */}
-          <div
-            data-workspace-popup-bottom-spacer="true"
-            aria-hidden="true"
-            style={{ height: POPUP_VIEWPORT_BOTTOM_PADDING, flexShrink: 0 }}
-          />
+          <div aria-hidden="true" style={{ height: tokens.spacing.xl, flexShrink: 0 }} />
         </div>
       </div>
     </div>
@@ -727,11 +535,4 @@ function OpenInPageCollectorPopup({
   );
 }
 
-export const inPageCollectorPopupTestables = {
-  shouldShowProcessingContextStrip,
-  workspaceMaterialForFolderMode,
-  popupViewportBottomPadding: POPUP_VIEWPORT_BOTTOM_PADDING,
-  popupViewportHeight: POPUP_VIEWPORT_HEIGHT,
-  popupFrameRadius: POPUP_FRAME_RADIUS,
-  settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE
-};
+export const inPageCollectorPopupTestables = { settingsWorkspaceSurfaceStyle: SETTINGS_WORKSPACE_SURFACE_STYLE };

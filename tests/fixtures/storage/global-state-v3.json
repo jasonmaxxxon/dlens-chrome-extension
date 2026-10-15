@@ -1,0 +1,78 @@
+{
+  "settings": {
+    "ingestBaseUrl": "http://127.0.0.1:8000",
+    "oneLinerProvider": "google",
+    "openaiApiKey": "",
+    "claudeApiKey": "",
+    "googleApiKey": "",
+    "productProfile": {
+      "name": "Example Product",
+      "category": "agent-tooling",
+      "audience": "indie hackers"
+    },
+    "layoutPreferences": {
+      "productSignalCardLayout": "marginalia",
+      "topicSynthesisLayout": "console",
+      "compareResultLayout": "parallel"
+    }
+  },
+  "sessions": [
+    {
+      "id": "session-fixture-1",
+      "name": "Fixture session",
+      "mode": "product",
+      "items": [
+        {
+          "id": "item-fixture-1",
+          "descriptor": {
+            "target_type": "post",
+            "page_url": "https://www.threads.net/@fixtureauthor/post/DFixture1",
+            "post_url": "https://www.threads.net/@fixtureauthor/post/DFixture1",
+            "author_hint": "fixtureauthor",
+            "text_snippet": "saved before thumbnails existed",
+            "time_token_hint": "3h",
+            "dom_anchor": "div>div:nth-child(2)>article",
+            "engagement": {
+              "likes": 582,
+              "comments": 41,
+              "reposts": 7,
+              "forwards": 3,
+              "views": 90210,
+              "followers": 12000
+            },
+            "engagement_present": {
+              "likes": true,
+              "comments": true,
+              "reposts": true,
+              "forwards": true,
+              "views": true,
+              "followers": true
+            },
+            "engagement_source": "card",
+            "image_url": null,
+            "captured_at": "2026-06-15T00:00:00.000Z"
+          },
+          "latestCapture": {
+            "id": "capture-fixture-1",
+            "result": {
+              "id": "result-fixture-1",
+              "comments": [
+                {
+                  "text": "must survive migration"
+                }
+              ],
+              "thread_read_model": {
+                "assembled_content": "must survive migration"
+              }
+            }
+          }
+        }
+      ],
+      "createdAt": "2026-06-15T00:00:00.000Z",
+      "updatedAt": "2026-06-15T00:00:00.000Z"
+    }
+  ],
+  "activeSessionId": "session-fixture-1",
+  "updatedAt": "2026-06-15T00:00:00.000Z",
+  "schemaVersion": 3
+}

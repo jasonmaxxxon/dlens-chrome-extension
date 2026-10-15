@@ -8,14 +8,9 @@ function readRepoFile(relativePath: string): string {
 
 test("pipeline slice 3 wires ui.ready terminal events from VM shell boundaries", () => {
   const popupSource = readRepoFile("src/ui/InPageCollectorPopup.tsx");
-  const resultSource = readRepoFile("src/ui/InPageCollectorResultWorkspace.tsx");
 
   assert.match(popupSource, /usePipelineUiReadyTrace/);
-  assert.match(popupSource, /buildProductUiReadyEvent/);
-  assert.match(popupSource, /buildTopicUiReadyEvent/);
   assert.match(popupSource, /buildPrEvidenceUiReadyEvent/);
-  assert.match(resultSource, /usePipelineUiReadyTrace/);
-  assert.match(resultSource, /buildCompareUiReadyEvent/);
 });
 
 test("VM builders stay pure and do not import the pipeline emitter", () => {

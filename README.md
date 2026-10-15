@@ -2,13 +2,14 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-08-24
-> Current source version: `0.3.60` · Topic crawl evidence reconciles against a fully hydrated current inventory without rerunning or replacing the last Atlas
-> Release state: `0.3.60` is published on `main` under `v0.3.60`. The full static gate and MV3 production build passed on 2026-08-24; real-Chrome validation on a real Threads page confirmed the backend recovered, current Topic coverage reconciled from 19 to 20, and a remaining failed source is explicitly retryable rather than silently treated as ready.
-> Positioning: local power-tool (self + small technical circle); two separate repos (extension public · ingest-core **private**), not monorepo. The active visual contract is the translucent `workspaceGlass` shell, soft colour auras, layered gradients, and restrained attention lighting defined in `src/ui/tokens.ts` and `src/ui/motion.ts`.
-> Load-unpacked build path: `output/chrome-mv3`
-> Stability note: `TRACE`, `SEAM_GUARD`, `RECONCILE`, `INVALIDATE`, `BOUNDARY`, and `MIGRATE` are locked in the live architecture map. Visual Reset A shipped the native-feeling shell plus PR Evidence, Topic, Compare, and Product marquee surfaces without changing storage, backend, ViewModel, command, or signal-packet contracts.
-> Runtime note: Chrome reads `output/chrome-mv3`, not raw `src/`. Topic/Product/PR share one translucent workspace shell, while reading cards use calmer near-white layers for contrast. Rebuild, reload the unpacked extension, and reload the existing Threads tab before claiming runtime proof.
+> Last updated: 2026-10-15
+> Current source version: `0.4.5` on `main` — inline collect wheel + card and the rebuilt side panel, squash-merged from `codex/inline-collect-wheel` (F1 reader, F2 觀眾反應 home + 話題 page, F3 removals, QA fixes, Threads-style reply cards, lens spring, rebuilt 深入解讀 / 話題解讀 cards, capture retry on backend 5xx).
+> Capture: top-level posts expose a DLens action button. Tap saves to the last-used mode; hold/flick or S opens the fixed mode wheel using the v9 gesture/motion values. Removal supports version-bound undo. Saving into 觀眾反應 / 個人應用 starts the reply crawl at once.
+> Card under a saved post: 觀眾反應 and 個人應用 saves show one line (peek → `讀緊留言 · 約 N 分` → `讀完 · …`). A 觀眾反應 line opens the full card (大家點睇 / 有咩做法 / 有咩分歧 / 大家問咩); its foot is one `側欄睇全部 →` that opens that post's side panel reader on the open lens. There is no floating evidence window; evidence lives in the reader. Contracts: AGENTS.md "Inline collect card".
+> Side panel (Chrome side panel only; nothing mounts on Threads pages besides the button and card): 收藏 lists every saved post with 剛讀完, filter chips (全部 / 觀眾反應 / 個人應用 / 讀緊 / 讀完, plus 收藏整理 when present) and a `畫面上` bar for the saved post on screen. One reader serves every post: 觀眾反應 lens with evidence and the share bar, 個人應用 lens (講咩 / 啱唔啱你 / 點試 / 留言補充 from ProductSignalAnalyzer), and on-demand 深入解讀. 工作區 › 觀眾反應 lists 話題 with their research question and sorts 未分流; a 話題 page edits its question and runs 話題解讀 on demand (`dlens:v1:topic-readings`). 個人應用 / 收藏整理 workspaces open their 收藏 chip; the 個人應用 chip carries the Signal Packet export. Atlas, Library, Compare, the old Product page, Collect and the floating popup are removed (F3). Settings lead with AI (one provider, 儲存並測試, 深入解讀 model per provider).
+> Installation (Chrome `Default` profile, read 2026-10-07): the enabled unpacked extension loads this worktree's `output/chrome-mv3` (ID `kdkcjgmagedoimaedmanpiaaplhgbmkk`); the older Downloads 0.4.1 folder and the main checkout build are disabled. Rebuild, then reload that entry. `~/Downloads/dlens-v4-0.4.4-692e536-chrome-mv3` is a snapshot copy; loading it creates a separate extension ID with empty storage.
+> Verification (2026-10-14, this branch at `1d3d4cf`): typecheck, both boundary guards, storage seam guard, `npx tsx --test tests/*.test.ts tests/*.test.tsx` (1040 tests / 1035 pass / 5 existing skips / 0 fail), build, diff check, `storage:migrate-fixtures`, `qa:harness:fixture` and `bundle:guard` passed. Real Chrome (owner's Default profile, 2026-10-14): the F1–F3 walkthrough found five issues, fixed in `317d7d5`, and the re-check passed. No live AI call (深入解讀, 話題解讀) has run with the owner's key.
+> Open decision: the PR-only variant is not accepted for this slice; its existing domain restriction conflicts with the fixed four-sector wheel.
 
 ## What It Does
 
@@ -19,19 +20,17 @@ Current workspace modes:
 | Mode | Main use | Current status |
 |---|---|---|
 | `archive` | Save and inspect Threads posts locally | Working |
-| `topic` | Triage saved posts into topics, compare ready pairs, attach results to case context | Working |
-| `product` | Analyze saved signals against ProductContext, review free-text readings, export agent-readable packets | Working |
+| `topic` | Read audience reactions, triage topics and run on-demand topic readings | Working |
+| `product` | Read the 個人應用 collection lens and export agent-readable packets | Working |
 | `pr-evidence` | Read the current campaign narrative and build evidence ledgers from manually collected Threads posts | Working |
 
 ## Current UI Language
 
 DLens uses depth to show information hierarchy, not decoration for its own sake:
 
-- **Translucent workspace** — the popup canvas, masthead, rail, and main frame share a white-green glass material. Teal, amber, violet, and Product steel-blue auras sit behind the content, so the interface feels transparent without stacking blur on every row.
-- **Layered gradients** — Topic and Product workspaces use restrained directional gradients and colour washes. Inner cards combine a near-white surface, a fine edge, an inset highlight, and a soft contact shadow so sections read as related layers instead of flat boxes.
-- **Light Beam means “pay attention”** — generating states and high-value Product readings may own one beam around the whole attention surface. The light stays on the perimeter; it never sweeps across text or nests around a title/button inside the same card.
-- **Motion has a job** — generation uses the compact 16px searching orb plus a moving perimeter beam. A completed reading keeps a quieter static perimeter. `prefers-reduced-motion` freezes the effect and removes nonessential movement.
-- **Contained geometry** — shared cards use the rounded Topic/Product grammar, remain inside their parent frame, and keep the complete reading, source details, and Agent brief copy action in one visual owner.
+- **Collection first** — the side panel leads with source text and images, one reader per post, and quiet workspace filter chips.
+- **Reading on demand** — audience, product, deep and topic readings keep captured evidence visible and avoid duplicate interpretation surfaces.
+- **PR feedback** — existing generation indicators and ledger materials remain; all motion respects `prefers-reduced-motion`.
 
 ## Recent Month Contract
 
@@ -46,30 +45,24 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - PR #68-#71 handled post-reset LOC/overflow fixes: Library/Compare split, popup clipping, topic removal, masthead containment.
 - Local 0.3.6/0.3.7 commits and worktree changes compact Product saved-signal rows, suppress stale backend errors, restore the extension action side panel, and move Product classification visibility into the Saved Signals surface.
 - Local 0.3.45-0.3.49 commits (2026-07-14–17) shipped model transport fixes (stable Gemini ID, Claude Sonnet 5, Retry-After), the S2-S5 topic truth contract, S7 single-poller status sync, S6 PR narrative semantic repair, Wave 3 render hot-path hardening, the 0.3.48 timeout/storage-integrity fixes, and 0.3.49 Topic session envelope resilience.
+- 0.3.63 collection search + save undo: the Library post list filters locally on `text_snippet` and `author_hint` once it holds at least 6 rows (no new storage field, no migration, no AI), and a save that actually created a new row stamps an undo handle on its toast. Pressing 復原 within 5 seconds removes the item together with everything the save derived from it (signal, product analysis, signal tags, PR evidence row). Re-saving a post already in the folder refreshes it and is deliberately not undoable.
+- 0.3.62 thumbnails, data half: `TargetDescriptor` gained `image_url`, Threads targeting reads the post's own attachment (photo, video poster or link-preview card) while rejecting author avatars, link favicons, profile-linked images and proxied URLs over 1,024 chars, and storage migrated to schema v3 so descriptors saved earlier carry an explicit `image_url: null`. Only the URL is stored, never the bytes: that costs ~490 bytes per saved record (about +17% of the global-state blob) against ~13KB per record for an inlined thumbnail. Threads CDN URLs are signed and expire, so a stored URL eventually stops resolving and must render as the no-image state, exactly like a pre-v3 record. `createEmptyGlobalState` now reads `CURRENT_STORAGE_SCHEMA_VERSION` instead of hardcoding it, which had left fresh installs one version behind the registry.
 - 0.3.60 Topic crawl evidence reconciliation: opening a Topic now rebuilds and persists only its evidence packets after the complete Topic/session inventory is hydrated. It does not invoke Atlas generation or replace the published memo/report/episode artifacts; the previous Atlas remains honestly stale until a manual regeneration. A conditional write on the shared mutation queue prevents a newly running audit from being overwritten, and a failed-only source remains a visible retry target instead of incorrectly producing a ready-to-generate state.
 - 0.3.59 moves the complete Product reading into ProductSignalAnalyzer v21, publishes analysis + reading atomically, removes the duplicate proposal/deep-reading paths, preserves reading identity and packet provenance, scopes the Light Beam to the whole reading card, and migrates extension state to omit backend-only `raw_payload` mirrors.
 
 ## Current Features
 
-- Hover-to-preview and collect on Threads feeds/post pages. Hover uses a warm in-memory cache (no per-move storage read); saves carry the live hovered post and the popup's visible folder/topic so they always land where intended. Collect metrics use shared icon chips across the overlay and popup preview. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. Content scripts also rehydrate active collect mode after extension reload/page refresh (see AGENTS.md "Recently Fixed 2026-05-22").
-- Mode-aware save routing: archive saves to Library; topic/product saves become Inbox signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
+- Inline collect on Threads feeds/post pages. The per-post action button saves to the last-used workspace mode; the wheel chooses a mode and preserves workspace navigation. The card under a saved post owns crawl progress and the AI 觀眾反應 reading (`src/compare/inline-reading.ts`, store `dlens:v1:inline-readings`); evidence and longer readings open in the side panel reader. Collect saves and refresh-all writes share the snapshot lock so Topic signals cannot be left without a usable backing saved item/descriptor; pre-existing orphan/corrupt signals are hidden from Topic counts/lists and queued for storage cleanup. The wheel and card remain the capture entry points.
+- Mode-aware save routing: archive saves to 收藏整理; topic/product saves become workspace signals; PR Evidence saves become campaign rows. Save messages now pass an explicit `sessionId`/`topicId`, so a drifted active folder cannot reroute a save.
 - Backend queue/drain/polling against `ingestBaseUrl`, defaulting to `http://127.0.0.1:8000`.
 - Popup backend health dot uses the lightweight backend `/health` endpoint for liveness, while `/worker/status` remains the slower work-truth projection for backlog / retry / analysis state. One failed health poll is suppressed, two mark the dot slow, and three mark it unreachable.
-- Compare setup and Result surfaces with backend read models plus extension-side compare brief v8, cluster summaries, evidence annotations, and saved analysis snapshots.
-- Topic workflow: Casebook, Inbox, Topic Detail, signal triage, per-signal semantic tags/gists, optional-question TopicSignalReading, and attached compare pairs.
-- 0.3.52 Atlas Refit C: P3 v4 may add optional evidence-bound beats (`setup` / `tension` / `outcome`) and `new` / `carried` trajectory; the narrative stage is paged, the compass reports assignment distribution, and the ready source disclosure starts closed.
-- Product workflow: ProductContextCompiler, ProductSignalAnalyzer v21, a compact Saved Signals intake, a staged Product Action review, Signal Packet export support, and local feedback history. For actionable `try` / `watch` signals, the analyzer returns one grounded `product_reading` in the same model call as the verdict axes. Opening the card shows that complete reading immediately; there is no legacy proposal box and no second “deep reading” model call.
-- Product Saved Signals is the current landing surface and a compact lifecycle intake: collected, ready to analyze/retry, processing, and complete counters plus a default-collapsed source-management disclosure. It owns neither readings, verdict navigation, nor any export surface. `classification` remains an allowed internal/deep-link page but is not rail-visible.
-- Product Action owns one large stage and text-labelled previous/next pager. Four color-and-text verdict tiles (`try`, `noise`, `insufficient`, `watch`) switch mutually exclusive buckets; non-noise `park` records live under 保留觀察. `try` / `watch` render one complete reading with headline, free-form body, grounded refs, and one copyable Agent brief. Noise, insufficient, and non-actionable records stay compact and unlit.
+- Audience workflow: one F1 reader, the F2 discourse home, manual signal triage, a 話題 page and on-demand 話題解讀.
+- Product workflow: ProductContextCompiler and ProductSignalAnalyzer v21 feed the F1 個人應用 reader. Actionable `try` / `watch` records receive one grounded `product_reading` in the verdict call. The 個人應用 collection chip offers one HTML/JSONL Signal Packet export row; pipeline provenance and local feedback history remain.
 - Product readings are honest about capture limits: support refs must resolve to captured root/reply text with `text_grounded` evidence. Videos, animations, repositories, and linked pages remain explicitly unverified unless their contents were captured. Stale or mismatched readings remain history/export data but cannot appear as the current first-open reading.
-- Product Action alone owns the one whole-folder HTML/JSONL packet-export shelf. Saved Signals has no brief, packet, or batch export UI. Current packet projection follows the same prompt/context/source identity as the visible reading, while older/manual readings remain available as history.
 - Signal Packet export: Product sessions can export `DLensSignalPacket` records as HTML, Markdown, or JSONL through `signal-packet/export`. The 0.2.1 surface adds compact HTML density, source/capture/item provenance, reading citation refs, filed-reading lineage, source URL provenance, and a Product reading-review provenance mirror. These fields are additive on packet v3; no storage migration is required.
-- Visual system: the popup shell, PR Evidence ledger, Topic detail, Compare hero, and Product surfaces use the shared glass workspace contract with macOS utility-shell affordances. Translucency belongs to the shell and selected hero/attention surfaces; ordinary reading rows remain contrast-safe. VIEW remains 🟢, not 🟩: marquee surfaces are DOM-test-locked, while row-level primitive adoption / LOC reduction remains follow-up work.
+- Visual system: the embedded side panel owns the frame; collection and readers use token-owned materials. The existing PR Evidence ledger keeps its shared utility-card grammar.
 - PR Evidence workflow: one active campaign per session; editable brief, core narrative, target audience, desired action, and six matching criteria; manually collected evidence rows; current-only Narrative and Evidence lenses; criteria matching; CSV export; Markdown/DOCX audit summary. Narrative generation is manual and reads only that campaign's collected Threads main-post text.
 - Layout preferences remain persisted for existing records, but the visible Settings layout and folder-mode controls are removed; workspace typography, rounded surfaces, and shadow treatment now follow the Topic card grammar across modes. Shared cards default to the 20px Topic-style radius.
-- Workspace mode switches reserve the processing-strip slot, reset scroll before paint, and crossfade the content frame so Topic/Product/PR data changes no longer produce a visible vertical jump.
-- 0.3.2 UI fix: compact masthead now removes nonessential shortcut/issue chrome, keeps only status + version on the right, and Topic cards/buttons stay inside the content width with a non-overlapping remove action.
-- 0.3.1 UI fix: popup masthead status/key hints now shrink inside the 720px shell, Product classification detail text wraps instead of clipping, and Topic cards expose an explicit remove action.
 - 0.3.7 local UI fix: Product saved-signal classification is merged into Saved Signals instead of appearing as a separate rail stop; the source contract is guarded by `getModeRailPages("product") === ["saved-signals", "actionable-filter", "collect"]`.
 - 0.3.13 local UI fix: Topic Collect's 未分流 queue exposes per-row and bulk delete through `signal/delete`, and Topic/Product/PR modes render no top folder/topic strip. Topic destination choice lives in the floating collect preview card; topic creation lives in the 議題 page.
 - 0.3.18 local UI update: Topic Audit renders the Signal Atlas L0 reading spine with shared evidence ref chips, cross-post narrative strength, counts-only source footer, one unified right-side drawer, and shard-backed full-list expansion.
@@ -114,7 +107,6 @@ Recent PRs and local commits changed the shape more than the old README suggeste
 - Storage diagnostics: Settings displays local `chrome.storage.local` usage through a background-only `storage/get-usage` message boundary.
 - Snapshot write discipline: read-modify-write handlers route through `mutateSnapshot` where possible; documented raw-lock escapes cover extra return metadata, no-write returns, and global-only worker wake writes.
 - Behavioral storage contracts cover `session/set-mode` fast/slow writes, `session/refresh-all` no-op writes, non-blocking snapshot broadcasts, and real `mutateSnapshot` serialization.
-
 ## Version Lock
 
 For every user-visible `main` update, keep these in sync:
@@ -154,7 +146,7 @@ Expected verification before handing off `main`:
 - `npm run build` mirrors the unpacked MV3 build to `output/chrome-mv3`
 - `npm run bundle:guard` keeps the production content-script within its checked byte budgets
 - `git diff --check` reports no whitespace errors
-- `output/chrome-mv3/manifest.json` reports the same version as `package.json` and `name: "DLens v3"`
+- `output/chrome-mv3/manifest.json` reports the same version as `package.json` and `name: "DLens"`
 - Bundle sanity check for 0.3.13: `output/chrome-mv3` should contain `data-untriaged-delete` and `data-untriaged-delete-selected`, and Product should still contain `data-product-saved-filter-tabs` / `data-product-merged-classification` without rendering `classification` in the Product rail. Manifest version alone is not enough.
 
 ## Second Mac Install

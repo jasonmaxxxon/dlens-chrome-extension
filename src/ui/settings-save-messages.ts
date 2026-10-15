@@ -7,6 +7,7 @@ export interface SettingsDraftValues {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
+  draftDeepReadingModels?: ExtensionSettings["deepReadingModels"];
   draftLayoutPreferences: LayoutPreferences;
   draftProductProfile: ProductProfile;
 }
@@ -61,6 +62,7 @@ export function buildSettingsSaveMessages({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  draftDeepReadingModels,
   draftLayoutPreferences,
   draftProductProfile
 }: SettingsDraftValues): ExtensionMessage[] {
@@ -74,7 +76,8 @@ export function buildSettingsSaveMessages({
       provider: draftProvider || null,
       openaiApiKey: draftOpenAiKey,
       claudeApiKey: draftClaudeKey,
-      googleApiKey: draftGoogleKey
+      googleApiKey: draftGoogleKey,
+      ...(draftDeepReadingModels === undefined ? {} : { deepReadingModels: draftDeepReadingModels })
     },
     {
       type: "settings/set-layout-preferences",

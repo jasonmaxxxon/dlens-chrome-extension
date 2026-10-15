@@ -8,44 +8,13 @@ import { JSDOM } from "jsdom";
 
 import type { ExtensionMessage, ExtensionResponse } from "../src/state/messages.ts";
 import type { PrNarrativeRead } from "../src/compare/pr-narrative.ts";
-import type { WorkerStatus } from "../src/state/processing-state.ts";
 import type { PrCampaign } from "../src/state/pr-evidence-storage.ts";
 import { normalizePrCriteria, prCampaignToDraft } from "../src/state/pr-evidence-storage.ts";
 import { createRequestReconciler } from "../src/state/request-reconcile.ts";
 import { createSessionRecord } from "../src/state/store-helpers.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionSnapshot } from "../src/state/types.ts";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
-import { dispatchPageLocationChange, PAGE_LOCATION_EVENT } from "../src/ui/inpage-helpers.tsx";
-import {
-  applyPrGeneratedCriteriaSaveResult,
-  applyPrCampaignSaveResult,
-  applyPrSetupSuggestionToDraft,
-  applyPrGenerateSummaryResult,
-  applyPrNarrativeResult,
-  buildEffectiveSettingsSnapshot,
-  buildPreviewSaveMessage,
-  buildInPageHydrateTraceTerminalSequence,
-  buildLocalSettingsOverride,
-  buildSessionModeChangeMessage,
-  planProductHydrateTransition,
-  resolveOptimisticSession,
-  runAnalyzeItemsPipeline,
-  shouldClearPrReconciledLoading,
-  useInPageCollectorAppState
-} from "../src/ui/useInPageCollectorAppState.ts";
-
-const descriptor = {
-  target_type: "post" as const,
-  page_url: "https://www.threads.net/search?q=test",
-  post_url: "https://www.threads.net/@alpha/post/abc",
-  author_hint: "alpha",
-  text_snippet: "alpha post",
-  time_token_hint: "1h",
-  dom_anchor: "card-1",
-  engagement: { likes: 10 },
-  engagement_present: { likes: true },
-  captured_at: "2026-05-22T00:00:00.000Z"
-};
+import { applyPrGeneratedCriteriaSaveResult, applyPrCampaignSaveResult, applyPrSetupSuggestionToDraft, applyPrGenerateSummaryResult, applyPrNarrativeResult, buildEffectiveSettingsSnapshot, buildInPageHydrateTraceTerminalSequence, buildLocalSettingsOverride, shouldClearPrReconciledLoading, useInPageCollectorAppState } from "../src/ui/useInPageCollectorAppState.ts";
 
 function makePrCampaign(id: string, sessionId = "session-pr", label = id): PrCampaign {
   return {
@@ -127,338 +96,6 @@ function acceptedPrDecision(lane: string) {
   });
 }
 
-test("buildPreviewSaveMessage sends the visible preview descriptor with the topic target", () => {
-  const message = buildPreviewSaveMessage({
-    activeFolderMode: "topic",
-    sessionId: "session-topic",
-    selectedTopicId: "topic-love",
-    collectionTopicId: "topic-work",
-    preview: descriptor
-  });
-
-  assert.equal(message?.type, "session/save-current-preview");
-  assert.deepEqual(message?.target, {
-    sessionId: "session-topic",
-    topicId: "topic-love"
-  });
-  assert.deepEqual(message?.descriptor, descriptor);
-});
-
-test("buildPreviewSaveMessage refuses to create a save message without an explicit session target", () => {
-  const message = buildPreviewSaveMessage({
-    activeFolderMode: "topic",
-    sessionId: null,
-    selectedTopicId: "topic-love",
-    collectionTopicId: "topic-work",
-    preview: descriptor
-  });
-
-  assert.equal(message, null);
-});
-
-test("popup save paths emit typed collect-save pipeline events for both button and keyboard channels", () => {
-  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
-
-  assert.doesNotMatch(source, /markQaTrace\("popup\.collect\.save\./);
-  assert.match(source, /phase:\s*"preview\.confirmed"/);
-  assert.match(source, /phase:\s*"signal\.saved"/);
-  assert.match(source, /via: "button"/);
-  assert.match(source, /via: "keyboard"/);
-});
-
-test("active-folder workspace switches pass the target session id through the topic state path", () => {
-  const source = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
-
-  assert.match(source, /topicState\.onSessionModeChange\(mode,\s*targetSession\?\.id/);
-});
-
-test("Product workspace does not receive the ambient current-page URL", () => {
-  const source = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
-  const builderStart = source.indexOf("buildProductSignalWorkspaceViewModel({");
-  const builderEnd = source.indexOf("\n      })", builderStart);
-
-  assert.ok(builderStart >= 0 && builderEnd > builderStart);
-  assert.doesNotMatch(source.slice(builderStart, builderEnd), /currentPageUrl/);
-});
-
-test("resolveOptimisticSession returns an existing target-mode session without mutating active session", () => {
-  const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
-  const prSession = createSessionRecord("PR Evidence workspace", "2026-05-27T00:00:00.000Z", "pr-evidence");
-  const snapshot: ExtensionSnapshot = {
-    global: {
-      version: 1,
-      sessions: [productSession, prSession],
-      activeSessionId: productSession.id,
-      settings: { ingestBaseUrl: "http://127.0.0.1:8000" },
-      updatedAt: "2026-05-27T00:00:00.000Z"
-    },
-    tab: createEmptyTabState()
-  };
-
-  assert.equal(resolveOptimisticSession(snapshot, "pr-evidence")?.id, prSession.id);
-  assert.equal(resolveOptimisticSession(snapshot, "topic"), null);
-  assert.equal(snapshot.global.activeSessionId, productSession.id);
-});
-
-test("current-page state follows the live URL lifecycle independently of stale preview snapshots", async () => {
-  const dom = new JSDOM('<div id="root"></div>', {
-    url: "https://www.threads.com/@live/post/live-post"
-  });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    chrome: globalThis.chrome
-  };
-  const snapshot: ExtensionSnapshot = {
-    global: createEmptyGlobalState(),
-    tab: {
-      ...createEmptyTabState(),
-      currentPreview: {
-        ...descriptor,
-        post_url: "https://www.threads.net/@stale/post/stale-preview"
-      }
-    }
-  };
-  const runtimeListeners = new Set<(message: unknown) => void>();
-  let latestCurrentPageUrl: string | undefined;
-  let addedLocationListener: EventListenerOrEventListenerObject | null = null;
-  let removedLocationListener: EventListenerOrEventListenerObject | null = null;
-  const originalAddEventListener = dom.window.addEventListener.bind(dom.window);
-  const originalRemoveEventListener = dom.window.removeEventListener.bind(dom.window);
-  dom.window.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
-    if (type === PAGE_LOCATION_EVENT) {
-      addedLocationListener = listener;
-    }
-    originalAddEventListener(type, listener, options);
-  }) as typeof dom.window.addEventListener;
-  dom.window.removeEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => {
-    if (type === PAGE_LOCATION_EVENT) {
-      removedLocationListener = listener;
-    }
-    originalRemoveEventListener(type, listener, options);
-  }) as typeof dom.window.removeEventListener;
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    chrome: {
-      runtime: {
-        sendMessage: async () => ({ ok: true }),
-        onMessage: {
-          addListener: (listener: (message: unknown) => void) => runtimeListeners.add(listener),
-          removeListener: (listener: (message: unknown) => void) => runtimeListeners.delete(listener)
-        }
-      }
-    }
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
-  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(): Promise<T> => (
-    { ok: true } as T
-  );
-  function Harness() {
-    const app = useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync });
-    latestCurrentPageUrl = (app as typeof app & { currentPageUrl?: string }).currentPageUrl;
-    return null;
-  }
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  try {
-    await act(async () => {
-      root.render(React.createElement(Harness));
-      await Promise.resolve();
-    });
-    assert.equal(latestCurrentPageUrl, "https://www.threads.com/@live/post/live-post");
-    assert.ok(addedLocationListener);
-
-    await act(async () => {
-      dispatchPageLocationChange(
-        "https://www.threads.com/@next/post/next-post?from=feed#reply",
-        dom.window as unknown as Window
-      );
-    });
-    assert.equal(latestCurrentPageUrl, "https://www.threads.com/@next/post/next-post?from=feed#reply");
-
-    await act(async () => root.unmount());
-    assert.equal(removedLocationListener, addedLocationListener);
-  } finally {
-    Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    dom.window.close();
-  }
-});
-
-test("Technique readings stay idle while popup is closed and load once on open Library", async () => {
-  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    chrome: globalThis.chrome
-  };
-  const globalState = createEmptyGlobalState();
-  const makeSnapshot = (popupOpen: boolean): ExtensionSnapshot => ({
-    global: globalState,
-    tab: {
-      ...createEmptyTabState(),
-      popupOpen,
-      popupPage: "library"
-    }
-  });
-  let techniqueRequests = 0;
-  const listeners = new Set<(message: unknown) => void>();
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    chrome: {
-      runtime: {
-        sendMessage: async (message: ExtensionMessage) => {
-          if (message.type === "compare/get-technique-readings") {
-            techniqueRequests += 1;
-            return { ok: true, techniqueReadings: [] };
-          }
-          if (message.type === "backend/get-health") {
-            return { ok: true, backendHealth: { reachable: true } };
-          }
-          if (message.type === "worker/get-status") {
-            return { ok: true, workerStatus: "idle", backendWorkUiState: { kind: "idle" } };
-          }
-          if (message.type === "compare/get-saved-analyses") {
-            return { ok: true, savedAnalyses: [] };
-          }
-          return { ok: true };
-        },
-        onMessage: {
-          addListener: (listener: (message: unknown) => void) => listeners.add(listener),
-          removeListener: (listener: (message: unknown) => void) => listeners.delete(listener)
-        }
-      }
-    }
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
-  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(): Promise<T> => (
-    { ok: true } as T
-  );
-  function Harness({ snapshot }: { snapshot: ExtensionSnapshot }) {
-    useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync });
-    return null;
-  }
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  try {
-    await act(async () => {
-      root.render(React.createElement(Harness, { snapshot: makeSnapshot(false) }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    assert.equal(techniqueRequests, 0);
-
-    await act(async () => {
-      root.render(React.createElement(Harness, { snapshot: makeSnapshot(true) }));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    assert.equal(techniqueRequests, 1);
-  } finally {
-    await act(async () => root.unmount());
-    Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    dom.window.close();
-  }
-});
-
-test("buildSessionModeChangeMessage realigns to an existing product session when active session drifted null", () => {
-  const productSession = createSessionRecord("Product workspace", "2026-05-27T00:00:00.000Z", "product");
-  const topicSession = createSessionRecord("Topic workspace", "2026-05-27T00:00:00.000Z", "topic");
-  const snapshot: ExtensionSnapshot = {
-    global: {
-      version: 1,
-      sessions: [topicSession, productSession],
-      activeSessionId: null,
-      settings: { ingestBaseUrl: "http://127.0.0.1:8000" },
-      updatedAt: "2026-05-27T00:00:00.000Z"
-    },
-    tab: createEmptyTabState()
-  };
-
-  const message = buildSessionModeChangeMessage(snapshot, "product");
-
-  assert.deepEqual(message, {
-    type: "session/set-mode",
-    sessionId: productSession.id,
-    mode: "product"
-  });
-});
-
-test("Product hydrate gate requests exactly once when the active Product signal page is eligible", () => {
-  const transition = planProductHydrateTransition({
-    popupOpen: true,
-    activeFolderId: "product-session",
-    activeFolderMode: "product",
-    isProductSignalPage: true,
-    page: "saved-signals",
-    signalIds: ["signal-1", "signal-2"],
-    inFlightKey: null
-  });
-
-  assert.deepEqual(transition, {
-    kind: "request",
-    requestKey: "product-session|saved-signals|signal-1|signal-2",
-    sessionId: "product-session",
-    signalIds: ["signal-1", "signal-2"]
-  });
-});
-
-test("Product hydrate gate coalesces repeated AppState changes while the same hydrate is in flight", () => {
-  const transition = planProductHydrateTransition({
-    popupOpen: true,
-    activeFolderId: "product-session",
-    activeFolderMode: "product",
-    isProductSignalPage: true,
-    page: "saved-signals",
-    signalIds: ["signal-1", "signal-2"],
-    inFlightKey: "product-session|saved-signals|signal-1|signal-2"
-  });
-
-  assert.deepEqual(transition, {
-    kind: "coalesce",
-    requestKey: "product-session|saved-signals|signal-1|signal-2"
-  });
-});
-
-test("Product hydrate gate skips and clears loading when the active page is outside Product signal surfaces", () => {
-  const transition = planProductHydrateTransition({
-    popupOpen: true,
-    activeFolderId: "product-session",
-    activeFolderMode: "product",
-    isProductSignalPage: false,
-    page: "collect",
-    signalIds: ["signal-1"],
-    inFlightKey: "product-session|saved-signals|signal-1"
-  });
-
-  assert.deepEqual(transition, {
-    kind: "skip",
-    sessionId: "product-session",
-    shouldClearHydrating: true
-  });
-});
-
 test("saved settings become the immediate Product snapshot before background state catches up", () => {
   const session = createSessionRecord("Product workspace", "2026-07-07T08:00:00.000Z", "product");
   const snapshot: ExtensionSnapshot = {
@@ -515,35 +152,6 @@ test("saved settings become the immediate Product snapshot before background sta
   assert.equal(effective?.global.settings.hasGoogleKey, true);
   assert.equal(effective?.global.settings.productProfile?.name, "DLens");
   assert.equal(effective?.global.settings.productProfile?.contextFiles?.length, 1);
-});
-
-test("popup.product.hydrate.request is always followed by exactly one terminal hydrate event", () => {
-  const responseSequence = buildInPageHydrateTraceTerminalSequence({
-    surface: "product",
-    sessionId: "product-session",
-    terminal: "response"
-  });
-  const errorSequence = buildInPageHydrateTraceTerminalSequence({
-    surface: "product",
-    sessionId: "product-session",
-    terminal: "error"
-  });
-
-  assert.deepEqual(responseSequence.map((event) => event.step), [
-    "popup.product.hydrate.request",
-    "popup.product.hydrate.response"
-  ]);
-  assert.deepEqual(responseSequence.map((event) => event.result), ["pending", "ok"]);
-  assert.equal(responseSequence.filter((event) => event.step.endsWith(".request")).length, 1);
-  assert.equal(responseSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
-
-  assert.deepEqual(errorSequence.map((event) => event.step), [
-    "popup.product.hydrate.request",
-    "popup.product.hydrate.error"
-  ]);
-  assert.deepEqual(errorSequence.map((event) => event.result), ["pending", "error"]);
-  assert.equal(errorSequence.filter((event) => event.step.endsWith(".request")).length, 1);
-  assert.equal(errorSequence.filter((event) => !event.step.endsWith(".request")).length, 1);
 });
 
 test("popup.pr.hydrate.request is always followed by exactly one terminal hydrate event", () => {
@@ -834,56 +442,51 @@ test("PR hydrate loads campaign then rows then the stored narrative without auto
   assert.doesNotMatch(source.slice(campaignIndex, narrativeIndex), /pr\/generate-narrative-read/);
 });
 
-test("runAnalyzeItemsPipeline queues selected items then starts worker and refreshes", async () => {
-  const calls: ExtensionMessage[] = [];
-  const statuses: WorkerStatus[] = [];
-  const toasts: string[] = [];
+test("workspace management sends explicit inactive session ids and returns persistence failures", async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement, chrome: globalThis.chrome };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const active = createSessionRecord("目前研究", "2026-09-29T00:00:00Z", "topic");
+  const archive = createSessionRecord("舊收藏", "2026-09-29T00:00:00Z", "archive");
+  const snapshot: ExtensionSnapshot = { global: { ...createEmptyGlobalState(), sessions: [active, archive], activeSessionId: active.id }, tab: createEmptyTabState() };
+  const messages: ExtensionMessage[] = [];
   const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> => {
-    calls.push(message);
-    if (message.type === "session/queue-items-and-start-processing") {
-      return { ok: true, queuedItemIds: message.itemIds, failedItemIds: [], processingStatus: "started" } as T;
-    }
-    if (message.type === "session/refresh-all") {
-      return { ok: true } as T;
-    }
-    return { ok: false, error: `unexpected ${message.type}` } as T;
+    messages.push(message);
+    return { ok: false, error: "persistence failed" } as T;
   };
-
-  const result = await runAnalyzeItemsPipeline({
-    folderId: "folder-1",
-    itemIds: ["a", "b"],
-    sendAndSync,
-    setWorkerStatus: (status) => statuses.push(status),
-    setDisplayToast: (toast) => toasts.push(toast.message)
-  });
-
-  assert.deepEqual(calls.map((call) => call.type), [
-    "session/queue-items-and-start-processing",
-    "session/refresh-all"
-  ]);
-  assert.equal((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).sessionId, "folder-1");
-  assert.deepEqual((calls[0] as Extract<ExtensionMessage, { type: "session/queue-items-and-start-processing" }>).itemIds, ["a", "b"]);
-  assert.deepEqual((calls[1] as Extract<ExtensionMessage, { type: "session/refresh-all" }>).target, { sessionId: "folder-1" });
-  assert.deepEqual(statuses, ["draining"]);
-  assert.deepEqual(result, { ok: true, failedCount: 0 });
-  assert.match(toasts.at(-1) ?? "", /開始分析 2 篇/);
-});
-
-test("runAnalyzeItemsPipeline stops before worker start when queue fails", async () => {
-  const calls: ExtensionMessage[] = [];
-  const sendAndSync = async <T extends ExtensionResponse = ExtensionResponse>(message: ExtensionMessage): Promise<T> => {
-    calls.push(message);
-    return { ok: false, error: "queue failed" } as T;
-  };
-
-  const result = await runAnalyzeItemsPipeline({
-    folderId: "folder-1",
-    itemIds: ["a", "b"],
-    sendAndSync,
-    setWorkerStatus: () => undefined,
-    setDisplayToast: () => undefined
-  });
-
-  assert.deepEqual(calls.map((call) => call.type), ["session/queue-items-and-start-processing"]);
-  assert.deepEqual(result, { ok: false, failedCount: 2 });
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement,
+    chrome: { runtime: { sendMessage: async () => ({ ok: true }), onMessage: { addListener: () => undefined, removeListener: () => undefined } } } });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  let app!: ReturnType<typeof useInPageCollectorAppState>;
+  function Harness() { app = useInPageCollectorAppState({ snapshot, tabId: 7, sendAndSync }); return null; }
+  const root = createRoot(dom.window.document.getElementById("root")!);
+  try {
+    await act(async () => root.render(React.createElement(Harness)));
+    assert.equal(app.popupOpen, true, "the side panel remains open without a persisted popup flag");
+    assert.equal(typeof app.onRenameWorkspace, "function");
+    assert.equal(typeof app.onDeleteWorkspace, "function");
+    await act(async () => {
+      assert.equal((await app.onRenameWorkspace(archive.id, "  保留收藏  "))?.ok, false);
+      assert.equal((await app.onDeleteWorkspace(archive.id))?.ok, false);
+    });
+    assert.deepEqual(messages.filter((message) => message.type === "session/rename" || message.type === "session/delete"), [
+      { type: "session/rename", sessionId: archive.id, name: "保留收藏" },
+      { type: "session/delete", sessionId: archive.id }
+    ]);
+    assert.equal(snapshot.global.activeSessionId, active.id);
+    const count = messages.length;
+    await act(async () => {
+      await app.onRenameWorkspace("missing", "name");
+      await app.onRenameWorkspace(archive.id, "   ");
+      await app.onDeleteWorkspace("missing");
+    });
+    assert.equal(messages.length, count, "unknown session ids and empty names never reach persistence");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
 });

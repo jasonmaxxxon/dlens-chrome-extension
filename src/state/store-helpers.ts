@@ -45,6 +45,17 @@ export function normalizePostUrl(postUrl: string): string {
   }
 }
 
+/** Threads changed host names; a post slug remains the same captured identity. */
+export function getPostIdentity(postUrl: string): string {
+  const normalized = normalizePostUrl(postUrl);
+  try {
+    const url = new URL(normalized);
+    const slug = url.pathname.match(/\/post\/([^/]+)/)?.[1];
+    if (slug && /^(?:www\.)?threads\.(?:net|com)$/.test(url.hostname)) return `threads-post:${slug}`;
+  } catch { /* Non-URL legacy descriptors retain their normalized identity. */ }
+  return normalized;
+}
+
 export function getActiveSession(globalState: ExtensionGlobalState): SessionRecord | null {
   if (!globalState.activeSessionId) {
     return null;
@@ -248,17 +259,20 @@ export function saveDescriptorToSession(
   globalState: ExtensionGlobalState,
   sessionId: string,
   descriptor: TargetDescriptor
-): { globalState: ExtensionGlobalState; item: SessionItem } {
+): { globalState: ExtensionGlobalState; item: SessionItem; created: boolean } {
   const now = new Date().toISOString();
   let savedItem: SessionItem | null = null;
-  const normalizedUrl = normalizePostUrl(descriptor.post_url);
+  // A save that only refreshes an already-collected post must not be offered as
+  // undoable — undoing it would delete a row the user collected earlier.
+  let created = false;
+  const normalizedUrl = getPostIdentity(descriptor.post_url);
 
   const sessions = globalState.sessions.map((session) => {
     if (session.id !== sessionId) {
       return session;
     }
 
-    const existing = session.items.find((item) => normalizePostUrl(item.descriptor.post_url) === normalizedUrl);
+    const existing = session.items.find((item) => getPostIdentity(item.descriptor.post_url) === normalizedUrl);
     if (existing) {
       savedItem = {
         ...existing,
@@ -274,6 +288,7 @@ export function saveDescriptorToSession(
     }
 
     savedItem = createSessionItem(descriptor, now);
+    created = true;
     return {
       ...session,
       updatedAt: now,
@@ -291,7 +306,8 @@ export function saveDescriptorToSession(
       sessions,
       updatedAt: now
     },
-    item: savedItem
+    item: savedItem,
+    created
   };
 }
 

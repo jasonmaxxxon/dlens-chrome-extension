@@ -1,159 +1,83 @@
-# tokens-intent.md — why the tokens are what they are
+# tokens-intent.md — 設計值的用途
 
-> **This is NOT a design spec.** Values live only in `src/ui/tokens.ts`; this
-> guard-enforced, value-free file explains why and when to use them. If they
-> disagree, tokens plus the newest shipped marquee surface win. Replace rather
-> than append, and update this file with the token change it explains.
-> 中文註解：這是「立法理由書」，不是第二套規格。值只在 tokens.ts；這裡只寫意圖。
+這份文件只說明意圖。所有設計值由 `src/ui/tokens.ts` 擁有；代碼與現行介面優先。
+更新時替換過時內容，不累積另一套設計規格。Mockups 只作參考。
 
-## The one-sentence language
+## 閱讀優先
 
-DLens is an editorial reading voice on one shared glass workspace — a research
-instrument, **not** a dashboard that happens to contain text.
+DLens 以收藏與工作區進入閱讀。來源、原文與圖片先行，分析與診斷逐層展開。
+Threads 頁面只保留每帖收藏按鈕、輪盤與帖下卡，工作區由 Chrome 側欄承載。
+已退役的浮動工作區、Atlas、Compare 與舊 Product 頁面不保留專用設計值。
 
-## The metaphor, unpacked（2026-07-10 修憲：暖紙退役）
+## 地面與文字
 
-- **One glass ground, not paper stock.** The warm-cream paper family was
-  retired 2026-07-10 at the user's direction; Topic / Product / PR must read
-  as one product. `color.canvas` / `color.surface` / `color.elevated` are
-  three depths of one glass-white ground, derived from the
-  `material.workspaceGlass` canvas stops so opaque cards and the translucent
-  shell read as the same material. Inventing a fourth ground forks the palette.
-- **Ink, not gray.** Text is ink at three pressures — `color.ink` (reading),
-  `color.subInk` (supporting), `color.softInk` (ambient). Warm ink on the cool
-  ground IS the editorial voice that survives the paper retirement. Never pure
-  black text; "muted" comes from ink pressure, not opacity tricks.
-- **Accents are a researcher's annotations ON the glass, never the glass
-  itself.** One accent per workspace mode via `getModeTheme` (indigo archive,
-  sage topic, steel-blue product, rose pr-evidence). Product returned to its
-  original steel blue on 2026-07-14 (2026-07-06 vermillion retired); the three
-  top-tab modes now read sage Topic, steel-blue Product, rose-red PR — PR the
-  sole red. Two accents on one surface means it doesn't know what it is — split.
-- **Mode identity comes from accent + content, never a different material.**
-  Shell, rail, cards, and chips stay identical; only theme and data change.
+- 收藏側欄以 `collection` 的白色地面、細粒紋理及淡霧保留閱讀感。
+- 共享卡片沿用 `material.workspaceGlass` 的同一家族地面與邊緣。
+  普通列表與長閱讀卡保持清楚對比，不堆疊透明度或模糊。
+- `color.ink` 是正文，`color.subInk` 是補充，`color.softInk` 是安靜的中繼資料。
+- 工作區身份由 `getModeTheme` 的強調色與內容表達，不另建字體或調色盤。
+- `color.success`、`color.queued`、`color.failed`、`color.running` 表示真實工作狀態；
+  問題由文案與位置說明，不靠高飽和度警報。
+- `effect.glassBlur` 保持停用；閱讀卡不自行新增玻璃層。
 
-## Per-family intent
+## 字體與層級
 
-### color
-- Edges are quiet: `color.line` separates, `color.cardEdge` barely exists —
-  card definition comes from shadow, not from border weight. If a card needs a
-  strong border to read as a card, the elevation tier is wrong, not the border.
-- Interaction washes, hover edges, and status borders live in named color roles
-  so view files never bake opacity decisions into component-local literals.
-- Inverse foreground and overlay roles are only for text, icons, and sheen on
-  filled accent panels; reading cards still use ink-on-ground roles.
-- Status colors (`color.success`, `color.queued`, `color.failed`,
-  `color.running`) are natural dyes — sage, ochre, wine, indigo — deliberately
-  below traffic-light saturation. Alarm is expressed by copy and placement,
-  not by shouting pigment.
-- Status washes and failed borders cover quiet panels and danger edges without
-  view-local opacity choices.
-- `glassBg` / `glassBorder` are legacy aliases; ordinary reading cards keep
-  `effect.glassBlur` disabled and shell glass uses `material.workspaceGlass`.
+- `font.serifCjk` 與 `font.serif` 用於閱讀標題及引文，工具與操作用 sans。
+- `font.mono` 用於需要對齊的資料與數字。重量先於放大，避免大字統計搶走原文。
+- `textStyles.label` 承載結構標籤；其他位置不新增全大寫裝飾。
+- 文案以中文為主，英文只承載實際名稱、識別碼與來源內容。
 
-### type (`textStyles`)
-- **Weight carries hierarchy, size stays close.** 400 body, 500 field labels,
-  600 caption, 700 titles, 800+ display. If you need emphasis, step weight
-  before stepping size.
-- Three voices: serif (`font.serifCjk` first) is the voice of the material —
-  headlines (`textStyles.h2`) and pull quotes (`textStyles.quote`) only. Sans
-  is the voice of the tool. Mono (`textStyles.mono`, `textStyles.metric`) is
-  the voice of the data — IDs, counts, ledger numbers, always tabular.
-- `textStyles.label` is the only uppercase in the system — structural
-  wayfinding kickers. Uppercase anywhere else reads as dashboard chrome.
-- Product copy is Chinese-first; English appears as data (names, IDs), not as
-  placeholder prose.
+## 卡片與間距
 
-### radius & shadow
-- Two card tiers only: `radius.card` for inner panels, `radius.cardLg` for the
-  Topic-style soft card that all modes now share. `radius.round` is for status
-  dots only. Selectable options (mode toggles, packet-format cards) are the **raised tile「浮磚」**: `radius.card` + `shadow.card` on `color.atlasPaper`, selected → `color.product`.
-- Shadows are panes lifted off the glass ground: a lit-from-above inset
-  highlight, a tight contact shadow, a wide ambient (`shadow.card` →
-  `shadow.shell` → `shadow.raised`, `shadow.popup` for the floating
-  workspace). Colored glow is allowed only under accent CTAs
-  (`shadow.topicCta`, `shadow.accentButton`).
-- Hover shadows use the same ladder; components choose a named tier, never a
-  new inline blur stack. Prefer shadow definition over strong borders.
+- `radius.card` 用於內層面板，`radius.cardLg` 用於共享閱讀卡。
+- 邊線只劃分內容，`shadow.card` 與 `shadow.shell` 表示層級；不為普通列新增光暈。
+- 容器的 `spacing` 與 gap 擁有節奏，子項不各自疊加外距。
+- 收藏列以來源、圖片與安靜的狀態起頭。缺圖時顯示依作者決定的字首色塊。
+- Reader 的話題 chips 保持單行橫向瀏覽，四格入口共用緊密的文字階層。
+- 引用的留言一律係 `reader.replyCard` 小卡（Threads 形狀），證據組係 `reader.group` 外卡；DLens 自己的歸納寫在卡外，兩把聲音唔混。
+- `畫面上` 條用近乎不透明的磨砂底並橫跨整個面板，捲動內容不可透出。
+- 深入解讀／話題解讀共用 `reading`：一粒按內容大小嘅「開始讀」、出處只係一行連結（頭幾個再 +N），詳細內容摺起。
+- 換閱讀角度時底線用 `motion.lens` 彈去新格，答案輕微上彈；帖下張卡只喺撳嗰下播一次。
 
-### motion
-- **Motion confirms, never entertains.** Use `motion.preset.buttonPress` for tactile ack,
-  `motion.preset.cardLift` for hover/focus, and `motion.preset.surfaceFade` for arrival.
-- Springs acknowledge direct manipulation; popup opening keeps its shell
-  cascade. On every route, the first top-level card may soft-pop. Later
-  top-level rounded cards use `motion.presence.cardDelayMs`,
-  `motion.presence.cardOpacityFrom`, `motion.presence.cardRisePx`,
-  `motion.presence.cardDurationMs`, and `motion.presence.cardStaggerMs`; they
-  never scale or overshoot. The scroll viewport remains native, nested cards
-  inherit their parent entrance, dense rows stay quiet, and causal state motion
-  wins over unfinished presence.
-- Bottom rebound belongs only to a genuinely scrollable workspace at its real
-  end; only its inner track moves. Hover lift is reserved for active surfaces.
-- Ambient shimmer/pulse means work is happening, never decoration.
-- Every animation sits behind a `prefers-reduced-motion` guard (repo contract).
+## 動態與工作回饋
 
-### spacing
-- Rhythm is owned by containers, not children: section gaps come from tokens
-  like `spacing.resultSectionGap` / `spacing.resultCardGap` on a flex-gap
-  parent. Per-child margins are how vertical rhythm died before — the Result
-  spacing contract exists because of it.
-- The Atlas narrow layout stacks narrative beats into one uninterrupted reading
-  column; `layout.workspacePopupHeight` stays shared so drawers resolve inside
-  the frame instead of carrying another viewport-height contract.
+- 動態只確認操作或真實進度。`motion.preset.buttonPress` 回應操作，
+  `motion.preset.cardLift` 回應可操作卡片；密集列表保持安靜。
+- 側欄維持原生捲動；`motion.presence` 只作用於明確標記的卡片。
+  首張卡片可柔和進入，後續卡片依序淡入，不讓巢狀卡重複進場。
+- `motion.bottomRebound` 只在真正可捲動區的底部作用於內層軌道。
+- 收藏列依 `motion.collection` 進入、排序移位、搜尋摺疊與圖片淡入。
+  收藏頁保留一個切換底線、一個排序滑塊及安靜的背景淡霧。
+- 輪盤保留接受過的手勢、彈性、充能與落點序列；話題環只在顯示時擴大邊界。
+- `motion.collectCard` 承載帖下卡首次進入、結果到達與離頁完成的安靜回饋。
+  抓取中顯示實際初步留言與估計等待，超時說明等待較久，不承諾後端完成時間。
+- 所有 keyframes 由 `src/ui/motion.ts` 統一擁有。
+  `prefers-reduced-motion` 停止非必要移動，工作狀態仍由靜態符號與文案可讀。
 
-### Shared glass shell + Atlas surface（2026-07-10 修憲）
-- Variant D glass is now the shared Topic / Product / PR shell grammar. The
-  popup canvas owns the aura field; masthead, rail, main frame, marquee heroes,
-  one detail drawer, and hover popovers may use `material.workspaceGlass`.
-- Signal Atlas remains one dense Audit evidence surface inside that grammar;
-  its exceptions earn space only by exposing real denominators and real quotes.
-- `color.signal` highlights evidence edges; it does not replace mode accents.
-- Glass needs all three together: a near-white ground, colour washes behind the
-  panels, and large-radius negative-spread low-opacity shadows. Existing
-  `color.atlas*`, `shadow.atlas*`, and `effect.atlasBlur` names remain
-  compatibility aliases while callers move to `material.workspaceGlass`.
-- Dense lists, tables, evidence rows, form controls, and long reading cards
-  stay OPAQUE on the glass-white family — no glass-on-glass, protect contrast.
-- Product action + inbox share the Atlas canvas grammar via `color.productCanvas` + `color.auraProductBlue` (steel-blue lean).
-- 民情羅盤 is L0's protagonist: bubbles positioned by LLM-read valence/mode,
-  sized by comment count. Pattern count floats with the actual reading — never
-  force four quadrant clusters; same-quadrant crowding is valid. If a pattern
-  lacks scalars, fall back to the axis-free field — axes never claim unearned
-  meaning.
-- The compass legend row is a pattern's only L0 text; the card wall it
-  replaced stays removed (no surface restates another surface's data).
+## AI 與證據
 
-## What this language refuses（拒絕清單 — 歷史上真實被移除過的模式）
+- PR AttentionBeam 只標示正在處理或可操作的按鈕；搜尋 orb 與工作提示
+  在減少動態時保持靜態。不保留已無 consumer 的全卡周界與光譜。
+- 深入解讀只由使用者要求執行。先顯示背景與理解，再逐層展開術語、分歧與證據。
+  `deepReading` 的紫色只標示解讀入口，每點保留留言來源。
+- 觀眾反應由話題列表進入；話題解讀逐點連到來源，研究問題可即場修改。
+  非 AI 發現明確標示來源為固定模板與計數。
+- 帖下卡交接側欄閱讀，完整證據只在閱讀頁顯示。留言組各自展開，避免重複資訊。
+- AI 文字來自使用者自己的 key；做法與分歧必須有真實留言引用。
+  比例沿用後端數字，垃圾與離題群組安靜地排在後面。
+- Settings 先顯示 AI，每次只設定一個 provider，各組在原位儲存。
 
-1. **Dashboard grammar** — KPI tiles, hero stat blocks, big-number flexing,
-   progress theater stay banned. Audit atlas may show KPI/stat numbers only as
-   a coverage ledger through `textStyles.metricDisplay`, where every number has
-   a real denominator tied to the read-comment total. Denominator-free vanity
-   metrics stay banned.
-2. **Decorative affordances** — badges/expanders that restate data already
-   visible. Substance over decoration (see repo CLAUDE.md): a click that
-   reveals nothing new is a regression, not a zero.
-3. **A second palette, font stack, or scale** — the 2026-04 three-spec fork is
-   why this file is value-free and `tokens.ts` is the only law. `color.signal`
-   stays a scoped Audit-atlas evidence accent inside that source, never a
-   replacement for `getModeTheme` accents; `color-literal-guard` keeps it honest.
-4. **Traffic-light alarm colors** — saturated red/green/yellow status.
-5. **English placeholder copy** in Chinese-first product surfaces.
-6. **Warm-cream paper surfaces / pure black text / cold blue-grays** — cream
-   retired 2026-07-10; a second warmth or a cold gray scale forks the palette.
-   White cards are now the ground; text stays warm ink, never pure black.
-7. **Unscoped glassmorphism** — translucency stacks remain banned by default.
-   Shared shell glass comes only from `material.workspaceGlass`; reading cards
-   and list rows stay opaque, and `effect.glassBlur` stays disabled.
-8. **All-caps chrome outside `textStyles.label`** — locked since the Compare
-   label-casing decision.
+## 拒絕清單
 
-## How agents use this file
+- 無來源的 KPI、大數字與進度表演。
+- 展開後只重述已顯示內容的標籤與按鈕。
+- 第二套調色盤、字體、尺度，或 view 內自行添加設計值。
+- 高飽和度狀態警報、英文 placeholder 與無限背景動畫。
+- 無明確層級用途的模糊、透明度疊加、普通列光暈。
+- 重新引入已移除頁面的浮動定位、固定 popup 高度與專用 aura。
 
-- Before a UI change: read the family you're touching plus the refuse-list.
-  Then imitate the newest shipped marquee surface (Topic detail, Compare hero,
-  PR Evidence ledger) rather than inventing.
-- Need a value that doesn't exist? Add the token to `tokens.ts` first (same
-  PR), then add a line here ONLY if the intent isn't self-evident.
-- Taste decisions stay with the user: 1–3 dated HTML variants in
-  `docs/mockups/` (reference-only), user picks, implement against tokens.
+## 修改方式
+
+先追查現行使用者與最近已交付的介面，再決定是否需要保留 token。
+缺少設計值時先加到 `src/ui/tokens.ts`；用途不明確時才補充本文件。
+新的視覺方向仍先以 mockup 供使用者選擇，再落實到唯一設計值來源。

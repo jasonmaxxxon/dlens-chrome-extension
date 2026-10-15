@@ -1,3 +1,4 @@
+import { DEEP_READING_MODELS } from "../compare/deep-reading";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
@@ -20,6 +21,8 @@ interface SettingsViewProps {
   draftOpenAiKey: string;
   draftClaudeKey: string;
   draftGoogleKey: string;
+  draftDeepReadingModels?: ExtensionSettings["deepReadingModels"];
+  onDraftDeepReadingModelsChange?: (provider: "google" | "claude" | "openai", model: string) => void;
   hasOpenAiKey?: boolean;
   hasClaudeKey?: boolean;
   hasGoogleKey?: boolean;
@@ -33,6 +36,9 @@ interface SettingsViewProps {
   } | null;
   settingsSaveStatus?: { kind: "success" | "error"; message: string } | null;
   isSavingSettings?: boolean;
+  /** Result of 儲存並測試 in the AI group. */
+  aiKeyStatus?: { kind: "ok" | "error" | "testing"; message: string } | null;
+  onSaveAndTestAi?: () => void;
   productProfileSeedText?: string;
   isInitializingProductProfile?: boolean;
   onDraftBaseUrlChange: (value: string) => void;
@@ -79,16 +85,6 @@ const settingsDrawerStyle: CSSProperties = {
 // Flows at the end of the form (not sticky) so the preceding card's bottom
 // border and button are never covered by a floating bar. The popup scroll
 // viewport reserves bottom padding, so the Save button stays fully reachable.
-const settingsSaveDockStyle: CSSProperties = {
-  display: "grid",
-  gap: 8,
-  marginTop: tokens.spacing.sm,
-  padding: tokens.spacing.sm,
-  borderRadius: tokens.radius.card,
-  border: `1px solid ${tokens.color.cardEdge}`,
-  background: tokens.color.elevated,
-  boxShadow: tokens.shadow.card
-};
 
 function formatCompactCount(count: number): string {
   if (count >= 1000) {
@@ -121,7 +117,7 @@ function SettingsGroup({
   caption,
   children
 }: {
-  name: "folder" | "layout" | "language" | "connection" | "keys" | "product";
+  name: "folder" | "layout" | "language" | "connection" | "ai" | "product";
   title: string;
   caption: string;
   children: ReactNode;
@@ -208,6 +204,8 @@ export function SettingsView({
   draftOpenAiKey,
   draftClaudeKey,
   draftGoogleKey,
+  draftDeepReadingModels,
+  onDraftDeepReadingModelsChange,
   hasOpenAiKey = false,
   hasClaudeKey = false,
   hasGoogleKey = false,
@@ -217,6 +215,8 @@ export function SettingsView({
   storageUsage = null,
   settingsSaveStatus = null,
   isSavingSettings = false,
+  aiKeyStatus = null,
+  onSaveAndTestAi,
   productProfileSeedText = "",
   isInitializingProductProfile = false,
   onDraftBaseUrlChange,
@@ -244,6 +244,31 @@ export function SettingsView({
   const showClaudeSavedKey = hasClaudeKey && !draftClaudeKey.trim();
   const showGoogleSavedKey = hasGoogleKey && !draftGoogleKey.trim();
   const savedKeyPlaceholder = "已儲存金鑰 · 輸入以覆寫";
+  // Each group saves itself (side panel A); the result shows in the group that asked.
+  const [savedFrom, setSavedFrom] = useState<"ai" | "connection" | "language" | "product">("ai");
+  const saveFrom = (group: typeof savedFrom) => { setSavedFrom(group); onSaveSettings(); };
+  const saveStatus = (group: typeof savedFrom) => settingsSaveStatus && savedFrom === group ? (
+    <div
+      data-settings-save-status={settingsSaveStatus.kind}
+      style={{
+        fontSize: 11,
+        lineHeight: 1.55,
+        color: settingsSaveStatus.kind === "error" ? tokens.color.failed : tokens.color.success,
+        padding: "8px 10px",
+        borderRadius: tokens.radius.card,
+        border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft}`,
+        background: settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft
+      }}
+    >
+      {settingsSaveStatus.message}
+    </div>
+  ) : null;
+  const providers = [
+    { id: "google" as const, name: "Google", filled: hasGoogleKey || !!draftGoogleKey.trim(), draft: draftGoogleKey, onChange: onDraftGoogleKeyChange, saved: showGoogleSavedKey, hint: "AIza..." },
+    { id: "openai" as const, name: "OpenAI", filled: hasOpenAiKey || !!draftOpenAiKey.trim(), draft: draftOpenAiKey, onChange: onDraftOpenAiKeyChange, saved: showOpenAiSavedKey, hint: "sk-..." },
+    { id: "claude" as const, name: "Claude", filled: hasClaudeKey || !!draftClaudeKey.trim(), draft: draftClaudeKey, onChange: onDraftClaudeKeyChange, saved: showClaudeSavedKey, hint: "sk-ant-..." }
+  ];
+  const chosen = providers.find((provider) => provider.id === draftProvider) ?? null;
 
   async function importContextFile(kind: ProductProfileContextFile["kind"], file: File | null) {
     if (!file) {
@@ -287,6 +312,116 @@ export function SettingsView({
       />
 
       <div data-settings-surface="drawer" style={settingsDrawerStyle}>
+          <SettingsGroup name="ai" title="AI" caption="用你自己的 key，只存在這部電腦">
+            <div style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
+              觀眾反應的「有咩做法 / 有咩分歧」和個人應用，都用這裡選的一家。
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="AI provider"
+              data-settings-provider-switch="true"
+              style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, padding: 3, borderRadius: tokens.radius.lg, background: tokens.color.contextSurface }}
+            >
+              {providers.map((provider) => {
+                const active = draftProvider === provider.id;
+                return (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    data-settings-provider-option={provider.id}
+                    data-active={active ? "true" : "false"}
+                    onClick={() => onDraftProviderChange(provider.id)}
+                    style={{
+                      display: "grid",
+                      gap: 1,
+                      padding: "7px 0",
+                      border: 0,
+                      borderRadius: tokens.radius.xs,
+                      background: active ? tokens.color.elevated : "transparent",
+                      boxShadow: active ? tokens.shadow.card : "none",
+                      color: active ? tokens.color.ink : tokens.color.subInk,
+                      fontFamily: tokens.font.sans,
+                      fontSize: 12.5,
+                      fontWeight: active ? 700 : 500,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {provider.name}
+                    <small style={{ fontSize: 10.5, fontWeight: 400, color: tokens.color.softInk }}>{provider.filled ? "已填" : "未填"}</small>
+                  </button>
+                );
+              })}
+            </div>
+            {chosen ? (
+              <>
+                <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    {chosen.name} API key
+                    <SavedKeyStatus provider={chosen.id} visible={chosen.saved} />
+                  </span>
+                  <span style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={chosen.draft}
+                      onChange={(event) => chosen.onChange(event.target.value)}
+                      type="password"
+                      placeholder={chosen.saved ? savedKeyPlaceholder : chosen.hint}
+                      aria-label={`${chosen.name} API key`}
+                      data-settings-ai-key={chosen.id}
+                      style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+                    />
+                    <PrimaryButton onClick={() => { setSavedFrom("ai"); (onSaveAndTestAi ?? onSaveSettings)(); }} disabled={isSavingSettings} dataAttrs={{ "data-settings-save": "ai" }}>
+                      {isSavingSettings ? "儲存中…" : "儲存並測試"}
+                    </PrimaryButton>
+                  </span>
+                </label>
+                <label style={{ display: "grid", gap: tokens.spacing.sm, color: tokens.color.subInk }}>
+                  深入解讀模型
+                  <input aria-label={`${chosen.name} 深入解讀模型`} data-settings-deep-model={chosen.id} value={draftDeepReadingModels?.[chosen.id] ?? DEEP_READING_MODELS[chosen.id]} placeholder={DEEP_READING_MODELS[chosen.id]} onChange={event => onDraftDeepReadingModelsChange?.(chosen.id, event.target.value)} style={inputStyle} />
+                </label>
+                <button type="button" onClick={() => onDraftProviderChange("")} style={{ justifySelf: "start", border: 0, background: "none", padding: 0, fontSize: 11, color: tokens.color.softInk, cursor: "pointer" }}>
+                  不用 AI
+                </button>
+              </>
+            ) : (
+              <div style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>未選 AI：觀眾反應只顯示不用 AI 的四個入口。選一家並填 key 即可開始。</div>
+            )}
+            {aiKeyStatus ? (
+              <div
+                data-settings-ai-status={aiKeyStatus.kind}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: aiKeyStatus.kind === "ok" ? tokens.color.success : aiKeyStatus.kind === "error" ? tokens.color.failed : tokens.color.softInk }}
+              >
+                <i style={{ width: 7, height: 7, borderRadius: "50%", background: "currentColor" }} />{aiKeyStatus.message}
+              </div>
+            ) : null}
+            {saveStatus("ai")}
+          </SettingsGroup>
+
+          <SettingsGroup name="connection" title="連線" caption="Connection">
+            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              Ingest base URL
+              <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
+            </label>
+
+            <div
+              data-settings-storage-usage="true"
+              style={{
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: tokens.color.softInk,
+                fontVariantNumeric: "tabular-nums"
+              }}
+            >
+              Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <SecondaryButton onClick={() => saveFrom("connection")} disabled={isSavingSettings}>儲存</SecondaryButton>
+            </div>
+            {saveStatus("connection")}
+          </SettingsGroup>
+
           <SettingsGroup name="language" title="語言" caption="Language">
             <div
               data-settings-language-switch="true"
@@ -326,65 +461,10 @@ export function SettingsView({
             <div style={{ fontSize: 10.5, lineHeight: 1.55, color: tokens.color.softInk }}>
               {t("切換介面外殼（模式標題、導覽列）的語言；深層內容暫時維持繁中。儲存後生效。", "Switches the shell chrome (mode headers, nav rail) language; deeper content stays 繁中 for now. Applies after saving.")}
             </div>
-          </SettingsGroup>
-
-          <SettingsGroup name="connection" title="連線" caption="Connection">
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Ingest base URL
-              <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
-            </label>
-
-            <div
-              data-settings-storage-usage="true"
-              style={{
-                fontSize: 11,
-                lineHeight: 1.5,
-                color: tokens.color.softInk,
-                fontVariantNumeric: "tabular-nums"
-              }}
-            >
-              Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <SecondaryButton onClick={() => saveFrom("language")} disabled={isSavingSettings}>儲存</SecondaryButton>
             </div>
-
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              AI provider
-              <select
-                value={draftProvider}
-                onChange={(event) => onDraftProviderChange(event.target.value as NonNullable<ExtensionSettings["oneLinerProvider"]> | "")}
-                style={inputStyle}
-              >
-                <option value="">Disabled</option>
-                <option value="google">Google (Gemini 3.1 Flash Lite)</option>
-                <option value="openai">OpenAI</option>
-                <option value="claude">Claude</option>
-              </select>
-            </label>
-          </SettingsGroup>
-
-          <SettingsGroup name="keys" title="API 金鑰" caption="API keys">
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                OpenAI
-                <SavedKeyStatus provider="openai" visible={showOpenAiSavedKey} />
-              </span>
-              <input value={draftOpenAiKey} onChange={(event) => onDraftOpenAiKeyChange(event.target.value)} type="password" placeholder={showOpenAiSavedKey ? savedKeyPlaceholder : "sk-..."} style={inputStyle} />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                Claude
-                <SavedKeyStatus provider="claude" visible={showClaudeSavedKey} />
-              </span>
-              <input value={draftClaudeKey} onChange={(event) => onDraftClaudeKeyChange(event.target.value)} type="password" placeholder={showClaudeSavedKey ? savedKeyPlaceholder : "sk-ant-..."} style={inputStyle} />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                Google
-                <SavedKeyStatus provider="google" visible={showGoogleSavedKey} />
-              </span>
-              <input value={draftGoogleKey} onChange={(event) => onDraftGoogleKeyChange(event.target.value)} type="password" placeholder={showGoogleSavedKey ? savedKeyPlaceholder : "AIza..."} style={inputStyle} />
-            </label>
+            {saveStatus("language")}
           </SettingsGroup>
 
           {sessionMode === "product" ? (
@@ -565,30 +645,13 @@ export function SettingsView({
                   </SecondaryButton>
                 </div>
               </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <PrimaryButton onClick={() => saveFrom("product")} disabled={isSavingSettings}>{isSavingSettings ? "儲存中…" : "儲存產品資料"}</PrimaryButton>
+              </div>
+              {saveStatus("product")}
             </SettingsGroup>
           ) : null}
 
-          <div data-settings-save-dock="footer" data-dlens-presence="card" style={settingsSaveDockStyle}>
-            <PrimaryButton onClick={onSaveSettings} disabled={isSavingSettings} style={{ width: "100%" }}>
-              {isSavingSettings ? "Saving settings..." : "Save settings"}
-            </PrimaryButton>
-            {settingsSaveStatus ? (
-              <div
-                data-settings-save-status={settingsSaveStatus.kind}
-                style={{
-                  fontSize: 11,
-                  lineHeight: 1.55,
-                  color: settingsSaveStatus.kind === "error" ? tokens.color.failed : tokens.color.success,
-                  padding: "8px 10px",
-                  borderRadius: tokens.radius.card,
-                  border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft}`,
-                  background: settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft
-                }}
-              >
-                {settingsSaveStatus.message}
-              </div>
-            ) : null}
-          </div>
       </div>
     </div>
   );

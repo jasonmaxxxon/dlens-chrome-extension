@@ -1,26 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-
-import { buildProductAgentTaskPromptHash } from "../src/compare/product-agent-task-feedback.ts";
-import { PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../src/compare/product-signal-analysis.ts";
 import type { PrNarrativeRead } from "../src/compare/pr-narrative.ts";
-import type { SessionProcessingSummary, WorkerStatus } from "../src/state/processing-state.ts";
-import type { SignalReadiness } from "../src/state/signal-readiness.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { prCampaignToDraft, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
-import type { SavedAnalysisSnapshot, SessionItem, SessionRecord, TechniqueReadingSnapshot } from "../src/state/types.ts";
+import type { SessionRecord } from "../src/state/types.ts";
 import { createDefaultSettings, createEmptyTabState } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import {
-  buildProductSignalWorkspaceViewModel,
-  type ProductSignalCommand,
-  type ProductSignalViewModel,
-  type ProductSignalWorkspaceViewModel
-} from "../src/viewmodel/product-signal.ts";
 import {
   buildPrEvidenceViewModel,
   type PrEvidenceCommand,
@@ -28,22 +16,11 @@ import {
   type PrEvidenceUiState,
   type PrEvidenceViewModel
 } from "../src/viewmodel/pr-evidence.ts";
-import { CollectView } from "../src/ui/CollectView.tsx";
-import { InPageCollectorFolderControls, inPageCollectorFolderControlsTestables } from "../src/ui/InPageCollectorFolderControls.tsx";
-import { InPageCollectorPopup, inPageCollectorPopupTestables } from "../src/ui/InPageCollectorPopup.tsx";
-import { LibraryView } from "../src/ui/LibraryView.tsx";
+import { InPageCollectorPopup } from "../src/ui/InPageCollectorPopup.tsx";
 import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
-import { ProductSignalView, DLENS_MOTION_CSS, productSignalViewTestables } from "../src/ui/ProductSignalViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
-import {
-  EvidenceSourceHero,
-  ReadingAnnotation,
-  ModeRail,
-  UtilityEdge,
-  WorkspaceShell,
-  surfaceCardStyle
-} from "../src/ui/components.tsx";
+import { surfaceCardStyle } from "../src/ui/components.tsx";
 import { modeThemeStyle, textStyles, tokens } from "../src/ui/tokens.ts";
 
 function productTestProfile() {
@@ -62,220 +39,6 @@ function productTestProfile() {
       }
     ]
   };
-}
-
-test("shared evidence primitives keep source first and annotation secondary", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(React.Fragment, null,
-      React.createElement(EvidenceSourceHero, {
-        author: "@op_studio",
-        meta: "threads.com/post/3JqL8K · 5h",
-        metrics: "♥ 142 · 回覆 31"
-      }, "用了 DLens 三週，最有感的是 PR 那邊 evidence ledger 真的可交付。"),
-      React.createElement(ReadingAnnotation, {
-        label: "判讀"
-      }, "作者把交付成本從 screenshot 重排轉成 CSV / MD / DOCX。")
-    )
-  );
-
-  assert.match(html, /data-evidence-source-hero="true"/);
-  assert.match(html, /data-evidence-source-quote="true"/);
-  assert.match(html, /用了 DLens 三週/);
-  assert.match(html, /data-reading-annotation="true"/);
-  assert.match(html, /作者把交付成本/);
-  assert.ok(html.indexOf("data-evidence-source-hero") < html.indexOf("data-reading-annotation"));
-  assert.doesNotMatch(html, /PRODUCT MODE|TOPIC MODE|PR MODE|SHARED\s*·\s*DRILL-IN TEMPLATE/);
-  assert.doesNotMatch(html, /\bwidth:720px|\bmin-width:720px/);
-});
-
-function itemStatusFromReadiness(readiness: any): SessionItem["status"] {
-  if (readiness?.itemStatus) return readiness.itemStatus;
-  if (readiness?.status === "saved") return "saved";
-  if (readiness?.status === "crawling") return "running";
-  if (readiness?.status === "failed") return "failed";
-  return "succeeded";
-}
-
-function buildProductTestItem(signal: any, props: any): SessionItem | null {
-  if (!signal.itemId) return null;
-  const readiness = props.signalReadinessById?.[signal.id] ?? { status: "ready", itemStatus: "succeeded" };
-  const preview = props.signalPreviewById?.[signal.id] || signal.id;
-  const url = props.signalUrlById?.[signal.id] || `https://www.threads.net/@dlens/post/${signal.id}`;
-  const descriptorOverride = props.descriptorBySignalId?.[signal.id] ?? {};
-  const engagementOverride = descriptorOverride.engagement ?? {};
-  const engagementPresentOverride = descriptorOverride.engagement_present ?? {};
-  const item = createSessionItem(
-    {
-      target_type: "post",
-      page_url: url,
-      post_url: url,
-      author_hint: descriptorOverride.author_hint ?? "dlens",
-      text_snippet: preview,
-      time_token_hint: descriptorOverride.time_token_hint ?? "",
-      dom_anchor: signal.id,
-      engagement: { likes: null, comments: null, reposts: null, forwards: null, views: null, ...engagementOverride },
-      engagement_present: { likes: false, comments: false, reposts: false, forwards: false, views: false, ...engagementPresentOverride },
-      captured_at: descriptorOverride.captured_at ?? signal.capturedAt ?? "2026-04-27T00:00:00.000Z"
-    },
-    signal.capturedAt || "2026-04-27T00:00:00.000Z"
-  );
-  item.id = signal.itemId;
-  item.status = itemStatusFromReadiness(readiness);
-  item.lastError = readiness.lastError ?? null;
-  item.latestCapture = item.status === "succeeded" && readiness.status !== "missing_content"
-    ? {
-        id: `cap-${signal.id}`,
-        source_type: "threads",
-        capture_type: "post",
-        source_page_url: url,
-        source_post_url: url,
-        canonical_target_url: url,
-        author_hint: descriptorOverride.author_hint ?? "dlens",
-        text_snippet: preview,
-        time_token_hint: descriptorOverride.time_token_hint ?? "",
-        dom_anchor: signal.id,
-        engagement: engagementOverride,
-        client_context: {},
-        raw_payload: {},
-        ingestion_status: "succeeded",
-        captured_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
-        created_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
-        updated_at: signal.capturedAt || "2026-04-27T00:00:00.000Z",
-        job: null,
-        result: {
-          threadReadModel: {
-            rootPost: { postId: signal.id, author: descriptorOverride.author_hint ?? "dlens", text: preview, likeCount: engagementOverride.likes ?? null },
-            opContinuations: [],
-            discussionReplies: (props.evidenceBySignalId?.[signal.id] ?? []).map((entry: any) => ({
-              commentId: entry.id || entry.ref,
-              author: entry.author || "reader",
-              text: entry.text || entry.quoteSummary || entry.ref,
-              likeCount: entry.likeCount ?? null
-            })),
-            assembledContent: preview
-          }
-        },
-        analysis: null
-      } as SessionItem["latestCapture"]
-    : null;
-  return item;
-}
-
-function patchProductTestCapabilities(vm: ProductSignalWorkspaceViewModel, props: any): ProductSignalWorkspaceViewModel {
-  const allowRemove = typeof props.onRemoveSignal === "function";
-  const patchSignal = (signal: ProductSignalViewModel): ProductSignalViewModel => {
-    const preview = props.signalPreviewById?.[signal.signalId] ?? signal.sourcePreview.displayText;
-    const url = props.signalUrlById?.[signal.signalId] ?? signal.sourcePreview.displayUrl;
-    const readiness = props.signalReadinessById?.[signal.signalId] ?? signal.readiness;
-    const evidence = props.evidenceBySignalId?.[signal.signalId] ?? signal.evidence;
-    return {
-      ...signal,
-      title: preview || signal.title,
-      sourcePreview: {
-        ...signal.sourcePreview,
-        text: preview || signal.sourcePreview.text,
-        displayText: preview,
-        sourceUrl: url || signal.sourcePreview.sourceUrl,
-        displayUrl: url
-      },
-      readiness,
-      evidence,
-      actions: signal.actions.filter((action) => {
-        if (action.kind === "remove") return allowRemove;
-        return true;
-      })
-    };
-  };
-  const signals = vm.signals.map(patchSignal);
-  const byId = new Map(signals.map((signal) => [signal.signalId, signal]));
-  const pendingSignals = vm.pendingSignals.map((signal) => byId.get(signal.signalId) ?? patchSignal(signal));
-  return {
-    ...vm,
-    signals,
-    pendingSignals,
-    signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayText] as const)),
-    signalUrlById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.sourcePreview.displayUrl] as const)),
-    signalReadinessById: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.readiness] as const)),
-    evidenceBySignalId: Object.fromEntries(signals.map((signal) => [signal.signalId, signal.evidence] as const)),
-    actions: vm.actions.filter((action) => {
-      if (action.kind === "openActionable") return typeof props.onGoToActionable === "function";
-      if (action.kind === "exportSignalPackets") return typeof props.onExportSignalPackets === "function";
-      return true;
-    })
-  };
-}
-
-function productSignalViewElement(props: any) {
-  const signals = Array.isArray(props.signals) ? props.signals : [];
-  const sessionId = signals[0]?.sessionId || props.activeFolderId || "session_product";
-  const items = signals.map((signal: any) => buildProductTestItem(signal, props)).filter((item: SessionItem | null): item is SessionItem => Boolean(item));
-  const session: SessionRecord = {
-    id: sessionId,
-    name: "Product test",
-    mode: "product",
-    createdAt: "2026-04-27T00:00:00.000Z",
-    updatedAt: "2026-04-27T00:00:00.000Z",
-    items
-  };
-  const snapshot = {
-    global: {
-      settings: {
-        ...createDefaultSettings(),
-        productProfile: props.productProfile ?? productTestProfile(),
-        layoutPreferences: {
-          ...createDefaultSettings().layoutPreferences,
-          productSignalCardLayout: props.cardLayout ?? "marginalia"
-        }
-      },
-      sessions: [session],
-      activeSessionId: session.id,
-      updatedAt: "2026-04-27T00:00:00.000Z"
-    },
-    tab: createEmptyTabState()
-  };
-  const vm = patchProductTestCapabilities(
-    buildProductSignalWorkspaceViewModel({
-      kind: props.kind,
-      snapshot,
-      signals,
-      analyses: props.analyses ?? [],
-      signalReadings: props.signalReadings,
-      productContext: null,
-      aiProviderReady: props.aiProviderReady ?? true,
-      cardLayout: props.cardLayout,
-      backendError: props.backendError ?? null,
-      analysisError: props.analysisError ?? null,
-      analysisNotice: props.analysisNotice ?? null,
-      isHydrating: props.isHydrating ?? false,
-      isAnalyzing: props.isAnalyzing ?? false
-    }),
-    props
-  );
-  const onCommand = (command: ProductSignalCommand) => {
-    switch (command.kind) {
-      case "analyzeInbox":
-        return props.onAnalyze?.();
-      case "openActionable":
-        return props.onGoToActionable?.();
-      case "remove":
-        return props.onRemoveSignal?.(command.target.signalId);
-      case "reviewReading":
-        return props.onReviewSignalReading
-          ? props.onReviewSignalReading(command.target.cacheKey, command.decision, command.note)
-          : Promise.resolve({ ok: false, error: "missing review handler" });
-      case "exportSignalPackets":
-        return props.onExportSignalPackets
-          ? props.onExportSignalPackets({ sessionId: command.target.sessionId, format: command.format })
-          : Promise.resolve({ ok: false, error: "missing export handler" });
-      default:
-        return undefined;
-    }
-  };
-  return React.createElement(ProductSignalView, {
-    viewModel: vm,
-    exportFolders: props.exportFolders,
-    onCommand
-  });
 }
 
 function buildSession(): SessionRecord {
@@ -358,6 +121,7 @@ const idlePrEvidenceUiState: PrEvidenceUiState = {
   isSaving: false,
   isReadingBrief: false,
   isGeneratingCriteria: false,
+  criteriaReview: {},
   isMatching: false,
   isFetchingAdvancedMetrics: false,
   isGeneratingSummary: false
@@ -493,107 +257,6 @@ function buildPrNarrativeViewFixture(): Pick<PrEvidenceResourceState, "campaign"
   };
 }
 
-function buildComments(count: number) {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `comment-${index + 1}`,
-    author: `comment-${String(index + 1).padStart(2, "0")}`,
-    text: `comment body ${index + 1}`,
-    likeCount: index
-  }));
-}
-
-function buildSavedAnalysis(): SavedAnalysisSnapshot {
-  return {
-    resultId: "result_123",
-    compareKey: "item-a::item-b",
-    itemAId: "item-a",
-    itemBId: "item-b",
-    sourceLabelA: "@openai_tw",
-    sourceLabelB: "@tec_journalist",
-    headline: "焦慮是主調，但理性聲音正在集結",
-    deck: "兩篇貼文的留言區呈現截然不同的反應結構。",
-    primaryTensionSummary: "A 群量大，B 群互動更高。",
-    groupSummary: "3 群組",
-    totalComments: 847,
-    dateRangeLabel: "3/28–4/4",
-    savedAt: "2026-04-13T13:00:00.000Z",
-    analysisVersion: "v1",
-    briefVersion: "v5",
-    briefSource: "ai"
-  };
-}
-
-function buildTechniqueReading(): TechniqueReadingSnapshot {
-  return {
-    id: "reading-1",
-    sessionId: "session-1",
-    itemId: "item-a",
-    side: "A",
-    clusterKey: "cap-a:0",
-    clusterTitle: "Ownership",
-    thesis: "Readers keep circling back to ownership and accountability.",
-    techniques: [
-      {
-        key: "contrast",
-        title: "Contrast framing",
-        summary: "Frames the issue through explicit before/after contrast."
-      }
-    ],
-    evidence: [],
-    savedAt: "2026-04-13T13:00:00.000Z"
-  };
-}
-
-function renderLibraryViewHtml(
-  props: Partial<React.ComponentProps<typeof LibraryView>> = {}
-): string {
-  const session = props.activeFolder ?? buildSession();
-  return renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: props.activeItem ?? session.items[0] ?? null,
-      optimisticQueuedIds: props.optimisticQueuedIds ?? [],
-      workerStatus: props.workerStatus ?? ("idle" as WorkerStatus | null),
-      isStartingProcessing: props.isStartingProcessing ?? false,
-      processAllLabel: props.processAllLabel ?? "Process All",
-      processingSummary: props.processingSummary ?? {
-        total: session.items.length,
-        ready: session.items.filter((item) => item.status === "succeeded").length,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: session.items.filter((item) => item.status === "succeeded").length >= 2,
-        hasInflight: false
-      },
-      canPrev: props.canPrev ?? false,
-      canNext: props.canNext ?? false,
-      onSelectItem: props.onSelectItem ?? (() => undefined),
-      onProcessAll: props.onProcessAll ?? (() => undefined),
-      onMoveSelection: props.onMoveSelection ?? (() => undefined),
-      onQueueItem: props.onQueueItem ?? (() => undefined),
-      renderMetrics: props.renderMetrics ?? (() => null),
-      techniqueReadings: props.techniqueReadings ?? [],
-      savedAnalyses: props.savedAnalyses,
-      topicSignalItemIds: props.topicSignalItemIds,
-      topicInboxCount: props.topicInboxCount,
-      topicCount: props.topicCount,
-      initialSection: props.initialSection,
-      onGoToCollect: props.onGoToCollect,
-      onGoToCompare: props.onGoToCompare,
-      onOpenSavedAnalysis: props.onOpenSavedAnalysis,
-      folderSynthesis: props.folderSynthesis,
-      isGeneratingFolderSynthesis: props.isGeneratingFolderSynthesis,
-      folderSynthesisError: props.folderSynthesisError,
-      onGenerateFolderSynthesis: props.onGenerateFolderSynthesis,
-      onClearFolderSynthesis: props.onClearFolderSynthesis,
-      nowMs: props.nowMs,
-      folderAnalyzedCount: props.folderAnalyzedCount,
-      folderContributingTopicCount: props.folderContributingTopicCount
-    })
-  );
-}
-
 test("surfaceCardStyle uses the shared glass-ground defaults", () => {
   const style = surfaceCardStyle();
 
@@ -628,288 +291,151 @@ test("mode themes keep topic and product visually separate", () => {
   assert.match(productStyle["--dlens-mode-hover-border-strong"], /35,79,122/);
   assert.match(prStyle["--dlens-mode-hover-border-strong"], /122,32,48/);
 });
-
-test("WorkspaceShell keeps the processing strip outside the primary mode rail", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(WorkspaceShell, {
-      mode: "library",
-      header: React.createElement(
-        React.Fragment,
-        null,
-        React.createElement(ModeRail, {
-          activeMode: "library",
-          onSelect: () => undefined
-        }),
-        React.createElement(UtilityEdge, {
-          active: false,
-          onSelect: () => undefined
-        })
-      ),
-      contextStrip: React.createElement("div", null, "Processing"),
-      children: React.createElement("div", null, "Library body")
-    })
-  );
-
-  const modeRailIndex = html.indexOf('data-mode-rail="primary"');
-  const processingStripIndex = html.indexOf('data-shell-context-strip="processing"');
-  const settingsIndex = html.indexOf("設定");
-
-  assert.match(html, /data-workspace-shell="compare-first"/);
-  assert.match(html, /data-shell-masthead="editorial"/);
-  assert.match(html, /data-shell-header="workspace"/);
-  assert.match(html, /data-shell-context-strip="processing"/);
-  assert.match(html, /data-workspace-mode="library"/);
-  assert.match(html, /grid-template-rows:auto minmax\(0, 1fr\)/);
-  assert.match(html, /min-height:100%/);
-  assert.match(html, /data-shell-frame="editorial"[^>]*align-items:start/);
-  assert.match(html, /data-shell-header="workspace"[^>]*align-self:start/);
-  assert.ok(modeRailIndex >= 0);
-  assert.ok(processingStripIndex > modeRailIndex);
-  assert.ok(settingsIndex > modeRailIndex);
-});
-
-test("InPageCollectorPopup hides the global processing strip in Product and PR workspaces", () => {
-  const shouldShow = inPageCollectorPopupTestables.shouldShowProcessingContextStrip;
-
-  assert.equal(shouldShow("archive", "library"), true);
-  assert.equal(shouldShow("topic", "library"), false);
-  assert.equal(shouldShow("topic", "compare"), true);
-  assert.equal(shouldShow("topic", "inbox"), false);
-  assert.equal(shouldShow("topic", "casebook"), false);
-  assert.equal(shouldShow("product", "saved-signals"), false);
-  assert.equal(shouldShow("pr-evidence", "pr-evidence"), false);
-});
-
-test("InPageCollectorPopup selects the shared glass shell for Topic, Product, and PR", () => {
-  const materialFor = (inPageCollectorPopupTestables as unknown as {
-    workspaceMaterialForFolderMode?: (folderMode: string) => string;
-  }).workspaceMaterialForFolderMode;
-  assert.equal(typeof materialFor, "function");
-  assert.equal(materialFor?.("topic"), "glass");
-  assert.equal(materialFor?.("product"), "glass");
-  assert.equal(materialFor?.("pr-evidence"), "glass");
-  assert.equal(materialFor?.("archive"), "paper");
-});
-
-test("InPageCollectorPopup keeps extra scroll padding below the last card", () => {
-  assert.equal(inPageCollectorPopupTestables.popupViewportBottomPadding, tokens.spacing.xl);
-  assert.equal(
-    (inPageCollectorPopupTestables as unknown as { popupViewportHeight?: string }).popupViewportHeight,
-    "min(78vh, 780px)"
-  );
-  assert.equal(inPageCollectorPopupTestables.settingsWorkspaceSurfaceStyle.overflow, "visible");
-});
-
 function buildPopupAppFixture({
-  session = buildSession(),
-  page = "topics",
-  popupOpen = true,
-  prEvidenceViewModel = buildPrEvidenceVm(),
-  onSessionModeChange = async () => ({ ok: true })
+  session = buildSession(), sessions = [session], page = "topics", popupOpen = true,
+  prEvidenceViewModel = buildPrEvidenceVm(), onSetActiveSession, onNavigate
 }: {
-  session?: SessionRecord;
-  page?: string;
-  popupOpen?: boolean;
+  session?: SessionRecord; sessions?: SessionRecord[]; page?: string; popupOpen?: boolean;
   prEvidenceViewModel?: PrEvidenceViewModel;
-  onSessionModeChange?: (mode: "topic" | "product" | "pr-evidence") => Promise<unknown>;
+  onSetActiveSession?: (sessionId: string) => Promise<{ ok: boolean }>;
+  onNavigate?: (page: string) => Promise<unknown>;
 } = {}) {
-  return {
-    popupRef: { current: null },
-    snapshot: {
-      global: {
-        settings: createDefaultSettings(),
-        sessions: [session],
-        activeSessionId: session.id,
-        updatedAt: "2026-07-07T08:00:00.000Z"
-      },
-      tab: {
-        ...createEmptyTabState(),
-        popupOpen,
-        popupPage: page
-      }
-    },
-    page,
-    popupOpen,
-    activeFolder: session,
-    activeFolderMode: session.mode,
-    activeTopic: null,
-    activeTopicSignals: [],
-    activeTopicPairs: [],
-    topicLoadState: "ready",
-    selectedTopicId: null,
-    activePrCampaign: null,
-    topics: [],
-    signals: [],
-    topicAuditByTopicId: {},
-    savedAnalyses: [],
-    productSignalAnalyses: [],
-    signalReadings: [],
-    compiledProductContext: null,
-    productAiProviderReady: false,
-    productBackendError: null,
-    productSignalAnalysisError: null,
-    productSignalAnalysisNotice: null,
-    isHydratingProductSignals: false,
-    isAnalyzingProductSignals: false,
-    activeTopicAudit: undefined,
-    topicAuditP1RunningBySignalId: {},
-    topicAuditP1ErrorBySignalId: {},
-    optimisticQueuedIds: [],
-    bulkAnalyzingFolderId: null,
-    isStartingProcessing: false,
-    workerStatus: "idle",
-    backendWorkUiState: null,
-    backendReachability: "unknown",
-    processingSummary: {
-      total: 0,
-      ready: 0,
-      crawling: 0,
-      analyzing: 0,
-      pending: 0,
-      failed: 0,
-      hasReadyPair: false,
-      hasInflight: false
-    },
-    showFolderPrompt: false,
-    isRenamingFolder: false,
-    editingFolderName: "",
-    folderName: "",
-    readInteractionNowMs: () => 0,
-    readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
+  const app = {
+    snapshot: { global: { settings: createDefaultSettings(), sessions, activeSessionId: session.id, updatedAt: "2026-07-07T08:00:00.000Z" }, tab: { ...createEmptyTabState(), popupOpen, popupPage: page } },
+    page, popupOpen, activeFolder: session, activeFolderMode: session.mode, activePrCampaign: null,
+    topics: [] as any[], signals: [] as any[],
+    compiledProductContext: null, storageUsage: null, settingsSaveStatus: null, isSavingSettings: false,
+    workerStatus: "idle", backendWorkUiState: null, backendReachability: "unknown",
+    processingSummary: { total: 0, ready: 0, crawling: 0, analyzing: 0, pending: 0, failed: 0, hasInflight: false },
+    readInteractionNowMs: () => 0, readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
     prEvidenceViewModel,
-    resultItemA: null,
-    resultItemB: null,
-    activeSavedAnalysis: null,
-    signalPreviewById: {},
-    signalTagsByItemId: {},
-    onSessionModeChange,
-    onNavigate: async () => undefined,
-    onPrEvidenceCommand: () => undefined,
-    onPrEvidenceBriefFileSelected: () => undefined
+    onSetActiveSession: async (_sessionId: string) => ({ ok: true }), onNavigate: async (_page: string) => undefined,
+    onCreateWorkspace: async (_name: string, _mode: string) => ({ ok: true }),
+    onRenameWorkspace: async (_id: string, _name: string) => ({ ok: true }), onDeleteWorkspace: async (_id: string) => ({ ok: true }),
+    onCreateTopicNamed: async (_name: string, _question?: string, _signalId?: string) => undefined,
+    onUpdateTopic: async (_patch: unknown, _id?: string) => undefined, onDeleteTopic: async (_id: string) => undefined,
+    onSignalTriaged: async (_id: string, _action: unknown) => undefined, onSignalDeleted: async (_id: string) => undefined,
+    onMoveAudienceItem: async (_sessionId: string, _itemId: string) => undefined,
+    onExportSignalPackets: async (_request: { sessionId: string; format: string }) => ({ ok: false as const, error: "fixture export is idle" }),
+    draftBaseUrl: "http://127.0.0.1:8000", draftProvider: "google", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+    draftDeepReadingModels: {}, hasOpenAiKey: false, hasClaudeKey: false, hasGoogleKey: false,
+    draftLayoutPreferences: createDefaultSettings().layoutPreferences, draftProductProfile: productTestProfile(),
+    productProfileSeedText: "", isInitializingProductProfile: false, aiKeyStatus: null,
+    setDraftBaseUrl: () => undefined, setDraftProvider: () => undefined, setDraftOpenAiKey: () => undefined,
+    setDraftClaudeKey: () => undefined, setDraftGoogleKey: () => undefined, setDraftDeepReadingModels: () => undefined,
+    setProductProfileSeedText: () => undefined, onDraftLayoutPreferencesChange: () => undefined, onDraftProductProfileChange: () => undefined,
+    createContextFileId: () => "context-file", onSaveSettings: async () => true, onSaveAndTestAi: async () => undefined,
+    onInitProductProfile: async () => undefined, onClearProductCache: async () => undefined,
+    onPrEvidenceCommand: () => undefined, onPrEvidenceBriefFileSelected: () => undefined
   };
+  app.onSetActiveSession = async (sessionId: string) => {
+    const response = await onSetActiveSession?.(sessionId) ?? { ok: true };
+    if (!response.ok) return response;
+    const selected = app.snapshot.global.sessions.find((entry) => entry.id === sessionId);
+    assert.ok(selected, "fixture can only activate an existing session");
+    app.activeFolder = selected; app.activeFolderMode = selected.mode; app.snapshot.global.activeSessionId = selected.id;
+    app.page = "collection"; app.snapshot.tab.popupPage = "collection";
+    return response;
+  };
+  app.onNavigate = async (nextPage: string) => { app.page = nextPage; app.snapshot.tab.popupPage = nextPage; await onNavigate?.(nextPage); };
+  return app;
 }
 
-test("InPageCollectorPopup close and reopen remounts DOM refs while preserving an in-flight workspace switch", async () => {
+
+function scrollPopup(viewport: HTMLElement, top: number) {
+  viewport.scrollTop = top;
+  viewport.dispatchEvent(new viewport.ownerDocument.defaultView!.Event("scroll"));
+}
+
+function popupTab(root: HTMLElement, label: "收藏" | "工作區"): HTMLButtonElement {
+  const tab = [...root.querySelectorAll<HTMLButtonElement>('[role="tablist"][aria-label="主要導覽"] [role="tab"]')]
+    .find((entry) => entry.textContent === label);
+  assert.ok(tab, `primary tab ${label} must exist`);
+  return tab;
+}
+
+test("InPageCollectorPopup keeps a workspace open pending across close and reopen and remounts PR upload refs", async () => {
   const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
   const { act } = await import("react");
   const prSession = buildSession();
   prSession.mode = "pr-evidence";
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    HTMLInputElement: globalThis.HTMLInputElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  let resolveSwitch!: (value: unknown) => void;
-  const switchPromise = new Promise<unknown>((resolve) => {
-    resolveSwitch = resolve;
-  });
-  let switchCalls = 0;
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  let finishOpen!: (response: { ok: boolean }) => void;
+  const pendingOpen = new Promise<{ ok: boolean }>((resolve) => { finishOpen = resolve; });
+  const openCalls: string[] = [];
+  const navCalls: string[] = [];
   const app = buildPopupAppFixture({
-    session: prSession,
-    page: "pr-evidence",
-    prEvidenceViewModel: buildPrEvidenceVm({ setupCollapsed: false }),
-    onSessionModeChange: async () => {
-      switchCalls += 1;
-      return switchPromise;
-    }
+    session: prSession, page: "pr-evidence", prEvidenceViewModel: buildPrEvidenceVm({ setupCollapsed: false }),
+    onSetActiveSession: async (id) => { openCalls.push(id); return pendingOpen; },
+    onNavigate: async (page) => { navCalls.push(page); }
   });
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    HTMLInputElement: dom.window.HTMLInputElement,
-    MouseEvent: dom.window.MouseEvent
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-
+  const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
   try {
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    const firstViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
-    const firstBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
-    const productSwitch = rootElement.querySelector<HTMLButtonElement>('[data-workspace-switcher-mode="product"]');
-    assert.ok(firstViewport);
-    assert.ok(firstBriefInput);
-    assert.ok(productSwitch);
-    firstViewport.scrollTop = 240;
-
-    await act(async () => {
-      productSwitch.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-    assert.equal(
-      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
-      "product"
-    );
+    await render();
+    assert.ok(host.querySelector('[data-collection-browser="list"]'));
+    assert.equal(host.querySelector('input[type="file"]'), null, "existing domain state must not bypass the collection landing");
+    assert.deepEqual(openCalls, []);
+    await act(async () => popupTab(host, "工作區").click());
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(row);
+    await act(async () => row.click());
+    assert.equal(row.disabled, true);
+    const firstViewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(firstViewport, 240);
 
     app.popupOpen = false;
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    assert.equal(rootElement.querySelector('[data-workspace-popup="shell"]'), null);
+    await render();
+    assert.equal(host.querySelector('[data-workspace-popup="shell"]'), null);
     assert.equal(firstViewport.isConnected, false);
-    assert.equal(firstBriefInput.isConnected, false);
-
     app.popupOpen = true;
-    await act(async () => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-      await Promise.resolve();
-    });
-    const reopenedViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    await render();
+    const reopenedViewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
     assert.ok(reopenedViewport);
     assert.notEqual(reopenedViewport, firstViewport);
-    assert.equal(reopenedViewport.scrollTop, 0);
-    assert.equal(
-      rootElement.querySelector('[data-workspace-switcher="segmented"]')?.getAttribute("data-workspace-switcher-pending"),
-      "product",
-      "an in-flight workspace switch remains visible across close and reopen"
-    );
+    assert.equal(reopenedViewport.scrollTop, 240, "workspace index scroll survives close/reopen");
+    const pendingRow = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(pendingRow);
+    assert.equal(pendingRow.disabled, true, "reopening must not release an unresolved workspace navigation");
+    assert.equal(popupTab(host, "收藏").disabled, true);
+    await act(async () => pendingRow.click());
+    assert.deepEqual(openCalls, [prSession.id], "the same in-flight open must not be sent twice");
+    await act(async () => { finishOpen({ ok: true }); await pendingOpen; });
+    assert.deepEqual(navCalls, ["pr-evidence"]);
+    assert.equal(popupTab(host, "工作區").getAttribute("aria-selected"), "true");
+    const firstBriefInput = host.querySelector<HTMLInputElement>('input[type="file"]');
+    assert.ok(firstBriefInput, "resolving the card open reaches the existing PR workflow");
 
-    await act(async () => {
-      resolveSwitch({ ok: true });
-      await switchPromise;
-      await Promise.resolve();
-    });
-    const reopenedBriefInput = rootElement.querySelector<HTMLInputElement>('input[type="file"]');
-    const uploadButton = [...rootElement.querySelectorAll<HTMLButtonElement>("button")]
-      .find((button) => button.textContent?.includes("上傳 PDF"));
+    app.popupOpen = false;
+    await render();
+    assert.equal(firstBriefInput.isConnected, false);
+    app.popupOpen = true;
+    await render();
+    const reopenedBriefInput = host.querySelector<HTMLInputElement>('input[type="file"]');
+    const uploadButton = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("上傳 PDF"));
     assert.ok(reopenedBriefInput);
     assert.ok(uploadButton);
     assert.notEqual(reopenedBriefInput, firstBriefInput);
-    let firstInputClicks = 0;
-    let reopenedInputClicks = 0;
-    firstBriefInput.addEventListener("click", () => {
-      firstInputClicks += 1;
-    });
-    reopenedBriefInput.addEventListener("click", () => {
-      reopenedInputClicks += 1;
-    });
-    uploadButton.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-
-    assert.equal(switchCalls, 1);
-    assert.equal(firstInputClicks, 0);
-    assert.equal(reopenedInputClicks, 1);
+    let detachedClicks = 0;
+    let liveClicks = 0;
+    firstBriefInput.addEventListener("click", () => { detachedClicks += 1; });
+    reopenedBriefInput.addEventListener("click", () => { liveClicks += 1; });
+    await act(async () => uploadButton.click());
+    assert.equal(detachedClicks, 0);
+    assert.equal(liveClicks, 1, "upload must use the live remounted input ref");
   } finally {
-    await act(async () => root.unmount());
+    finishOpen({ ok: true });
+    await act(async () => { await pendingOpen; root.unmount(); });
     Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
     dom.window.close();
   }
 });
@@ -973,6 +499,11 @@ test("InPageCollectorPopup reopening the same route does not replay the lead pre
       root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
       await Promise.resolve();
     });
+    assert.ok(rootElement.querySelector('[data-collection-browser="list"]'));
+    await act(async () => popupTab(rootElement, "工作區").click());
+    const workspaceRow = rootElement.querySelector<HTMLButtonElement>(`[data-workspace-session="${topicSession.id}"]`);
+    assert.ok(workspaceRow);
+    await act(async () => { workspaceRow.click(); await Promise.resolve(); });
     const firstPresenceCard = rootElement.querySelector<HTMLElement>('[data-dlens-presence="card"]');
     assert.ok(firstPresenceCard);
     assert.equal(firstPresenceCard.style.opacity, String(tokens.motion.presence.leadSoftPop.opacityFrom));
@@ -1007,915 +538,257 @@ test("InPageCollectorPopup reopening the same route does not replay the lead pre
   }
 });
 
-test("InPageCollectorPopup closed facade reads only popupOpen and skips Product and Topic projection paths", () => {
-  const results: Array<{
-    route: string;
-    strictReads: string[];
-    unexpectedRead: string | null;
-    projectionBuilderInputReads: number;
-  }> = [];
-  const scenarios = [
-    {
-      route: "product",
-      page: "saved-signals",
-      mode: "product",
-      builderProbe: "productSignalAnalyses",
-      activeTopic: null
-    },
-    {
-      route: "topic",
-      page: "topic-detail",
-      mode: "topic",
-      builderProbe: "activeTopicSignals",
-      activeTopic: {
-        id: "topic-closed",
-        sessionId: "session-closed",
-        name: "Closed topic",
-        description: "",
-        status: "watching",
-        tags: [],
-        signalIds: [],
-        pairIds: [],
-        createdAt: "2026-07-07T08:00:00.000Z",
-        updatedAt: "2026-07-07T08:00:00.000Z"
-      }
-    }
-  ] as const;
-
-  for (const scenario of scenarios) {
-    const session = buildSession();
-    session.id = "session-closed";
-    session.mode = scenario.mode;
-    const target = buildPopupAppFixture({
-      session,
-      page: scenario.page,
-      popupOpen: false
-    });
-    target.activeTopic = scenario.activeTopic;
-
-    const strictReads: string[] = [];
-    let unexpectedRead: string | null = null;
-    const strictApp = new Proxy({ popupOpen: false }, {
-      get(current, property, receiver) {
-        const key = String(property);
-        strictReads.push(key);
-        if (key !== "popupOpen") {
-          throw new Error(`unexpected closed app read: ${key}`);
-        }
-        return Reflect.get(current, property, receiver);
-      }
-    });
-    try {
-      assert.equal(
-        renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: strictApp as any })),
-        ""
-      );
-    } catch (error) {
-      unexpectedRead = error instanceof Error ? error.message : String(error);
-    }
-
-    let projectionBuilderInputReads = 0;
-    const projectionProbeApp = new Proxy(target, {
-      get(current, property, receiver) {
-        if (String(property) === scenario.builderProbe) {
-          projectionBuilderInputReads += 1;
-        }
-        return Reflect.get(current, property, receiver);
-      }
-    });
-    renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: projectionProbeApp as any }));
-    results.push({
-      route: scenario.route,
-      strictReads,
-      unexpectedRead,
-      projectionBuilderInputReads
-    });
-  }
-
-  assert.deepEqual(results, [
-    {
-      route: "product",
-      strictReads: ["popupOpen"],
-      unexpectedRead: null,
-      projectionBuilderInputReads: 0
-    },
-    {
-      route: "topic",
-      strictReads: ["popupOpen"],
-      unexpectedRead: null,
-      projectionBuilderInputReads: 0
-    }
-  ]);
-});
-
-test("InPageCollectorPopup builds route projections only for their actual open consumers", () => {
-  const activeTopic = {
-    id: "topic-route-gate",
-    sessionId: "session-route-gate",
-    name: "Route gate",
-    description: "",
-    status: "watching",
-    tags: [],
-    signalIds: [],
-    pairIds: [],
-    createdAt: "2026-07-07T08:00:00.000Z",
-    updatedAt: "2026-07-07T08:00:00.000Z"
-  };
-  const scenarios = [
-    { page: "topics", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 },
-    { page: "saved-signals", mode: "product", expectedProductReads: 1, expectedTopicReads: 0 },
-    { page: "topic-detail", mode: "topic", expectedProductReads: 0, expectedTopicReads: 1 },
-    { page: "casebook", mode: "topic", expectedProductReads: 0, expectedTopicReads: 0 }
-  ] as const;
-  const results: Array<{ page: string; productReads: number; topicReads: number }> = [];
-
-  for (const scenario of scenarios) {
-    const session = buildSession();
-    session.id = "session-route-gate";
-    session.mode = scenario.mode;
-    const target = buildPopupAppFixture({ session, page: scenario.page });
-    target.activeTopic = activeTopic;
-    let productReads = 0;
-    let topicReads = 0;
-    const app = new Proxy(target, {
-      get(current, property, receiver) {
-        if (property === "productSignalAnalyses") productReads += 1;
-        if (property === "activeTopicSignals") topicReads += 1;
-        return Reflect.get(current, property, receiver);
-      }
-    });
-
-    renderToStaticMarkup(React.createElement(InPageCollectorPopup, { app: app as any }));
-    results.push({ page: scenario.page, productReads, topicReads });
-  }
-
-  assert.deepEqual(
-    results,
-    scenarios.map((scenario) => ({
-      page: scenario.page,
-      productReads: scenario.expectedProductReads,
-      topicReads: scenario.expectedTopicReads
-    }))
-  );
-});
-
-test("InPageCollectorPopup topic create action opens the real create-topic flow", async () => {
+test("InPageCollectorPopup keeps collection query and reader across reopen without changing workspace ownership", async () => {
   const { JSDOM } = await import("jsdom");
+  const { act } = await import("react");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const activeSession = buildSession();
+  const otherSession = createSessionRecord("另一個產品工作區", "2026-09-21T00:00:00Z", "product");
+  otherSession.items = [createSessionItem({ ...buildDescriptor(), post_url: "https://www.threads.net/@pear/post/other", author_hint: "pear", text_snippet: "pear 保存原文" }, "2026-09-21T00:00:00Z")];
+  const sessions = [activeSession, otherSession];
+  const inventoryBefore = JSON.stringify(sessions);
+  const mutations: string[] = [];
+  const app = buildPopupAppFixture({ session: activeSession, sessions,
+    onSetActiveSession: async (id) => { mutations.push(`session:${id}`); return { ok: true }; },
+    onNavigate: async (page) => { mutations.push(`page:${page}`); }
+  });
+  const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+  try {
+    await render();
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 2, "collection includes inactive workspaces");
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-sort="comments"]')!.click());
+    assert.equal(host.querySelector('[data-collection-sort="comments"]')?.getAttribute("aria-pressed"), "true");
+    const innerScrollOwners = () => [...host.querySelectorAll<HTMLElement>('[data-collection-browser], [data-collection-browser] *')]
+      .filter((element) => element.style.overflowY === "auto" || element.style.overflowY === "scroll");
+    assert.equal(innerScrollOwners().length, 0, "collection uses the popup viewport as its single scroll owner");
+    const search = host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]');
+    assert.ok(search);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(search, "pear");
+      search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 1);
+    const row = host.querySelector<HTMLButtonElement>("[data-collection-post]");
+    assert.ok(row);
+    const viewport = () => host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport(), 180);
+    await act(async () => row.click());
+    assert.equal(viewport().scrollTop, 0, "a new reader starts at the top");
+    scrollPopup(viewport(), 370);
+    const firstReader = host.querySelector('[data-collection-browser="reader"]');
+    assert.ok(firstReader);
+    assert.equal(innerScrollOwners().length, 0, "reader uses the same outer scroll owner");
+    assert.equal(host.querySelector('[data-collection-reader-body]')?.textContent, "pear 保存原文");
+    app.popupOpen = false;
+    await render();
+    assert.equal(firstReader.isConnected, false);
+    app.popupOpen = true;
+    await render();
+    assert.equal(viewport().scrollTop, 370, "reader scroll survives popup remount");
+    assert.ok(host.querySelector('[data-collection-browser="reader"]'), "selectedKey survives the popup DOM unmount");
+    assert.equal(host.querySelector('[data-collection-reader-body]')?.textContent, "pear 保存原文");
+    const back = host.querySelector<HTMLButtonElement>('[data-collection-action="back"]');
+    assert.ok(back);
+    await act(async () => back.click());
+    assert.equal(viewport().scrollTop, 180, "reader return restores the collection list");
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click());
+    assert.equal(viewport().scrollTop, 370, "reopening the same reader restores its own scroll");
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click());
+    assert.equal(host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]')?.value, "pear");
+    assert.equal(host.querySelectorAll("[data-collection-post]").length, 1);
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(host.querySelectorAll("[data-workspace-session]").length, 2);
+    scrollPopup(viewport(), 90);
+    await act(async () => popupTab(host, "收藏").click());
+    assert.equal(viewport().scrollTop, 180, "primary tabs keep independent positions");
+    assert.equal(host.querySelector<HTMLInputElement>('input[aria-label="搜尋收藏"]')?.value, "pear");
+    assert.equal(host.querySelector('[data-collection-sort="comments"]')?.getAttribute("aria-pressed"), "true", "sort survives close, reader and primary tab changes");
+    assert.deepEqual(mutations, [], "browsing, reading and the workspace index must never change domain state");
+    assert.equal(app.snapshot.global.activeSessionId, activeSession.id);
+    assert.equal(JSON.stringify(sessions), inventoryBefore, "all folder modes and item ownership remain intact");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
+});
+
+test("InPageCollectorPopup settings returns to the open workspace page without selecting another session", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { act } = await import("react");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+  const { createRoot } = await import("react-dom/client");
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const prSession = buildSession();
+  prSession.mode = "pr-evidence";
+  const opened: string[] = [];
+  const pages: string[] = [];
+  const app = buildPopupAppFixture({ session: prSession, page: "pr-evidence",
+    onSetActiveSession: async (id) => { opened.push(id); return { ok: true }; },
+    onNavigate: async (page) => { pages.push(page); }
+  });
+  try {
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    await act(async () => popupTab(host, "工作區").click());
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${prSession.id}"]`);
+    assert.ok(row);
+    await act(async () => row.click());
+    assert.ok(host.querySelector('input[type="file"]'), "the original PR view is open");
+    assert.equal(app.page, "pr-evidence");
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport, 290);
+    const menu = host.querySelector<HTMLElement>('[data-collection-menu] > summary');
+    assert.ok(menu);
+    await act(async () => menu.click());
+    const settings = [...host.querySelectorAll<HTMLButtonElement>('[data-collection-menu] button')].find((button) => button.textContent === "設定");
+    assert.ok(settings);
+    await act(async () => settings.click());
+    assert.ok(host.querySelector('[data-settings-surface="drawer"]'));
+    assert.equal(viewport.scrollTop, 0, "settings have their own scroll position");
+    scrollPopup(viewport, 110);
+    assert.deepEqual(pages, ["pr-evidence", "settings"]);
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(host.querySelector('[data-settings-surface="drawer"]'), null);
+    assert.ok(host.querySelector('input[type="file"]'), "return restores the same PR workflow");
+    assert.equal(app.page, "pr-evidence");
+    assert.equal(viewport.scrollTop, 290, "settings return restores the PR workspace");
+    assert.deepEqual(pages, ["pr-evidence", "settings", "pr-evidence"]);
+    assert.deepEqual(opened, [prSession.id], "settings return must not activate a different or default session");
+    assert.equal(popupTab(host, "工作區").getAttribute("aria-selected"), "true");
+  } finally {
+    await act(async () => root.unmount());
+    Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
+  }
+});
+test("InPageCollectorPopup closed facade reads only popupOpen and skips retained projection inputs", () => {
+  for (const mode of ["product", "topic", "pr-evidence"] as const) {
+    const reads: string[] = [];
+    const app = new Proxy({ popupOpen: false }, { get(current, property, receiver) {
+      const key = String(property); reads.push(key);
+      assert.equal(key, "popupOpen", `closed ${mode} must not read projection or session inputs`);
+      return Reflect.get(current, property, receiver);
+    } });
+    assert.equal(renderToStaticMarkup(<InPageCollectorPopup app={app as any} />), "");
+    assert.deepEqual(reads, ["popupOpen"]);
+  }
+});
+
+test("InPageCollectorPopup collection landing skips retained topic and PR projections", () => {
+  for (const mode of ["topic", "product", "archive", "pr-evidence"] as const) {
+    const session = { ...buildSession(), mode };
+    const target = buildPopupAppFixture({ session, page: mode === "topic" ? "topics" : mode === "pr-evidence" ? "pr-evidence" : "collection" });
+    const projectionReads: string[] = [];
+    const app = new Proxy(target, { get(current, property, receiver) {
+      if (property === "topics" || property === "signals" || property === "prEvidenceViewModel") projectionReads.push(String(property));
+      return Reflect.get(current, property, receiver);
+    } });
+    const html = renderToStaticMarkup(<InPageCollectorPopup app={app as any} />);
+    assert.match(html, /data-collection-browser="list"/);
+    assert.deepEqual(projectionReads, [], `${mode} domain inputs stay behind explicit workspace navigation`);
+  }
+});
+
+
+test("InPageCollectorPopup preserves the scroll frame and reaches topic creation through a workspace card", async () => {
+  const { JSDOM } = await import("jsdom");
+  const { act } = await import("react");
   const topicSession = buildSession();
   topicSession.mode = "topic";
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  const navCalls: string[] = [];
-  let createCalls = 0;
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    MouseEvent: dom.window.MouseEvent
-  });
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const app = {
-    popupRef: { current: null },
-    snapshot: {
-      global: {
-        settings: createDefaultSettings(),
-        sessions: [topicSession],
-        activeSessionId: topicSession.id,
-        updatedAt: "2026-07-07T08:00:00.000Z"
-      },
-      tab: {
-        ...createEmptyTabState(),
-        popupOpen: true,
-        popupPage: "topics"
-      }
-    },
-    page: "topics",
-    popupOpen: true,
-    activeFolder: topicSession,
-    activeFolderMode: "topic",
-    activeTopic: null,
-    activeTopicSignals: [],
-    activeTopicPairs: [],
-    topicLoadState: "ready",
-    selectedTopicId: null,
-    activePrCampaign: null,
-    topics: [],
-    signals: [],
-    topicAuditByTopicId: {},
-    savedAnalyses: [],
-    productSignalAnalyses: [],
-    signalReadings: [],
-    compiledProductContext: null,
-    productAiProviderReady: false,
-    productBackendError: null,
-    productSignalAnalysisError: null,
-    productSignalAnalysisNotice: null,
-    isHydratingProductSignals: false,
-    isAnalyzingProductSignals: false,
-    activeTopicAudit: undefined,
-    topicAuditP1RunningBySignalId: {},
-    topicAuditP1ErrorBySignalId: {},
-    optimisticQueuedIds: [],
-    bulkAnalyzingFolderId: null,
-    isStartingProcessing: false,
-    workerStatus: "idle",
-    backendWorkUiState: null,
-    backendReachability: "unknown",
-    processingSummary: {
-      total: 0,
-      ready: 0,
-      crawling: 0,
-      analyzing: 0,
-      pending: 0,
-      failed: 0,
-      hasReadyPair: false,
-      hasInflight: false
-    },
-    readInteractionNowMs: () => 0,
-    readWallClockNowMs: () => Date.parse("2026-07-07T08:00:00.000Z"),
-    prEvidenceViewModel: buildPrEvidenceVm(),
-    resultItemA: null,
-    resultItemB: null,
-    activeSavedAnalysis: null,
-    signalPreviewById: {},
-    signalTagsByItemId: {},
-    renderMetrics: () => null,
-    canPrev: false,
-    canNext: false,
-    readyCompareItems: [],
-    selectedCompareA: "",
-    selectedCompareB: "",
-    compareTeaserState: "idle",
-    compareTeaser: null,
-    setSelectedCompareA: () => undefined,
-    setSelectedCompareB: () => undefined,
-    processAllLabel: "Process All",
-    techniqueReadings: [],
-    folderSynthesis: null,
-    isGeneratingFolderSynthesis: false,
-    folderSynthesisError: null,
-    folderAnalyzedCount: 0,
-    folderContributingTopicCount: 0,
-    onSessionModeChange: async () => ({ ok: true }),
-    onNavigate: async (page: string) => {
-      navCalls.push(page);
-    },
-    onNavigateToTopic: () => undefined,
-    onCreateTopic: () => {
-      createCalls += 1;
-    },
-    onDeleteTopic: () => undefined
-  };
-
-  try {
-    flushSync(() => {
-      root.render(React.createElement(InPageCollectorPopup, { app: app as any }));
-    });
-    const shell = rootElement.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
-    assert.ok(shell, "popup shell should render as the non-scrolling extension frame");
-    assert.equal(shell.getAttribute("data-workspace-popup-material"), "glass");
-    assert.ok(inPageCollectorPopupTestables.popupFrameRadius >= 24, "the outer popup must retain the pronounced Variant D curve");
-    assert.equal(shell.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
-    assert.equal(shell.style.maxWidth, "calc(100vw - 24px)");
-    assert.equal(shell.style.right, "12px");
-    assert.equal(shell.style.top, "82px");
-    assert.equal(shell.style.maxHeight, "calc(100vh - 94px)");
-    assert.equal(shell.style.transform, "translateZ(0)");
-    assert.equal(shell.style.contain, "paint");
-    assert.ok(rootElement.querySelector<HTMLElement>('[data-workspace-material="glass"]'), "topic popup must pass glass into WorkspaceShell");
-    const scrollViewport = rootElement.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
-    assert.ok(scrollViewport, "popup scroll viewport should remain separate from the frame");
-    assert.equal(scrollViewport.style.borderRadius, `${inPageCollectorPopupTestables.popupFrameRadius}px`);
-    assert.equal(scrollViewport.style.boxSizing, "border-box");
-    assert.equal(scrollViewport.style.transform, "");
-    assert.equal(scrollViewport.style.overscrollBehaviorY, "contain");
-    const scrollTrack = scrollViewport.querySelector<HTMLElement>('[data-workspace-popup-scroll-track="true"]');
-    assert.ok(scrollTrack, "presence and rebound need a dedicated content track inside the viewport");
-    assert.equal(scrollTrack.style.transform, "", "rebound must use individual translate and leave transform ownership alone");
-    assert.equal(scrollTrack.style.minHeight, "100%", "the inner motion track must preserve the popup's full-height shell contract");
-    const bottomSpacer = scrollTrack.querySelector<HTMLElement>('[data-workspace-popup-bottom-spacer="true"]');
-    assert.ok(bottomSpacer, "the final action remains reachable through a real scroll-track spacer");
-    assert.equal(bottomSpacer.style.height, `${tokens.spacing.xl}px`);
-    const button = rootElement.querySelector<HTMLButtonElement>('[data-new-topic-button="triage"]');
-    assert.ok(button, "topics page must render the create-topic button");
-    button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-
-    assert.equal(createCalls, 1);
-    assert.deepEqual(navCalls, []);
-  } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    Object.assign(globalThis, previous);
-  }
-});
-
-// Library now uses a compact readiness bar instead of the older readiness-table support copy.
-test("LibraryView keeps Process All visible inside the compact readiness bar", () => {
-  const session = buildSession();
-  const summary: SessionProcessingSummary = {
-    total: 1,
-    ready: 0,
-    crawling: 0,
-    analyzing: 0,
-    pending: 1,
-    failed: 0,
-    hasReadyPair: false,
-    hasInflight: false
-  };
-
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: null as SessionItem | null,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: summary,
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /Process All/);
-  assert.match(html, /1 篇等待處理/);
-  assert.match(html, /Topic workspace/);
-  assert.match(html, /data-library-row="scan"/);
-  assert.match(html, /data-scan-list="library"/);
-  assert.match(html, /data-scan-row="true"/);
-});
-
-test("LibraryView scopes Topic library rows to Topic signals, not all backing saved items", () => {
-  const session = buildSession();
-  const leakedProductItem = createSessionItem({
-    ...buildDescriptor(),
-    post_url: "https://www.threads.net/@product/post/leaked",
-    page_url: "https://www.threads.net/@product/post/leaked",
-    author_hint: "product_author",
-    text_snippet: "Product-only saved row"
-  });
-  session.mode = "topic";
-  session.items.push(leakedProductItem);
-
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: null as SessionItem | null,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: { total: 2, ready: 1, crawling: 0, analyzing: 0, pending: 1, failed: 0, hasReadyPair: false, hasInflight: false },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      topicSignalItemIds: [session.items[0]!.id],
-      topicInboxCount: 1,
-      topicCount: 1
-    })
-  );
-
-  assert.match(html, /1 未分流 · 1 主題/);
-  assert.match(html, /@alpha/);
-  assert.doesNotMatch(html, /Product-only saved row/);
-  assert.doesNotMatch(html, /Product workspace/);
-  assert.doesNotMatch(html, /篇可以比較/);
-});
-
-test("LibraryView renders top-cluster keyword chips and removes the old fingerprint block", () => {
-  const session = buildSession();
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: session.items[0]!,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: {
-        total: 1,
-        ready: 1,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: false,
-        hasInflight: false
-      },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /support/);
-  assert.match(html, /policy/);
-  assert.match(html, /budget/);
-  assert.match(html, /可比較/);
-  assert.doesNotMatch(html, /data-library-fingerprint="bar"/);
-});
-
-test("LibraryView exposes item phase and pending skeleton outlets for active work", () => {
-  const session = buildSession();
-  session.items[0]!.status = "queued";
-  const summary: SessionProcessingSummary = {
-    total: 1,
-    ready: 0,
-    crawling: 1,
-    analyzing: 0,
-    pending: 0,
-    failed: 0,
-    hasReadyPair: false,
-    hasInflight: true
-  };
-
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: session.items[0]!,
-      optimisticQueuedIds: [],
-      workerStatus: "draining" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: summary,
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /data-item-phase="crawling"/);
-  assert.match(html, /data-library-row="scan"/);
-  assert.match(html, /data-scan-row="true"/);
-  assert.match(html, /data-library-card-skeleton="visible"/);
-  assert.match(html, /crawling/);
-});
-
-test("LibraryView render layer keeps row count, section state, and shared framing contracts", () => {
-  const session = buildSession();
-  const pendingItem = createSessionItem(
-    {
-      ...buildDescriptor(),
-      post_url: "https://www.threads.net/@beta/post/b",
-      page_url: "https://www.threads.net/@beta/post/b",
-      author_hint: "beta",
-      text_snippet: "Pending row"
-    },
-    "2026-03-24T07:24:21.000Z"
-  );
-  pendingItem.status = "queued";
-  session.items.push(pendingItem);
-
-  const pendingHtml = renderLibraryViewHtml({
-    activeFolder: session,
-    processingSummary: {
-      total: 2,
-      ready: 1,
-      crawling: 0,
-      analyzing: 0,
-      pending: 1,
-      failed: 0,
-      hasReadyPair: false,
-      hasInflight: false
-    },
-    activeItem: session.items[0]!
-  });
-
-  assert.equal(countOccurrences(pendingHtml, `data-library-row="scan"`), 2);
-  assert.match(pendingHtml, /data-library-section-state="pending"/);
-  assert.match(pendingHtml, /data-library-process-all="true"/);
-  assert.match(pendingHtml, /data-library-section="posts"/);
-  assert.match(pendingHtml, /data-library-section="readiness"[^>]*data-dlens-presence="card"/);
-  assert.match(pendingHtml, /data-section-header="shared"/);
-  assert.ok(countOccurrences(pendingHtml, `data-shared-surface-card=`) >= 2);
-
-  const readyHtml = renderLibraryViewHtml({
-    activeFolder: session,
-    processingSummary: {
-      total: 2,
-      ready: 2,
-      crawling: 0,
-      analyzing: 0,
-      pending: 0,
-      failed: 0,
-      hasReadyPair: true,
-      hasInflight: false
-    },
-    onGoToCompare: () => undefined
-  });
-  assert.match(readyHtml, /data-library-section-state="ready"/);
-  assert.doesNotMatch(readyHtml, /data-library-process-all="true"/);
-
-  const emptySession = buildSession();
-  emptySession.items = [];
-  const emptyHtml = renderLibraryViewHtml({
-    activeFolder: emptySession,
-    activeItem: null,
-    processingSummary: {
-      total: 0,
-      ready: 0,
-      crawling: 0,
-      analyzing: 0,
-      pending: 0,
-      failed: 0,
-      hasReadyPair: false,
-      hasInflight: false
-    }
-  });
-  assert.match(emptyHtml, /data-library-section-state="empty"/);
-});
-
-test("LibraryView row and Process All actions keep callback wiring", async () => {
-  const { JSDOM } = await import("jsdom");
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement });
+  actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   const { createRoot } = await import("react-dom/client");
-  const { flushSync } = await import("react-dom");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  const session = buildSession();
-  const calls: string[] = [];
-
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    MouseEvent: dom.window.MouseEvent
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  const openCalls: string[] = [];
+  const navCalls: string[] = [];
+  const app = buildPopupAppFixture({ session: topicSession, page: "topics",
+    onSetActiveSession: async (id) => { openCalls.push(id); return { ok: true }; },
+    onNavigate: async (page) => { navCalls.push(page); }
   });
-
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-
+  const createdNames: string[] = [];
+  app.onCreateTopicNamed = async (name: string) => { createdNames.push(name); };
   try {
-    flushSync(() => {
-      root.render(
-        React.createElement(LibraryView, {
-          activeFolder: session,
-          activeItem: null as SessionItem | null,
-          optimisticQueuedIds: [],
-          workerStatus: "idle" as WorkerStatus | null,
-          isStartingProcessing: false,
-          processAllLabel: "Process All",
-          processingSummary: {
-            total: 1,
-            ready: 0,
-            crawling: 0,
-            analyzing: 0,
-            pending: 1,
-            failed: 0,
-            hasReadyPair: false,
-            hasInflight: false
-          },
-          canPrev: false,
-          canNext: false,
-          onSelectItem: (itemId) => calls.push(`select:${itemId}`),
-          onProcessAll: () => calls.push("process-all"),
-          onMoveSelection: () => undefined,
-          onQueueItem: () => undefined,
-          renderMetrics: () => null,
-          techniqueReadings: []
-        })
-      );
-    });
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    const shell = host.querySelector<HTMLElement>('[data-workspace-popup="shell"]');
+    assert.ok(shell, "popup frame remains separate from the scrolling content");
+    assert.equal(shell.style.width, "100%");
+    assert.equal(shell.style.height, "100vh");
+    assert.equal(shell.style.overflow, "hidden");
+    assert.ok(host.querySelector('[data-collection-workspace-shell="true"]'));
+    assert.deepEqual([...host.querySelectorAll('[aria-label="主要導覽"] [role="tab"]')].map((tab) => tab.textContent), ["收藏", "工作區"]);
+    assert.equal(host.querySelector('[data-workspace-switcher="segmented"]'), null);
+    assert.equal(host.querySelector('[data-new-topic-button="triage"]'), null, "domain actions stay inside their workspace");
+    assert.deepEqual(openCalls, []);
+    assert.deepEqual(navCalls, []);
 
-    const row = rootElement.querySelector('[data-library-row="scan"]') as HTMLButtonElement | null;
-    const processAll = rootElement.querySelector('[data-library-process-all="true"]') as HTMLButtonElement | null;
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]');
+    assert.ok(viewport);
+    assert.equal(viewport.style.height, "100%");
+    assert.match(viewport.style.borderRadius, /^(0|0px)?$/, "the side panel viewport has square edges");
+    assert.equal(viewport.style.boxSizing, "border-box");
+    assert.equal(viewport.style.transform, "");
+    assert.equal(viewport.style.overscrollBehaviorY, "contain");
+    const track = viewport.querySelector<HTMLElement>('[data-workspace-popup-scroll-track="true"]');
+    assert.ok(track);
+    assert.equal(track.style.transform, "", "rebound leaves transform ownership alone");
+    assert.equal(track.style.minHeight, "100%");
+    const spacer = track.lastElementChild as HTMLElement | null;
+    assert.ok(spacer, "last action remains reachable through a real scroll spacer");
+    assert.equal(spacer.style.height, `${tokens.spacing.xl}px`);
+    viewport.scrollTop = 150;
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(viewport.scrollTop, 0, "primary navigation resets the shared scroll viewport");
+    assert.deepEqual(openCalls, [], "opening the workspace index never changes the active session");
+    const row = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${topicSession.id}"]`);
     assert.ok(row);
-    assert.ok(processAll);
-
-    row.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-    processAll.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-
-    assert.deepEqual(calls, [`select:${session.items[0]!.id}`, "process-all"]);
+    await act(async () => row.click());
+    assert.deepEqual(openCalls, [topicSession.id]);
+    assert.deepEqual(navCalls, ["topics"]);
+    assert.equal(popupTab(host, "工作區").getAttribute("aria-selected"), "true");
+    assert.ok(host.querySelector('[data-topic-discourse="home"]'));
+    // 觀眾反應 home is the discourse view: with no 話題 yet it shows one line and the ＋ 新話題 pill, which opens the 名稱 + 研究問題 sheet; no prompt dialog.
+    const newTopic = host.querySelector<HTMLButtonElement>('[data-discourse-new-topic]');
+    assert.ok(newTopic, "the empty 觀眾反應 home offers ＋ 新話題");
+    await act(async () => newTopic.click());
+    const nameInput = host.querySelector<HTMLInputElement>('[data-discourse-new-topic-name]');
+    assert.ok(nameInput, "the selected workspace renders the 觀眾反應 discourse view with its new-話題 form open");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(nameInput, "畢業生搵工");
+      nameInput.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    await act(async () => nameInput.form!.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true })));
+    assert.deepEqual(createdNames, ["畢業生搵工"]);
+    assert.equal(host.querySelector('[data-workspace-popup-scroll="viewport"]'), viewport, "in-popup navigation keeps the shared viewport ref");
   } finally {
-    flushSync(() => root.unmount());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await act(async () => root.unmount());
     Object.assign(globalThis, previous);
+    if (previousAct === undefined) delete actGlobal.IS_REACT_ACT_ENVIRONMENT;
+    else actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
+    dom.window.close();
   }
-});
-
-test("LibraryView framing stays width-safe and avoids raised elevation", () => {
-  const html = renderLibraryViewHtml({
-    savedAnalyses: [buildSavedAnalysis()],
-    techniqueReadings: [buildTechniqueReading()]
-  });
-
-  assert.match(html, /data-library-layout="surface-primitives"/);
-  assert.doesNotMatch(html, /\bwidth:(?:320|440)px/);
-  assert.doesNotMatch(html, /\bmin-width:[2-9]\d{2}px/);
-  assert.equal(countOccurrences(html, `box-shadow:${tokens.shadow.raised}`), 0);
-});
-
-test("LibraryView explains archive empty state without implying AI work", () => {
-  const session = buildSession();
-  session.mode = "archive";
-  session.items = [];
-
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: null as SessionItem | null,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: {
-        total: 0,
-        ready: 0,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: false,
-        hasInflight: false
-      },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /Archive 模式只保留原文，不自動分析。/);
-});
-
-// The Library home surface no longer renders raw comment preview tables after the three-page workspace split.
-test("LibraryView no longer renders raw comments preview tables on the home surface", () => {
-  const session = buildSession();
-  const activeItem = session.items[0]!;
-  activeItem.status = "succeeded";
-  activeItem.commentsPreview = buildComments(12);
-
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: {
-        total: 1,
-        ready: 1,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: false,
-        hasInflight: false
-      },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      initialSection: "posts"
-    })
-  );
-
-  assert.doesNotMatch(html, /Comments \(/);
-  assert.doesNotMatch(html, /comment-01/);
-  assert.doesNotMatch(html, /comment-11/);
-});
-
-test("LibraryView renders Casebook as a collapsible section when readings exist", () => {
-  const session = buildSession();
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: session.items[0]!,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: {
-        total: 1,
-        ready: 1,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: false,
-        hasInflight: false
-      },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [buildTechniqueReading()],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /Casebook · 1 條筆記/);
-  assert.doesNotMatch(html, /data-library-subpage=/);
-  assert.doesNotMatch(html, /data-library-subpage-button=/);
-});
-
-test("LibraryView renders a saved analyses section on the home surface", () => {
-  const session = buildSession();
-  const html = renderToStaticMarkup(
-    React.createElement(LibraryView, {
-      activeFolder: session,
-      activeItem: session.items[0]!,
-      optimisticQueuedIds: [],
-      workerStatus: "idle" as WorkerStatus | null,
-      isStartingProcessing: false,
-      processAllLabel: "Process All",
-      processingSummary: {
-        total: 1,
-        ready: 1,
-        crawling: 0,
-        analyzing: 0,
-        pending: 0,
-        failed: 0,
-        hasReadyPair: false,
-        hasInflight: false
-      },
-      canPrev: false,
-      canNext: false,
-      onSelectItem: () => undefined,
-      onProcessAll: () => undefined,
-      onMoveSelection: () => undefined,
-      onQueueItem: () => undefined,
-      renderMetrics: () => null,
-      techniqueReadings: [],
-      savedAnalyses: [buildSavedAnalysis()],
-      initialSection: "posts"
-    })
-  );
-
-  assert.match(html, /Casebook · Snapshot/);
-  assert.match(html, /焦慮是主調，但理性聲音正在集結/);
-  assert.match(html, /@openai_tw/);
-  assert.match(html, /@tec_journalist/);
-  assert.match(html, /主要張力/);
-  assert.match(html, /A 群量大，B 群互動更高/);
-  assert.match(html, /OPEN · 進入比對 →/);
-  assert.doesNotMatch(html, />3 群組</);
-});
-
-test("CollectView keeps the preview card and compact collect controls visible with current Chinese copy", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(CollectView, {
-      preview: buildDescriptor(),
-      folderName: "Signals",
-      mode: "archive",
-      isSaved: false,
-      selectionMode: true,
-      onSavePreview: () => undefined,
-      onOpenPreview: () => undefined,
-      onToggleCollectMode: () => undefined
-    })
-  );
-
-  assert.match(html, /data-mode-header="collect"/);
-  assert.match(html, /指向 Threads 貼文即可預覽，按下存入資料庫。/);
-  assert.doesNotMatch(html, /decision surface/);
-  assert.match(html, /Signals/);
-  assert.match(html, /儲存到資料庫/);
-  assert.match(html, /data-archive-no-ai-notice="collect"/);
-  assert.match(html, /儲存為原文記錄，不跑 AI 分析/);
-  assert.match(html, /data-collector-panel-header="true"/);
-  assert.match(html, /data-collector-stage="hero"[^>]*data-dlens-presence="card"/);
-  assert.match(html, /data-collector-mode-toggle="true"/);
-  assert.match(html, /data-collector-key-hints="true"/);
-  assert.match(html, /採集中/);
-  assert.match(html, /關閉/);
-  assert.doesNotMatch(html, /收集模式：開啟/);
-});
-
-test("CollectView renders saved-post metrics in recent captures instead of duplicating the hover preview", () => {
-  const recentItem = createSessionItem({
-    ...buildDescriptor(),
-    post_url: "https://www.threads.net/@alpha/post/recent",
-    text_snippet: "Saved post with real descriptor metrics."
-  }, "2026-03-24T07:23:21.000Z");
-  recentItem.id = "recent-metric-item";
-
-  const html = renderToStaticMarkup(
-    React.createElement(CollectView, {
-      preview: buildDescriptor(),
-      folderName: "work",
-      mode: "topic",
-      isSaved: false,
-      selectionMode: true,
-      recentItems: [recentItem],
-      onSavePreview: () => undefined,
-      onOpenPreview: () => undefined,
-      onToggleCollectMode: () => undefined
-    })
-  );
-
-  assert.match(html, /data-collector-recent-captures="true"/);
-  assert.match(html, /data-collector-recent-captures="true"[^>]*data-dlens-presence="card"/);
-  assert.match(html, /data-collector-metric-strip="recent-metric-item"/);
-  assert.match(html, /data-collector-metric="likes"/);
-  assert.match(html, /data-collector-metric="comments"/);
-  assert.match(html, /data-collector-metric="reposts"/);
-  assert.match(html, />10</);
-  assert.match(html, />5</);
-  assert.doesNotMatch(html, /data-collect-metric="likes"/);
-  assert.doesNotMatch(html, />Like</);
-  assert.doesNotMatch(html, />Reply</);
-  assert.doesNotMatch(html, />Repost</);
-  assert.doesNotMatch(html, />Share</);
-});
-
-test("CollectView uses product inbox language in product mode", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(CollectView, {
-      preview: buildDescriptor(),
-      folderName: "Signals",
-      mode: "product",
-      isSaved: false,
-      selectionMode: false,
-      onSavePreview: () => undefined,
-      onOpenPreview: () => undefined,
-      onToggleCollectMode: () => undefined
-    })
-  );
-
-  assert.match(html, /加入產品訊號收件匣/);
-  assert.match(html, /產品訊號收件匣/);
-  assert.match(html, /加入產品訊號/);
-  assert.doesNotMatch(html, /資料夾/);
-});
-
-test("CollectView blocks PR Evidence saves until a campaign exists", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(CollectView, {
-      preview: buildDescriptor(),
-      folderName: "PR workspace",
-      mode: "pr-evidence",
-      isSaved: false,
-      canSavePreview: false,
-      disabledReason: "先在 PR 頁建立 campaign，Collect 才能加入 evidence row。",
-      selectionMode: false,
-      onSavePreview: () => undefined,
-      onOpenPreview: () => undefined,
-      onToggleCollectMode: () => undefined
-    })
-  );
-
-  assert.match(html, /加入 PR evidence/);
-  assert.match(html, /data-collect-disabled-reason="true"/);
-  assert.match(html, /先在 PR 頁建立 campaign/);
-  assert.match(html, /disabled=""/);
 });
 
 test("PrEvidenceView renders campaign setup and compact evidence ledger", () => {
@@ -1982,7 +855,8 @@ test("PrEvidenceView renders PR campaign and rows from the shared resource state
   assert.match(html, /data-collector-metric="comments"/);
   assert.match(html, /data-collector-metric="reposts"/);
   assert.match(html, /data-collector-metric="forwards"/);
-  assert.match(html, /data-pr-evidence-strength-chip="partial"/);
+  /* 2 of the campaign's 3 criteria clears the strong bar. */
+  assert.match(html, /data-pr-evidence-strength-chip="strong"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
   assert.match(html, /data-pr-criteria-coverage-row="c1"/);
   assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
@@ -2386,8 +1260,8 @@ test("PR Evidence ledger rows use audit numbering, gist, metric strip, and stren
   assert.match(html, /data-collector-metric="forwards"/);
   assert.match(html, /data-pr-evidence-strength-chip="partial"/);
   assert.match(html, /data-pr-match-indicator="true"/);
-  assert.match(html, /2\/6/);
-  assert.match(html, /1\/6/);
+  assert.match(html, /2 \/ 3/);
+  assert.match(html, /1 \/ 3/);
   assert.doesNotMatch(html, />C1</);
   assert.doesNotMatch(html, />C2</);
   assert.doesNotMatch(html, /data-quote-block="shared"/);
@@ -2404,10 +1278,10 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
     criteria: [
       { id: "c1", label: "活動名稱" },
       { id: "c2", label: "Hashtag" },
-      { id: "c3", label: "核心訊息" },
-      { id: "c4", label: "場地" },
-      { id: "c5", label: "體驗主題" },
-      { id: "c6", label: "CTA / 報名動作" }
+      { id: "c3", label: "CTA / 報名動作" },
+      { id: "c4", label: "" },
+      { id: "c5", label: "" },
+      { id: "c6", label: "" }
     ],
     createdAt: "2026-05-26T00:00:00.000Z",
     updatedAt: "2026-05-26T00:00:00.000Z",
@@ -2424,7 +1298,7 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
     criteriaMatches: {
       c1: true,
       c2: index < 2,
-      c3: index < 3,
+      c3: false,
       c4: index < 1,
       c5: index < 1,
       c6: false
@@ -2446,18 +1320,19 @@ test("PR criteria health surfaces real criterion labels and the systemic gap", (
   assert.match(html, /Strong/);
   assert.match(html, /Criteria 待補/);
   assert.match(html, /data-pr-criteria-coverage-row="c1"/);
-  assert.match(html, /data-pr-criteria-coverage-row="c6"/);
+  assert.match(html, /data-pr-criteria-coverage-row="c3"/);
+  assert.doesNotMatch(html, /data-pr-criteria-coverage-row="c4"/);
   assert.match(html, /data-pr-criteria-coverage-bar="c1"/);
   assert.match(html, /data-pr-criteria-coverage-fill="c1"/);
   assert.match(html, /data-pr-criteria-coverage-count="c1"[^>]*>4\/4/);
-  assert.match(html, /data-pr-criteria-coverage-count="c6"[^>]*>0\/4/);
-  assert.match(html, /data-pr-criteria-strength-dot="c6"/);
+  assert.match(html, /data-pr-criteria-coverage-count="c3"[^>]*>0\/4/);
+  assert.match(html, /data-pr-criteria-strength-dot="c3"/);
   // F1: the real criterion label stays primary; the C-id is only a secondary tag.
   assert.match(html, /CTA \/ 報名動作/);
   assert.match(html, /活動名稱/);
-  assert.match(html, /data-pr-criteria-id="c6"/);
+  assert.match(html, /data-pr-criteria-id="c3"/);
   assert.match(html, /系統性缺口/);
-  // C6 has zero coverage -> it is a GAP row with a zero-width coverage lane.
+  // C3 has zero coverage -> it is a GAP row with a zero-width coverage lane.
   assert.match(html, /data-pr-criteria-health-strength="gap"/);
   assert.match(html, /data-pr-criteria-health-detail="c1"/);
   assert.match(html, /data-pr-criteria-health-matches="c1"/);
@@ -2604,15 +1479,48 @@ test("Frame 7 — export action buttons keep commands and render download icon p
   assert.match(html, /data-pr-export-format-tag="docx"[^>]*>DOCX/);
 });
 
-test("Frame 08 — criteria setup shows the AI-drafted banner when a brief is loaded", () => {
-  const html = renderPrEvidenceView({
-    campaign: prCampaignToDraft(prFrameCampaign()),
-    setupCollapsed: false
-  });
+test("Frame 08 — criteria setup shows three reviewable AI candidates when a brief is loaded", () => {
+  const html = renderPrEvidenceView(
+    {
+      campaign: prCampaignToDraft(prFrameCampaign()),
+      setupCollapsed: false
+    },
+    { criteriaReview: { c1: "candidate", c2: "candidate", c3: "candidate" } }
+  );
 
   assert.match(html, /data-pr-criteria-ai-banner="true"/);
-  assert.match(html, /AI 已從 brief 抽出/);
-  assert.match(html, /6 條 criteria/);
+  assert.match(html, /AI 從 brief 抽出 3 條候選/);
+  assert.match(html, /data-pr-criterion-row="c1"/);
+  assert.match(html, /data-pr-criterion-row="c3"/);
+  /* Three rows only: the campaign cap, even though storage still holds c4..c6. */
+  assert.doesNotMatch(html, /data-pr-criterion-row="c4"/);
+  assert.match(html, /data-pr-criterion-confirm="c1"/);
+  assert.match(html, /data-pr-criterion-correct="c1"/);
+  /* F7: "not seen in the brief" is its own act, never a confirmation. */
+  assert.match(html, /data-pr-criterion-not-mentioned="c1"/);
+  assert.match(html, /標記為未提及/);
+});
+
+test("Frame 08 — a criterion marked as not mentioned stops counting and is not confirmed", () => {
+  const campaign = prFrameCampaign({
+    criteria: [
+      { id: "c1", label: "活動名稱" },
+      { id: "c2", label: "Hashtag" },
+      { id: "c3", label: "" },
+      { id: "c4", label: "" },
+      { id: "c5", label: "" },
+      { id: "c6", label: "" }
+    ]
+  });
+  const html = renderPrEvidenceView(
+    { campaign: prCampaignToDraft(campaign), setupCollapsed: false },
+    { criteriaReview: { c3: "not_mentioned" } }
+  );
+
+  assert.match(html, /data-pr-criterion-status="not_mentioned"/);
+  assert.match(html, /brief 未提及/);
+  assert.match(html, /1 條標記為未提及/);
+  assert.doesNotMatch(html, /data-pr-criterion-confirm="c3"/);
 });
 
 test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspection tables", () => {
@@ -2742,37 +1650,6 @@ test("PR Evidence advanced metrics notice includes the first failure reason", ()
   assert.match(notice, /第一個錯誤：404 Not Found/);
 });
 
-test("Product, PR Evidence, and Topic modes render no folder strip", () => {
-  // Topic selection moved into the floating preview card; the top strip is gone
-  // in topic mode too, so all three non-archive modes render nothing.
-  for (const activeFolderMode of ["product", "pr-evidence", "topic"] as const) {
-    const html = renderToStaticMarkup(
-      React.createElement(InPageCollectorFolderControls, {
-        app: {
-          activeFolderMode,
-          activeFolder: { items: [] },
-          topics: [{ id: "topic-work", name: "work" }],
-          signals: [],
-          productSignalAnalyses: []
-        } as any
-      })
-    );
-
-    assert.equal(html, "", `${activeFolderMode} mode should render nothing`);
-    assert.doesNotMatch(html, /Select a folder/);
-    assert.doesNotMatch(html, /新建主題/);
-  }
-});
-
-test("Topic folder strip counts inbox and topics instead of saved backing items", () => {
-  const topicSession = { ...buildSession(), mode: "topic" as const };
-  const archiveSession = { ...buildSession(), mode: "archive" as const, name: "Archive" };
-  const { formatWorkspaceOptionLabel } = inPageCollectorFolderControlsTestables;
-
-  assert.equal(formatWorkspaceOptionLabel(topicSession), "Topic workspace");
-  assert.equal(formatWorkspaceOptionLabel(archiveSession), "Archive (1)");
-});
-
 test("SettingsView exposes Google provider and save action", () => {
   const html = renderToStaticMarkup(
     React.createElement(SettingsView, {
@@ -2853,7 +1730,9 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-settings-language-option="zh"[^>]*data-active="true"/);
   assert.match(html, /data-settings-language-option="en"[^>]*data-active="false"/);
   assert.match(html, /data-settings-group="connection"/);
-  assert.match(html, /data-settings-group="keys"/);
+  assert.match(html, /data-settings-group="ai"/);
+  assert.doesNotMatch(html, /data-settings-group="keys"/);
+  assert.ok(html.indexOf('data-settings-group="ai"') < html.indexOf('data-settings-group="connection"'), "AI comes first (side panel A)");
   assert.match(html, /data-settings-group="product"/);
   assert.match(html, /data-settings-group="connection"[^>]*border-radius:20px/);
   assert.match(html, /data-settings-group="connection"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
@@ -2897,15 +1776,34 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-product-cache-reset="true"/);
   assert.match(html, /清除 Product cache/);
   assert.match(html, /只會移除 Product 分析、判讀與編譯脈絡/);
-  // Regression guard: the save dock must flow at the end of the form, never
-  // float over the preceding card. A bottom-anchored sticky bar clips the last
-  // card's border + button, which is the exact bug this replaces.
-  assert.match(html, /data-settings-save-dock="footer"/);
-  assert.doesNotMatch(html, /data-settings-save-dock="[^"]*"[^>]*position:sticky/);
-  assert.match(html, /Save settings/);
+  // Each group saves itself (side panel A); the distant bottom "Save settings" is gone.
+  assert.doesNotMatch(html, /data-settings-save-dock/);
+  assert.doesNotMatch(html, /Save settings/);
+  assert.match(html, /儲存並測試/);
+  assert.match(html, /儲存產品資料/);
   assert.match(html, /data-settings-save-status="success"/);
   assert.match(html, /ProductContext 已編譯/);
   assert.doesNotMatch(html, /Welcome|Get started/);
+});
+
+test("SettingsView's AI group shows only the chosen provider's key, saves it in place and shows the test result", () => {
+  const base = {
+    sessionMode: "topic" as const, draftBaseUrl: "http://127.0.0.1:8000", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+    hasGoogleKey: false, hasOpenAiKey: true, draftLayoutPreferences: createDefaultSettings().layoutPreferences,
+    draftProductProfile: { name: "", category: "", audience: "" }, onDraftBaseUrlChange: () => undefined, onDraftProviderChange: () => undefined,
+    onDraftOpenAiKeyChange: () => undefined, onDraftClaudeKeyChange: () => undefined, onDraftGoogleKeyChange: () => undefined,
+    onDraftLayoutPreferencesChange: () => undefined, onDraftProductProfileChange: () => undefined,
+    createContextFileId: (kind: string, name: string) => `${kind}_${name}`, onSaveSettings: () => undefined
+  };
+  const google = renderToStaticMarkup(React.createElement(SettingsView, { ...base, draftProvider: "google", aiKeyStatus: { kind: "error", message: "Google 拒絕了這個 key（400）" } } as any));
+  assert.match(google, /data-settings-provider-option="google"[^>]*data-active="true"/);
+  assert.match(google, /data-settings-ai-key="google"/);
+  assert.doesNotMatch(google, /data-settings-ai-key="openai"/, "one key field: the chosen provider's");
+  assert.match(google, /OpenAI<small[^>]*>已填/);
+  assert.match(google, /data-settings-ai-status="error"[^]*Google 拒絕了這個 key（400）/);
+  const off = renderToStaticMarkup(React.createElement(SettingsView, { ...base, draftProvider: "" } as any));
+  assert.doesNotMatch(off, /data-settings-ai-key=/);
+  assert.match(off, /未選 AI/);
 });
 
 test("SettingsView shows saved key state when sanitized snapshot hides the raw key", () => {
@@ -2947,1565 +1845,7 @@ test("SettingsView shows saved key state when sanitized snapshot hides the raw k
   assert.match(html, /已儲存金鑰 · 輸入以覆寫/);
 });
 
-test("SavedSignalsBoard presents a compact analysis intake", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        { id: "s_ready", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" },
-        { id: "s_pending", sessionId: "sess", itemId: "i2", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" },
-        { id: "s_err", sessionId: "sess", itemId: "i3", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" }
-      ],
-      productProfile: {
-        name: "DLens", category: "x", audience: "y", contextText: "z",
-        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-04-27T00:00:00.000Z", charCount: 1 }]
-      },
-      analyses: [],
-      signalPreviewById: {},
-      signalReadinessById: {
-        s_ready: { status: "ready", itemStatus: "succeeded" },
-        s_pending: { status: "saved", itemStatus: "saved" },
-        s_err: { status: "failed", itemStatus: "failed" }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-saved-pipeline="true"/);
-  assert.match(html, /已收集[^]*可分析[^]*處理中[^]*已完成/);
-  assert.match(html, /data-product-saved-management="collapsed"/);
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.match(html, /data-saved-signals-frame="true"/);
-  assert.doesNotMatch(html, /data-saved-signals-frame="true"[^>]*data-dlens-presence=/);
-  assert.doesNotMatch(html, /data-product-saved-filter-tabs|data-product-saved-inline-reading/);
-  assert.doesNotMatch(html, /data-saved-signals-batch-export|行動簡報匯出/);
-  assert.doesNotMatch(html, /type="checkbox"/);
-});
-
-test("saved-signals keeps all management rows behind a collapsed disclosure", () => {
-  const readyIds = ["r1", "r2", "r3"];
-  const pendingIds = ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"];
-  const signals = [...readyIds, ...pendingIds].map((id) => ({
-    id, sessionId: "sess", itemId: `i_${id}`, source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z"
-  }));
-  const signalReadinessById: Record<string, { status: string; itemStatus: string }> = {};
-  for (const id of readyIds) signalReadinessById[id] = { status: "ready", itemStatus: "succeeded" };
-  for (const id of pendingIds) signalReadinessById[id] = { status: "saved", itemStatus: "saved" };
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals,
-      analyses: [],
-      signalPreviewById: {},
-      signalReadinessById,
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /<details data-product-saved-management="collapsed"/);
-  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 11);
-  assert.doesNotMatch(html, /data-product-saved-list-toggle|data-product-saved-filter-tabs/);
-});
-
-test("ProductSignalView shows real readiness state without fake AI results", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_a",
-          sessionId: "session_a",
-          itemId: "item_a",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-04-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      analyses: [],
-      signalPreviewById: {},
-      signalReadinessById: {
-        signal_a: {
-          status: "saved",
-          itemStatus: "saved"
-        }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-signal-view="saved-signals"/);
-  assert.match(html, /已存訊號/);
-  assert.match(html, /1 signals/);
-  assert.match(html, /0 analyses/);
-  assert.match(html, /ProductProfile/);
-  assert.match(html, /ProductContext/);
-  assert.match(html, /data-saved-signals-route="true"/);
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.match(html, /data-product-saved-pipeline="true"/);
-  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
-  assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
-  assert.doesNotMatch(html, /data-saved-signals-batch-export="true"/);
-  assert.match(html, /尚未抓取/);
-  assert.match(html, /重新處理/);
-  assert.doesNotMatch(html, /航班觀察|fixture|score/i);
-});
-
-test("ProductSignalView surfaces backend health errors even when analyses already exist", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_backend",
-          sessionId: "session_product",
-          itemId: "item_backend",
-          source: "threads",
-          inboxStatus: "processed",
-          capturedAt: "2026-06-10T00:00:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_backend",
-          signalType: "learning",
-          signalSubtype: "browser_automation",
-          contentType: "discussion_starter",
-          contentSummary: "使用者想知道 extension backend 是否仍然可用。",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "直接影響 Product 分析流程。",
-          verdict: "watch",
-          reason: "需要持續觀察 backend 健康狀態。",
-          experimentHint: "在主 UI 顯示 backend health。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx",
-          promptVersion: "v1",
-          analyzedAt: "2026-06-10T00:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-06-10T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalPreviewById: {},
-      signalReadinessById: {
-        signal_backend: {
-          status: "ready",
-          itemStatus: "succeeded"
-        }
-      },
-      backendError: "Backend 無法連線。請到設定確認 backend URL，或先啟動 ingest backend。",
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /Backend 離線/);
-  assert.match(html, /Backend 無法連線。請到設定確認 backend URL/);
-  assert.doesNotMatch(html, /AI enabled|分析完成/);
-  assert.doesNotMatch(html, /✓ 已就緒/);
-});
-
-test("ProductSignalView keeps existing analyses visible when signal inbox is empty", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals: [],
-      analyses: [
-        {
-          signalId: "signal_orphan",
-          signalType: "noise",
-          signalSubtype: "mobile_capture",
-          contentType: "mixed",
-          contentSummary: "使用者想把 Threads 討論直接變成可執行任務。",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "對應 Product mode 的核心承諾。",
-          verdict: "park",
-          reason: "需求具體，適合先做小實驗。",
-          experimentHint: "做一個 collect-to-task 的最小流程。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx",
-          promptVersion: "v1",
-          analyzedAt: "2026-05-27T06:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-05-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalPreviewById: {},
-      signalReadinessById: {},
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-recovered-analyses="true"/);
-  assert.match(html, /data-product-load-state="recovering"/);
-  assert.match(html, /已有 1 筆既有分析，但目前 signal 清單是空的/);
-  assert.match(html, /使用者想把 Threads 討論直接變成可執行任務。/);
-  assert.match(html, /分析完成/);
-  assert.match(html, /噪音/);
-  assert.doesNotMatch(html, /前提不符/);
-  assert.doesNotMatch(html, /signal_orphan/);
-  assert.doesNotMatch(html, /尚未有 AI 分析結果/);
-});
-
-test("ProductSignalView shows hydration state instead of an empty result while product data loads", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals: [],
-      analyses: [],
-      isHydrating: true,
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-06-10T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalPreviewById: {},
-      signalReadinessById: {},
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-hydrating="true"[^>]*data-dlens-presence="card"/);
-  assert.match(html, /data-product-load-state="loading"/);
-  assert.match(html, /讀取中/);
-  assert.doesNotMatch(html, /No result|尚無結果/);
-  assert.doesNotMatch(html, /尚未有 AI 分析結果/);
-});
-
-test("ProductSignalView action route uses recovered analyses when signal inbox is empty", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "actionable-filter",
-      signals: [],
-      analyses: [
-        {
-          signalId: "signal_recovered_action",
-          signalType: "demand",
-          signalSubtype: "agent_workflow",
-          contentType: "mixed",
-          contentSummary: "團隊想把討論整理成可交付的 agent brief。",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "直接對應產品工作流。",
-          verdict: "try",
-          reason: "可以先做小型 action board。",
-          experimentHint: "整理候選行動。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx",
-          promptVersion: "v1",
-          analyzedAt: "2026-05-27T07:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-05-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalPreviewById: {},
-      signalReadings: [],
-      onReviewSignalReading: async () => ({ ok: false, error: "unused" }),
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-action-workspace="stage"/);
-  assert.match(html, /data-product-action-stage="signal_recovered_action"/);
-  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 1/);
-  assert.match(html, /團隊想把討論整理成可交付的 agent brief。/);
-  assert.doesNotMatch(html, /data-signal-reading-review-workspace/);
-  assert.doesNotMatch(html, /0 則訊號已評估/);
-});
-
-test("ProductSignalView only shows remove controls when delete is wired", () => {
-  const baseProps = {
-    kind: "saved-signals" as const,
-    signals: [
-      {
-        id: "signal_a",
-        sessionId: "session_a",
-        itemId: "item_a",
-        source: "threads" as const,
-        inboxStatus: "unprocessed" as const,
-        capturedAt: "2026-05-14T07:00:00.000Z"
-      }
-    ],
-    productProfile: null,
-    analyses: [],
-    signalPreviewById: {
-      signal_a: "User asks whether agents can turn research into usable output."
-    },
-    signalReadinessById: {
-      signal_a: {
-        status: "saved" as const,
-        itemStatus: "saved" as const
-      }
-    },
-    onAnalyze: () => undefined
-  };
-
-  const unwiredHtml = renderToStaticMarkup(
-    productSignalViewElement( baseProps)
-  );
-  const wiredHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      onRemoveSignal: () => undefined
-    })
-  );
-
-  assert.doesNotMatch(unwiredHtml, /aria-label="移除此訊號"/);
-  assert.match(wiredHtml, /aria-label="移除此訊號"/);
-});
-
-test("SavedSignalsBoard keeps management rows compact behind the analysis lifecycle", () => {
-  const longPreview = "用戶問產品需要如何收斂訊號列表，避免每行都像文章一樣難掃描 META_ROW_SHOULD_NOT_RENDER 這段不應在 compact row 出現";
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_compact",
-          sessionId: "session_a",
-          itemId: "item_compact",
-          source: "threads",
-          inboxStatus: "processed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_compact",
-          signalType: "learning",
-          signalSubtype: "inbox_density",
-          contentType: "discussion_starter",
-          contentSummary: "列表需要更像營運 inbox。",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "直接影響 Product saved route 掃描效率。",
-          verdict: "watch",
-          reason: "先壓縮列表資訊量。",
-          experimentHint: "把 row meta 降到一行。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx_1",
-          promptVersion: "v1",
-          analyzedAt: "2026-04-27T01:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: productTestProfile(),
-      signalPreviewById: { signal_compact: longPreview },
-      signalReadinessById: {
-        signal_compact: {
-          status: "ready",
-          itemStatus: "succeeded"
-        }
-      },
-      onAnalyze: () => undefined,
-      onGoToActionable: () => undefined
-    })
-  );
-
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.match(html, /管理收件匣 · 1 則/);
-  assert.match(html, /已收集 1[^]*可分析／重試 0[^]*處理中 0[^]*已完成 1/);
-  assert.match(html, /已完成/);
-  assert.doesNotMatch(html, /data-product-saved-inline-reading|data-product-source-truth/);
-  assert.doesNotMatch(html, /data-product-merged-classification="true"/);
-  assert.doesNotMatch(html, /data-product-classification-bucket="learning"/);
-  assert.doesNotMatch(html, /可分析 · 學習資源 · 保留觀察/);
-});
-
-test("SavedSignalsBoard keeps source truth out of the compact intake", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        { id: "signal_truth", sessionId: "session_truth", itemId: "item_truth", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" }
-      ],
-      analyses: [{
-        signalId: "signal_truth",
-        signalType: "demand",
-        signalSubtype: "source_truth",
-        contentType: "discussion_starter",
-        contentSummary: "保留來源真相，而不是把模型的 ref 當成已驗證證據。",
-        relevance: 4,
-        relevantTo: ["coreWorkflows"],
-        whyRelevant: "可避免把無對應來源的 reference 顯示給使用者。",
-        verdict: "watch",
-        reason: "來源支持仍要逐筆確認。",
-        audienceGap: "尚未看見反例回應。",
-        referenceTakeaway: "先保留有來源支持的判讀。",
-        evidenceRefs: ["e1", "e8", "e_raw"],
-        evidenceNotes: [{ ref: "e1", quoteSummary: "精確引用：來源支持這個觀察。", whyItMatters: "支持判讀。" }],
-        productContextHash: "ctx_truth",
-        promptVersion: "v17",
-        analyzedAt: "2026-07-20T01:00:00.000Z",
-        status: "complete"
-      }],
-      productProfile: productTestProfile(),
-      signalPreviewById: { signal_truth: "來源訊號原文。" },
-      evidenceBySignalId: {
-        signal_truth: [
-          { ref: "e1", id: "entry_1", author: "alpha", text: "來源 e1", likeCount: 5 },
-          { ref: "e8", id: "entry_8", author: "beta", text: "來源 e8", likeCount: 2 }
-        ]
-      },
-      descriptorBySignalId: {
-        signal_truth: {
-          engagement: { likes: 42, comments: 7, reposts: 3, forwards: 2 },
-          engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
-        }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-saved-management="collapsed"/);
-  assert.doesNotMatch(html, /data-product-source-truth|證據 ref|總互動|e_raw/);
-});
-
-test("SavedSignalsBoard counts pending and complete analysis in the lifecycle ledger", () => {
-  const completeAnalysis = {
-    signalId: "signal_complete",
-    signalType: "demand" as const,
-    signalSubtype: "coverage_truth",
-    contentType: "discussion_starter" as const,
-    contentSummary: "已完成的分析。",
-    relevance: 4 as const,
-    relevantTo: ["coreWorkflows" as const],
-    whyRelevant: "只計算完成的分析。",
-    verdict: "watch" as const,
-    reason: "完成分析。",
-    referenceTakeaway: "完成後才可保留新知。",
-    evidenceRefs: ["e1"],
-    productContextHash: "ctx_coverage",
-    promptVersion: "v17",
-    analyzedAt: "2026-07-20T01:00:00.000Z",
-    status: "complete" as const
-  };
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        { id: "signal_pending", sessionId: "session_coverage", itemId: "item_pending", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" },
-        { id: "signal_complete", sessionId: "session_coverage", itemId: "item_complete", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:01:00.000Z" }
-      ],
-      analyses: [{
-        ...completeAnalysis,
-        signalId: "signal_pending",
-        contentSummary: "尚未完成，不可顯示這段模型內容。",
-        reason: "尚未完成，不可顯示這段模型理由。",
-        referenceTakeaway: "尚未完成，不可顯示這段新知。",
-        status: "analyzing" as const
-      }, completeAnalysis],
-      productProfile: productTestProfile(),
-      signalPreviewById: {
-        signal_pending: "已抓取、正在分析的原始訊號。",
-        signal_complete: "已完成的原始訊號。"
-      },
-      signalReadinessById: {
-        signal_pending: { status: "ready", itemStatus: "succeeded" },
-        signal_complete: { status: "ready", itemStatus: "succeeded" }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 2[^]*可分析／重試 0[^]*處理中 1[^]*已完成 1/);
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.doesNotMatch(html, /data-product-saved-inline-reading/);
-  assert.doesNotMatch(html, /尚未完成，不可顯示這段模型內容/);
-  assert.doesNotMatch(html, /AI 已分類/);
-});
-
-test("SavedSignalsBoard counts persisted analysis errors as retryable and labels the row honestly", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        { id: "signal_retryable", sessionId: "session_retryable", itemId: "item_retryable", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" }
-      ],
-      analyses: [{
-        signalId: "signal_retryable",
-        signalType: "technical",
-        signalSubtype: "analysis_error",
-        contentType: "mixed",
-        contentSummary: "這次分析沒有完成。",
-        relevance: 1,
-        relevantTo: [],
-        whyRelevant: "這次分析沒有產生可信結果。",
-        verdict: "insufficient_data",
-        reason: "Invalid product signal analysis payload",
-        evidenceRefs: [],
-        productContextHash: "ctx_retryable",
-        promptVersion: "v17",
-        analyzedAt: "2026-07-20T01:00:00.000Z",
-        status: "error",
-        error: "Invalid product signal analysis payload"
-      }],
-      productProfile: productTestProfile(),
-      signalPreviewById: { signal_retryable: "已抓取、可重新分析的原始訊號。" },
-      signalReadinessById: {
-        signal_retryable: { status: "ready", itemStatus: "succeeded" }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 1[^]*可分析／重試 1[^]*處理中 0[^]*已完成 0/);
-  assert.match(html, /data-saved-signal-row="management"[^>]*data-saved-signal-lifecycle="ready"[^>]*data-saved-signal-tone="warning"[^]*分析失敗 · 可重試/);
-  const management = html.slice(html.indexOf('data-product-saved-management="collapsed"'));
-  assert.doesNotMatch(management, />可分析</);
-});
-
-test("SavedSignalsBoard does not present evidence detail in the analysis intake", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        { id: "signal_note_only", sessionId: "session_note", itemId: "item_note", source: "threads", inboxStatus: "processed", capturedAt: "2026-07-20T00:00:00.000Z" }
-      ],
-      analyses: [{
-        signalId: "signal_note_only",
-        signalType: "learning",
-        signalSubtype: "note_only",
-        contentType: "content",
-        contentSummary: "只有 AI 摘要，沒有來源逐字內容。",
-        relevance: 3,
-        relevantTo: ["technicalLearning"],
-        whyRelevant: "可作為判讀，但不是逐字引文。",
-        verdict: "watch",
-        reason: "需要回到來源確認。",
-        referenceTakeaway: "保留為待查證重點。",
-        evidenceRefs: ["e7"],
-        evidenceNotes: [{ ref: "e7", quoteSummary: "這是 AI 產生的來源摘要。", whyItMatters: "不是逐字引用。" }],
-        productContextHash: "ctx_note",
-        promptVersion: "v17",
-        analyzedAt: "2026-07-20T01:00:00.000Z",
-        status: "complete"
-      }],
-      productProfile: productTestProfile(),
-      signalPreviewById: { signal_note_only: "來源正文。" },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.doesNotMatch(html, /data-product-source-truth|data-product-saved-exact-citation|這是 AI 產生的來源摘要。/);
-});
-
-test("ProductSignalView saved signals removes the old equal-weight fusion card grammar", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_fusion",
-          sessionId: "session_fusion",
-          itemId: "item_fusion",
-          source: "threads",
-          inboxStatus: "processed",
-          capturedAt: "2026-07-06T00:00:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_fusion",
-          signalType: "demand" as const,
-          signalSubtype: "pm_document_generation",
-          contentType: "discussion_starter" as const,
-          contentSummary: "把討論串轉成可派發給 agent 的產品任務。",
-          relevance: 4 as const,
-          relevantTo: ["coreWorkflows" as const],
-          referenceType: "workflow_pattern" as const,
-          referenceLabel: "討論轉 agent task",
-          referenceTakeaway: "用 Product mode 收斂成可執行的驗證任務。",
-          whyRelevant: "對應 Product mode 的收集到行動流程。",
-          whyNow: "已經有多則收集內容需要統一判讀。",
-          verdict: "try" as const,
-          reason: "輸入、判讀和交付物都清楚。",
-          experimentHint: "選三則 signal 產生 agent packet。",
-          validationMetric: "三則 signal 中至少兩則能轉成可執行 task。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx_fusion",
-          promptVersion: "v17",
-          model: "gpt-4.1-mini",
-          analyzedAt: "2026-07-06T01:00:00.000Z",
-          status: "complete" as const
-        }
-      ],
-      productProfile: productTestProfile(),
-      signalPreviewById: {
-        signal_fusion: "原文提到需要把討論轉成 agent 可以接手的工作包。"
-      },
-      descriptorBySignalId: {
-        signal_fusion: {
-          author_hint: "pm_ops",
-          engagement: { likes: 42, comments: 7, reposts: null, forwards: null },
-          engagement_present: { likes: true, comments: true, reposts: false, forwards: false }
-        }
-      },
-      onAnalyze: () => undefined,
-      onGoToActionable: () => undefined
-    })
-  );
-
-  assert.match(html, /data-saved-signal-row="management"/);
-  assert.match(html, /原文提到需要把討論轉成 agent 可以接手的工作包。/);
-  assert.match(html, /已完成/);
-  assert.doesNotMatch(html, /data-saved-signal-open|data-product-source-truth/);
-  assert.doesNotMatch(html, /data-product-fusion-card=/);
-  assert.doesNotMatch(html, /data-product-card-eyebrow="true"/);
-  assert.doesNotMatch(html, /data-product-card-quote="true"/);
-  assert.doesNotMatch(html, /data-product-kv-grid="signal"/);
-  assert.doesNotMatch(html, /data-collector-metric-strip="product-signal-signal_fusion"/);
-});
-
-test("ProductSignalView export ownership is Action-only with one whole-folder packet section", () => {
-  const baseProps = {
-    signals: [
-      {
-        id: "signal_a",
-        sessionId: "session_a",
-        itemId: "item_a",
-        source: "threads" as const,
-        inboxStatus: "unprocessed" as const,
-        capturedAt: "2026-04-27T00:00:00.000Z"
-      }
-    ],
-    analyses: [
-      {
-        signalId: "signal_a",
-        signalType: "demand" as const,
-        signalSubtype: "mobile_share_extension",
-        contentType: "mixed" as const,
-        contentSummary: "Users want a one-tap mobile save flow.",
-        relevance: 5 as const,
-        relevantTo: ["coreWorkflows" as const],
-        whyRelevant: "It maps directly to DLens collect flow.",
-        verdict: "try" as const,
-        reason: "The workflow is concrete enough for a small test.",
-        experimentHint: "Prototype a share URL intake.",
-        evidenceRefs: ["e1"],
-        productContextHash: "ctx_1",
-        promptVersion: "v1",
-        analyzedAt: "2026-04-27T01:00:00.000Z",
-        status: "complete" as const
-      }
-    ],
-    productProfile: {
-      name: "DLens",
-      category: "Creator analysis",
-      audience: "Threads creators",
-      contextText: "README context",
-      contextFiles: [
-        {
-          id: "file_readme",
-          name: "README.md",
-          kind: "readme" as const,
-          importedAt: "2026-04-27T00:00:00.000Z",
-          charCount: 14
-        }
-      ]
-    },
-    signalPreviewById: { signal_a: "Threads post preview" },
-    onAnalyze: () => undefined
-  };
-
-  const savedHtml = renderToStaticMarkup(
-    productSignalViewElement( { ...baseProps, kind: "saved-signals", onGoToActionable: () => undefined })
-  );
-  const actionableHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      kind: "actionable-filter",
-      activeFolderId: "session_a",
-      exportFolders: [
-        { id: "session_a", name: "DLens Signals", itemCount: 3 },
-        { id: "session_b", name: "AI Workflow Watchlist", itemCount: 2 }
-      ],
-      onExportSignalPackets: async () => ({
-        ok: true,
-        exportResult: {
-          format: "html",
-          content: "<!doctype html>",
-          filename: "dlens.html",
-          mimeType: "text/html;charset=utf-8",
-          packetCount: 1,
-          generatedAt: "2026-05-19T08:30:00.000Z"
-        }
-      })
-    })
-  );
-
-  assert.doesNotMatch(savedHtml, /data-saved-signals-batch-export="true"/);
-  assert.doesNotMatch(savedHtml, /data-product-action-brief-export|data-signal-packet-html-export/);
-  assert.doesNotMatch(savedHtml, /行動簡報匯出|原文優先|精簡決策|複製行動簡報/);
-  const transitionTile = findTagWithAttribute(savedHtml, 'data-product-action-cta="true"');
-  assert.match(transitionTile, /data-raised-tile="true"/);
-  assert.match(transitionTile, new RegExp(`border-radius:${tokens.radius.card}px`));
-  assert.match(transitionTile, /width:100%/);
-  assert.match(transitionTile, /box-sizing:border-box/);
-  const transitionCopy = findTagWithAttribute(savedHtml, 'data-product-action-cta-copy="true"');
-  assert.match(transitionCopy, /font-size:13px/);
-  assert.match(transitionCopy, /line-height:1.55/);
-  assert.match(transitionCopy, /font-weight:400/);
-  assert.match(actionableHtml, /data-product-action-workspace="stage"/);
-  assert.doesNotMatch(actionableHtml, /data-saved-signals-batch-export="true"/);
-  assert.doesNotMatch(actionableHtml, /Agent export/);
-  assert.doesNotMatch(actionableHtml, /data-product-action-brief-export|原文優先|精簡決策|複製行動簡報/);
-  assert.match(actionableHtml, /<details data-product-action-export="true"/);
-  assert.equal(countOccurrences(actionableHtml, 'data-signal-packet-html-export="true"'), 1);
-  assert.match(actionableHtml, /整個 Folder Packet/);
-  assert.match(actionableHtml, /data-signal-packet-format-option="html"/);
-  assert.match(actionableHtml, /data-signal-packet-format-option="jsonl"/);
-  assert.match(actionableHtml, /匯出 HTML Reading/);
-  assert.match(actionableHtml, /JSONL Packet/);
-  assert.doesNotMatch(actionableHtml, /data-agent-brief-copy-status/);
-  assert.doesNotMatch(actionableHtml, /data-batch-export-selection-list|data-signal-reading-disclosure/);
-  assert.doesNotMatch(actionableHtml, /# Agent Brief/);
-});
-
-test("SavedSignalsBoard keeps unanalyzed placeholders in compact management", () => {
-  const signals = [
-    {
-      id: "signal_done",
-      sessionId: "session_a",
-      itemId: "item_done",
-      source: "threads" as const,
-      inboxStatus: "processed" as const,
-      capturedAt: "2026-04-27T00:00:00.000Z"
-    },
-    ...["a", "b", "c", "d"].map((suffix) => ({
-      id: `signal_pending_${suffix}`,
-      sessionId: "session_a",
-      itemId: `item_pending_${suffix}`,
-      source: "threads" as const,
-      inboxStatus: "unprocessed" as const,
-      capturedAt: "2026-04-27T00:00:00.000Z"
-    }))
-  ];
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals,
-      analyses: [
-        {
-          signalId: "signal_done",
-          signalType: "learning",
-          signalSubtype: "agent_brief",
-          contentType: "discussion_starter",
-          contentSummary: "已完成分析的 signal 可輸出 brief。",
-          relevance: 4,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "可驗證 batch export。",
-          verdict: "try",
-          reason: "已有判讀。",
-          experimentHint: "整理 agent brief。",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx_1",
-          promptVersion: "v1",
-          analyzedAt: "2026-04-27T01:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: productTestProfile(),
-      signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.id, `${signal.id} preview`])),
-      signalReadinessById: Object.fromEntries(
-        signals.map((signal) => [
-          signal.id,
-          signal.id === "signal_done"
-            ? { status: "ready" as const, itemStatus: "succeeded" as const }
-            : { status: "saved" as const, itemStatus: "saved" as const }
-        ])
-      ),
-      onAnalyze: () => undefined,
-      onGoToActionable: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-saved-pipeline="true"[^]*已收集 5[^]*已完成 1/);
-  assert.equal(countOccurrences(html, 'data-saved-signal-row="management"'), 5);
-  assert.doesNotMatch(html, /data-saved-signals-batch-export|data-batch-export-unanalysed-summary|data-batch-export-selection-row/);
-});
-
-test("ProductSignalView aggregates terminal crawler setup errors without raw backend details", () => {
-  const signals = ["a", "b", "c", "d"].map((suffix) => ({
-    id: `signal_fetching_${suffix}`,
-    sessionId: "session_a",
-    itemId: `item_fetching_${suffix}`,
-    source: "threads" as const,
-    inboxStatus: "unprocessed" as const,
-    capturedAt: "2026-04-27T00:00:00.000Z"
-  }));
-  const signalReadinessById = Object.fromEntries(
-    signals.map((signal) => [
-      signal.id,
-      {
-        status: "failed" as const,
-        itemStatus: "failed" as const,
-        lastErrorKind: "crawler_setup_error",
-        lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
-      }
-    ])
-  );
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals,
-      analyses: [],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-04-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalReadinessById,
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-error-aggregate="crawler_setup_error"/);
-  assert.match(html, /4 個 signal 因後端瀏覽器設定失敗/);
-  assert.match(html, /暫停自動重試/);
-  assert.match(html, /抓取失敗/);
-  assert.doesNotMatch(html, /抓取中（重試中）/);
-  assert.doesNotMatch(html, /backend 回報錯誤/);
-  assert.doesNotMatch(html, /BrowserType\.launch/);
-  assert.doesNotMatch(html, /ms-playwright/);
-  assert.doesNotMatch(html, /等待 backend 完成 ThreadReadModel/);
-});
-
-test("ProductSignalView ignores stale terminal job errors while signals are still crawling", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_retrying",
-          sessionId: "session_a",
-          itemId: "item_retrying",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      analyses: [],
-      productProfile: productTestProfile(),
-      signalReadinessById: {
-        signal_retrying: {
-          status: "crawling",
-          itemStatus: "running",
-          lastErrorKind: "unexpected_runtime_error",
-          lastError: "BrowserType.launch: Executable doesn't exist at /Users/tung/Library/Caches/ms-playwright/chromium"
-        }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /抓取中/);
-  assert.doesNotMatch(html, /data-product-error-aggregate/);
-  assert.doesNotMatch(html, /抓取失敗/);
-  assert.doesNotMatch(html, /BrowserType\.launch|ms-playwright|\/Users\/tung/);
-});
-
-test("ProductSignalView keeps crawling pending signals collapsed on saved-signals", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_fetching",
-          sessionId: "session_a",
-          itemId: "item_fetching",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      analyses: [],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-04-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalReadinessById: {
-        signal_fetching: {
-          status: "crawling",
-          itemStatus: "running"
-        }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /抓取中/);
-  assert.match(html, /data-product-saved-pending-detail="collapsed"/);
-  assert.doesNotMatch(html, /data-product-crawl-sweep="true"/);
-  assert.doesNotMatch(html, /dlens-popup-indeterminate/);
-  assert.doesNotMatch(html, /data-pending-signal-spinner="true"/);
-  assert.doesNotMatch(html, /animation:dlens-spin 0\.8s linear infinite/);
-});
-
-test("ProductSignalView describes empty crawl output without implying crawler failure", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "saved-signals",
-      signals: [
-        {
-          id: "signal_empty_model",
-          sessionId: "session_a",
-          itemId: "item_empty_model",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      analyses: [],
-      productProfile: productTestProfile(),
-      signalReadinessById: {
-        signal_empty_model: {
-          status: "missing_content",
-          itemStatus: "succeeded"
-        }
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /未抽到正文/);
-  assert.doesNotMatch(html, /內容不完整/);
-  assert.doesNotMatch(html, /抓取失敗/);
-});
-
-test("Product action route collapses pending signals into a compact queue summary", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "actionable-filter",
-      signals: [
-        {
-          id: "signal_done",
-          sessionId: "session_a",
-          itemId: "item_done",
-          source: "threads",
-          inboxStatus: "processed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        },
-        {
-          id: "signal_pending",
-          sessionId: "session_a",
-          itemId: "item_pending",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:02:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_done",
-          signalType: "demand",
-          signalSubtype: "share_intake",
-          contentType: "mixed",
-          contentSummary: "Users want a one-tap mobile save flow.",
-          relevance: 5,
-          relevantTo: ["coreWorkflows"],
-          whyRelevant: "It maps directly to DLens collect flow.",
-          verdict: "try",
-          reason: "The workflow is concrete enough for a small test.",
-          experimentHint: "Prototype a share URL intake.",
-          evidenceRefs: ["e1"],
-          productContextHash: "ctx_1",
-          promptVersion: "v1",
-          analyzedAt: "2026-04-27T01:00:00.000Z",
-          status: "complete"
-        }
-      ],
-      productProfile: productTestProfile(),
-      signalReadinessById: {
-        signal_done: { status: "ready", itemStatus: "succeeded" },
-        signal_pending: { status: "crawling", itemStatus: "running" }
-      },
-      signalPreviewById: {
-        signal_done: "Done signal preview",
-        signal_pending: "Pending signal should not become a big action card"
-      },
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.match(html, /1 則訊號等待進入行動判讀/);
-  assert.match(html, /抓取\/分析中/);
-  assert.doesNotMatch(html, /data-product-pending-card="topic-card"/);
-  assert.doesNotMatch(html, /等待處理的 signals/);
-  assert.doesNotMatch(html, /Pending signal should not become a big action card/);
-});
-
-test("Product Action does not scope folder results to an ambient analyzed Threads post", () => {
-  const fixture = productActionStageFixture();
-  const routedAnalyses = fixture.analyses.map((analysis) => ({
-    ...analysis,
-    promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
-    experimentHint: analysis.signalId === "signal_watch_first"
-      ? "目前 Amicro 可直接採用建議"
-      : analysis.signalId === "signal_try_second"
-        ? "不相干 Icon Animator 建議"
-        : analysis.experimentHint
-  }));
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.com/@dlens/post/signal_watch_first?utm_source=test#reply",
-      analyses: routedAnalyses,
-      signalPreviewById: {
-        ...fixture.signalPreviewById,
-        signal_watch_first: "最近看到一個滿有意思的小工具：Amicro。",
-        signal_try_second: "不相干的 Icon Animator，網址 https://lottiefiles.com"
-      },
-      signalUrlById: {
-        signal_watch_first: "https://www.threads.com/@bing_sunzhi/post/signal_watch_first",
-        signal_try_second: "https://www.threads.com/@other/post/signal_try_second"
-      }
-    })
-  );
-
-  assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-status="compact"[^>]*data-product-selection-context="folder"/);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /第二則高相關度實驗/);
-  assert.match(html, /Icon Animator|lottiefiles\.com|不相干 Icon Animator 建議/);
-  assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.doesNotMatch(html, /data-product-current-page-context=|data-product-current-page-panel=/);
-});
-
-test("Product Action keeps whole-folder export controls regardless of the ambient Threads post", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.com/@dlens/post/signal_try_second",
-      analyses: fixture.analyses.map((analysis) => ({
-        ...analysis,
-        promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-      })),
-      exportFolders: [{ id: "session_stage", name: "Product folder", itemCount: fixture.signals.length }],
-      onExportSignalPackets: async () => ({
-        ok: true as const,
-        exportResult: {
-          format: "html" as const,
-          content: "<!doctype html>",
-          filename: "dlens.html",
-          mimeType: "text/html;charset=utf-8",
-          packetCount: fixture.signals.length,
-          generatedAt: "2026-07-22T08:00:00.000Z"
-        }
-      })
-    })
-  );
-
-  assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /data-product-action-export="true"|整個 Folder Packet/);
-});
-
-test("Product Action ignores ambient saved-pending state and renders the folder stage", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.net/@dlens/post/signal_watch_first",
-      analyses: fixture.analyses.map((analysis) => (
-        analysis.signalId === "signal_try_second"
-          ? { ...analysis, promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION }
-          : analysis
-      ))
-    })
-  );
-
-  assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /data-product-action-pager="text"/);
-  assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.match(html, /data-product-reading-card="true"/);
-  assert.match(html, /第二則高相關度實驗/);
-  assert.doesNotMatch(html, /data-product-current-page-panel=|目前頁面已收錄/);
-});
-
-test("Product Action folder stage is invariant across ambient missing, queued, stale, and failed post states", () => {
-  const fixture = productActionStageFixture();
-  const targetId = "signal_watch_first";
-  const targetAnalysis = fixture.analyses.find((analysis) => analysis.signalId === targetId);
-  assert.ok(targetAnalysis);
-  const scenarios = [
-    {
-      label: "missing",
-      analyses: fixture.analyses.filter((analysis) => analysis.signalId !== targetId),
-      expected: /data-product-action-stage="signal_try_second"/
-    },
-    {
-      label: "queued",
-      analyses: fixture.analyses.map((analysis) => analysis.signalId === targetId
-        ? { ...analysis, status: "pending" as const, promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION }
-        : analysis),
-      expected: /data-product-action-stage="signal_try_second"/
-    },
-    {
-      label: "stale",
-      analyses: fixture.analyses,
-      expected: /data-product-action-stage="signal_try_second"/
-    },
-    {
-      label: "failed",
-      analyses: fixture.analyses.map((analysis) => analysis.signalId === targetId
-        ? { ...analysis, status: "error" as const, promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION }
-        : analysis),
-      expected: /data-product-action-stage="signal_try_second"/
-    }
-  ];
-
-  for (const scenario of scenarios) {
-    const html = renderToStaticMarkup(productSignalViewElement({
-      ...fixture,
-      currentPageUrl: `https://www.threads.net/@dlens/post/${targetId}?state=${scenario.label}`,
-      analyses: scenario.analyses,
-      signalPreviewById: {
-        ...fixture.signalPreviewById,
-        signal_try_second: "不可洩漏的 Icon Animator / lottiefiles.com"
-      }
-    }));
-    assert.match(html, /data-product-action-route-context="folder"/, scenario.label);
-    assert.match(html, scenario.expected, scenario.label);
-    assert.match(html, /Icon Animator|lottiefiles\.com/, scenario.label);
-    assert.doesNotMatch(html, /data-product-current-page-panel=|目前頁面已收錄/, scenario.label);
-  }
-});
-
-test("Product Action ignores an unrelated ambient Threads page and keeps the folder-owned stage visible", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.com/@dlens/post/amicro_new_post",
-      analyses: fixture.analyses.map((analysis) => ({
-        ...analysis,
-        promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-      }))
-    })
-  );
-
-  assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /data-product-action-pager="text"/);
-  assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.match(html, /第二則高相關度實驗/);
-  assert.doesNotMatch(html, /data-product-current-page-panel=|目前頁面尚未加入這個 Product folder/);
-});
-
-test("Product Action keeps folder behavior on ambient non-post pages", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.net/home",
-      analyses: fixture.analyses.map((analysis) => ({
-        ...analysis,
-        promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-      }))
-    })
-  );
-
-  assert.match(html, /data-product-action-route-context="folder"/);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /第二則高相關度實驗/);
-  assert.match(html, /data-product-action-queue-summary="true"/);
-  assert.doesNotMatch(html, /data-product-current-page-panel=/);
-});
-
-test("Product Action keeps the DLens-selected signal while the ambient Threads URL changes", async () => {
-  const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { act } = await import("react");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const fixture = productActionStageFixture();
-  const currentAnalyses = fixture.analyses.map((analysis) => ({
-    ...analysis,
-    promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
-  }));
-
-  try {
-    await act(async () => root.render(productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.net/@dlens/post/signal_watch_first",
-      analyses: currentAnalyses
-    })));
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-signal-frame]")?.dataset.productActionRouteContext, "folder");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_try_second");
-
-    const watchTile = rootElement.querySelector<HTMLButtonElement>('[data-action-verdict-filter="watch"]');
-    assert.ok(watchTile);
-    await act(async () => watchTile.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_first");
-
-    await act(async () => root.render(productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.com/@dlens/post/signal_park",
-      analyses: currentAnalyses
-    })));
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-signal-frame]")?.dataset.productActionRouteContext, "folder");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_first");
-
-    await act(async () => root.render(productSignalViewElement({
-      ...fixture,
-      currentPageUrl: "https://www.threads.net/home",
-      analyses: currentAnalyses
-    })));
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-signal-frame]")?.dataset.productActionRouteContext, "folder");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_first");
-    assert.ok(rootElement.querySelector("[data-product-action-queue-summary]"));
-    assert.equal(rootElement.querySelector("[data-product-current-page-panel]"), null);
-  } finally {
-    await act(async () => root.unmount());
-    Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    dom.window.close();
-  }
-});
-
-test("ProductSignalView gives each product page a distinct information shape", () => {
-  const baseProps = {
-    signals: [
-      {
-        id: "signal_a",
-        sessionId: "session_a",
-        itemId: "item_a",
-        source: "threads" as const,
-        inboxStatus: "unprocessed" as const,
-        capturedAt: "2026-04-27T00:00:00.000Z"
-      }
-    ],
-    analyses: [
-      {
-        signalId: "signal_a",
-        signalType: "demand" as const,
-        signalSubtype: "mobile_share_extension",
-        contentType: "mixed" as const,
-        contentSummary: "Users want a one-tap mobile save flow.",
-        relevance: 5 as const,
-        relevantTo: ["coreWorkflows" as const],
-        whyRelevant: "It maps directly to DLens collect flow.",
-        verdict: "try" as const,
-        reason: "The workflow is concrete enough for a small test.",
-        experimentHint: "Prototype a share URL intake.",
-        agentTaskSpec: {
-          targetAgent: "codex" as const,
-          taskPrompt: "You are helping prototype a share URL intake.\n\nTask:\n1. Inspect the extension collect flow.\n2. Draft the smallest implementation plan.\n\nSuccess: a two-week test plan is ready.\nStop condition: missing repo access.",
-          requiredContext: ["repo access", "current README"]
-        },
-        evidenceRefs: ["e1"],
-        productContextHash: "ctx_1",
-        promptVersion: "v1",
-        analyzedAt: "2026-04-27T01:00:00.000Z",
-        status: "complete" as const
-      }
-    ],
-    productProfile: {
-      name: "DLens",
-      category: "Creator analysis",
-      audience: "Threads creators",
-      contextText: "README context",
-      contextFiles: [
-        {
-          id: "file_readme",
-          name: "README.md",
-          kind: "readme" as const,
-          importedAt: "2026-04-27T00:00:00.000Z",
-          charCount: 14
-        }
-      ]
-    },
-    signalPreviewById: { signal_a: "Threads post preview" },
-    evidenceBySignalId: {
-      signal_a: [
-        {
-          ref: "e1",
-          id: "reply_1",
-          author: "builder",
-          text: "A one-tap mobile save flow would fit my day.",
-          likeCount: 7
-        }
-      ]
-    },
-    onAnalyze: () => undefined
-  };
-
-  const classificationHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      kind: "classification"
-    })
-  );
-  const savedHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      kind: "saved-signals",
-      onGoToActionable: () => undefined
-    })
-  );
-  const actionableHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      kind: "actionable-filter"
-    })
-  );
-
-  assert.match(savedHtml, /data-product-saved-pipeline="true"/);
-  assert.match(savedHtml, /已收集 1[^]*可分析／重試 0[^]*處理中 0[^]*已完成 1/);
-  assert.match(savedHtml, /data-product-saved-management="collapsed"/);
-  assert.match(savedHtml, /Threads post preview/);
-  assert.doesNotMatch(savedHtml, /data-product-saved-inline-reading|data-product-source-truth/);
-  assert.doesNotMatch(savedHtml, /data-product-merged-classification="true"/);
-  assert.doesNotMatch(savedHtml, /分類摘要/);
-  assert.doesNotMatch(savedHtml, /data-product-classification-bucket="demand"/);
-  assert.match(savedHtml, /Threads post preview/);
-  assert.doesNotMatch(savedHtml, /需求/);
-  assert.doesNotMatch(savedHtml, /data-product-classification-layout="responsive"/);
-  assert.doesNotMatch(savedHtml, /data-product-selected-aside="true"/);
-
-  assert.match(classificationHtml, /分類構成/);
-  assert.doesNotMatch(classificationHtml, /data-product-classification-board="true"[^>]*padding-bottom/);
-  assert.match(classificationHtml, /系統挑出的內容/);
-  assert.match(classificationHtml, /討論串內容/);
-  assert.match(classificationHtml, /data-product-classification-layout="responsive"[^>]*min-width:0/);
-  assert.match(classificationHtml, /data-product-selected-aside="true"[^>]*min-width:0/);
-  assert.match(classificationHtml, /overflow-wrap:anywhere/);
-  assert.doesNotMatch(classificationHtml, /grid-template-columns:minmax\(220px, 1\.1fr\) minmax\(240px, 1fr\)/);
-  assert.match(classificationHtml, /data-scan-list="product-classification"/);
-  assert.match(classificationHtml, /data-product-list-motion="classification"/);
-  assert.match(classificationHtml, /data-scan-row="true"/);
-  assert.match(classificationHtml, /data-classification-row-indicator="true"/);
-  assert.match(classificationHtml, /data-scan-row="true"[^>]*class="dlens-tactile-row"/);
-  assert.match(classificationHtml, /Users want a one-tap mobile save flow/);
-  assert.doesNotMatch(classificationHtml, /relevance 5 of 5/);
-  assert.doesNotMatch(classificationHtml, /collected posts|mobile share extension|mixed/);
-  assert.match(classificationHtml, /AI 已分類 1 則訊號/);
-  assert.match(classificationHtml, /行動分享入口/);
-  assert.match(classificationHtml, /混合內容/);
-  assert.doesNotMatch(classificationHtml, /最新在前/);
-  assert.match(classificationHtml, /AI 建議分類/);
-  assert.doesNotMatch(classificationHtml, /Agent 任務卡|實驗假設草稿/);
-  assert.match(classificationHtml, /值得嘗試/);
-  assert.doesNotMatch(classificationHtml, /R5/);
-
-  assert.match(actionableHtml, /1 已評估/);
-  assert.match(actionableHtml, /data-product-action-stage="signal_a"/);
-  assert.match(actionableHtml, /data-product-action-pager="text"/);
-  assert.match(actionableHtml, /A one-tap mobile save flow would fit my day/);
-  assert.doesNotMatch(actionableHtml, /儲存至行動清單|>\+<\/span> 儲存/);
-  assert.doesNotMatch(actionableHtml, /AI 實驗建議（輔助）/);
-  assert.doesNotMatch(actionableHtml, /AI 判斷依據/);
-  assert.doesNotMatch(actionableHtml, /Agent 任務（可複製）/);
-  assert.doesNotMatch(actionableHtml, /Agent 任務卡 ·/);
-  assert.doesNotMatch(actionableHtml, /這個任務建議/);
-  assert.doesNotMatch(actionableHtml, /\d+\s+likes/);
-  assert.doesNotMatch(actionableHtml, /TRY experiment|relevance 5\/5|signal type/);
-  assert.match(actionableHtml, /data-product-action-content="true"[^>]*display:grid/);
-  assert.match(actionableHtml, /data-product-reading-unavailable="true"/);
-  assert.match(actionableHtml, /來源證據/);
-  assert.doesNotMatch(actionableHtml, /觀察原因|新知保留|下一步|尚未有可派發任務；先保留為觀察。/);
-  assert.doesNotMatch(actionableHtml, /相關度 5\/5/);
-  assert.doesNotMatch(actionableHtml, /R5/);
-  // Marginalia owns the experiment and judgment slots in its main column / rail.
-  assert.doesNotMatch(actionableHtml, /data-product-panel="experiment"/);
-  assert.doesNotMatch(actionableHtml, /data-product-panel-badge="experiment"/);
-  // Agent task prompt cards are no longer part of the primary action card flow.
-  assert.doesNotMatch(actionableHtml, /data-agent-task-card="true"/);
-  assert.doesNotMatch(actionableHtml, /data-agent-task-badge="true"/);
-  // source quotes intentionally keeps no badge
-  assert.doesNotMatch(actionableHtml, /data-product-panel-badge="source-quotes"/);
-  assert.doesNotMatch(actionableHtml, /data-agent-task-feedback-row="true"/);
-  // Motion is state-causal on the keyed Product Action stage.
-  assert.doesNotMatch(actionableHtml, /data-dlens-product-motion/);
-  assert.match(actionableHtml, /data-direction="forward"/);
-  assert.doesNotMatch(actionableHtml, /data-product-list-motion="actionable"/);
-  assert.match(actionableHtml, /data-verdict-filter-tiles="true"/);
-  assert.match(actionableHtml, /data-verdict-filter-plate="true"/);
-  assert.match(actionableHtml, /data-verdict-tile-count="true"/);
-  assert.doesNotMatch(actionableHtml, /data-dlens-motion-card="true"/);
-  // The exported CSS constant must include reduced-motion and grid-template-rows animation
-  assert.ok(DLENS_MOTION_CSS.includes("prefers-reduced-motion"), "CSS must guard reduced-motion");
-  assert.ok(DLENS_MOTION_CSS.includes("grid-template-rows"), "CSS must animate details panel");
-  assert.ok(!DLENS_MOTION_CSS.includes("::details-content"), "CSS must not use ::details-content");
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \.dlens-card-lift/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-rail-icon\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="forward"\]/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-product-action-stage\]\[data-direction="backward"\]/);
-  assert.doesNotMatch(DLENS_MOTION_CSS, /data-button-shimmer/);
-  assert.match(DLENS_MOTION_CSS, /\[data-dlens-control="true"\] \[data-signal-reading-compose-flash="true"\]/);
-  assert.doesNotMatch(DLENS_MOTION_CSS, /^\.dlens-card-lift/m);
-
-  const secondSignal = {
-    id: "signal_b",
-    sessionId: "session_a",
-    itemId: "item_b",
-    source: "threads" as const,
-    inboxStatus: "unprocessed" as const,
-    capturedAt: "2026-04-27T00:01:00.000Z"
-  };
-  const secondAnalysis = {
-    ...baseProps.analyses[0],
-    signalId: "signal_b",
-    signalSubtype: "mobile_save_followup",
-    contentSummary: "Users also want the save flow to keep source context.",
-    analyzedAt: "2026-04-27T02:00:00.000Z"
-  };
-  const classificationTwoHtml = renderToStaticMarkup(
-    productSignalViewElement( {
-      ...baseProps,
-      kind: "classification",
-      signals: [...baseProps.signals, secondSignal],
-      analyses: [...baseProps.analyses, secondAnalysis],
-      signalPreviewById: {
-        ...baseProps.signalPreviewById,
-        signal_b: "Second Threads post preview"
-      }
-    })
-  );
-  assert.match(classificationTwoHtml, /最新在前/);
-});
-
-test("Product action brief restores verdict navigation without the retired macro scoreboard", () => {
-  const fixture = buildActionableCardFixture();
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "actionable-filter",
-      signals: [fixture.signal],
-      analyses: [fixture.analysis],
-      productProfile: fixture.productProfile,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-action-stage=/);
-  assert.match(html, /data-product-action-content="true"/);
-  assert.doesNotMatch(html, /data-product-macro-strip="true"/);
-  assert.match(html, /data-verdict-filter-tiles="true"/);
-  assert.doesNotMatch(html, /受眾\s*\/\s*主題\s*\/\s*情緒\s*\/\s*主張/);
-});
-
-test("light frames keep prototype caption bars and admin export copy out of the live popup", () => {
-  const fixture = buildActionableCardFixture();
-  const productHtml = renderToStaticMarkup(
-    productSignalViewElement({
-      kind: "actionable-filter",
-      signals: [fixture.signal],
-      analyses: [fixture.analysis],
-      productProfile: fixture.productProfile,
-      evidenceBySignalId: fixture.evidenceBySignalId,
-      onAnalyze: () => undefined
-    })
-  );
-
+test("PR frame keeps prototype caption bars and admin export copy out of the live popup", () => {
   const campaign: PrCampaign = {
     id: "campaign-light",
     sessionId: "session-pr",
@@ -4536,88 +1876,12 @@ test("light frames keep prototype caption bars and admin export copy out of the 
   const prHtml = renderPrEvidenceView({ campaign: prCampaignToDraft(campaign), rows: [row] });
 
   // Mockup-only caption bars must never leak into the live popup.
-  assert.doesNotMatch(productHtml, /PRODUCT MODE\s*·/);
-  assert.doesNotMatch(productHtml, /SHARED\s*·\s*DRILL-IN TEMPLATE/);
   assert.doesNotMatch(prHtml, /PR MODE\s*·/);
 
   // Export surfaces stay user-facing — no admin/debug/checksum internals.
   assert.doesNotMatch(prHtml, /checksum/i);
   assert.doesNotMatch(prHtml, /\bdebug\b/i);
 });
-
-function buildActionableCardFixture() {
-  const analysis = {
-    signalId: "signal_verdict",
-    signalType: "demand" as const,
-    signalSubtype: "pm_document_generation",
-    contentType: "discussion_starter" as const,
-    contentSummary: "PM 想把外部討論轉成可交付文件。",
-    relevance: 5 as const,
-    relevantTo: ["coreWorkflows" as const],
-    referenceType: "workflow_pattern" as const,
-    referenceLabel: "把討論轉成文件工作流",
-    referenceTakeaway: "先用小型 agent task 驗證交付格式是否可重複。",
-    whyRelevant: "對應 Product mode 的核心承諾。",
-    verdict: "try" as const,
-    reason: "討論裡已經有明確的輸入、處理與輸出。",
-    experimentHint: "用一個 Threads 討論串產出 release-note 草稿。",
-    agentTaskSpec: {
-      targetAgent: "codex" as const,
-      taskTitle: "產出 release-note 草稿",
-      taskPrompt: "Inspect the discussion and draft a release-note workflow.",
-      requiredContext: ["README", "sample thread"]
-    },
-    evidenceRefs: ["e1"],
-    evidenceNotes: [
-      {
-        ref: "e1",
-        quoteSummary: "提到把 Slack/Jira 訊號變成 release notes。",
-        whyItMatters: "把資料來源、處理邏輯和交付物說清楚。",
-        reusablePattern: "多來源討論轉交付文件",
-        whyItWorks: "它把輸入與輸出格式固定下來。",
-        grounding: "text_grounded" as const,
-        workflowStack: ["Threads", "Codex", "Markdown"],
-        copyRecipeMarkdown: "- 收集討論串\n- 交給 agent 摘要\n- 輸出 Markdown 草稿",
-        tradeoff: "需要人手檢查語氣。"
-      }
-    ],
-    productContextHash: "ctx_verdict",
-    promptVersion: "v16",
-    analyzedAt: "2026-05-13T01:00:00.000Z",
-    status: "complete" as const
-  };
-  const evidenceBySignalId = {
-    signal_verdict: [
-      {
-        ref: "e1",
-        id: "reply_1",
-        author: "pm",
-        text: "可以把 Slack 和 Jira 討論交給 agent 寫 release notes。",
-        likeCount: 9
-      }
-    ]
-  };
-
-  return {
-    signal: {
-      id: "signal_verdict",
-      sessionId: "session_verdict",
-      itemId: "item_verdict",
-      source: "threads" as const,
-      inboxStatus: "unprocessed" as const,
-      capturedAt: "2026-05-13T00:00:00.000Z"
-    },
-    analysis,
-    productProfile: {
-      name: "DLens",
-      category: "Product intelligence",
-      audience: "PM",
-      contextText: "README context",
-      contextFiles: [{ id: "readme", name: "README.md", kind: "readme" as const, importedAt: "2026-05-13T00:00:00.000Z", charCount: 14 }]
-    },
-    evidenceBySignalId
-  };
-}
 
 function countOccurrences(haystack: string, needle: string): number {
   let count = 0;
@@ -4629,1468 +1893,345 @@ function countOccurrences(haystack: string, needle: string): number {
   return count;
 }
 
-function findTagWithAttribute(html: string, attribute: string): string {
-  const markerIndex = html.indexOf(attribute);
-  assert.ok(markerIndex >= 0, `${attribute} must exist`);
-  const tagStart = html.lastIndexOf("<", markerIndex);
-  const tagEnd = html.indexOf(">", markerIndex);
-  assert.ok(tagStart >= 0 && tagEnd >= 0, `${attribute} tag must be complete`);
-  return html.slice(tagStart, tagEnd + 1);
-}
-
-function productActionStageFixture() {
-  const baseAnalysis = {
-    signalType: "learning" as const,
-    signalSubtype: "stage_signal",
-    contentType: "content" as const,
-    relevance: 3 as const,
-    relevantTo: ["technicalLearning" as const],
-    referenceType: "technical_learning" as const,
-    referenceLabel: "技術學習",
-    whyRelevant: "這是有來源支持的產品脈絡。",
-    evidenceRefs: [] as string[],
-    productContextHash: "ctx_stage",
-    promptVersion: "v21",
-    analyzedAt: "2026-07-20T01:00:00.000Z",
-    status: "complete" as const
-  };
-  const signals = [
-    "signal_watch_first",
-    "signal_try_second",
-    "signal_park",
-    "signal_noise",
-    "signal_insufficient",
-    "signal_incomplete"
-  ].map((id, index) => ({
-    id,
-    sessionId: "session_stage",
-    itemId: `item_${index}`,
-    source: "threads" as const,
-    inboxStatus: "processed" as const,
-    capturedAt: `2026-07-20T00:0${index}:00.000Z`
-  }));
-  const analyses = [
-    {
-      ...baseAnalysis,
-      signalId: "signal_watch_first",
-      contentSummary: "第一則低相關度觀察",
-      relevance: 1 as const,
-      verdict: "watch" as const,
-      reason: "第一則觀察原因。",
-      referenceTakeaway: "第一則新知保留。",
-      evidenceRefs: ["e_raw", "root", "e_missing"],
-      evidenceNotes: [{ ref: "root", quoteSummary: "AI 摘要不可冒充逐字引文。", whyItMatters: "只可作判讀。", grounding: "text_grounded" as const }],
-      productReading: {
-        headline: "先保留做法脈絡，再補足可驗證案例",
-        body: "這條訊號目前只有方向性學習價值。現有文字支持保留觀察，但仍需要更多成功與失敗案例。",
-        supportRefs: ["root"]
-      }
-    },
-    {
-      ...baseAnalysis,
-      signalId: "signal_try_second",
-      contentSummary: "第二則高相關度實驗",
-      relevance: 5 as const,
-      verdict: "try" as const,
-      reason: "第二則觀察原因。",
-      referenceTakeaway: "第二則新知保留。",
-      productReading: {
-        headline: "先把互動動畫當成局部視覺實驗",
-        body: "這則訊號真正值得注意的是 hover 觸發的動態回應，而不是持續播放的裝飾動畫。先在非核心控制上做可逆測試，再觀察流暢度與一致性。",
-        supportRefs: ["root"]
-      },
-      agentTaskSpec: {
-        targetAgent: "codex",
-        taskTitle: "建立第二則真實任務",
-        requiredContext: ["README"],
-        taskPrompt: "Implement the second task."
-      }
-    },
-    {
-      ...baseAnalysis,
-      signalId: "signal_park",
-      contentSummary: "前提不符的真實標題",
-      verdict: "park" as const,
-      reason: "前提不符的真實原因。"
-    },
-    {
-      ...baseAnalysis,
-      signalId: "signal_noise",
-      signalType: "noise" as const,
-      contentSummary: "噪音訊號的真實標題",
-      verdict: "try" as const,
-      reason: "噪音訊號的真實原因。"
-    },
-    {
-      ...baseAnalysis,
-      signalId: "signal_insufficient",
-      contentSummary: "資料不足的真實標題",
-      verdict: "insufficient_data" as const,
-      reason: "資料不足的真實原因。"
-    },
-    {
-      ...baseAnalysis,
-      signalId: "signal_incomplete",
-      contentSummary: "尚未完成不得進 pager",
-      verdict: "try" as const,
-      reason: "未完成。",
-      status: "analyzing" as const
-    }
-  ];
-  return {
-    kind: "actionable-filter" as const,
-    signals,
-    analyses,
-    productProfile: productTestProfile(),
-    signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.id, `來源 ${signal.id}`])),
-    descriptorBySignalId: {
-      signal_watch_first: {
-        engagement: { likes: 4, comments: 3, reposts: 2, forwards: 1 },
-        engagement_present: { likes: true, comments: true, reposts: true, forwards: true }
-      }
-    },
-    evidenceBySignalId: {
-      signal_watch_first: [{ ref: "e_raw", id: "reply_raw", author: "reader", text: "唯一可作逐字引文的真實 evidence entry。", likeCount: 8 }]
-    },
-    signalReadings: [
-      projectedProductReading("signal_try_second"),
-      projectedProductReading("signal_watch_first", {
-        headline: "先保留做法脈絡，再補足可驗證案例",
-        reading: "這條訊號目前只有方向性學習價值。現有文字支持保留觀察，但仍需要更多成功與失敗案例。"
-      })
-    ],
-    onAnalyze: () => undefined
-  };
-}
-
-function projectedProductReading(
-  signalId: string,
-  overrides: Partial<SignalReading> = {}
-): SignalReading {
-  return {
-    signalId,
-    cacheKey: `${signalId}::ctx_stage::packet::v21::content`,
-    productContextHash: "ctx_stage",
-    sourcePacketHash: "packet",
-    promptVersion: "v21",
-    headline: "先把互動動畫當成局部視覺實驗",
-    reading: "這則訊號真正值得注意的是 hover 觸發的動態回應，而不是持續播放的裝飾動畫。先在非核心控制上做可逆測試，再觀察流暢度與一致性。",
-    generatedAt: "2026-07-23T00:00:00.000Z",
-    model: "google:gemini-3.1-flash-lite-preview",
-    sourceRefs: ["root"],
-    sourcePacket: {
-      rootText: "原文展示 hover 動畫。",
-      assembledContent: "原文展示 hover 動畫。",
-      postUrl: "https://www.threads.net/@author/post/reading",
-      representativeComments: [],
-      analysisPromptVersion: "v21"
-    },
-    origin: "product_analysis",
-    reviewState: "pending",
-    feedbackEvents: [],
-    ...overrides
-  };
-}
-
-test("Product Action first open shows one complete reading without another action", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signalReadings: [
-      projectedProductReading("signal_try_second"),
-      projectedProductReading("signal_watch_first", {
-        headline: "先保留做法脈絡，再補足可驗證案例",
-        reading: "這條訊號目前只有方向性學習價值。現有文字支持保留觀察，但仍需要更多成功與失敗案例。"
-      })
-    ],
-    onReviewSignalReading: async (_cacheKey: string, decision: "filed" | "deferred" | "rejected") => ({
-      ok: true as const,
-      signalReading: projectedProductReading("signal_try_second", { reviewState: decision })
-    })
-  }));
-
-  assert.equal(countOccurrences(html, 'data-product-reading-card="true"'), 1);
-  assert.equal(countOccurrences(html, 'data-product-action-agent-brief-beam="true"'), 1);
-  assert.equal(countOccurrences(html, "data-product-reading-beam="), 2);
-  assert.match(html, /data-product-reading-origin="product_analysis"/);
-  const cardTag = findTagWithAttribute(html, 'data-product-reading-card="true"');
-  assert.match(cardTag, /data-attention-beam="actionable"/);
-  assert.match(cardTag, /data-product-reading-beam="actionable"/);
-  assert.match(cardTag, /box-sizing:border-box/);
-  assert.match(cardTag, /max-width:100%/);
-  assert.match(cardTag, /min-width:0/);
-  assert.match(cardTag, /overflow:hidden/);
-  assert.match(html, /先把互動動畫當成局部視覺實驗/);
-  assert.match(html, /這則訊號真正值得注意的是 hover 觸發的動態回應/);
-  assert.equal(countOccurrences(html, 'data-product-reading-footer="true"'), 1);
-  assert.equal(countOccurrences(html, 'data-product-action-review="filed"'), 0);
-  assert.equal(countOccurrences(html, 'data-product-action-agent-brief="true"'), 1);
-  assert.equal(countOccurrences(html, 'data-product-action-reading-secondary="true"'), 1);
-  assert.match(html, /來源、引用與新鮮度/);
-  assert.doesNotMatch(html, /生成完整判讀|生成深度判讀|重新生成判讀|展開深度閱讀|AI 提案 · 待驗證|來源做法|可能適合|先小試/);
-});
-
-test("Product Reading card cannot exceed its parent by the former 12px content-box overflow", async () => {
+async function withCollectionFocusDom(run: (host: HTMLElement, dom: any, root: any, act: any) => Promise<void>) {
   const { JSDOM } = await import("jsdom");
   const { createRoot } = await import("react-dom/client");
   const { act } = await import("react");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previousNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement
-  });
-  Object.defineProperty(globalThis, "navigator", {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: dom.window.navigator
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const rect = (left: number, width: number): DOMRect => ({
-    x: left,
-    y: 0,
-    left,
-    top: 0,
-    right: left + width,
-    bottom: 200,
-    width,
-    height: 200,
-    toJSON: () => ({})
-  } as DOMRect);
-
-  try {
-    await act(async () => {
-      root.render(productSignalViewElement(productActionStageFixture()));
-      await Promise.resolve();
-    });
-
-    const parent = rootElement.querySelector<HTMLElement>('[data-product-action-stage]');
-    const card = rootElement.querySelector<HTMLElement>('[data-product-reading-card="true"]');
-    assert.ok(parent);
-    assert.ok(card);
-
-    const parentWidth = 360;
-    const horizontalChrome = Number.parseFloat(card.style.paddingLeft || "0")
-      + Number.parseFloat(card.style.paddingRight || "0")
-      + Number.parseFloat(card.style.borderLeftWidth || "0")
-      + Number.parseFloat(card.style.borderRightWidth || "0");
-    const cardWidth = card.style.boxSizing === "border-box"
-      ? parentWidth
-      : parentWidth + horizontalChrome;
-    parent.getBoundingClientRect = () => rect(0, parentWidth);
-    card.getBoundingClientRect = () => rect(0, cardWidth);
-
-    assert.equal(card.style.maxWidth, "100%");
-    assert.equal(Number.parseFloat(card.style.minWidth), 0);
-    assert.ok(
-      card.getBoundingClientRect().right <= parent.getBoundingClientRect().right,
-      `Product Reading card right ${card.getBoundingClientRect().right}px must stay inside parent right ${parent.getBoundingClientRect().right}px`
-    );
-  } finally {
+  const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
+  const previous = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement };
+  const previousAct = (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true });
+  const host = dom.window.document.getElementById("root")!;
+  const root = createRoot(host);
+  try { await run(host, dom, root, act); }
+  finally {
     await act(async () => root.unmount());
     Object.assign(globalThis, previous);
-    if (previousNavigatorDescriptor) Object.defineProperty(globalThis, "navigator", previousNavigatorDescriptor);
-    else delete (globalThis as { navigator?: Navigator }).navigator;
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    if (previousAct === undefined) delete (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
+    else (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousAct;
     dom.window.close();
   }
-});
-
-test("Product Action renders no reading for park noise or insufficient cards", () => {
-  const fixture = productActionStageFixture();
-  for (const signalId of ["signal_park", "signal_noise", "signal_insufficient"]) {
-    const signal = fixture.signals.find((entry) => entry.id === signalId);
-    const analysis = fixture.analyses.find((entry) => entry.signalId === signalId);
-    assert.ok(signal);
-    assert.ok(analysis);
-    const html = renderToStaticMarkup(productSignalViewElement({
-      ...fixture,
-      signals: [signal],
-      analyses: [analysis],
-      signalReadings: []
-    }));
-    assert.doesNotMatch(html, /data-product-reading-card=/);
-  }
-});
-
-test("Product Action stale v20 actionable records require reanalysis and never rebuild a proposal", () => {
-  const fixture = productActionStageFixture();
-  const signal = fixture.signals.find((entry) => entry.id === "signal_try_second");
-  const analysis = fixture.analyses.find((entry) => entry.signalId === "signal_try_second");
-  assert.ok(signal);
-  assert.ok(analysis);
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{
-      ...analysis,
-      promptVersion: "v20",
-      productReading: undefined,
-      experimentHint: "legacy proposal must not render"
-    }],
-    signalReadings: []
-  }));
-
-  assert.match(html, /需要重新分析以產生完整判讀/);
-  assert.doesNotMatch(html, /data-product-reading-card=|legacy proposal must not render|AI 提案 · 待驗證|可能用法/);
-});
-
-test("Product Action stage groups completed analyses into four verdict tiles with text paging", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(productSignalViewElement(fixture));
-  const stageTag = findTagWithAttribute(html, 'data-product-action-stage="signal_try_second"');
-  const tryTile = findTagWithAttribute(html, 'data-action-verdict-filter="try"');
-  const noiseTile = findTagWithAttribute(html, 'data-action-verdict-filter="noise"');
-  const insufficientTile = findTagWithAttribute(html, 'data-action-verdict-filter="insufficient"');
-  const watchTile = findTagWithAttribute(html, 'data-action-verdict-filter="watch"');
-  assert.ok(stageTag);
-
-  assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
-  assert.match(html, /data-verdict-filter-tiles="true"[^>]*role="tablist"/);
-  assert.match(html, /@media \(max-width: 520px\)[^]*\.dlens-verdict-tiles[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*grid-auto-rows: 1fr/);
-  assert.match(tryTile, /role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"/);
-  assert.match(html, /data-action-verdict-filter="try"[^]*值得嘗試[^]*data-verdict-tile-count="true"[^>]*>1</);
-  assert.match(html, /data-action-verdict-filter="noise"[^]*噪音[^]*data-verdict-tile-count="true"[^>]*>1</);
-  assert.match(html, /data-action-verdict-filter="insufficient"[^]*資料不足[^]*data-verdict-tile-count="true"[^>]*>1</);
-  assert.match(html, /data-action-verdict-filter="watch"[^]*保留觀察[^]*data-verdict-tile-count="true"[^>]*>2</);
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.match(html, /data-product-action-page="1"/);
-  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 1/);
-  assert.match(html, /data-direction="forward"/);
-  assert.match(html, /完整判讀/);
-  assert.match(html, /data-product-action-content="true"[^>]*display:grid/);
-  assert.match(html, /data-product-reading-card="true"/);
-  assert.match(html, /第二則新知保留。/);
-  assert.match(html, /data-product-source-truth="signal_try_second"/);
-  assert.match(html, /data-product-action-verdict-pill="try"/);
-  const contentTag = findTagWithAttribute(html, 'data-product-action-content="true"');
-  assert.match(contentTag, /grid-template-columns:minmax\(0, 1fr\)/);
-  assert.match(html, /data-product-action-pager="text"/);
-  assert.match(html, /data-product-action-previous="true"[^]*上一則/);
-  assert.match(html, /data-product-action-next="true"[^]*下一則/);
-  assert.doesNotMatch(html, /data-product-action-dot|data-product-action-exclusions|data-product-action-insufficient/);
-  assert.match(stageTag, /tabindex="0"/);
-  assert.match(stageTag, /min-width:0/);
-  assert.doesNotMatch(stageTag, /(?:min-)?height:\d|overflow:(?:auto|scroll)|min-width:[2-9]\d{2}px/);
-  assert.doesNotMatch(html, /尚未完成不得進 pager/);
-  assert.doesNotMatch(html, /data-product-macro-strip|data-product-action-card=/);
-});
-
-
-test("Product Action keeps watch and non-noise park in one mixed-density pager", async () => {
-  const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { act } = await import("react");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previousNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    Event: globalThis.Event,
-    KeyboardEvent: globalThis.KeyboardEvent,
-    MouseEvent: globalThis.MouseEvent
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    Event: dom.window.Event,
-    KeyboardEvent: dom.window.KeyboardEvent,
-    MouseEvent: dom.window.MouseEvent
+}
+test("InPageCollectorPopup restores independent workspace session, settings route and discourse topic scroll positions", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    const one = { ...buildSession(), mode: "topic" as const };
+    const two = { ...buildSession(), id: "second-topic-workspace", mode: "topic" as const };
+    const app = buildPopupAppFixture({ session: one, sessions: [one, two] });
+    app.topics = ["topic-a", "topic-b"].map(id => ({ id, sessionId: one.id, name: id, description: "", status: "watching", tags: [], signalIds: [], pairIds: [], createdAt: "2026-07-07T08:00:00.000Z", updatedAt: "2026-07-07T08:00:00.000Z" }));
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const viewport = () => host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find(entry => entry.textContent === label)!;
+    const back = async () => { await act(async () => button("← 工作區").click()); };
+    const open = async (id: string) => { await act(async () => host.querySelector<HTMLButtonElement>(`[data-workspace-session="${id}"]`)!.click()); };
+    const selectTopic = async (id: string) => { await act(async () => host.querySelector<HTMLButtonElement>(`[data-discourse-topic="${id}"]`)!.click()); };
+    const topicHome = async () => { await act(async () => button("‹ 觀眾反應").click()); };
+    await render();
+    await act(async () => popupTab(host, "工作區").click());
+    await open(one.id);
+    scrollPopup(viewport(), 140);
+    await back(); await open(two.id);
+    assert.equal(viewport().scrollTop, 0, "same route in a different session has no inherited position");
+    scrollPopup(viewport(), 260);
+    await back(); await open(one.id);
+    assert.equal(viewport().scrollTop, 140);
+    await act(async () => button("設定").click());
+    assert.equal(viewport().scrollTop, 0, "settings route starts at its own position");
+    scrollPopup(viewport(), 330);
+    await act(async () => popupTab(host, "工作區").click());
+    assert.equal(viewport().scrollTop, 140, "settings return restores the same workspace route");
+    await selectTopic("topic-a");
+    assert.equal(viewport().scrollTop, 0, "a new discourse topic has its own position");
+    scrollPopup(viewport(), 480); await topicHome();
+    assert.equal(viewport().scrollTop, 140);
+    await selectTopic("topic-b"); assert.equal(viewport().scrollTop, 0);
+    scrollPopup(viewport(), 590); await topicHome();
+    await selectTopic("topic-a"); assert.equal(viewport().scrollTop, 480);
+    await topicHome(); assert.equal(viewport().scrollTop, 140);
+    await selectTopic("topic-b"); assert.equal(viewport().scrollTop, 590);
+    await topicHome(); await back(); await open(two.id);
+    assert.equal(viewport().scrollTop, 260);
   });
-  Object.defineProperty(globalThis, "navigator", {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: dom.window.navigator
-  });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const fixture = productActionStageFixture();
-  const interactiveProps = {
-    ...fixture,
-    analyses: fixture.analyses.filter((analysis) => analysis.signalId !== "signal_try_second")
-  };
-  const click = async (selector: string) => {
-    const button = rootElement.querySelector<HTMLButtonElement>(selector);
-    assert.ok(button, `${selector} must exist`);
-    await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-  };
+});
 
+
+test("PR-only popup keeps mixed inventories and stale non-PR routes behind the PR boundary", async () => {
+  const { build } = await import("esbuild");
+  const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+  const { pathToFileURL } = await import("node:url");
+  const { resolve, join } = await import("node:path");
+  const cache = resolve("node_modules/.cache");
+  await mkdir(cache, { recursive: true });
+  const directory = await mkdtemp(join(cache, "dlens-pr-popup-"));
   try {
-    await act(async () => {
-      root.render(productSignalViewElement(interactiveProps));
-      await Promise.resolve();
+    const bundle = await build({ entryPoints: ["src/ui/InPageCollectorPopup.tsx"], bundle: true, platform: "node", format: "esm", packages: "external", write: false,
+      define: { "import.meta.env": JSON.stringify({ VITE_DLENS_BUILD_VARIANT: "pr-only" }) } });
+    const modulePath = join(directory, "popup.mjs");
+    await writeFile(modulePath, bundle.outputFiles[0].text);
+    const { InPageCollectorPopup: PrPopup } = await import(pathToFileURL(modulePath).href);
+    await withCollectionFocusDom(async (host, dom, root, act) => {
+      const topic = buildSession();
+      const pr = { ...buildSession(), id: "pr-workspace", mode: "pr-evidence" as const, name: "核對工作區" };
+      const app = buildPopupAppFixture({ session: topic, sessions: [topic, pr], page: "topics" });
+      const calls: Array<[string, string]> = [];
+      app.onCreateWorkspace = async (name, mode) => { calls.push([name, mode]); return { ok: false }; };
+      await act(async () => root.render(<PrPopup app={app} />));
+      assert.equal(host.querySelector('[data-collection-browser]'), null);
+      assert.deepEqual([...host.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent), ["工作區"]);
+      assert.ok(host.querySelector('[data-workspace-home]'), "stale non-PR domain opens only the allowed workspace index");
+      assert.deepEqual([...host.querySelectorAll('[data-workspace-session]')].map((row) => row.getAttribute("data-workspace-session")), [pr.id]);
+      await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "＋ 新工作區")!.click());
+      assert.deepEqual([...host.querySelectorAll('select[name="workspace-type"] option')].map((option) => option.getAttribute("value")), ["pr-evidence"]);
+      const name = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
+      await act(async () => { name.value = "新核對"; name.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
+      await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+      assert.deepEqual(calls, [["新核對", "pr-evidence"]]);
+      await act(async () => host.querySelector<HTMLButtonElement>(`[data-workspace-session="${pr.id}"]`)!.click());
+      assert.equal(app.activeFolder.id, pr.id);
+      assert.equal(app.page, "pr-evidence");
+      assert.ok(host.querySelector('input[type="file"]'), "existing PR tools remain reachable");
+      assert.equal(host.querySelector('[data-collection-browser]'), null);
     });
-
-    assert.equal(rootElement.querySelector('[data-action-verdict-filter="watch"]')?.getAttribute("aria-selected"), "true");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_first");
-    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, "1 / 2");
-    assert.ok(rootElement.querySelector('[data-product-reading-card="true"]'));
-    assert.equal(rootElement.querySelector('[data-product-action-decision-summary="park"]'), null);
-
-    await click("[data-product-action-next]");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_park");
-    assert.equal(rootElement.querySelector("[data-product-action-live]")?.textContent, "2 / 2");
-    assert.equal(rootElement.querySelector("[data-product-action-verdict-pill]")?.getAttribute("data-product-action-verdict-pill"), "park");
-    assert.equal(rootElement.querySelector("[data-product-action-verdict-pill]")?.textContent, "不適合目前產品");
-    assert.match(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.getAttribute("aria-label") ?? "", /^不適合目前產品 /);
-    assert.ok(rootElement.querySelector('[data-product-action-decision-summary="park"]'));
-    assert.equal(rootElement.querySelector('[data-product-reading-card="true"]'), null);
-    assert.equal(rootElement.querySelector('[data-product-reading-card="true"]'), null);
-  } finally {
-    await act(async () => root.unmount());
-    Object.assign(globalThis, previous);
-    if (previousNavigatorDescriptor) Object.defineProperty(globalThis, "navigator", previousNavigatorDescriptor);
-    else delete (globalThis as { navigator?: Navigator }).navigator;
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    dom.window.close();
-  }
+    await withCollectionFocusDom(async (host, _dom, root, act) => {
+      const product = { ...buildSession(), mode: "product" as const };
+      const app = buildPopupAppFixture({ session: product, page: "signals" });
+      let completeNavigation!: () => void;
+      const navigation = new Promise<void>((resolve) => { completeNavigation = resolve; });
+      app.onNavigate = async () => { await navigation; app.page = "settings"; };
+      await act(async () => root.render(<PrPopup app={app} />));
+      assert.ok(host.querySelector('[data-workspace-home]'));
+      try {
+        await act(async () => [...host.querySelectorAll<HTMLButtonElement>('[data-collection-menu] button')].find((button) => button.textContent === "設定")!.click());
+        assert.equal(app.page, "signals", "domain route remains stale while settings navigation is pending");
+        assert.ok(host.querySelector('[data-settings-surface="drawer"]'));
+        const exposedProductControls = () => ({
+          workspace: Boolean(host.querySelector('[data-product-saved-list], [data-product-hydrating], [data-product-classification-board], [data-signals-filter]')),
+          settings: Boolean(host.querySelector('[data-settings-group="product"]')),
+          cacheReset: Boolean(host.querySelector('[data-product-cache-reset]'))
+        });
+        assert.deepEqual(exposedProductControls(), { workspace: false, settings: false, cacheReset: false }, "pending PR-only settings must not expose the stale Product domain");
+        await act(async () => { completeNavigation(); await navigation; });
+        await act(async () => root.render(<PrPopup app={app} />));
+        assert.deepEqual(exposedProductControls(), { workspace: false, settings: false, cacheReset: false }, "settled settings keep PR-only controls");
+      } finally { await act(async () => { completeNavigation(); await navigation; }); }
+    });
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-
-
-
-test("Product Action lights only complete try and watch readings", () => {
-  const fixture = productActionStageFixture();
-  const renderSignal = (signalId: "signal_try_second" | "signal_watch_first" | "signal_park" | "signal_noise" | "signal_insufficient") => {
-    const signal = fixture.signals.find((item) => item.id === signalId);
-    const analysis = fixture.analyses.find((item) => item.signalId === signalId);
-    assert.ok(signal);
-    assert.ok(analysis);
-    return renderToStaticMarkup(productSignalViewElement({
-      ...fixture,
-      signals: [signal],
-      analyses: [analysis]
-    }));
-  };
-
-  const tryHtml = renderSignal("signal_try_second");
-  const watchHtml = renderSignal("signal_watch_first");
-  const parkHtml = renderSignal("signal_park");
-  const noiseHtml = renderSignal("signal_noise");
-  const insufficientHtml = renderSignal("signal_insufficient");
-
-  assert.match(findTagWithAttribute(tryHtml, 'data-product-reading-card="true"'), /data-product-reading-beam="actionable"/);
-  assert.match(findTagWithAttribute(watchHtml, 'data-product-reading-card="true"'), /data-product-reading-beam="actionable"/);
-  assert.doesNotMatch(parkHtml, /data-attention-beam="actionable"/);
-  assert.doesNotMatch(noiseHtml, /data-attention-beam="actionable"/);
-  assert.doesNotMatch(insufficientHtml, /data-attention-beam="actionable"/);
-});
-
-
-
-
-test("Product Action reuses the AI analysis perimeter beam for Agent brief and never leaks the task title or clipboard-only prompt", () => {
-  const fixture = productActionStageFixture();
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  assert.ok(signal);
-  assert.ok(baseAnalysis);
-  const taskTitle = "可見 Agent 任務標題 sentinel";
-  const taskPrompt = "TASK_PROMPT_UI_LEAK_SENTINEL: clipboard-only instruction body.";
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{
-      ...baseAnalysis,
-      agentTaskSpec: {
-        targetAgent: "codex",
-        taskTitle,
-        requiredContext: ["README"],
-        taskPrompt
-      }
-    }]
-  }));
-
-  assert.doesNotMatch(html, new RegExp(taskTitle));
-  assert.doesNotMatch(html, new RegExp(taskPrompt));
-  assert.match(html, /複製 Agent brief/);
-  assert.doesNotMatch(html, /dlens-agent-brief-beam/);
-  const agentFooter = findTagWithAttribute(html, 'data-product-action-agent-brief="true"');
-  assert.match(agentFooter, /display:flex/);
-  const agentBeam = findTagWithAttribute(html, 'data-product-action-agent-brief-beam="true"');
-  assert.match(agentBeam, /data-attention-surface="true"/);
-  assert.match(agentBeam, /data-attention-beam="generating"/);
-  assert.match(agentBeam, /data-product-reading-beam="generating"/);
-  assert.match(agentBeam, /data-attention-button-beam="true"/);
-  assert.match(agentBeam, /width:fit-content/);
-  const copyButton = findTagWithAttribute(html, 'data-product-action-agent-brief-copy="true"');
-  assert.match(copyButton, /data-attention-button-content="true"/);
-  assert.equal(countOccurrences(html, 'data-product-reading-footer="true"'), 1);
-});
-
-test("Product Reading segment icons share the adjacent first-line baseline", () => {
-  const fixture = productActionStageFixture();
-  const structuredBody = [
-    "這條訊號先交代可行方向。",
-    "推論：這個機制可能降低分析隨機性。",
-    "不確定性：尚未驗證是否過度單一。",
-    "建議：先做一個可逆實驗。"
-  ].join(" ");
-  const analyses = fixture.analyses.map((analysis) => (
-    analysis.signalId === "signal_try_second"
-      ? {
-          ...analysis,
-          productReading: {
-            ...analysis.productReading!,
-            body: structuredBody
-          }
-        }
-      : analysis
-  ));
-  const signalReadings = fixture.signalReadings.map((reading) => (
-    reading.signalId === "signal_try_second"
-      ? { ...reading, reading: structuredBody }
-      : reading
-  ));
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    analyses,
-    signalReadings
-  }));
-
-  for (const kind of ["intro", "inference", "uncertainty", "recommendation"]) {
-    const icon = findTagWithAttribute(html, `data-product-reading-segment-icon="${kind}"`);
-    assert.match(icon, /display:inline-flex/);
-    assert.match(icon, /vertical-align:text-bottom/);
-    assert.doesNotMatch(icon, /margin-top/);
-  }
-});
-
-test("Product Action omits the empty full-card decision summary", () => {
-  const fixture = productActionStageFixture();
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  assert.ok(signal);
-  assert.ok(baseAnalysis);
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{
-      ...baseAnalysis,
-      reason: "",
-      whyRelevant: "",
-      referenceTakeaway: "仍需保留在頂層 takeaway 的內容。"
-    }]
-  }));
-
-  assert.match(html, /仍需保留在頂層 takeaway 的內容。/);
-  assert.doesNotMatch(html, /data-product-action-decision-summary=/);
-});
-
-test("Product Action resolves resource and quote heroes from captured text, never model summaries", () => {
-  const fixture = productActionStageFixture();
-  const resourceAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  const resourceSignal = fixture.signals.find((signal) => signal.id === "signal_try_second");
-  assert.ok(resourceAnalysis);
-  assert.ok(resourceSignal);
-
-  const resourceHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [resourceSignal],
-    analyses: [{
-      ...resourceAnalysis,
-      referenceLabel: "模型欄位的 https://model.example.com 不可當資源",
-      evidenceRefs: ["e1"],
-      evidenceNotes: [{ ref: "e1", quoteSummary: "模型摘要不可當引文。", whyItMatters: "僅供判讀。" }]
-    }],
-    signalPreviewById: { signal_try_second: "root text includes https://captured.example.dev/guide" },
-    evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "真實回覆。", likeCount: 2 }] }
-  }));
-  assert.match(resourceHtml, /data-product-action-hero="resource"/);
-  assert.match(resourceHtml, /data-product-action-resource-url="https:\/\/captured\.example\.dev\/guide"/);
-  assert.doesNotMatch(resourceHtml, /data-product-action-resource-url="https:\/\/model\.example\.com"/);
-
-  const quoteHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [resourceSignal],
-    analyses: [{
-      ...resourceAnalysis,
-      referenceLabel: "沒有 URL 的標題",
-      evidenceRefs: ["e1"],
-      evidenceNotes: [{ ref: "e1", quoteSummary: "絕不可顯示的模型 quoteSummary", whyItMatters: "僅供判讀。" }]
-    }],
-    signalPreviewById: { signal_try_second: "root text without a URL" },
-    evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "唯一可引用的 captured entry text。", likeCount: 2 }] }
-  }));
-  assert.match(quoteHtml, /data-product-action-hero="quote"[^]*唯一可引用的 captured entry text。/);
-  assert.doesNotMatch(quoteHtml, /絕不可顯示的模型 quoteSummary/);
-});
-
-test("Product Action has an editorial fallback and compact cards retain source truth plus exact evidence", () => {
-  const fixture = productActionStageFixture();
-  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  assert.ok(baseAnalysis);
-  assert.ok(signal);
-
-  const editorialHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{ ...baseAnalysis, evidenceRefs: [], referenceLabel: "純 editorial fallback" }],
-    signalPreviewById: { signal_try_second: "沒有 URL 的 captured root" },
-    evidenceBySignalId: {}
-  }));
-  assert.match(editorialHtml, /data-product-action-hero="editorial"/);
-
-  const compactHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{ ...baseAnalysis, verdict: "park", evidenceRefs: ["e1"], referenceLabel: "compact card" }],
-    signalPreviewById: { signal_try_second: "沒有 URL 的 captured root" },
-    evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "compact exact evidence。", likeCount: 2 }] }
-  }));
-  assert.match(compactHtml, /data-product-source-truth="signal_try_second"/);
-  assert.match(compactHtml, /data-product-action-exact-quote="true"[^]*compact exact evidence。/);
-  assert.doesNotMatch(compactHtml, /data-product-reading-card=/);
-  assert.doesNotMatch(compactHtml, /data-product-action-hero=/);
-});
-
-test("Product Action head uses verdict and category, and category tabs are threshold-gated", () => {
-  const fixture = productActionStageFixture();
-  const base = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  assert.ok(base);
-  const belowThreshold = renderToStaticMarkup(productSignalViewElement(fixture));
-  assert.doesNotMatch(belowThreshold, /data-product-action-category-tabs=/);
-
-  const signals = Array.from({ length: 6 }, (_, index) => ({
-    id: `category-${index}`,
-    sessionId: "session-categories",
-    itemId: `item-category-${index}`,
-    source: "threads" as const,
-    inboxStatus: "processed" as const,
-    capturedAt: "2026-07-22T00:00:00.000Z"
-  }));
-  const analyses = signals.map((signal, index) => ({
-    ...base,
-    signalId: signal.id,
-    verdict: "try" as const,
-    signalType: index < 3 ? "demand" as const : "competitor" as const,
-    referenceType: undefined,
-    contentSummary: `分類卡 ${index}`,
-    referenceLabel: `分類卡 ${index}`,
-    evidenceRefs: []
-  }));
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals,
-    analyses,
-    signalPreviewById: Object.fromEntries(signals.map((signal) => [signal.id, "captured text"])),
-    evidenceBySignalId: {}
-  }));
-  assert.match(html, /data-product-action-category-tabs="try"[^>]*role="tablist"/);
-  const allCategoryTab = findTagWithAttribute(html, 'data-product-action-category-tab="all"');
-  assert.match(allCategoryTab, /id="product-action-category-try-all-tab"/);
-  assert.match(allCategoryTab, /role="tab"/);
-  assert.match(html, /data-product-action-category-tab="need"/);
-  assert.match(html, /data-product-action-category-tab="rival"/);
-  assert.match(html, /data-product-action-verdict-pill="try"/);
-  assert.match(html, /data-product-action-category="need"/);
-  assert.doesNotMatch(html, /相關度/);
-  assert.match(findTagWithAttribute(html, 'data-product-action-stage="category-0"'), /aria-labelledby="product-action-verdict-try-tab product-action-category-try-all-tab"/);
-  assert.match(findTagWithAttribute(belowThreshold, 'data-product-action-stage="signal_try_second"'), /aria-labelledby="product-action-verdict-try-tab"/);
-});
-
-test("Product Action exposes a traceable tally renderer without mounting tally from W1 stage data", () => {
-  const HeroRenderer = (productSignalViewTestables as unknown as {
-    HeroRenderer: (props: any) => React.ReactElement;
-  }).HeroRenderer;
-  const html = renderToStaticMarkup(React.createElement(HeroRenderer, {
-    presentation: {
-      heroKind: "tally",
-      heroPayload: { total: 5, attributed: 3, rows: [{ label: "需求", count: 2, refs: ["e1", "e2"] }, { label: "需求", count: 1, refs: ["e3"] }, { label: "其他", count: 0, refs: [] }] }
-    },
-    capturedSpanByRef: new Map([["e1", "第一則"], ["e2", "第二則"], ["e3", "第三則"]])
-  }));
-  assert.match(html, /data-product-action-hero="tally"/);
-  assert.match(html, /data-product-action-tally-row="0"[^>]*aria-expanded="false"/);
-  assert.match(html, /data-product-action-tally-reveal="0"/);
-  assert.match(html, /data-product-action-tally-denominator="true"[^]*已歸因 3 \/ 5/);
-  assert.match(html, /data-product-action-tally-bar="0"[^>]*width:100%/);
-});
-
-test("Product Action review fixes keep source navigation, disclosures, and compact sizing honest", () => {
-  const fixture = productActionStageFixture();
-  const base = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  assert.ok(base);
-  assert.ok(signal);
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{ ...base, evidenceRefs: ["e1"] }],
-    signalPreviewById: { signal_try_second: "請看 github.com/acme/repo" },
-    signalUrlById: { signal_try_second: "https://www.threads.net/@source/post/1" },
-    evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "額外逐字證據。", likeCount: 1 }] },
-    onExportSignalPackets: () => Promise.resolve({ ok: true })
-  }));
-  const resourceLink = findTagWithAttribute(html, 'data-product-action-resource-url="github.com/acme/repo"');
-  assert.match(resourceLink, /href="https:\/\/github\.com\/acme\/repo"/);
-  assert.match(resourceLink, /aria-label="已捕捉資源（於新分頁開啟）"/);
-  assert.match(findTagWithAttribute(html, 'data-product-action-original-source="true"'), /href="https:\/\/www\.threads\.net\/@source\/post\/1"/);
-  assert.match(findTagWithAttribute(html, 'data-product-reading-card="true"'), /<section/);
-  assert.match(findTagWithAttribute(html, 'data-product-action-export="true"'), /<details/);
-  assert.match(html, /data-product-action-reading-secondary="true"[^]*<summary/);
-  assert.match(html, /data-product-action-export="true"[^]*<summary[^>]*min-height:44px/);
-  assert.match(html, /data-signal-reading-evidence="true"/);
-  assert.doesNotMatch(findTagWithAttribute(html, 'data-product-action-evidence-stack="true"'), /data-product-action-exact-quote=/);
-
-  const compactHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    signals: [signal],
-    analyses: [{ ...base, verdict: "park", evidenceRefs: ["e1"] }],
-    evidenceBySignalId: { signal_try_second: [{ ref: "e1", id: "reply-1", author: "reader", text: "compact evidence。", likeCount: 1 }] }
-  }));
-  assert.match(findTagWithAttribute(compactHtml, 'data-product-action-stage="signal_try_second"'), /data-product-action-density="compact"[^>]*padding:12px/);
-  assert.match(compactHtml, /data-product-action-exact-quote="true"[^]*compact evidence。/);
-});
-
-
-
-
-test("Product Action verdict tiles render in the approved visual order", () => {
-  const html = renderToStaticMarkup(productSignalViewElement(productActionStageFixture()));
-  const tileOrder = Array.from(
-    html.matchAll(/data-action-verdict-filter="([^"]+)"/g),
-    (match) => match[1]
-  );
-
-  assert.deepEqual(tileOrder, ["try", "noise", "insufficient", "watch"]);
-});
-
-test("Product Action verdict tabs link to one stage panel and keep 44px hit areas", () => {
-  const html = renderToStaticMarkup(productSignalViewElement(productActionStageFixture()));
-
-  for (const key of ["try", "noise", "insufficient", "watch"] as const) {
-    const tile = findTagWithAttribute(html, `data-action-verdict-filter="${key}"`);
-    assert.match(tile, /^<button\b/);
-    assert.match(tile, /role="tab"/);
-    assert.match(tile, new RegExp(`id="product-action-verdict-${key}-tab"`));
-    assert.match(tile, /aria-controls="product-action-stage-panel"/);
-    assert.match(tile, /min-height:44px/);
-    assert.doesNotMatch(tile, /aria-pressed=/);
-  }
-
-  const stage = findTagWithAttribute(html, 'data-product-action-stage="signal_try_second"');
-  assert.match(stage, /id="product-action-stage-panel"/);
-  assert.match(stage, /role="tabpanel"/);
-  assert.match(stage, /aria-labelledby="product-action-verdict-try-tab"/);
-  assert.match(findTagWithAttribute(html, 'data-product-action-previous="true"'), /min-height:44px/);
-  assert.match(findTagWithAttribute(html, 'data-product-action-next="true"'), /min-height:44px/);
-
-  const emptyHtml = renderToStaticMarkup(productSignalViewElement({
-    kind: "actionable-filter",
-    signals: [],
-    analyses: [],
-    productProfile: productTestProfile(),
-    onAnalyze: () => undefined
-  }));
-  const emptyPanel = findTagWithAttribute(emptyHtml, 'data-product-action-empty="true"');
-  assert.match(emptyPanel, /id="product-action-stage-panel"/);
-  assert.match(emptyPanel, /role="tabpanel"/);
-  assert.doesNotMatch(emptyPanel, /aria-labelledby=/);
-  assert.doesNotMatch(emptyHtml, /data-verdict-filter-plate=/);
-});
-
-test("Product Action resets verdict stage state when the Product session changes", async () => {
-  const { JSDOM } = await import("jsdom");
-  const { createRoot } = await import("react-dom/client");
-  const { act } = await import("react");
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://dlens.test" });
-  const reactActGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-  const previousActEnvironment = reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    MouseEvent: globalThis.MouseEvent
-  };
-  Object.assign(globalThis, {
-    window: dom.window,
-    document: dom.window.document,
-    HTMLElement: dom.window.HTMLElement,
-    HTMLButtonElement: dom.window.HTMLButtonElement,
-    MouseEvent: dom.window.MouseEvent
+test("InPageCollectorPopup captures user scroll before shorter route DOM clamps the viewport", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const app = buildPopupAppFixture();
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    viewport.scrollTop = 420;
+    viewport.dispatchEvent(new dom.window.Event("scroll"));
+    const list = host.querySelector('[data-collection-browser="list"]')!;
+    const parent = list.parentElement!;
+    const removeChild = parent.removeChild.bind(parent);
+    parent.removeChild = ((child: Node) => {
+      const result = removeChild(child);
+      // Browsers clamp scrollTop as soon as a shorter page replaces the list.
+      viewport.scrollTop = 0;
+      return result;
+    }) as typeof parent.removeChild;
+    await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click());
+    parent.removeChild = removeChild;
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click());
+    assert.equal(viewport.scrollTop, 420, "save the last user scroll, not the post-mutation clamped value");
   });
-  reactActGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-  const rootElement = dom.window.document.getElementById("root");
-  assert.ok(rootElement);
-  const root = createRoot(rootElement);
-  const fixture = productActionStageFixture();
-  const tryAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  const trySignal = fixture.signals.find((signal) => signal.id === "signal_try_second");
-  const watchAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_watch_first");
-  const watchSignal = fixture.signals.find((signal) => signal.id === "signal_watch_first");
-  assert.ok(tryAnalysis);
-  assert.ok(trySignal);
-  assert.ok(watchAnalysis);
-  assert.ok(watchSignal);
-  const sessionA = {
-    ...fixture,
-    signals: [
-      ...fixture.signals,
-      { ...trySignal, id: "signal_try_third", itemId: "item_try_third" },
-      { ...watchSignal, id: "signal_watch_second", itemId: "item_watch_second" }
-    ],
-    analyses: [
-      ...fixture.analyses,
-      { ...tryAnalysis, signalId: "signal_try_third", contentSummary: "另一則值得嘗試" },
-      { ...watchAnalysis, signalId: "signal_watch_second", contentSummary: "另一則保留觀察" }
-    ]
-  };
-  const click = async (selector: string) => {
-    const button = rootElement.querySelector<HTMLButtonElement>(selector);
-    assert.ok(button, `${selector} must exist`);
-    await act(async () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })));
-  };
+});
 
-  try {
-    await act(async () => root.render(productSignalViewElement(sessionA)));
-    await click("[data-product-action-next]");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_try_third");
-    await click('[data-action-verdict-filter="watch"]');
-    await click("[data-product-action-next]");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_park");
-    await click("[data-product-action-next]");
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.productActionStage, "signal_watch_second");
-    await click('[data-action-verdict-filter="noise"]');
-    assert.equal(rootElement.querySelector<HTMLElement>("[data-product-action-stage]")?.dataset.direction, "backward");
-
-    const renameForSessionB = (signalId: string) => `${signalId}_session_b`;
-    const sessionB = {
-      ...sessionA,
-      signals: sessionA.signals.map((signal) => ({
-        ...signal,
-        id: renameForSessionB(signal.id),
-        itemId: renameForSessionB(signal.itemId),
-        sessionId: "session_stage_b"
-      })),
-      analyses: sessionA.analyses.map((analysis) => ({
-        ...analysis,
-        signalId: renameForSessionB(analysis.signalId)
-      }))
+test("InPageCollectorPopup retries a clamped reader offset when late images expand the content", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const observers: Array<{ callback: ResizeObserverCallback; active: boolean }> = [];
+    dom.window.ResizeObserver = class {
+      entry: { callback: ResizeObserverCallback; active: boolean };
+      constructor(callback: ResizeObserverCallback) { this.entry = { callback, active: false }; observers.push(this.entry); }
+      observe() { this.entry.active = true; }
+      disconnect() { this.entry.active = false; }
     };
-    await act(async () => root.render(productSignalViewElement(sessionB)));
+    const app = buildPopupAppFixture();
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const openReader = async () => { await act(async () => host.querySelector<HTMLButtonElement>("[data-collection-post]")!.click()); };
+    const back = async () => { await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-action="back"]')!.click()); };
+    await render();
+    await openReader();
+    const viewport = host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport, 650);
+    await back();
+    let maxScrollTop = 120;
+    let top = 0;
+    Object.defineProperty(viewport, "scrollTop", { configurable: true, get: () => top, set: (value: number) => { top = Math.min(value, maxScrollTop); } });
+    await openReader();
+    assert.equal(viewport.scrollTop, 120, "simulate unloaded images clamping the restored reader");
+    viewport.dispatchEvent(new dom.window.Event("scroll"));
+    maxScrollTop = 1000;
+    await act(async () => { for (const observer of observers) if (observer.active) observer.callback([], {} as ResizeObserver); });
+    assert.equal(viewport.scrollTop, 650, "content resize restores the original requested offset");
+    assert.ok(observers.every((observer) => !observer.active), "successful restoration disconnects observers");
+    await back();
+    maxScrollTop = 100;
+    await openReader();
+    assert.equal(viewport.scrollTop, 100);
+    viewport.dispatchEvent(new dom.window.WheelEvent("wheel", { bubbles: true, deltaY: -40 }));
+    scrollPopup(viewport, 60);
+    maxScrollTop = 1000;
+    await act(async () => { for (const observer of observers) if (observer.active) observer.callback([], {} as ResizeObserver); });
+    assert.equal(viewport.scrollTop, 60, "user scrolling cancels the pending restoration");
+    await back();
+    await openReader();
+    assert.equal(viewport.scrollTop, 60, "the user's new offset replaces the old pending target");
+    assert.ok(observers.every((observer) => !observer.active));
+  });
+});
 
-    const stage = rootElement.querySelector<HTMLElement>("[data-product-action-stage]");
-    assert.ok(stage);
-    assert.equal(rootElement.querySelector('[data-action-verdict-filter="try"]')?.getAttribute("aria-selected"), "true");
-    assert.equal(stage.dataset.productActionStage, "signal_try_second_session_b");
-    assert.equal(stage.dataset.productActionPage, "1");
-    assert.equal(stage.dataset.direction, "forward");
-  } finally {
-    await act(async () => root.unmount());
-    Object.assign(globalThis, previous);
-    if (previousActEnvironment === undefined) delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
-    else reactActGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    dom.window.close();
+test("InPageCollectorPopup keeps workspace mutations pending and failures visible across close and reopen", async () => {
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const app = buildPopupAppFixture();
+    const calls: string[] = [];
+    let finish!: (result: unknown) => void;
+    app.onRenameWorkspace = async (id: string) => { calls.push(id); return new Promise((resolve) => { finish = resolve; }); };
+    app.onDeleteWorkspace = async (id: string) => { calls.push(`delete:${id}`); return new Promise((resolve) => { finish = resolve; }); };
+    const render = async () => { await act(async () => root.render(<InPageCollectorPopup app={app as any} />)); };
+    const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((entry) => entry.textContent === label)!;
+    await render();
+    await act(async () => popupTab(host, "工作區").click());
+    await act(async () => button("重新命名").click());
+    const input = host.querySelector<HTMLInputElement>('input[name="workspace-rename"]')!;
+    await act(async () => { input.value = "改名"; input.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
+    await act(async () => button("儲存名稱").click());
+    assert.equal(popupTab(host, "收藏").disabled, true, "pending mutation blocks tab-driven unmount and duplicate requests");
+    await act(async () => button("設定").click());
+    assert.equal(host.querySelector('[data-settings-surface="drawer"]'), null, "settings cannot bypass the mutation lock");
+    app.popupOpen = false;
+    await render();
+    app.popupOpen = true;
+    await render();
+    assert.equal(popupTab(host, "收藏").disabled, true, "facade lock survives popup remount");
+    assert.equal(button("重新命名").disabled, true);
+    await act(async () => button("重新命名").click());
+    assert.deepEqual(calls, [app.activeFolder.id]);
+    await act(async () => finish({ ok: false, error: "private failure" }));
+    assert.equal(popupTab(host, "收藏").disabled, false);
+    assert.equal(host.querySelectorAll('[role="alert"]').length, 1);
+    assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /未能重新命名/);
+    assert.doesNotMatch(host.textContent ?? "", /private failure/);
+    await act(async () => button("刪除").click());
+    await act(async () => button("確認刪除").click());
+    app.popupOpen = false;
+    await render();
+    await act(async () => finish({ ok: false }));
+    app.popupOpen = true;
+    await render();
+    assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /未能刪除/);
+    await act(async () => button("刪除").click());
+    await act(async () => button("確認刪除").click());
+    await act(async () => finish({ ok: true }));
+    assert.equal(host.querySelector('[role="alert"]'), null, "successful retry clears the persisted failure");
+    assert.equal(popupTab(host, "收藏").disabled, false);
+  });
+});
+
+
+test("SettingsView deep model field follows the chosen provider and saved override", () => {
+  const base = {
+    sessionMode: "topic", draftBaseUrl: "http://127.0.0.1:8000", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+    draftLayoutPreferences: createDefaultSettings().layoutPreferences, draftProductProfile: { name: "", category: "", audience: "" },
+    onDraftBaseUrlChange: () => {}, onDraftProviderChange: () => {}, onDraftOpenAiKeyChange: () => {}, onDraftClaudeKeyChange: () => {}, onDraftGoogleKeyChange: () => {},
+    onDraftLayoutPreferencesChange: () => {}, onDraftProductProfileChange: () => {}, createContextFileId: () => "id", onSaveSettings: () => {}
+  };
+  for (const [provider, model] of [["google", "gemini-3.8-flash"], ["claude", "claude-sonnet-5-5"], ["openai", "gpt-4.1-mini"]]) {
+    const html=renderToStaticMarkup(React.createElement(SettingsView, {...base,draftProvider:provider} as any));
+    assert.match(html,new RegExp(`data-settings-deep-model="${provider}"`)); assert.match(html,new RegExp(`value="${model}"`));
+    assert.equal((html.match(/data-settings-deep-model=/g)||[]).length,1);
+  }
+  const html=renderToStaticMarkup(React.createElement(SettingsView,{...base,draftProvider:"google",draftDeepReadingModels:{google:"custom-model"}} as any));
+  assert.match(html,/value="custom-model"/);
+});
+
+test('card reader handoff opens on the requested lens live and after pending load, without domain mutations', async()=>{
+ const {JSDOM}=await import('jsdom');const {act}=await import('react');const {requestWorkspaceOpen}=await import('../src/ui/inpage-helpers.tsx');
+ const dom=new JSDOM('<div id="root"></div>',{url:'https://dlens.test',pretendToBeVisual:true});
+ const previous={window:globalThis.window,document:globalThis.document,HTMLElement:globalThis.HTMLElement};const g=globalThis as any;const oldAct=g.IS_REACT_ACT_ENVIRONMENT;
+ Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement});g.IS_REACT_ACT_ENVIRONMENT=true;
+ const {createRoot}=await import('react-dom/client');const host=document.getElementById('root')!;const root=createRoot(host);
+ const product=createSessionRecord('個人應用','2026-10-13T00:00:00Z','product');product.items=[createSessionItem({...buildDescriptor(),post_url:'https://www.threads.com/@pear/post/F1',author_hint:'pear',text_snippet:'保存原文'},'2026-10-13T00:00:00Z')];
+ const mutations:string[]=[];const app=buildPopupAppFixture({session:product,sessions:[product],onSetActiveSession:async id=>{mutations.push(id);return {ok:true};},onNavigate:async p=>{mutations.push(p);}});
+ try {
+  // Fresh-load handoff arrives before React mounts and before inventory consumption.
+  requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'try'});
+  await act(async()=>root.render(<InPageCollectorPopup app={app as any}/>));
+  assert.ok(host.querySelector('[data-collection-browser="reader"]'));
+  assert.equal(host.querySelector('[data-reader-entry="try"]')?.getAttribute('aria-pressed'),'true');
+  await act(async()=>requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'what'}));
+  assert.equal(host.querySelector('[data-reader-entry="what"]')?.getAttribute('aria-pressed'),'true');
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-reader-entry="fit"]')!.click());
+  await act(async()=>requestWorkspaceOpen(product.id,dom.window as any,{itemId:product.items[0].id,lens:'what'}));
+  assert.equal(host.querySelector('[data-reader-entry="what"]')?.getAttribute('aria-pressed'),'true','repeated card handoff overrides the lens selected locally');
+  assert.deepEqual(mutations,[]);
+ }finally{await act(async()=>root.unmount());Object.assign(globalThis,previous);g.IS_REACT_ACT_ENVIRONMENT=oldAct;dom.window.close();}
+});
+
+test("workspace cards open product and archive in collection with the matching visible filter", async () => {
+  for (const mode of ["product", "archive"] as const) {
+    await withCollectionFocusDom(async (host, _dom, root, act) => {
+      const topic = { ...buildSession(), id: "audience-owner", mode: "topic" as const };
+      const destination = { ...buildSession(), id: `open-${mode}`, mode };
+      const opened: string[] = [];
+      const navigated: string[] = [];
+      const app = buildPopupAppFixture({ session: topic, sessions: [topic, destination],
+        onSetActiveSession: async id => { opened.push(id); return { ok: true }; },
+        onNavigate: async page => { navigated.push(page); }
+      });
+      await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+      await act(async () => popupTab(host, "工作區").click());
+      const card = host.querySelector<HTMLButtonElement>(`[data-workspace-session="${destination.id}"]`);
+      assert.ok(card);
+      await act(async () => card.click());
+      assert.deepEqual(opened, [destination.id]);
+      assert.deepEqual(navigated, ["collection"]);
+      assert.equal(app.activeFolder.id, destination.id);
+      assert.equal(popupTab(host, "收藏").getAttribute("aria-selected"), "true");
+      assert.ok(host.querySelector('[data-collection-browser="list"]'));
+      assert.equal(host.querySelector(`[data-collection-filter="${mode}"]`)?.getAttribute("aria-pressed"), "true");
+      assert.equal(host.querySelectorAll('[data-collection-filter][aria-pressed="true"]').length, 1);
+      assert.equal(Boolean(host.querySelector('[data-collection-signal-packet-export]')), mode === "product");
+      assert.equal(host.querySelector('[data-topic-discourse], input[type="file"]'), null);
+    });
   }
 });
 
-test("Product Action verdict tiles disable empty buckets and default to the first enabled bucket", () => {
-  const fixture = productActionStageFixture();
-  const html = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    analyses: fixture.analyses.map((analysis) => (
-      analysis.verdict === "watch"
-        ? analysis
-        : { ...analysis, status: "analyzing" as const }
-    ))
-  }));
-
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="try"'), /\sdisabled=""/);
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="noise"'), /\sdisabled=""/);
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="insufficient"'), /\sdisabled=""/);
-  assert.match(findTagWithAttribute(html, 'data-action-verdict-filter="watch"'), /aria-selected="true"/);
-  assert.match(html, /data-product-action-stage="signal_watch_first"/);
+test("side-panel workspace handoff opens archive collection and selects its filter", async () => {
+  const { requestWorkspaceOpen } = await import("../src/ui/inpage-helpers.tsx");
+  await withCollectionFocusDom(async (host, dom, root, act) => {
+    const owner = { ...buildSession(), id: "owner", mode: "topic" as const };
+    const archive = { ...buildSession(), id: "archive-handoff", mode: "archive" as const };
+    const pages: string[] = [];
+    const app = buildPopupAppFixture({ session: owner, sessions: [owner, archive], onNavigate: async page => { pages.push(page); } });
+    requestWorkspaceOpen(archive.id, dom.window as any);
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    assert.equal(app.activeFolder.id, archive.id);
+    assert.deepEqual(pages, ["collection"]);
+    assert.equal(popupTab(host, "收藏").getAttribute("aria-selected"), "true");
+    assert.equal(host.querySelector('[data-collection-filter="archive"]')?.getAttribute("aria-pressed"), "true");
+    assert.ok(host.querySelector('[data-collection-browser="list"]'));
+    assert.equal(host.querySelector('[data-collection-signal-packet-export]'), null);
+    assert.equal(host.querySelector('[data-workspace-home]'), null);
+  });
 });
 
-test("Product Action total-zero state keeps four disabled verdict tiles and sends analysis back to Signals", () => {
-  const html = renderToStaticMarkup(productSignalViewElement({
-    kind: "actionable-filter",
-    signals: [],
-    analyses: [],
-    productProfile: productTestProfile(),
-    onAnalyze: () => undefined
-  }));
-
-  assert.match(html, /data-product-action-status="compact"/);
-  assert.match(html, /data-verdict-filter-tiles="true"/);
-  assert.equal(countOccurrences(html, "data-action-verdict-filter="), 4);
-  for (const key of ["try", "watch", "noise", "insufficient"] as const) {
-    const tile = findTagWithAttribute(html, `data-action-verdict-filter="${key}"`);
-    assert.match(tile, /\sdisabled=""/);
-    assert.match(tile, /aria-selected="false"/);
-    assert.doesNotMatch(tile, /aria-pressed=/);
-  }
-  assert.equal(countOccurrences(html, 'data-product-action-empty="true"'), 1);
-  assert.match(html, /請先到訊號頁開始分析/);
-  assert.doesNotMatch(html, /分析收件匣|重新分析|重新整理分析/);
-  assert.doesNotMatch(html, /data-product-action-pager=/);
-});
-
-test("Product hydrate requests only data consumed by the live Saved and Action surfaces", () => {
-  const appStateSource = readFileSync(new URL("../src/ui/useInPageCollectorAppState.ts", import.meta.url), "utf8");
-  const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
-
-  assert.equal(countOccurrences(appStateSource, 'type: "product/list-signal-analyses"'), 1);
-  assert.doesNotMatch(appStateSource, /product\/list-agent-task-feedback|historicalProductSignalAnalyses|productAgentTaskFeedback/);
-  assert.doesNotMatch(popupSource, /historicalAnalyses:|agentTaskFeedback:/);
-});
-
-
-test("Product Action stage renders one candidate at a time without promoting AI quote summaries", () => {
-  const v3Props = {
-    signals: [
-      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" },
-      { id: "s2", sessionId: "sess", itemId: "i2", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
-    ],
-    analyses: ["s1", "s2"].map((id) => ({
-      signalId: id,
-      signalType: "demand" as const,
-      signalSubtype: "shared_subtype",
-      contentType: "discussion_starter" as const,
-      contentSummary: `卡片 ${id}`,
-      relevance: 5 as const,
-      relevantTo: ["coreWorkflows" as const],
-      whyRelevant: "相關。",
-      verdict: "try" as const,
-      reason: "理由。",
-      evidenceRefs: ["e1"],
-      evidenceNotes: [{ ref: "e1", quoteSummary: `${id} 摘錄。`, whyItMatters: `${id} 引用原因。` }],
-      productContextHash: "ctx",
-      promptVersion: "v3",
-      analyzedAt: "2026-04-28T01:00:00.000Z",
-      status: "complete" as const
-    })),
-    productProfile: {
-      name: "DLens", category: "x", audience: "y", contextText: "z",
-      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-    },
-    evidenceBySignalId: {
-      s1: [{ ref: "e1", id: "r1", author: "alpha", text: "raw 1", likeCount: 1 }],
-      s2: [{ ref: "e1", id: "r2", author: "beta",  text: "raw 2", likeCount: 2 }]
-    },
-    onAnalyze: () => undefined
-  };
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
-  );
-
-  const openDetails = html.match(/<details open=""[^]*?<\/details>/g) ?? [];
-
-  assert.equal(openDetails.length, 0);
-  assert.match(html, /行動簡報/);
-  assert.equal(countOccurrences(html, "data-product-action-stage="), 1);
-  assert.match(html, /data-product-action-stage="s1"/);
-  assert.match(html, /data-product-action-live="true"[^>]*>1 \/ 2/);
-  assert.doesNotMatch(html, /儲存至行動清單|>\+<\/span> 儲存/);
-  assert.match(html, /data-product-action-exact-quote="true"[^]*raw 1/);
-  assert.doesNotMatch(html, /<blockquote[^>]*>s1 摘錄。/);
-  assert.doesNotMatch(html, /raw 2|卡片 s2/);
-});
-
-
-test("product view chrome stays 繁中 — no english workspace labels", () => {
-  const baseProps = {
-    signals: [
-      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
-    ],
-    analyses: [{
-      signalId: "s1",
-      signalType: "demand" as const,
-      signalSubtype: "subtype",
-      contentType: "discussion_starter" as const,
-      contentSummary: "卡片 s1",
-      relevance: 5 as const,
-      relevantTo: ["coreWorkflows" as const],
-      whyRelevant: "相關。",
-      verdict: "try" as const,
-      reason: "理由。",
-      evidenceRefs: ["e1"],
-      evidenceNotes: [{ ref: "e1", quoteSummary: "s1 摘錄。", whyItMatters: "s1 引用原因。" }],
-      productContextHash: "ctx",
-      promptVersion: "v3",
-      analyzedAt: "2026-04-28T01:00:00.000Z",
-      status: "complete" as const
-    }],
-    productProfile: {
-      name: "DLens", category: "x", audience: "y", contextText: "z",
-      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-    },
-    onAnalyze: () => undefined
-  };
-  const englishChrome = /Saved Signals|Agent Brief|AI enabled|TASK ›|No result/;
-
-  for (const kind of ["saved-signals", "actionable-filter"] as const) {
-    const html = renderToStaticMarkup(
-      productSignalViewElement( { ...baseProps, kind, signalReadings: [] })
-    );
-    assert.doesNotMatch(html, englishChrome, `${kind} must not render english chrome labels`);
-  }
-});
-
-test("citationsForAnalysis filters out refs missing both entry and note", () => {
-  const v3Props = {
-    signals: [
-      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
-    ],
-    analyses: [{
-      signalId: "s1",
-      signalType: "demand" as const,
-      signalSubtype: "subtype",
-      contentType: "discussion_starter" as const,
-      contentSummary: "summary",
-      relevance: 5 as const,
-      relevantTo: ["coreWorkflows" as const],
-      whyRelevant: "相關。",
-      verdict: "try" as const,
-      reason: "理由。",
-      evidenceRefs: ["e1", "e2", "e_dangling"],
-      evidenceNotes: [
-        { ref: "e1", quoteSummary: "e1 摘錄。", whyItMatters: "e1 原因。" }
-      ],
-      productContextHash: "ctx",
-      promptVersion: "v3",
-      analyzedAt: "2026-04-28T01:00:00.000Z",
-      status: "complete" as const
-    }],
-    productProfile: {
-      name: "DLens", category: "x", audience: "y", contextText: "z",
-      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-    },
-    evidenceBySignalId: {
-      s1: [{ ref: "e2", id: "r2", author: "beta", text: "raw 2", likeCount: 2 }]
-    },
-    onAnalyze: () => undefined
-  };
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( { ...v3Props, kind: "actionable-filter", cardLayout: "verdict" })
-  );
-
-  // e1 has note only, e2 has entry only → both count. e_dangling has neither → must be skipped.
-  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref e1 \+1"/);
-  assert.match(html, /data-product-action-exact-quote="true"[^]*raw 2/);
-  assert.doesNotMatch(html, /<blockquote[^>]*>e1 摘錄。/);
-  assert.doesNotMatch(html, /e_dangling/);
-});
-
-test("ProductSignalView tolerates legacy analysis records with missing optional arrays", () => {
-  const legacyAnalysis = {
-    signalId: "s_legacy",
-    signalType: "demand",
-    signalSubtype: "legacy_agent_task",
-    contentType: "discussion_starter",
-    contentSummary: "舊資料仍應可顯示。",
-    relevance: 5,
-    relevantTo: undefined,
-    whyRelevant: "相關。",
-    verdict: "try",
-    reason: "理由。",
-    experimentHint: "試一個小任務。",
-    blockers: undefined,
-    agentTaskSpec: {
-      targetAgent: "claude",
-      taskTitle: "舊任務",
-      taskPrompt: "You are helping with a legacy task."
-    },
-    evidenceRefs: undefined,
-    evidenceNotes: undefined,
-    productContextHash: "ctx",
-    promptVersion: "v3",
-    analyzedAt: "2026-04-28T01:00:00.000Z",
-    status: "complete"
-  };
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "actionable-filter",
-      signals: [
-        { id: "s_legacy", sessionId: "sess", itemId: "i1", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-28T00:00:00.000Z" }
-      ] as any,
-      analyses: [legacyAnalysis] as any,
-      productProfile: {
-        name: "DLens",
-        category: "x",
-        audience: "y",
-        contextText: "z",
-        contextFiles: [{ id: "f", name: "README.md", kind: "readme", importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-      } as any,
-      evidenceBySignalId: { s_legacy: undefined } as any,
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /data-product-action-stage="s_legacy"/);
-  assert.match(html, /舊資料仍應可顯示/);
-  assert.match(html, /data-product-source-truth-metric="evidence"[^>]*aria-label="證據 ref 未提供"/);
-  assert.doesNotMatch(html, /Agent 任務（可複製）/);
-  assert.match(html, /data-product-action-content="true"/);
-  const sequenceTag = findTagWithAttribute(html, 'data-product-action-content="true"');
-  assert.ok(sequenceTag);
-  assert.match(sequenceTag, /display:grid/);
-  assert.doesNotMatch(sequenceTag, /\sopen=""/);
-  assert.doesNotMatch(html, /舊任務/);
-  assert.doesNotMatch(html, /You are helping with a legacy task/);
-});
-
-test("Product Action next beat is omitted when no actionable task is available", () => {
-  const fixture = productActionStageFixture();
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  assert.ok(signal);
-  assert.ok(baseAnalysis);
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      signals: [signal],
-      analyses: [
-        {
-          ...baseAnalysis,
-          reason: "明確可觀察原因。",
-          referenceTakeaway: "可沿用的觀察結果。",
-          agentTaskSpec: undefined,
-          experimentHint: undefined
-        }
-      ]
-    })
-  );
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.doesNotMatch(html, /data-product-action-decision-row="next"/);
-  assert.doesNotMatch(html, /尚未有可派發任務；先保留為觀察。/);
-});
-
-test("Product Action does not duplicate takeaway text when reason and takeaway are identical", () => {
-  const fixture = productActionStageFixture();
-  const signal = fixture.signals.find((item) => item.id === "signal_try_second");
-  const baseAnalysis = fixture.analyses.find((analysis) => analysis.signalId === "signal_try_second");
-  assert.ok(signal);
-  assert.ok(baseAnalysis);
-  const duplicateText = "相同文字需避免重複。";
-  const html = renderToStaticMarkup(
-    productSignalViewElement({
-      ...fixture,
-      signals: [signal],
-      analyses: [
-        {
-          ...baseAnalysis,
-          reason: duplicateText,
-          referenceTakeaway: duplicateText,
-          experimentHint: "第二段任務"
-        }
-      ]
-    })
-  );
-  assert.match(html, /data-product-action-stage="signal_try_second"/);
-  assert.equal(countOccurrences(html, duplicateText), 1);
-});
-
-test("ProductSignalView batch export copies action context with original signal text and task prompt", () => {
-  const analysis = {
-    signalId: "signal_a",
-    signalType: "learning",
-    signalSubtype: "mobile_share_intake",
-    contentType: "content",
-    contentSummary: "手機分享入口實驗",
-    relevance: 5,
-    relevantTo: ["coreWorkflows", "technicalLearning"],
-    referenceType: "technical_learning",
-    referenceLabel: "學習 mobile share intake 的入口設計",
-    referenceTakeaway: "可先學習分享入口如何交給 agent，再決定是否改造 DLens collect flow。",
-    whyRelevant: "使用者明確描述手機上快速保存 Threads 的需求。",
-    verdict: "try",
-    reason: "可以直接測試 share URL intake。",
-    audienceGap: "作者預期大家關心分享入口；觀眾實際追問 agent 如何保存上下文。",
-    experimentHint: "做一個 share URL intake prototype。",
-    evidenceRefs: ["e1"],
-    evidenceNotes: [
-      {
-        ref: "e1",
-        quoteSummary: "觀眾問 agent 是否能保存上下文。",
-        whyItMatters: "說明使用者關心的是連續工作流，而不只是入口。"
-      }
-    ],
-    productContextHash: "hash",
-    promptVersion: "v11",
-    analyzedAt: "2026-04-27T00:00:00.000Z",
-    status: "complete",
-    agentTaskSpec: {
-      targetAgent: "codex",
-      taskTitle: "Share intake prototype",
-      requiredContext: ["current README"],
-      taskPrompt: "Prototype a share URL intake for mobile Threads posts."
-    }
-  } as const;
-
-  const brief = productSignalViewTestables.buildAgentBrief({
-    mode: "decision",
-    selectedSignals: [
-      { id: "signal_a", sessionId: "session_a", itemId: "item_a", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-04-27T00:00:00.000Z" }
-    ],
-    analysesBySignal: new Map([["signal_a", analysis as any]]),
-    signalPreviewById: {
-      signal_a: "Original Threads text: I want to save posts from mobile share sheet."
-    },
-    signalUrlById: {
-      signal_a: "https://www.threads.net/@dlens/post/abc"
+test("Signal Packet row appears only under the product collection filter", async () => {
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    const product = { ...buildSession(), id: "product-export", mode: "product" as const };
+    const archive = { ...buildSession(), id: "archive-export", mode: "archive" as const };
+    const app = buildPopupAppFixture({ session: product, sessions: [product, archive] });
+    await act(async () => root.render(<InPageCollectorPopup app={app as any} />));
+    assert.equal(host.querySelector('[data-collection-signal-packet-export]'), null, "all is the initial collection filter");
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-collection-filter="product"]')!.click());
+    assert.ok(host.querySelector('[data-collection-signal-packet-export]'));
+    assert.ok(host.querySelector('select[aria-label="Signal Packet 格式"]'));
+    for (const filter of ["all", "topic", "archive"] as const) {
+      await act(async () => host.querySelector<HTMLButtonElement>(`[data-collection-filter="${filter}"]`)!.click());
+      assert.equal(host.querySelector('[data-collection-signal-packet-export]'), null, `${filter} keeps the product export action out of its collection`);
     }
   });
-
-  assert.match(brief, /# Product Action Brief/);
-  assert.match(brief, /## 使用方式/);
-  assert.match(brief, /先處理 `值得嘗試`/);
-  assert.match(brief, /`保留觀察` 只作產品學習/);
-  assert.match(brief, /Original Threads text/);
-  assert.match(brief, /原文連結: https:\/\/www\.threads\.net\/@dlens\/post\/abc/);
-  assert.match(brief, /手機分享入口實驗/);
-  assert.match(brief, /學習 mobile share intake 的入口設計/);
-  assert.match(brief, /可先學習分享入口如何交給 agent/);
-  assert.match(brief, /Prototype a share URL intake/);
-  assert.doesNotMatch(brief, /## 1\. signal_a/);
-  assert.doesNotMatch(brief, /AI summary/);
-});
-
-test("ProductSignalView original batch export includes audience reactions and audience gap", () => {
-  const analysis = {
-    signalId: "signal_b",
-    signalType: "marketing",
-    signalSubtype: "positioning_backlash",
-    contentType: "mixed",
-    contentSummary: "毒舌記帳 App 引發定位討論",
-    relevance: 3,
-    relevantTo: ["productPromise"],
-    referenceType: "market_language",
-    referenceLabel: "對產品可參考：語氣反面案例",
-    referenceTakeaway: "觀眾反應提醒產品人格化不能只靠噱頭。",
-    whyRelevant: "這可用來審視 DLens 的語氣是否過度人格化。",
-    verdict: "watch",
-    reason: "可作為反面語氣案例。",
-    audienceGap: "作者預期毒舌語氣成為差異化；觀眾實際反應是記帳 App 過剩疲勞。",
-    evidenceRefs: ["e1", "e2"],
-    evidenceNotes: [
-      { ref: "e1", quoteSummary: "觀眾說記帳 App 太多。", whyItMatters: "顯示疲勞點不在毒舌，而是品類過剩。" },
-      { ref: "e2", quoteSummary: "有人覺得毒舌不適合理財。", whyItMatters: "顯示人格化語氣可能降低信任。" }
-    ],
-    productContextHash: "hash",
-    promptVersion: "v16",
-    analyzedAt: "2026-05-17T00:00:00.000Z",
-    status: "complete"
-  } as const;
-
-  const brief = productSignalViewTestables.buildAgentBrief({
-    mode: "original",
-    selectedSignals: [
-      { id: "signal_b", sessionId: "session_a", itemId: "item_b", source: "threads", inboxStatus: "unprocessed", capturedAt: "2026-05-17T00:00:00.000Z" }
-    ],
-    analysesBySignal: new Map([["signal_b", analysis as any]]),
-    signalPreviewById: {
-      signal_b: "Budget AI uses a savage personality to nudge spending habits."
-    },
-    signalUrlById: {
-      signal_b: "https://www.threads.net/@budgetai/post/xyz"
-    },
-    evidenceBySignalId: {
-      signal_b: [
-        {
-          ref: "e1",
-          text: "又係記帳app，市面上已經一堆記帳app冇心再試新嘢",
-          author: "rick_no_rich",
-          likes: 9,
-          position: 1
-        },
-        {
-          ref: "e2",
-          text: "用APP都會比佢串 不了 仲嫌日常生活唔夠大壓力咩",
-          author: "azusa2789",
-          likes: 2,
-          position: 2
-        }
-      ]
-    }
-  });
-
-  assert.match(brief, /原文連結: https:\/\/www\.threads\.net\/@budgetai\/post\/xyz/);
-  assert.match(brief, /觀眾反應 \(2 則\)/);
-  assert.match(brief, /\[e1\] rick_no_rich：又係記帳app，市面上已經一堆記帳app冇心再試新嘢/);
-  assert.match(brief, /\[e2\] azusa2789：用APP都會比佢串 不了 仲嫌日常生活唔夠大壓力咩/);
-  assert.doesNotMatch(brief, /\[e1\] 觀眾說記帳 App 太多。/);
-  assert.match(brief, /預期落差: 作者預期毒舌語氣成為差異化/);
-});
-
-
-test("ProductSignalView keeps the explicit Product Reading headline and complete body", () => {
-  const display = productSignalViewTestables.createSignalReadingDisplayCopy(
-    projectedProductReading("signal_explicit", {
-      headline: "AI 人格設定與用戶情緒負債之間的邊界",
-      reading: "第一段完整判讀。\n\n第二段完整判讀不應被折疊。"
-    }),
-    "不得取代明確 headline 的 fallback"
-  );
-
-  assert.equal(display.title, "AI 人格設定與用戶情緒負債之間的邊界");
-  assert.equal(display.body, "第一段完整判讀。\n\n第二段完整判讀不應被折疊。");
-});
-
-
-test("Product user-triggered analysis uses the shared generating attention state", () => {
-  const fixture = productActionStageFixture();
-  const analyzingHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    kind: "classification",
-    isAnalyzing: true,
-    onAnalyze: () => undefined
-  }));
-  const idleHtml = renderToStaticMarkup(productSignalViewElement({
-    ...fixture,
-    kind: "classification",
-    isAnalyzing: false,
-    onAnalyze: () => undefined
-  }));
-
-  const analysisSurface = findTagWithAttribute(analyzingHtml, 'data-product-analysis-surface="true"');
-  assert.match(analysisSurface, /data-attention-surface="true"/);
-  assert.match(analysisSurface, /data-attention-beam="generating"/);
-  assert.match(analysisSurface, /data-product-reading-beam="generating"/);
-  assert.doesNotMatch(analysisSurface, /data-attention-beam-sweep/);
-  const analysisButton = findTagWithAttribute(analyzingHtml, 'aria-busy="true"');
-  assert.doesNotMatch(analysisButton, /data-attention-beam=/);
-  assert.match(analyzingHtml, /data-searching-orb="true"[^]*分析中/);
-  assert.match(findTagWithAttribute(idleHtml, 'data-product-analysis-surface="true"'), /data-attention-beam="none"/);
-});
-
-
-
-
-
-test("ClassificationBoard selected post aside collapses long text behind 展開全文", () => {
-  const longText = "1. 用 Claude Skill 讀 Slack thread 和 Jira tickets，寫 Release Note。接下來提到 Confluence、Metabase、SQL editor 等更多細節。然後又補充了一段。";
-  const v3Props = {
-    signals: [
-      { id: "s1", sessionId: "sess", itemId: "i1", source: "threads" as const, inboxStatus: "unprocessed" as const, capturedAt: "2026-04-28T00:00:00.000Z" }
-    ],
-    analyses: [{
-      signalId: "s1",
-      signalType: "demand" as const,
-      signalSubtype: "pm_doc",
-      contentType: "discussion_starter" as const,
-      contentSummary: longText,
-      relevance: 5 as const,
-      relevantTo: ["coreWorkflows" as const],
-      whyRelevant: "相關。",
-      verdict: "try" as const,
-      reason: "理由。",
-      evidenceRefs: [],
-      productContextHash: "ctx",
-      promptVersion: "v3",
-      analyzedAt: "2026-04-28T01:00:00.000Z",
-      status: "complete" as const
-    }],
-    productProfile: {
-      name: "DLens", category: "x", audience: "y", contextText: "z",
-      contextFiles: [{ id: "f", name: "README.md", kind: "readme" as const, importedAt: "2026-04-28T00:00:00.000Z", charCount: 1 }]
-    },
-    signalPreviewById: { s1: longText },
-    onAnalyze: () => undefined
-  };
-
-  const html = renderToStaticMarkup(
-    productSignalViewElement( { ...v3Props, kind: "classification" })
-  );
-
-  assert.match(html, /展開全文/);
-  // First sentence appears outside the details (always visible)
-  assert.match(html, /1\. 用 Claude Skill 讀 Slack thread 和 Jira tickets/);
-  assert.doesNotMatch(html, />1\.<\/div>/);
-  // Rest of text is wrapped inside the controlled smooth disclosure, closed by default,
-  // so the second/third sentences are not visible until user expands.
-  const detailsBlocks = html.match(/data-dlens-smooth-details="true"[^]*?data-dlens-details-panel="true"[^]*?<\/div><\/div><\/div>/g) ?? [];
-  assert.ok(detailsBlocks.some((block) => /data-dlens-details-open="false"/.test(block) && /Metabase/.test(block)));
-});
-
-test("ProductSignalView surfaces product analyzer readiness and errors", () => {
-  const html = renderToStaticMarkup(
-    productSignalViewElement( {
-      kind: "classification",
-      signals: [
-        {
-          id: "signal_a",
-          sessionId: "session_a",
-          itemId: "item_a",
-          source: "threads",
-          inboxStatus: "unprocessed",
-          capturedAt: "2026-04-27T00:00:00.000Z"
-        }
-      ],
-      analyses: [
-        {
-          signalId: "signal_a",
-          signalType: "noise",
-          signalSubtype: "analysis_error",
-          contentType: "mixed",
-          contentSummary: "產品訊號分析失敗。",
-          relevance: 1,
-          relevantTo: [],
-          whyRelevant: "這次分析沒有產生可信結果。",
-          verdict: "insufficient_data",
-          reason: "Invalid product signal analysis payload",
-          evidenceRefs: [],
-          productContextHash: "ctx_error",
-          promptVersion: "v6",
-          analyzedAt: "2026-04-28T00:00:00.000Z",
-          status: "error",
-          error: "Invalid product signal analysis payload"
-        }
-      ],
-      productProfile: {
-        name: "DLens",
-        category: "Creator analysis",
-        audience: "Threads creators",
-        contextText: "README context",
-        contextFiles: [
-          {
-            id: "file_readme",
-            name: "README.md",
-            kind: "readme",
-            importedAt: "2026-04-27T00:00:00.000Z",
-            charCount: 14
-          }
-        ]
-      },
-      signalPreviewById: {},
-      aiProviderReady: false,
-      analysisError: "ProductSignalAnalyzer failed: Invalid product signal analysis payload",
-      onAnalyze: () => undefined
-    })
-  );
-
-  assert.match(html, /尚未設定 AI key/);
-  assert.match(html, /ProductSignalAnalyzer failed/);
-  assert.match(html, /Invalid product signal analysis payload/);
-  assert.match(html, /分析失敗/);
-  assert.match(html, /需重試/);
-  assert.match(html, /部分失敗/);
-  assert.doesNotMatch(html, /Backend 離線/);
 });

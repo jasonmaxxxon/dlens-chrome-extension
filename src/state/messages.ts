@@ -1,71 +1,52 @@
+import type { TopicReadingRecord } from "../compare/topic-reading-storage";
+import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
-import type { CompareBrief, CompareBriefRequest } from "../compare/brief";
-import type { CompareOneLinerRequest } from "../compare/one-liner";
-import type {
-  ActiveAnalysisResult,
-  ActiveCompareDraft,
-  FolderSynthesis,
-  JudgmentResult,
-  LayoutPreferences,
-  ProductAgentTaskFeedback,
-  ProductSignalAnalysis,
-  SignalTagsRecord,
-  TopicSignalReading,
-  ProductContext,
-  ProductProfile,
-  FolderMode,
-  SavedAnalysisSnapshot,
-  Signal,
-  SignalInboxStatus,
-  Topic,
-  TriageAction,
-  TechniqueReadingSnapshot
-} from "./types";
+import type { ExtensionSettings, LayoutPreferences, ProductAgentTaskFeedback, ProductSignalAnalysis, ProductContext, ProductProfile, FolderMode, Signal, SignalInboxStatus, Topic, TriageAction } from "./types";
 import type { SignalReading } from "../compare/signal-reading-storage";
-import type { ClusterInterpretation, CompareClusterSummaryRequest } from "../compare/cluster-interpretation";
-import type { EvidenceAnnotation, EvidenceAnnotationRequest } from "../compare/evidence-annotation";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import type { ExtensionSnapshot, HoverCandidateStrength, PopupPage } from "./types";
+import type { ExtensionSnapshot, PopupPage } from "./types";
 import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
 import type { PrCampaign, PrCampaignSaveDraft, PrCriterion, PrEvidenceRow, PrNarrativeSettings } from "./pr-evidence-storage";
 import type { PrNarrativeRead } from "../compare/pr-narrative";
 import type { DLensSignalPacket, SignalPacketIndexFilter } from "../compare/signal-packet";
 import type { SignalPacketExportFormat, SignalPacketExportResult } from "../compare/signal-packet-export";
-import type { CrossTopicCalibration, EvidencePacket, TopicAuditEpisode, TopicAuditReport, TopicAuditStageName } from "../compare/topic-audit";
-import type { TopicAuditRunStatus } from "../compare/topic-audit-envelope-contract";
-import type { TopicAuditValidationFlag } from "../compare/topic-audit-validator";
-import type { TopicAuditMemoBundle } from "./topic-audit-storage";
 import type { SaveCurrentPreviewActionTarget, SessionActionTarget, SessionItemActionTarget } from "./action-target";
 import type { PipelineTraceEntry } from "./pipeline-trace";
 
+import type { InlineCollectMessage, InlineCollectState } from "./inline-collect";
+
 export type ExtensionMessagePayload =
+  | InlineCollectMessage
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
   | { type: "storage/get-usage" }
   | { type: "settings/set-ingest-base-url"; value: string }
   | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
   | { type: "settings/init-product-profile"; description: string }
-  | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string }
+  | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
-  | { type: "popup/open-active-tab" }
-  | { type: "popup/close-tab"; tabId: number }
+  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string }
+  | { type: "sidepanel/take-workspace-open" }
+  | { type: "deep-reading/run"; itemId: string }
+  | { type: "topic-reading/run"; topicId: string }
+  | { type: "inline-reading/ensure"; sessionId: string; itemId: string; retry?: boolean }
+  /** The post crossing the middle of the Threads viewport; the side panel follows it. */
+  | { type: "inline/in-view"; postKey: string | null }
+  | { type: "inline/in-view-get"; tabId?: number }
+  /** Ask the chosen provider whether the saved key works (a models listing, no generation). */
+  | { type: "settings/test-ai-key" }
   | { type: "popup/navigate-active-tab"; page: PopupPage }
-  | { type: "selection/start-active-tab" }
-  | { type: "selection/cancel-active-tab" }
-  | { type: "selection/start-tab"; tabId: number; mode?: FolderMode }
-  | { type: "selection/cancel-tab"; tabId: number }
-  | { type: "selection/hovered"; descriptor: TargetDescriptor | null; strength?: HoverCandidateStrength | null }
-  | { type: "selection/selected"; descriptor: TargetDescriptor }
-  | { type: "selection/mode-changed"; enabled: boolean }
   | { type: "pipeline-trace/enable-background" }
   | { type: "pipeline-trace/background-event"; event: PipelineTraceEntry }
   | { type: "session/create"; name: string; saveCurrentPreview?: boolean; mode?: FolderMode; descriptor?: TargetDescriptor }
+  | { type: "session/move-to-product"; sessionId: string; itemId: string }
   | { type: "session/rename"; sessionId: string; name: string }
   | { type: "session/delete"; sessionId: string }
   | { type: "session/set-active"; sessionId: string }
   | { type: "session/set-mode"; sessionId: string; mode: FolderMode }
   | { type: "session/save-current-preview"; target: SaveCurrentPreviewActionTarget; descriptor?: TargetDescriptor }
   | { type: "session/select-item"; sessionId: string; itemId: string }
+  | { type: "session/undo-save"; sessionId: string; itemId: string }
   | { type: "session/queue-item"; sessionId: string; itemId: string }
   | { type: "session/queue-items"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }
@@ -77,44 +58,15 @@ export type ExtensionMessagePayload =
   | { type: "worker/start-processing" }
   | { type: "worker/get-status" }
   | { type: "backend/get-health"; baseUrl: string }
-  | { type: "compare/get-brief"; request: CompareBriefRequest }
-  | { type: "compare/get-one-liner"; request: CompareOneLinerRequest }
-  | { type: "compare/get-cluster-summaries"; request: CompareClusterSummaryRequest }
-  | { type: "compare/get-evidence-annotations"; request: EvidenceAnnotationRequest }
-  | { type: "compare/get-technique-readings" }
-  | { type: "compare/save-technique-reading"; snapshot: TechniqueReadingSnapshot }
-  | { type: "compare/get-saved-analyses" }
-  | { type: "compare/save-analysis"; snapshot: SavedAnalysisSnapshot }
   | { type: "topic/list"; sessionId: string }
   | { type: "topic/create"; sessionId: string; name: string; description?: string; context?: Topic["context"] }
   | { type: "topic/update"; id: string; patch: Partial<Pick<Topic, "name" | "status" | "tags" | "description" | "context">> }
   | { type: "topic/delete"; id: string }
   | { type: "topic/set-collection-target"; topicId: string | null }
-  | { type: "topic/add-pair"; topicId: string; resultId: string }
-  | { type: "topic/remove-pair"; topicId: string; resultId: string }
-  | { type: "topic/synthesis/generate"; topicId: string }
-  | { type: "topic/synthesis/clear"; topicId: string }
-  | { type: "topic/audit/build-evidence"; sessionId: string; topicId: string }
-  | { type: "topic/audit/run"; requestId: string; sessionId: string; topicId: string; fromStage?: TopicAuditStageName; force?: boolean }
-  | { type: "topic/audit/p1-signal"; sessionId: string; topicId: string; signalId: string }
   | { type: "extension/open-page"; path: string }
-  | { type: "topic/audit/get"; topicId: string }
-  | { type: "topic/audit/validate"; topicId: string }
-  | { type: "topic/audit/clear"; topicId: string }
-  | { type: "cross-topic/calibrate"; topicIds: string[] }
-  | { type: "topic/generate-signal-reading"; signalId: string; topicId: string }
-  | { type: "topic/list-signal-readings"; topicId: string }
-  | { type: "topic/generate-missing-signal-tags"; topicId: string }
-  | { type: "signal/list-tags"; itemIds?: string[] }
-  | { type: "folder/synthesis/get"; sessionId: string }
-  | { type: "folder/synthesis/generate"; sessionId: string }
-  | { type: "folder/synthesis/clear"; sessionId: string }
   | { type: "signal/list"; sessionId: string; status?: SignalInboxStatus }
   | { type: "signal/triage"; signalId: string; action: TriageAction }
   | { type: "signal/delete"; signalId: string }
-  | { type: "compare/set-active-draft"; draft: ActiveCompareDraft | null }
-  | { type: "compare/set-active-result"; result: ActiveAnalysisResult | null }
-  | { type: "judgment/start"; resultId: string }
   | { type: "product/list-signal-analyses"; signalIds?: string[] }
   | { type: "product/analyze-signals"; sessionId: string }
   | { type: "product/list-agent-task-feedback" }
@@ -136,13 +88,6 @@ export type ExtensionMessagePayload =
   | { type: "pr/generate-summary"; campaignId: string }
   | { type: "pr/get-narrative-read"; campaignId: string }
   | { type: "pr/generate-narrative-read"; campaignId: string }
-  | {
-    type: "judgment/result";
-    resultId: string;
-    judgmentResult: JudgmentResult | null;
-    judgmentVersion: string | null;
-    judgmentSource: SavedAnalysisSnapshot["judgmentSource"];
-  }
   | { type: "state/updated"; tabId: number; snapshot: ExtensionSnapshot };
 
 export type ExtensionMessage = ExtensionMessagePayload & { requestId?: string };
@@ -158,6 +103,7 @@ export interface BackendHealth {
 
 export type ExtensionSuccessResponse = {
   ok: true;
+  inlineCollect?: InlineCollectState;
   tabId?: number;
   snapshot?: ExtensionSnapshot;
   backendHealth?: BackendHealth | null;
@@ -166,12 +112,15 @@ export type ExtensionSuccessResponse = {
   failedItemIds?: string[];
   job?: JobSnapshot;
   capture?: CaptureSnapshot;
-  compareBrief?: CompareBrief | null;
-  oneLiner?: string | null;
-  clusterInterpretations?: ClusterInterpretation[];
-  evidenceAnnotations?: EvidenceAnnotation[];
-  techniqueReadings?: TechniqueReadingSnapshot[];
-  savedAnalyses?: SavedAnalysisSnapshot[];
+  /** The workspace a card asked the side panel to open, handed over once. */
+  workspaceSessionId?: string | null;
+  readerItemId?: string;
+  readerLens?: string;
+  deepReading?: DeepReadingRecord;
+  topicReading?: TopicReadingRecord;
+  inlineReadingStatus?: "started" | "exists" | "no-key" | "not-ready";
+  inViewPostKey?: string | null;
+  aiKeyTest?: { ok: boolean; message: string };
   topics?: Topic[];
   signals?: Signal[];
   productProfile?: ProductProfile | null;
@@ -181,9 +130,6 @@ export type ExtensionSuccessResponse = {
   productAgentTaskFeedback?: ProductAgentTaskFeedback[];
   signalReading?: SignalReading | null;
   signalReadings?: SignalReading[];
-  topicSignalReading?: TopicSignalReading | null;
-  topicSignalReadings?: TopicSignalReading[];
-  signalTags?: SignalTagsRecord[];
   signalPacket?: DLensSignalPacket | null;
   signalPackets?: DLensSignalPacket[];
   signalPacketExport?: SignalPacketExportResult;
@@ -210,14 +156,6 @@ export type ExtensionSuccessResponse = {
   prNarrativeRead?: PrNarrativeRead | null;
   prNarrativeCurrentSourceHash?: string;
   prSummary?: string;
-  folderSynthesis?: FolderSynthesis | null;
-  auditEvidence?: EvidencePacket[];
-  auditReport?: TopicAuditReport | null;
-  auditMemos?: TopicAuditMemoBundle | null;
-  auditEpisodes?: TopicAuditEpisode[];
-  auditRunStatus?: TopicAuditRunStatus | null;
-  auditValidatorFlags?: TopicAuditValidationFlag[];
-  crossTopicCalibration?: CrossTopicCalibration | null;
   /** Optional server-side wall-clock for the handler (ms). Used by popup
    *  perf loggers to break out IPC + reconcile cost from background work. */
   serverDurationMs?: number;

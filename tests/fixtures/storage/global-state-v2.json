@@ -24,6 +24,33 @@
       "items": [
         {
           "id": "item-fixture-1",
+          "descriptor": {
+            "target_type": "post",
+            "page_url": "https://www.threads.net/@fixtureauthor/post/DFixture1",
+            "post_url": "https://www.threads.net/@fixtureauthor/post/DFixture1",
+            "author_hint": "fixtureauthor",
+            "text_snippet": "saved before thumbnails existed",
+            "time_token_hint": "3h",
+            "dom_anchor": "div>div:nth-child(2)>article",
+            "engagement": {
+              "likes": 582,
+              "comments": 41,
+              "reposts": 7,
+              "forwards": 3,
+              "views": 90210,
+              "followers": 12000
+            },
+            "engagement_present": {
+              "likes": true,
+              "comments": true,
+              "reposts": true,
+              "forwards": true,
+              "views": true,
+              "followers": true
+            },
+            "engagement_source": "card",
+            "captured_at": "2026-06-15T00:00:00.000Z"
+          },
           "latestCapture": {
             "id": "capture-fixture-1",
             "result": {

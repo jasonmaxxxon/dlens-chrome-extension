@@ -2,17 +2,12 @@ import type { WorkerStatusResponse } from "../contracts/ingest.ts";
 import type { FolderMode, MainPage, PopupPage, SessionItem, SessionRecord } from "./types.ts";
 import { DLENS_BUILD_VARIANT, resolveAllowedPagesForBuildVariant } from "../build-variant.ts";
 import {
-  PAGE_POPUP_WIDTH,
   getAllowedPagesForMode,
   getHomePageForMode,
-  getPageWidth,
   isPageComponentKind,
   isPageRailVisible
 } from "./page-registry.ts";
 
-export const DEFAULT_POPUP_WIDTH = PAGE_POPUP_WIDTH;
-export const EXPANDED_COMPARE_POPUP_WIDTH = PAGE_POPUP_WIDTH;
-export const PRODUCT_POPUP_WIDTH = PAGE_POPUP_WIDTH;
 export const NETWORK_BATCH_SIZE = 3;
 
 const DEFAULT_ALLOWED_PAGES: Record<FolderMode, PopupPage[]> = {
@@ -36,7 +31,7 @@ export function getModeHomePage(mode: FolderMode): MainPage {
   if ((ALLOWED_PAGES[mode] as ReadonlyArray<PopupPage>).includes(preferred)) {
     return preferred;
   }
-  return ALLOWED_PAGES[mode].find(isMainPage) ?? "library";
+  return ALLOWED_PAGES[mode].find(isMainPage) ?? "collection";
 }
 
 export function getModeRailPages(mode: FolderMode): MainPage[] {
@@ -49,27 +44,17 @@ export function getModeRailPages(mode: FolderMode): MainPage[] {
   return pages;
 }
 
-export function isProductSignalPage(page: PopupPage): boolean {
-  return isPageComponentKind(page, "product-signal");
-}
-
 export function isPrEvidencePage(page: PopupPage): boolean {
   return isPageComponentKind(page, "pr-evidence");
 }
 
 export function guardPage(page: PopupPage, mode: FolderMode): PopupPage {
   const allowed = ALLOWED_PAGES[mode];
-  return allowed.includes(page) ? page : allowed[0]!;
-}
-
-export function getPopupWidth(page: PopupPage): number {
-  return getPageWidth(page);
+  return allowed.includes(page) ? page : getModeHomePage(mode);
 }
 
 export type WorkerStatus = "idle" | "draining";
 export type ItemReadinessStatus = "saved" | "queued" | "crawling" | "analyzing" | "ready" | "failed";
-export type ProgressMode = "idle" | "queued" | "crawling" | "analyzing" | "ready";
-export type ProgressVariant = "neutral" | "queued" | "running" | "success" | "failed";
 export type WorkspaceMode = Exclude<PopupPage, "settings" | "audit-report">;
 export type BackendReachability = "reachable" | "slow" | "unreachable";
 
@@ -206,20 +191,6 @@ export interface ProcessingRefreshInput {
   hasInflight: boolean;
 }
 
-export interface ProcessingStripUiState {
-  phaseLabel: string;
-  progressMode: ProgressMode;
-  progressHint: string;
-}
-
-export interface LibraryItemUiState {
-  itemPhase: ProgressMode | "failed";
-  showProgressRail: boolean;
-  progressVariant: ProgressVariant;
-  statusTone: "saved" | "queued" | "running" | "succeeded" | "failed";
-  statusLabel: string;
-}
-
 export interface PopupWorkspaceState {
   currentMode: PopupPage;
   popupOpen: boolean;
@@ -295,12 +266,7 @@ export function hasNearReadyItems(summary: SessionProcessingSummary): boolean {
   return summary.analyzing > 0;
 }
 
-export function resolveInitialPopupMode(summary: SessionProcessingSummary): WorkspaceMode {
-  if (summary.ready >= 2) {
-    return "compare";
-  }
-  return "library";
-}
+export function resolveInitialPopupMode(_summary: SessionProcessingSummary): WorkspaceMode { return "collection"; }
 
 export function advancePopupWorkspaceState(
   summary: SessionProcessingSummary,
@@ -330,37 +296,6 @@ export function advancePopupWorkspaceState(
   };
 }
 
-function nextDistinctReadyItem(items: SessionItem[], excludedId: string): string {
-  return items.find((item) => item.id !== excludedId && getItemReadinessStatus(item) === "ready")?.id || "";
-}
-
-export function pickCompareSelection(
-  items: SessionItem[],
-  selectedA: string,
-  selectedB: string
-): { selectedA: string; selectedB: string } {
-  const readyItems = items.filter((item) => getItemReadinessStatus(item) === "ready");
-  const first = readyItems[0]?.id || "";
-  const second = nextDistinctReadyItem(readyItems, first);
-
-  let nextA = selectedA && readyItems.some((item) => item.id === selectedA) ? selectedA : first;
-  let nextB = selectedB && selectedB !== nextA && readyItems.some((item) => item.id === selectedB) ? selectedB : "";
-
-  if (!nextB) {
-    nextB = nextDistinctReadyItem(readyItems, nextA);
-  }
-  if (nextA && nextA === nextB) {
-    nextB = nextDistinctReadyItem(readyItems, nextA);
-  }
-  if (!nextA && nextB) {
-    nextA = nextDistinctReadyItem(readyItems, nextB) || readyItems[0]?.id || "";
-  }
-  if (!nextA && !nextB) {
-    return { selectedA: "", selectedB: "" };
-  }
-  return { selectedA: nextA, selectedB: nextB };
-}
-
 // Low-frequency heartbeat while the worker is idle: worker/get-status hits the
 // ingest backend, so this is what lets passive surfaces (readiness panel, mode
 // header stamp) flip to Backend 離線 without an analyze click (B-03). It also
@@ -378,67 +313,4 @@ export function getPollingDelayMs(input: PollingDelayInput): number | null {
 
 export function shouldRefreshProcessingFolder(input: ProcessingRefreshInput): boolean {
   return input.hasInflight || input.workerStatus === "draining" || input.previousWorkerStatus === "draining";
-}
-
-export function getProcessingStripUiState(
-  workerStatus: WorkerStatus | null,
-  summary: SessionProcessingSummary,
-): ProcessingStripUiState {
-  if (summary.ready >= 2) {
-    return {
-      phaseLabel: "Ready to compare",
-      progressMode: "ready",
-      progressHint: "Compare can take over now."
-    };
-  }
-  if (summary.crawling > 0 || workerStatus === "draining") {
-    return {
-      phaseLabel: "Processing in progress",
-      progressMode: "crawling",
-      progressHint: "Library is the best place to track progress while capture finishes."
-    };
-  }
-  if (summary.analyzing > 0) {
-    return {
-      phaseLabel: "Waiting for analysis",
-      progressMode: "analyzing",
-      progressHint: "Library has the next best action while compare-ready analysis finishes."
-    };
-  }
-  if (summary.pending > 0) {
-    return {
-      phaseLabel: "Waiting to start",
-      progressMode: "queued",
-      progressHint: "Library can start the queue when you are ready."
-    };
-  }
-  return {
-    phaseLabel: "Go to Collect or Library",
-    progressMode: "idle",
-    progressHint: "Collect or switch to Library to move work forward."
-  };
-}
-
-export function getLibraryItemUiState(
-  item: SessionItem,
-  optimisticQueued = false,
-): LibraryItemUiState {
-  if (optimisticQueued) {
-    return { itemPhase: "queued", showProgressRail: true, progressVariant: "queued", statusTone: "queued", statusLabel: "queued" };
-  }
-
-  const readiness = getItemReadinessStatus(item);
-  switch (readiness) {
-    case "queued":
-    case "crawling":
-      return { itemPhase: "crawling", showProgressRail: true, progressVariant: "running", statusTone: "running", statusLabel: "crawling" };
-    case "analyzing":
-      return { itemPhase: "analyzing", showProgressRail: true, progressVariant: "running", statusTone: "running", statusLabel: "analyzing" };
-    case "ready":
-      return { itemPhase: "ready", showProgressRail: false, progressVariant: "success", statusTone: "succeeded", statusLabel: "ready" };
-    case "failed":
-      return { itemPhase: "failed", showProgressRail: false, progressVariant: "failed", statusTone: "failed", statusLabel: "failed" };
-    default:
-      return { itemPhase: "idle", showProgressRail: false, progressVariant: "neutral", statusTone: "saved", statusLabel: "saved" };
-  }
 }

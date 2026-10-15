@@ -38,3 +38,10 @@ test("getProcessingFailureUiMessage maps Playwright setup errors without raw pat
   assert.equal(message, "後端瀏覽器設定有問題。請在 ingest-core 安裝 Playwright Chromium 後再重試。");
   assert.doesNotMatch(message, /BrowserType\.launch|ms-playwright|\/Users\/tung|chrome-headless-shell/i);
 });
+
+
+test("database-unavailable errors explain the crawl blocker without leaking server details", () => {
+  const raw = '503 Service Unavailable: {"detail":"Worker status database unavailable."}';
+  assert.equal(getProcessingFailureUiMessage(raw), "後端資料庫未能連接，暫時無法抓取。請恢復連線後再試。");
+  assert.equal(getProcessingFailureMessage(raw), "Database unavailable. Crawling cannot proceed until the database connection is restored.");
+});

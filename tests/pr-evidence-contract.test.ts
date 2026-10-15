@@ -27,6 +27,7 @@ import {
 } from "../src/compare/provider.ts";
 import type { PrNarrativePostReading } from "../src/compare/pr-narrative.ts";
 import type { PrCampaign, PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
+import { countedPrCriteria } from "../src/state/pr-evidence-storage.ts";
 
 const campaign: PrCampaign = {
   id: "campaign-1",
@@ -36,10 +37,10 @@ const campaign: PrCampaign = {
   criteria: [
     { id: "c1", label: "Brand named" },
     { id: "c2", label: "Event mentioned" },
-    { id: "c3", label: "" },
-    { id: "c4", label: "Offer details" },
-    { id: "c5", label: "Wellness angle" },
-    { id: "c6", label: "CTA included" }
+    { id: "c3", label: "CTA included" },
+    { id: "c4", label: "" },
+    { id: "c5", label: "" },
+    { id: "c6", label: "" }
   ],
   createdAt: "2026-05-06T10:00:00.000Z",
   updatedAt: "2026-05-06T10:00:00.000Z"
@@ -113,7 +114,7 @@ function makePostReading(ref: string): PrNarrativePostReading {
   };
 }
 
-test("setup parser returns six criteria and three editable fields", () => {
+test("setup parser fills three criteria slots and three editable fields", () => {
   const suggestion = parsePrCampaignSetupSuggestion(JSON.stringify({
     criteria: ["C1", "C2", "C3", "C4", "C5", "C6"],
     narrativeSettings: {
@@ -123,7 +124,7 @@ test("setup parser returns six criteria and three editable fields", () => {
     }
   }));
 
-  assert.deepEqual(suggestion.criteria.map((criterion) => criterion.label), ["C1", "C2", "C3", "C4", "C5", "C6"]);
+  assert.deepEqual(suggestion.criteria.map((criterion) => criterion.label), ["C1", "C2", "C3", "", "", ""]);
   assert.deepEqual(suggestion.narrativeSettings, {
     narrativeAnchor: "Wellness is practical and social",
     targetAudience: "Young working adults",
@@ -155,12 +156,13 @@ test("setup suggestion provider parses one criteria and narrative settings envel
     );
 
     assert.equal(suggestion.criteria.length, 6);
+    assert.deepEqual(countedPrCriteria(suggestion.criteria).map((criterion) => criterion.id), ["c1", "c2", "c3"]);
     assert.equal(suggestion.narrativeSettings.desiredAction, "Register for the event");
     assert.deepEqual(legacyCriteria, suggestion.criteria);
     assert.equal(requests.length, 2);
     const requestBody = JSON.parse(String(requests[0]?.init?.body)) as { messages?: Array<{ content?: string }> };
     assert.match(requestBody.messages?.[1]?.content ?? "", /narrativeSettings/);
-    assert.match(requestBody.messages?.[1]?.content ?? "", /exactly six/i);
+    assert.match(requestBody.messages?.[1]?.content ?? "", /exactly three/i);
   });
 });
 
@@ -214,7 +216,7 @@ test("narrative provider wrappers validate Stage A and Stage B envelopes", async
   });
 });
 
-test("normalizePrCriteriaSuggestionResponse returns exactly six short labels", () => {
+test("normalizePrCriteriaSuggestionResponse fills only the three active slots", () => {
   const criteria = normalizePrCriteriaSuggestionResponse(JSON.stringify({
     criteria: [
       { id: "c9", label: "Brand named" },
@@ -232,9 +234,9 @@ test("normalizePrCriteriaSuggestionResponse returns exactly six short labels", (
     "Brand named",
     "Event mentioned",
     "criterion_3",
-    "Offer details",
-    "Wellness angle",
-    "CTA included"
+    "",
+    "",
+    ""
   ]);
 });
 
@@ -264,17 +266,17 @@ test("normalizePrCriteriaSuggestionResponse accepts string arrays and alternate 
     "Campaign named",
     "Wellness angle",
     "Experience proof",
-    "Scale proof",
-    "Expert advisor proof",
-    "Ticket CTA"
+    "",
+    "",
+    ""
   ]);
   assert.deepEqual(keyedCriteria.map((criterion) => criterion.label), [
     "Campaign named",
     "Wellness angle",
     "Experience proof",
-    "Scale proof",
-    "Expert advisor proof",
-    "criterion_6"
+    "",
+    "",
+    ""
   ]);
 });
 
@@ -301,7 +303,8 @@ test("normalizePrCriteriaSuggestionResponse accepts fenced JSON, top-level array
 
   assert.equal(fencedCriteria[0]?.label, "Campaign named");
   assert.equal(arrayCriteria[2]?.label, "Experience proof");
-  assert.equal(keyedCriteria[5]?.label, "Ticket CTA");
+  assert.equal(keyedCriteria[2]?.label, "Experience proof");
+  assert.equal(keyedCriteria[5]?.label, "");
 });
 
 test("buildDeterministicPrCriteria produces campaign-specific labels instead of default placeholders", () => {
@@ -312,8 +315,8 @@ test("buildDeterministicPrCriteria produces campaign-specific labels instead of 
 
   assert.equal(isDefaultPrCriteria(normalizePrCriteriaSuggestionResponse("not json")), true);
   assert.equal(isDefaultPrCriteria(criteria), false);
+  assert.deepEqual(countedPrCriteria(criteria).map((criterion) => criterion.id), ["c1", "c2", "c3"]);
   assert.ok(criteria.some((criterion) => criterion.label.includes("好狀態") || criterion.label.includes("wellness")));
-  assert.ok(criteria.some((criterion) => criterion.label.includes("six zones") || criterion.label.includes("40+")));
 });
 
 test("parsePrCriteriaMatchResponse accepts known row ids and defaults missing rows to false", () => {
@@ -328,7 +331,7 @@ test("parsePrCriteriaMatchResponse accepts known row ids and defaults missing ro
   );
 
   assert.deepEqual(matches.row1, undefined);
-  assert.deepEqual(matches["row-1"], { c1: true, c2: false, c3: true, c4: false, c5: false, c6: true });
+  assert.deepEqual(matches["row-1"], { c1: true, c2: false, c3: true, c4: false, c5: false, c6: false });
   assert.deepEqual(matches["row-2"], { c1: false, c2: false, c3: false, c4: false, c5: false, c6: false });
 });
 
@@ -342,8 +345,8 @@ test("parsePrCriteriaMatchResponse accepts array matches, alternate row ids, and
     ["row-1", "row-2"]
   );
 
-  assert.deepEqual(arrayMatches["row-1"], { c1: true, c2: false, c3: true, c4: false, c5: false, c6: true });
-  assert.deepEqual(keyedMatches["row-2"], { c1: false, c2: true, c3: false, c4: true, c5: false, c6: false });
+  assert.deepEqual(arrayMatches["row-1"], { c1: true, c2: false, c3: true, c4: false, c5: false, c6: false });
+  assert.deepEqual(keyedMatches["row-2"], { c1: false, c2: true, c3: false, c4: false, c5: false, c6: false });
 });
 
 test("buildDeterministicPrCriteriaMatches catches explicit campaign keywords as AI backstop", () => {
@@ -351,11 +354,11 @@ test("buildDeterministicPrCriteriaMatches catches explicit campaign keywords as 
     ...campaign,
     criteria: [
       { id: "c1", label: "萬寧 BoostUP 好狀態嘉年華" },
-      { id: "c2", label: "ManningsBoostUP" },
-      { id: "c3", label: "全方位健康好狀態" },
-      { id: "c4", label: "西九文化區沉浸式體驗" },
-      { id: "c5", label: "六大主題區與40+體驗" },
-      { id: "c6", label: "門票公開發售" }
+      { id: "c2", label: "西九文化區沉浸式體驗" },
+      { id: "c3", label: "門票公開發售" },
+      { id: "c4", label: "六大主題區與40+體驗" },
+      { id: "c5", label: "" },
+      { id: "c6", label: "" }
     ]
   };
   const prRows: PrEvidenceRow[] = [{
@@ -369,7 +372,8 @@ test("buildDeterministicPrCriteriaMatches catches explicit campaign keywords as 
     [prRows[0]!.id]
   );
 
-  assert.deepEqual(merged[prRows[0]!.id], { c1: true, c2: true, c3: true, c4: true, c5: true, c6: false });
+  /* c4 carries a stale label from the six-criterion era and stays inert. */
+  assert.deepEqual(merged[prRows[0]!.id], { c1: true, c2: true, c3: false, c4: false, c5: false, c6: false });
 });
 
 test("buildPrEvidenceCsv exports UTF-8 BOM, label headers, fallback headers, and checkmark values", () => {
@@ -380,8 +384,8 @@ test("buildPrEvidenceCsv exports UTF-8 BOM, label headers, fallback headers, and
   const [header, firstRow] = csv.replace(/^\uFEFF/, "").split("\n");
   assert.match(header!, /views,followers,expected_engagement/);
   assert.match(firstRow!, /9000,756,/);
-  assert.match(header!, /Brand named,Event mentioned,criterion_3,Offer details/);
-  assert.match(firstRow!, /✓,✓,,✓,✓,/);
+  assert.match(header!, /Brand named,Event mentioned,CTA included,manual_notes/);
+  assert.match(firstRow!, /✓,✓,,,/);
   assert.match(firstRow!, /BoostUP event with wellness offers/);
   assert.equal(previewRows.length, 2);
   assert.equal(previewRows[0]?.join(","), header);
@@ -463,8 +467,8 @@ test("buildPrCriteriaSuggestionPrompt uses detected core messages to avoid gener
 
   assert.match(prompt, /Core PR messages detected from the brief/);
   assert.match(prompt, /Each label must be matchable/);
+  assert.match(prompt, /exactly three short criteria labels/);
   assert.match(prompt, /Experience proof/);
-  assert.match(prompt, /Scale proof/);
 });
 
 test("background routes PR advanced metrics through a dedicated action", async () => {

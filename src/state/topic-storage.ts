@@ -395,7 +395,7 @@ export async function triageSignal(
     triagedAt: now
   };
 
-  if (action.kind === "assign" || action.kind === "create-topic") {
+  if ((action.kind === "assign" && action.topicId) || action.kind === "create-topic") {
     const topics = await readTopics(topicStorageArea);
     const topic = action.kind === "assign"
       ? topics.find((entry) => entry.id === action.topicId)
@@ -412,7 +412,7 @@ export async function triageSignal(
           updatedAt: now
         };
 
-    if (!topic) {
+    if (!topic || topic.sessionId !== sessionId) {
       throw new Error("Topic not found");
     }
 
@@ -462,7 +462,7 @@ export async function triageSignal(
     }
     updatedSignal = {
       ...updatedSignal,
-      inboxStatus: "rejected",
+      inboxStatus: action.kind === "assign" ? "unprocessed" : "rejected",
       topicId: undefined
     };
   }

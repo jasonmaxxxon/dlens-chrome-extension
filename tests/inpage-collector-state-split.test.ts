@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSessionItem } from "../src/state/store-helpers.ts";
-import type { SavedAnalysisSnapshot } from "../src/state/types.ts";
-import { resolveCompareSelection } from "../src/ui/useCompareDraftState.ts";
-import {
-  buildActiveResultFromCompareItems,
-  buildActiveResultFromSavedAnalysis
-} from "../src/ui/useResultSurfaceState.ts";
 import {
   buildInitialPopupWorkspaceState,
   resolvePendingNavigationAfterSnapshot,
@@ -15,114 +8,8 @@ import {
 } from "../src/ui/usePopupWorkspaceState.ts";
 import { resolveEffectivePopupPage } from "../src/ui/useInPageCollectorAppState.ts";
 
-function buildReadyItem(id: string, author: string) {
-  const item = createSessionItem({
-    target_type: "post",
-    page_url: `https://www.threads.net/@${author}/post/${id}`,
-    post_url: `https://www.threads.net/@${author}/post/${id}`,
-    author_hint: author,
-    text_snippet: `post ${id}`,
-    time_token_hint: "4月21日",
-    dom_anchor: id,
-    engagement: { likes: 1, comments: 1, reposts: 0, forwards: 0, views: 10 },
-    engagement_present: { likes: true, comments: true, reposts: true, forwards: true, views: true },
-    captured_at: "2026-04-21T09:00:00.000Z"
-  }, "2026-04-21T09:00:00.000Z");
-  item.status = "succeeded";
-  item.latestCapture = { analysis: { status: "succeeded" } } as typeof item.latestCapture;
-  item.id = id;
-  return item;
-}
-
-function buildSavedAnalysis(overrides: Partial<SavedAnalysisSnapshot> = {}): SavedAnalysisSnapshot {
-  return {
-    resultId: "saved_result_1",
-    compareKey: "item-a::item-b",
-    itemAId: "item-a",
-    itemBId: "item-b",
-    sourceLabelA: "@openai_tw",
-    sourceLabelB: "@tec_journalist",
-    headline: "焦慮是主調，但理性聲音正在集結",
-    deck: "兩篇貼文的留言區呈現截然不同的反應結構。",
-    primaryTensionSummary: "A 群量大，B 群互動更高。",
-    groupSummary: "3 群組",
-    totalComments: 847,
-    dateRangeLabel: "3/28–4/4",
-    savedAt: "2026-04-13T13:00:00.000Z",
-    analysisVersion: "v1",
-    briefVersion: "v7",
-    briefSource: "ai",
-    ...overrides
-  };
-}
-
-test("resolveCompareSelection prefers a valid persisted draft pair", () => {
-  const readyItems = [
-    buildReadyItem("item-a", "openai_tw"),
-    buildReadyItem("item-b", "tec_journalist"),
-    buildReadyItem("item-c", "product_writer")
-  ];
-
-  const selection = resolveCompareSelection(readyItems, {
-    itemAId: "item-b",
-    itemBId: "item-c",
-    teaserId: "item-b::item-c",
-    teaserState: "ready"
-  });
-
-  assert.deepEqual(selection, {
-    selectedCompareA: "item-b",
-    selectedCompareB: "item-c"
-  });
-});
-
-test("resolveCompareSelection falls back to the first distinct ready pair when the draft is stale", () => {
-  const readyItems = [
-    buildReadyItem("item-a", "openai_tw"),
-    buildReadyItem("item-b", "tec_journalist")
-  ];
-
-  const selection = resolveCompareSelection(readyItems, {
-    itemAId: "missing-a",
-    itemBId: "missing-b",
-    teaserId: "missing-a::missing-b",
-    teaserState: "ready"
-  });
-
-  assert.deepEqual(selection, {
-    selectedCompareA: "item-a",
-    selectedCompareB: "item-b"
-  });
-});
-
-test("buildActiveResultFromSavedAnalysis preserves the saved result contract", () => {
-  const viewedAt = "2026-04-21T10:00:00.000Z";
-  const result = buildActiveResultFromSavedAnalysis(buildSavedAnalysis(), viewedAt);
-
-  assert.deepEqual(result, {
-    resultId: "saved_result_1",
-    compareKey: "item-a::item-b",
-    itemAId: "item-a",
-    itemBId: "item-b",
-    saved: true,
-    viewedAt
-  });
-});
-
-test("buildActiveResultFromCompareItems preserves the live result contract", () => {
-  const viewedAt = "2026-04-21T10:05:00.000Z";
-  const result = buildActiveResultFromCompareItems("item-a", "item-b", viewedAt);
-
-  assert.match(result.resultId, /^result_item-a::item-b_/);
-  assert.equal(result.compareKey, "item-a::item-b");
-  assert.equal(result.itemAId, "item-a");
-  assert.equal(result.itemBId, "item-b");
-  assert.equal(result.saved, false);
-  assert.equal(result.viewedAt, viewedAt);
-});
-
 test("buildInitialPopupWorkspaceState starts from the persisted popup page when available", () => {
-  const summaryWithPair = {
+  const readySummary = {
     total: 2,
     ready: 2,
     crawling: 0,
@@ -133,15 +20,15 @@ test("buildInitialPopupWorkspaceState starts from the persisted popup page when 
     hasInflight: false
   };
 
-  assert.deepEqual(buildInitialPopupWorkspaceState(summaryWithPair, true, "saved-signals"), {
-    currentMode: "saved-signals",
+  assert.deepEqual(buildInitialPopupWorkspaceState(readySummary, true, "topics"), {
+    currentMode: "topics",
     popupOpen: true,
     modeLocked: true
   });
 });
 
-test("buildInitialPopupWorkspaceState derives compare mode only when no persisted popup page exists", () => {
-  const summaryWithPair = {
+test("buildInitialPopupWorkspaceState defaults to collection even when two ready items are present", () => {
+  const readySummary = {
     total: 2,
     ready: 2,
     crawling: 0,
@@ -152,14 +39,14 @@ test("buildInitialPopupWorkspaceState derives compare mode only when no persiste
     hasInflight: false
   };
 
-  assert.deepEqual(buildInitialPopupWorkspaceState(summaryWithPair, true), {
-    currentMode: "compare",
+  assert.deepEqual(buildInitialPopupWorkspaceState(readySummary, true), {
+    currentMode: "collection",
     popupOpen: true,
     modeLocked: true
   });
 
-  assert.deepEqual(buildInitialPopupWorkspaceState(summaryWithPair, false), {
-    currentMode: "library",
+  assert.deepEqual(buildInitialPopupWorkspaceState(readySummary, false), {
+    currentMode: "collection",
     popupOpen: false,
     modeLocked: false
   });
@@ -168,16 +55,16 @@ test("buildInitialPopupWorkspaceState derives compare mode only when no persiste
 test("syncPopupWorkspaceStateFromSnapshot lets persisted popup page override local mode", () => {
   const nextState = syncPopupWorkspaceStateFromSnapshot(
     {
-      currentMode: "library",
+      currentMode: "collection",
       popupOpen: true,
       modeLocked: true
     },
-    "result",
+    "topics",
     true
   );
 
   assert.deepEqual(nextState, {
-    currentMode: "result",
+    currentMode: "topics",
     popupOpen: true,
     modeLocked: true
   });
@@ -185,44 +72,45 @@ test("syncPopupWorkspaceStateFromSnapshot lets persisted popup page override loc
 
 test("syncPopupWorkspaceStateFromSnapshot ignores stale snapshots during pending navigation", () => {
   const currentState = {
-    currentMode: "actionable-filter" as const,
+    currentMode: "settings" as const,
     popupOpen: true,
     modeLocked: true
   };
 
   assert.deepEqual(
-    syncPopupWorkspaceStateFromSnapshot(currentState, "saved-signals", true, "actionable-filter"),
+    syncPopupWorkspaceStateFromSnapshot(currentState, "topics", true, "settings"),
     currentState
   );
   assert.deepEqual(
-    syncPopupWorkspaceStateFromSnapshot(currentState, "actionable-filter", true, "actionable-filter"),
+    syncPopupWorkspaceStateFromSnapshot(currentState, "settings", true, "settings"),
     currentState
   );
 });
 
 test("pending popup navigation survives stale snapshots until the destination is confirmed", () => {
   assert.equal(
-    resolvePendingNavigationAfterSnapshot("actionable-filter", "saved-signals"),
-    "actionable-filter"
+    resolvePendingNavigationAfterSnapshot("settings", "topics"),
+    "settings"
   );
   assert.equal(
-    resolvePendingNavigationAfterSnapshot("actionable-filter", "actionable-filter"),
+    resolvePendingNavigationAfterSnapshot("settings", "settings"),
     null
   );
 });
 
-test("resolveEffectivePopupPage keeps product data effects on the rendered guarded page", () => {
-  assert.equal(resolveEffectivePopupPage("library", "product"), "saved-signals");
-  assert.equal(resolveEffectivePopupPage("settings", "product"), "settings");
-  assert.equal(resolveEffectivePopupPage("classification", "product"), "classification");
-  assert.equal(resolveEffectivePopupPage("actionable-filter", "product"), "actionable-filter");
+test("resolveEffectivePopupPage preserves collection and settings for every workspace mode", () => {
+  for (const mode of ["archive", "topic", "product", "pr-evidence"] as const) {
+    assert.equal(resolveEffectivePopupPage("collection", mode), "collection");
+    assert.equal(resolveEffectivePopupPage("settings", mode), "settings");
+  }
 });
 
-test("resolveEffectivePopupPage lets the result surface through so 查看完整分析 does not fall back to collect", () => {
-  // Regression: ALLOWED_PAGES does not include "result", so guardPage clobbered it back to allowed[0].
-  // 查看完整分析 routed users back to the hover/collect preview instead of the result page.
-  assert.equal(resolveEffectivePopupPage("result", "topic"), "result");
-  assert.equal(resolveEffectivePopupPage("result", "archive"), "result");
-  assert.equal(resolveEffectivePopupPage("result", "product"), "result");
-  assert.equal(resolveEffectivePopupPage("result", "pr-evidence"), "result");
+test("resolveEffectivePopupPage sends retired workspace routes to the current mode home", () => {
+  // Old stored routes must remain safe to reopen after their UI is removed.
+  for (const retired of ["library", "collect", "compare", "result", "signals", "saved-signals", "classification", "actionable-filter", "inbox", "casebook", "audit-report"] as const) {
+    assert.equal(resolveEffectivePopupPage(retired as never, "product"), "collection");
+    assert.equal(resolveEffectivePopupPage(retired as never, "topic"), "topics");
+    assert.equal(resolveEffectivePopupPage(retired as never, "archive"), "collection");
+    assert.equal(resolveEffectivePopupPage(retired as never, "pr-evidence"), "pr-evidence");
+  }
 });

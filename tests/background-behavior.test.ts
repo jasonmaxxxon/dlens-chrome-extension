@@ -1,12 +1,12 @@
+import { FOLDER_SYNTHESIS_VERSION, SAVED_ANALYSES_STORAGE_KEY, TOPIC_AUDIT_EPISODES_STORAGE_KEY, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, TOPIC_AUDIT_MEMOS_STORAGE_KEY, TOPIC_AUDIT_REPORTS_STORAGE_KEY } from "./legacy-storage-fixtures.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import background, { backgroundTestables } from "../entrypoints/background.ts";
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY } from "../src/compare/product-agent-task-feedback.ts";
-import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
 import { FOLDER_SYNTHESIS_STORAGE_KEY } from "../src/compare/folder-synthesis-storage.ts";
 import { PRODUCT_CONTEXT_STORAGE_KEY } from "../src/compare/product-context.ts";
-import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
+import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords } from "../src/compare/inline-reading-storage.ts";
 import { PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY } from "../src/compare/product-signal-storage.ts";
 import { SIGNAL_READINGS_STORAGE_KEY } from "../src/compare/signal-reading-storage.ts";
 import { SIGNAL_TAGS_STORAGE_KEY } from "../src/compare/signal-tags-storage.ts";
@@ -17,13 +17,6 @@ import { readPipelineTrace } from "../src/state/pipeline-trace.ts";
 import { PR_CAMPAIGNS_STORAGE_KEY, PR_EVIDENCE_ROWS_STORAGE_KEY, type PrCampaign, type PrEvidenceRow } from "../src/state/pr-evidence-storage.ts";
 import { PR_NARRATIVE_READS_STORAGE_KEY } from "../src/state/pr-narrative-storage.ts";
 import { createSessionItem } from "../src/state/store-helpers.ts";
-import {
-  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
-  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
-  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
-  TOPIC_AUDIT_REPORTS_STORAGE_KEY,
-  TOPIC_AUDIT_RUNS_STORAGE_KEY
-} from "../src/state/topic-audit-storage.ts";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
 import { createEmptyGlobalState, createEmptyTabState, type ExtensionGlobalState, type FolderMode, type FolderSynthesis, type ProductContext, type SavedAnalysisSnapshot, type Signal, type SessionItem, type SessionRecord, type TabUiState, type Topic } from "../src/state/types.ts";
 
@@ -43,55 +36,6 @@ function makeSession(id: string, mode: FolderMode): SessionRecord {
     items: []
   };
 }
-
-test("topic/audit/get returns typed persisted run status without provider secrets or raw output", async () => {
-  const topicSession = makeSession("topic-session", "topic");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: {
-      ...makeGlobal([topicSession], topicSession.id),
-      settings: {
-        ...createEmptyGlobalState().settings,
-        oneLinerProvider: "google",
-        googleApiKey: "test-google-key"
-      }
-    },
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topicSession.id,
-    [tabKey]: createEmptyTabState(),
-    [TOPIC_AUDIT_RUNS_STORAGE_KEY]: {
-      schemaVersion: 1,
-      runs: {
-        "topic-1": {
-          sessionId: topicSession.id,
-          topicId: "topic-1",
-          requestId: "persisted-request",
-          state: "failed",
-          stage: "narrative",
-          failureKind: "provider_error",
-          startedAt: "2026-07-17T10:00:00.000Z",
-          updatedAt: "2026-07-17T10:01:00.000Z",
-          expiresAt: "2026-07-17T10:16:00.000Z"
-        }
-      }
-    }
-  });
-
-  const response = await harness.dispatch({ type: "topic/audit/get", topicId: "topic-1" });
-
-  assert.equal(response.ok, true);
-  assert.deepEqual(response.auditRunStatus, {
-    sessionId: topicSession.id,
-    topicId: "topic-1",
-    requestId: "persisted-request",
-    state: "failed",
-    stage: "narrative",
-    failureKind: "provider_error",
-    startedAt: "2026-07-17T10:00:00.000Z",
-    updatedAt: "2026-07-17T10:01:00.000Z",
-    expiresAt: "2026-07-17T10:16:00.000Z"
-  });
-  assert.doesNotMatch(JSON.stringify(response), /test-google-key|raw model response|prompt/i);
-});
 
 function makePrCriteria(): PrCampaign["criteria"] {
   return [
@@ -244,13 +188,17 @@ test("background startup persists global-state storage migrations immediately", 
   });
   const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
 
-  assert.equal(stored.schemaVersion, 2);
+  assert.equal(stored.schemaVersion, 3);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!, false);
   assert.equal("raw_payload" in stored.sessions[0]!.items[0]!.latestCapture!.result!, false);
   assert.deepEqual(
     stored.sessions[0]!.items[0]!.latestCapture!.result!.comments,
     legacyGlobal.sessions[0]!.items[0]!.latestCapture!.result!.comments
   );
+  // v2→v3: a descriptor saved before thumbnails gets an explicit null, so the
+  // collection list has one no-image shape to render instead of two.
+  assert.equal(stored.sessions[0]!.items[0]!.descriptor.image_url, null);
+  assert.equal("image_url" in stored.sessions[0]!.items[0]!.descriptor, true);
 });
 
 function makeProductContext(): ProductContext {
@@ -768,6 +716,79 @@ test("background wires extension action click to open the side panel on worker s
   assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }]);
 });
 
+test("a card's 開啟工作區 opens the side panel inside the gesture and hands its workspace over once", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: "topic-session",
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+
+  const opened = harness.dispatch({ type: "sidepanel/open", sessionId: "topic-session" });
+  assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }], "sidePanel.open must run before the handler awaits anything");
+  assert.equal((await opened).ok, true);
+  const first = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(first.ok);
+  assert.equal(first.workspaceSessionId, "topic-session");
+  const second = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(second.ok);
+  assert.equal(second.workspaceSessionId, null);
+});
+test("a card reader opens the side panel inside the gesture and hands its workspace over once", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: "topic-session",
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+
+  const opened = harness.dispatch({ type: "sidepanel/open", sessionId: "topic-session",itemId:"saved-item",lens:"ask" });
+  assert.deepEqual(harness.sidePanelOpenCalls, [{ tabId: TAB_ID }], "sidePanel.open must run before the handler awaits anything");
+  assert.equal((await opened).ok, true);
+  const first = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(first.ok);
+  assert.equal(first.workspaceSessionId, "topic-session");
+  assert.equal(first.readerItemId,"saved-item");assert.equal(first.readerLens,"ask");
+  const second = await harness.dispatch({ type: "sidepanel/take-workspace-open" });
+  assert.ok(second.ok);
+  assert.equal(second.workspaceSessionId, null);
+});
+
+test("settings/test-ai-key lists one model with the chosen provider's key and names a missing key", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const urls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => { urls.push(String(input)); return new Response("{}", { status: 200 }); }) as typeof fetch;
+    const global = makeGlobal([makeSession("topic-session", "topic")], "topic-session");
+    const keyed = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "test-google-key" } },
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+    const ok = await keyed.dispatch({ type: "settings/test-ai-key" });
+    assert.ok(ok.ok);
+    assert.deepEqual(ok.aiKeyTest, { ok: true, message: "Google key 可用" });
+    assert.deepEqual(urls, ["https://generativelanguage.googleapis.com/v1beta/models?pageSize=1"], "a listing, not a generation");
+    const bare = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "", openaiApiKey: "sk-x" } },
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+    const missing = await bare.dispatch({ type: "settings/test-ai-key" });
+    assert.ok(missing.ok);
+    assert.deepEqual(missing.aiKeyTest, { ok: false, message: "設定選了 Google，但只填了 OpenAI key" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the post in view is kept per Threads tab for a side panel that opens later", async () => {
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([makeSession("topic-session", "topic")], "topic-session"),
+    [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+  });
+  assert.equal((await harness.dispatch({ type: "inline/in-view", postKey: "threads-post:abc" })).ok, true);
+  const got = await harness.dispatch({ type: "inline/in-view-get" });
+  assert.ok(got.ok);
+  assert.equal(got.inViewPostKey, "threads-post:abc");
+});
+
 test("session/set-mode existing target mode writes only active-session and tab keys", async () => {
   const topic = makeSession("topic-session", "topic");
   const product = makeSession("product-session", "product");
@@ -831,36 +852,6 @@ test("state/get-active-tab normalizes a null active session when sessions still 
   assert.equal(response.ok, true);
   assert.equal(response.snapshot?.global.activeSessionId, topic.id);
   assert.deepEqual(harness.writes, []);
-});
-
-test("selection toggle writes only the tab key and starts content selection with the active mode", async () => {
-  const product = makeSession("product-session", "product");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: product.id,
-    [tabKey]: createEmptyTabState()
-  });
-
-  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
-
-  assert.equal(startResponse.ok, true);
-  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
-  assert.deepEqual(
-    harness.tabMessageTargets
-      .filter(({ message }) => message.type === "selection/start-tab")
-      .map(({ tabId, message }) => ({ tabId, mode: (message as { mode?: string }).mode })),
-    [{ tabId: TAB_ID, mode: "product" }]
-  );
-  // The toggle only changes tab UI state — the heavy global blob must not be rewritten.
-  assert.deepEqual(harness.writes, [[tabKey]]);
-
-  harness.writes.length = 0;
-  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
-
-  assert.equal(cancelResponse.ok, true);
-  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
-  assert.deepEqual(harness.writes, [[tabKey]]);
 });
 
 test("topic↔product switching across worker restarts keeps the product session aligned", async () => {
@@ -1149,6 +1140,131 @@ test("session/save-current-preview can save topic posts into the untriaged lane"
   assert.equal(signals[0]?.sessionId, topic.id);
   assert.equal(signals[0]?.inboxStatus, "unprocessed");
   assert.equal(signals[0]?.topicId, undefined);
+});
+
+test("session/save-current-preview stamps an undo handle on the toast only for a newly created item", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPICS_STORAGE_KEY]: []
+  });
+
+  const first = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undoable")
+  } as unknown as ExtensionMessage);
+
+  assert.equal(first.ok, true);
+  const savedItemId = first.snapshot?.global.sessions[0]?.items[0]?.id;
+  assert.ok(savedItemId);
+  assert.deepEqual(first.snapshot?.tab.lastSavedToast?.undo, { sessionId: topic.id, itemId: savedItemId });
+
+  // Re-saving the same post refreshes the existing row, so it is not undoable.
+  const second = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undoable")
+  } as unknown as ExtensionMessage);
+
+  assert.equal(second.ok, true);
+  assert.equal(second.snapshot?.global.sessions[0]?.items.length, 1);
+  assert.equal(second.snapshot?.tab.lastSavedToast?.undo, undefined);
+});
+
+test("session/undo-save removes the saved item, its signal, and its tags", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState(),
+    [TOPICS_STORAGE_KEY]: []
+  });
+
+  const saved = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: topic.id, topicId: null },
+    descriptor: makeDescriptor("undo-me")
+  } as unknown as ExtensionMessage);
+  const undo = saved.snapshot?.tab.lastSavedToast?.undo;
+  assert.ok(undo);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 1);
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: undo.sessionId,
+    itemId: undo.itemId
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(global.sessions[0]?.items.length, 0);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 0);
+  const tabState = harness.state[tabKey] as TabUiState;
+  assert.equal(tabState.lastSavedToast, null);
+  assert.equal(tabState.activeItemId, null);
+});
+
+test("session/undo-save drops the PR evidence row a pr-evidence save wrote", async () => {
+  const prSession = makeSession("pr-session", "pr-evidence");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const campaign: PrCampaign = {
+    id: "campaign-1",
+    sessionId: prSession.id,
+    name: "Launch",
+    briefText: "",
+    criteria: ["c1", "c2", "c3", "c4", "c5", "c6"].map((id) => ({ id, label: "" })) as PrCampaign["criteria"],
+    createdAt: "2026-05-27T00:00:00.000Z",
+    updatedAt: "2026-05-27T00:00:00.000Z"
+  };
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([prSession], prSession.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: prSession.id,
+    [tabKey]: createEmptyTabState(),
+    [PR_CAMPAIGNS_STORAGE_KEY]: [campaign]
+  });
+
+  const saved = await harness.dispatch({
+    type: "session/save-current-preview",
+    target: { sessionId: prSession.id, topicId: null },
+    descriptor: makeDescriptor("pr-undo")
+  } as unknown as ExtensionMessage);
+  const undo = saved.snapshot?.tab.lastSavedToast?.undo;
+  assert.ok(undo);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 1);
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: undo.sessionId,
+    itemId: undo.itemId
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, true);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 0);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(global.sessions[0]?.items.length, 0);
+});
+
+test("session/undo-save refuses an item that is already gone instead of silently succeeding", async () => {
+  const archive = makeSession("archive-session", "archive");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([archive], archive.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: archive.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const response = await harness.dispatch({
+    type: "session/undo-save",
+    sessionId: archive.id,
+    itemId: "never-saved"
+  } as unknown as ExtensionMessage);
+
+  assert.equal(response.ok, false);
 });
 
 test("session/save-current-preview emits signal.saved background boundary events with requestId", async () => {
@@ -1536,6 +1652,55 @@ test("session/refresh-all writes broadcast state/updated exactly once per tab", 
   }
 });
 
+test("inline-reading/ensure says when there is no AI key, then runs once and stores a grounded reading", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const base = makeSucceededItem("reading");
+    const comments = Array.from({ length: 12 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: `留言 ${i}`, like_count: 12 - i }));
+    const item = { ...base, latestCapture: { ...base.latestCapture!, result: { ...base.latestCapture!.result!, comments } } };
+    const topic = { ...makeSession("topic-session", "topic"), items: [item] };
+    const ensure = { type: "inline-reading/ensure", sessionId: topic.id, itemId: item.id } as ExtensionMessage;
+    const seed = (global: ExtensionGlobalState) => ({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: global,
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+
+    const keyless = await createHarness(seed(makeGlobal([topic], topic.id)));
+    const noKey = await keyless.dispatch(ensure);
+    assert.ok(noKey.ok);
+    assert.equal(noKey.inlineReadingStatus, "no-key");
+    assert.equal(keyless.writesFor(INLINE_READINGS_STORAGE_KEY).length, 0);
+
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls++;
+      return makeGoogleJsonResponse({
+        gist: "大家都覺得門檻太高", find: { stance: "焦慮最多", method: "大量投遞", split: "暫未見明顯分歧", ask: "未見提問" },
+        cluster_names: [], methods: [{ name: "大量投遞", fit: "冇人脈", ref: "e1" }], split: { agree: "門檻太高", sides: [] }
+      });
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness(seed({ ...global, settings: { ...global.settings, oneLinerProvider: "google", googleApiKey: "test-google-key" } }));
+    const started = await harness.dispatch(ensure);
+    assert.ok(started.ok);
+    assert.equal(started.inlineReadingStatus, "started");
+    const again = await harness.dispatch(ensure);
+    assert.ok(again.ok);
+    assert.equal(again.inlineReadingStatus, "exists", "one AI run per capture");
+    for (let i = 0; i < 50 && normalizeInlineReadingRecords(harness.state[INLINE_READINGS_STORAGE_KEY])[item.id]?.status !== "complete"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const record = normalizeInlineReadingRecords(harness.state[INLINE_READINGS_STORAGE_KEY])[item.id];
+    assert.ok(record && record.status === "complete");
+    assert.equal(record.captureId, item.latestCapture!.id);
+    assert.deepEqual(record.reading.methods.map((m) => [m.name, m.quote.text]), [["大量投遞", "留言 0"]]);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("product/analyze-signals writes broadcast state/updated exactly once per tab", async () => {
   const originalFetch = globalThis.fetch;
   try {
@@ -1737,49 +1902,6 @@ test("product failure summary ignores stale job errors for queued and running it
   });
 
   assert.deepEqual(failures.map((failure) => failure.signalId), ["signal-failed"]);
-});
-
-test("folder/synthesis/generate writes broadcast state/updated exactly once per tab", async () => {
-  const scenario = makeFolderSynthesisScenario("topic-session", "folder-current");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([scenario.session], scenario.session.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: scenario.session.id,
-    [TOPICS_STORAGE_KEY]: scenario.topics,
-    [SIGNALS_STORAGE_KEY]: scenario.signals,
-    [tabKey]: createEmptyTabState()
-  });
-
-  const response = await harness.dispatch({
-    type: "folder/synthesis/generate",
-    requestId: "folder-generate-current",
-    sessionId: scenario.session.id
-  } as ExtensionMessage);
-
-  assert.equal(response.ok, true);
-  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-  assertStateUpdatedBroadcastOnce(harness);
-});
-
-test("folder/synthesis/clear writes broadcast state/updated exactly once per tab", async () => {
-  const topic = makeSession("topic-session", "topic");
-  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-  const harness = await createHarness({
-    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
-    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
-    [FOLDER_SYNTHESIS_STORAGE_KEY]: [makeFolderSynthesisRecord(topic.id)],
-    [tabKey]: createEmptyTabState()
-  });
-
-  const response = await harness.dispatch({
-    type: "folder/synthesis/clear",
-    requestId: "folder-clear-current",
-    sessionId: topic.id
-  } as ExtensionMessage);
-
-  assert.equal(response.ok, true);
-  assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-  assertStateUpdatedBroadcastOnce(harness);
 });
 
 test("pr/match-criteria writes broadcast state/updated exactly once per tab", async () => {
@@ -2238,131 +2360,6 @@ test("product/analyze-signals ignores stale direct storage-key writes", async ()
     );
   } finally {
     globalThis.fetch = originalFetch;
-    disablePipelineTraceForTest();
-  }
-});
-
-test("folder/synthesis/generate ignores stale direct storage-key writes", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldTopics: (() => void) | null = null;
-  let blockedOldTopics = false;
-
-  try {
-    const oldScenario = makeFolderSynthesisScenario("old-topic-session", "old-folder");
-    const newScenario = makeFolderSynthesisScenario("new-topic-session", "new-folder");
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([oldScenario.session, newScenario.session], oldScenario.session.id),
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldScenario.session.id,
-      [TOPICS_STORAGE_KEY]: [...oldScenario.topics, ...newScenario.topics],
-      [SIGNALS_STORAGE_KEY]: [...oldScenario.signals, ...newScenario.signals],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldTopics && storageKeysInclude(keys, TOPICS_STORAGE_KEY)) {
-          blockedOldTopics = true;
-          return new Promise<void>((resolve) => {
-            releaseOldTopics = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "folder/synthesis/generate",
-      requestId: "folder-generate-old",
-      sessionId: oldScenario.session.id
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldTopics, "old folder synthesis topic read");
-
-    const newResponse = await harness.dispatch({
-      type: "folder/synthesis/generate",
-      requestId: "folder-generate-new",
-      sessionId: newScenario.session.id
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldTopics, null);
-    releaseOldTopics?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-    assertStateUpdatedBroadcastOnce(harness);
-
-    const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
-    assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [newScenario.session.id]);
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "folder-generate-old"
-      ),
-      true
-    );
-  } finally {
-    disablePipelineTraceForTest();
-  }
-});
-
-test("folder/synthesis/clear ignores stale direct storage-key writes", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldSynthesisRead: (() => void) | null = null;
-  let blockedOldSynthesisRead = false;
-
-  try {
-    const oldSession = makeSession("old-topic-session", "topic");
-    const newSession = makeSession("new-topic-session", "topic");
-    const oldSynthesis = makeFolderSynthesisRecord(oldSession.id, "2026-05-27T00:00:10.000Z");
-    const newSynthesis = makeFolderSynthesisRecord(newSession.id, "2026-05-27T00:00:20.000Z");
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([oldSession, newSession], oldSession.id),
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: oldSession.id,
-      [FOLDER_SYNTHESIS_STORAGE_KEY]: [oldSynthesis, newSynthesis],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldSynthesisRead && storageKeysInclude(keys, FOLDER_SYNTHESIS_STORAGE_KEY)) {
-          blockedOldSynthesisRead = true;
-          return new Promise<void>((resolve) => {
-            releaseOldSynthesisRead = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "folder/synthesis/clear",
-      requestId: "folder-clear-old",
-      sessionId: oldSession.id
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldSynthesisRead, "old folder synthesis clear read");
-
-    const newResponse = await harness.dispatch({
-      type: "folder/synthesis/clear",
-      requestId: "folder-clear-new",
-      sessionId: newSession.id
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldSynthesisRead, null);
-    releaseOldSynthesisRead?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(FOLDER_SYNTHESIS_STORAGE_KEY).length, 1);
-    assertStateUpdatedBroadcastOnce(harness);
-
-    const storedSyntheses = harness.state[FOLDER_SYNTHESIS_STORAGE_KEY] as FolderSynthesis[];
-    assert.deepEqual(storedSyntheses.map((entry) => entry.sessionId), [oldSession.id]);
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "folder-clear-old"
-      ),
-      true
-    );
-  } finally {
     disablePipelineTraceForTest();
   }
 });
@@ -2851,96 +2848,6 @@ test("pr/generate-narrative-read rejects a changed live source before publish", 
   }
 });
 
-test("judgment/start ignores stale saved-analysis writes and broadcasts", async () => {
-  enablePipelineTraceForTest();
-  let releaseOldSavedRead: (() => void) | null = null;
-  let blockedOldSavedRead = false;
-
-  try {
-    const oldItems = [makeSucceededItem("judgment-old-a"), makeSucceededItem("judgment-old-b")];
-    const newItems = [makeSucceededItem("judgment-new-a"), makeSucceededItem("judgment-new-b")];
-    const session = {
-      ...makeSession("judgment-session", "topic"),
-      items: [...oldItems, ...newItems]
-    };
-    const oldAnalysis = makeSavedAnalysis("old-result", oldItems[0]!.id, oldItems[1]!.id);
-    const newAnalysis = makeSavedAnalysis("new-result", newItems[0]!.id, newItems[1]!.id);
-    const global = makeGlobal([session], session.id);
-    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
-    const harness = await createHarness({
-      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
-        ...global,
-        settings: {
-          ...global.settings,
-          productProfile: {
-            name: "DLens",
-            category: "Chrome extension",
-            audience: "product teams"
-          }
-        }
-      },
-      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
-      [SAVED_ANALYSES_STORAGE_KEY]: [oldAnalysis, newAnalysis],
-      [tabKey]: createEmptyTabState()
-    }, {
-      onGet: (keys) => {
-        if (!blockedOldSavedRead && storageKeysInclude(keys, SAVED_ANALYSES_STORAGE_KEY)) {
-          blockedOldSavedRead = true;
-          return new Promise<void>((resolve) => {
-            releaseOldSavedRead = resolve;
-          });
-        }
-      }
-    });
-
-    const oldResponsePromise = harness.dispatch({
-      type: "judgment/start",
-      requestId: "judgment-old",
-      resultId: oldAnalysis.resultId
-    } as ExtensionMessage);
-    await waitFor(() => blockedOldSavedRead, "old judgment saved-analysis read");
-
-    const newResponse = await harness.dispatch({
-      type: "judgment/start",
-      requestId: "judgment-new",
-      resultId: newAnalysis.resultId
-    } as ExtensionMessage);
-
-    assert.notEqual(releaseOldSavedRead, null);
-    releaseOldSavedRead?.();
-    const oldResponse = await oldResponsePromise;
-
-    assert.equal(oldResponse.ok, true);
-    assert.equal(newResponse.ok, true);
-    assert.equal(harness.writesFor(SAVED_ANALYSES_STORAGE_KEY).length, 1);
-
-    const storedAnalyses = harness.state[SAVED_ANALYSES_STORAGE_KEY] as SavedAnalysisSnapshot[];
-    assert.equal(storedAnalyses.find((entry) => entry.resultId === oldAnalysis.resultId)?.judgmentResult, null);
-    assert.equal(storedAnalyses.find((entry) => entry.resultId === newAnalysis.resultId)?.judgmentResult?.recommendedState, "park");
-    assert.equal(
-      harness.tabMessages.some((message) =>
-        message.type === "judgment/result" && message.resultId === oldAnalysis.resultId
-      ),
-      false
-    );
-    assert.equal(
-      harness.tabMessages.some((message) =>
-        message.type === "judgment/result" && message.resultId === newAnalysis.resultId
-      ),
-      true
-    );
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "judgment-old"
-      ),
-      true
-    );
-  } finally {
-    disablePipelineTraceForTest();
-  }
-});
-
 test("queue-all and refresh-all emit crawl/capture background boundary events with requestId", async () => {
   enablePipelineTraceForTest();
   try {
@@ -3026,26 +2933,7 @@ test("content-script active-tab messages resolve to the sender tab, not another 
   assert.equal(stateResponse.ok, true);
   assert.equal(stateResponse.tabId, TAB_ID);
 
-  const startResponse = await harness.dispatch({ type: "selection/start-active-tab" });
-  assert.equal(startResponse.ok, true);
-  assert.equal(startResponse.tabId, TAB_ID);
-  assert.equal(startResponse.snapshot?.tab.selectionMode, true);
-  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, true);
-  assert.equal((harness.state[focusedTabKey] as TabUiState).selectionMode, false);
-  assert.equal(
-    harness.tabMessageTargets.some(({ tabId, message }) => tabId === TAB_ID && message.type === "selection/start-tab"),
-    true
-  );
-  assert.equal(
-    harness.tabMessageTargets.some(({ tabId, message }) => tabId === OTHER_TAB_ID && message.type === "selection/start-tab"),
-    false
-  );
 
-  const cancelResponse = await harness.dispatch({ type: "selection/cancel-active-tab" });
-  assert.equal(cancelResponse.ok, true);
-  assert.equal(cancelResponse.tabId, TAB_ID);
-  assert.equal(cancelResponse.snapshot?.tab.selectionMode, false);
-  assert.equal((harness.state[senderTabKey] as TabUiState).selectionMode, false);
 });
 
 test("background mutateSnapshot serializes real snapshot writes", async () => {
@@ -3456,4 +3344,314 @@ test("signal/delete keeps shared item tags until the last signal reference disap
   assert.deepEqual(global.sessions[0]?.items.map((item) => item.id), ["item-shared"]);
   assert.deepEqual((response.productSignalAnalyses ?? []).map((analysis) => analysis.signalId), ["signal-2"]);
   assertStateUpdatedBroadcastOnce(harness);
+});
+
+
+test("inline collect picks the newest destination and preserves workspace navigation", async () => {
+  const topic = makeSession("topic-active", "topic");
+  const older = makeSession("product-old", "product");
+  const newer = { ...makeSession("product-new", "product"), updatedAt: "2026-10-06T00:00:00.000Z" };
+  const tab = { ...createEmptyTabState(), popupPage: "topic-detail" as const, collectionTopicId: "keep-topic" };
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic, older, newer], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: tab
+  });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "product", descriptor: makeDescriptor("inline-newest") } as unknown as ExtensionMessage);
+  assert.equal(response.ok, true);
+  assert.equal(response.snapshot?.global.sessions.find(s => s.id === newer.id)?.items.length, 1);
+  assert.equal(response.snapshot?.global.activeSessionId, topic.id);
+  assert.equal(response.snapshot?.tab.popupPage, "topic-detail");
+  assert.equal(response.snapshot?.tab.collectionTopicId, "keep-topic");
+  assert.equal(response.inlineCollect?.lastMode, "product");
+});
+
+test("inline collect creates missing mode destinations and tap remembers mode after removing its final post", async () => {
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: createEmptyGlobalState() });
+  const descriptor = makeDescriptor("inline-created");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "archive", descriptor } as unknown as ExtensionMessage);
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  assert.equal(saved.sessionName, "收藏整理");
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId } as unknown as ExtensionMessage);
+  assert.equal(removed.ok, true);
+  assert.equal(removed.inlineCollect?.lastMode, "archive");
+  backgroundTestables.resetBackgroundTestState();
+  const tap = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor: makeDescriptor("inline-tap") } as unknown as ExtensionMessage);
+  assert.equal(tap.ok, true);
+  assert.equal(tap.inlineCollect?.saved[0]?.mode, "archive");
+  assert.equal(tap.snapshot?.global.sessions.length, 1);
+});
+
+test("inline collect remove undo restores original item and signal, but a newer save invalidates undo", async () => {
+  const topic = makeSession("inline-topic", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("inline-undo");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor } as unknown as ExtensionMessage);
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const originalItem = structuredClone(first.snapshot?.global.sessions[0]?.items[0]);
+  const originalSignals = structuredClone(harness.state[SIGNALS_STORAGE_KEY]);
+  const remove = () => harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId } as unknown as ExtensionMessage);
+  const removed = await remove();
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY], []);
+  const undo = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken } as unknown as ExtensionMessage);
+  assert.equal(undo.ok, true);
+  assert.deepEqual(undo.snapshot?.global.sessions[0]?.items[0], originalItem);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY], originalSignals);
+  const removedAgain = await remove();
+  assert.equal(removedAgain.ok, true);
+  assert.ok(removedAgain.inlineCollect?.undoToken);
+  await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "archive", descriptor } as unknown as ExtensionMessage);
+  const writesBeforeStaleUndo = harness.writes.length;
+  const stale = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removedAgain.inlineCollect.undoToken } as unknown as ExtensionMessage);
+  assert.equal(harness.writes.length, writesBeforeStaleUndo, "stale undo must not write any storage");
+  assert.equal(stale.ok, true);
+  assert.equal(stale.inlineCollect?.changed, false);
+  assert.equal(stale.snapshot?.global.sessions.find(s => s.id === topic.id)?.items.length, 0);
+});
+
+test("inline collect creates a PR campaign through the existing campaign seam", async () => {
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: createEmptyGlobalState() });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "pr-evidence", descriptor: makeDescriptor("inline-pr") } as unknown as ExtensionMessage);
+  assert.equal(response.ok, true);
+  assert.equal(response.inlineCollect?.saved[0]?.mode, "pr-evidence");
+  const campaigns = harness.state[PR_CAMPAIGNS_STORAGE_KEY] as PrCampaign[];
+  assert.equal(campaigns.length, 1);
+  assert.deepEqual(campaigns[0]?.criteria.map(c => c.id), ["c1", "c2", "c3", "c4", "c5", "c6"]);
+  assert.equal((harness.state[PR_EVIDENCE_ROWS_STORAGE_KEY] as PrEvidenceRow[]).length, 1);
+});
+
+test("inline collect undo preserves another post saved after removal", async () => {
+  const topic = makeSession("inline-undo-isolated", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("undo-isolated");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor });
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId });
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  const another = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor: makeDescriptor("other-post") });
+  assert.equal(another.ok, true);
+  const restored = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken });
+  assert.equal(restored.ok, true);
+  assert.equal(restored.snapshot?.global.sessions[0]?.items.length, 2);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).length, 2);
+});
+
+test("inline collect undo becomes stale after a legacy preview save of the same post", async () => {
+  const topic = makeSession("inline-legacy-undo", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id) });
+  const descriptor = makeDescriptor("legacy-stale");
+  const first = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "topic", descriptor });
+  assert.equal(first.ok, true);
+  const saved = first.inlineCollect?.saved[0];
+  assert.ok(saved);
+  const removed = await harness.dispatch({ type: "session/inline-collect", action: "remove", descriptor, sessionId: saved.sessionId, itemId: saved.itemId });
+  assert.equal(removed.ok, true);
+  assert.ok(removed.inlineCollect?.undoToken);
+  await harness.dispatch({ type: "session/save-current-preview", target: { sessionId: topic.id, topicId: null }, descriptor });
+  const stale = await harness.dispatch({ type: "session/inline-collect", action: "undo", token: removed.inlineCollect.undoToken });
+  assert.equal(stale.ok, true);
+  assert.equal(stale.inlineCollect?.changed, false);
+  assert.equal(stale.snapshot?.global.sessions[0]?.items.length, 1);
+});
+
+test("inline collect reuses existing PR campaign without changing its brief or criteria", async () => {
+  const pr = makeSession("inline-existing-pr", "pr-evidence");
+  const campaign = makePrCampaign("existing-campaign", pr.id);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([pr], pr.id),
+    [PR_CAMPAIGNS_STORAGE_KEY]: [campaign]
+  });
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "save", mode: "pr-evidence", descriptor: makeDescriptor("existing-pr") });
+  assert.equal(response.ok, true);
+  assert.deepEqual(harness.state[PR_CAMPAIGNS_STORAGE_KEY], [campaign]);
+});
+
+test("inline collect snapshot is read-only and ignores malformed persisted last mode", async () => {
+  const archive = makeSession("inline-fallback", "archive");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...makeGlobal([archive], archive.id), lastCollectMode: "invalid" }
+  });
+  const before = harness.writes.length;
+  const response = await harness.dispatch({ type: "session/inline-collect", action: "snapshot" });
+  assert.equal(response.ok, true);
+  assert.equal(response.inlineCollect?.lastMode, "archive");
+  assert.deepEqual(response.inlineCollect?.destinations.map(destination => destination.mode), ["topic", "product", "pr-evidence", "archive"]);
+  assert.equal(harness.writes.length, before);
+});
+
+test("inline collect treats legacy threads.net and current threads.com URLs as one saved post", async () => {
+  const archive = makeSession("inline-host-identity", "archive");
+  const legacy = createSessionItem(makeDescriptor("same-post-host"));
+  archive.items = [legacy];
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([archive], archive.id) });
+  const descriptor = { ...makeDescriptor("same-post-host"), post_url: "https://www.threads.com/@dlens/post/same-post-host" };
+  const saved = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor, mode: "archive" });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.snapshot?.global.sessions[0]?.items.length, 1);
+  assert.equal(saved.snapshot?.global.sessions[0]?.items[0]?.id, legacy.id);
+});
+
+test("inline collect targets the session most recently opened within a mode", async () => {
+  const older = makeSession("inline-used-old", "product");
+  const newer = { ...makeSession("inline-used-new", "product"), updatedAt: "2026-09-06T00:00:00.000Z" };
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([older, newer], newer.id) });
+  await harness.dispatch({ type: "session/set-active", sessionId: older.id });
+  const saved = await harness.dispatch({ type: "session/inline-collect", action: "save", descriptor: makeDescriptor("opened-latest"), mode: "product" });
+  assert.equal(saved.ok, true);
+  assert.equal(saved.snapshot?.global.sessions.find(session => session.id === older.id)?.items.length, 1);
+});
+
+test("inline collect mutation traces preserve requestId for success and error while snapshot reads stay untraced", async () => {
+  enablePipelineTraceForTest();
+  try {
+    const product = makeSession("inline-trace-product", "product");
+    const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([product], product.id) });
+    const snapshot = await harness.dispatch({ type: "session/inline-collect", action: "snapshot", requestId: "inline-snapshot" });
+    assert.equal(snapshot.ok, true);
+    assert.equal(readPipelineTrace().filter(event => event.step.startsWith("background.session.inline-collect.")).length, 0);
+    const success = await harness.dispatch({
+      type: "session/inline-collect", action: "save", mode: "product", requestId: "inline-success",
+      descriptor: makeDescriptor("inline-traced")
+    });
+    const failure = await harness.dispatch({
+      type: "session/inline-collect", action: "save", mode: "product", requestId: "inline-error",
+      descriptor: { ...makeDescriptor("inline-invalid"), post_url: "" }
+    });
+    assert.equal(success.ok, true);
+    assert.equal(failure.ok, false);
+    const events = readPipelineTrace().filter(event => event.step.startsWith("background.session.inline-collect."));
+    assert.deepEqual(events.map(event => [event.phase, event.step, event.result, event.requestId]), [
+      ["signal.saved", "background.session.inline-collect.request", "pending", "inline-success"],
+      ["signal.saved", "background.session.inline-collect.response", "ok", "inline-success"],
+      ["signal.saved", "background.session.inline-collect.request", "pending", "inline-error"],
+      ["signal.saved", "background.session.inline-collect.response", "error", "inline-error"]
+    ]);
+    assert.deepEqual(events[0].detail, { action: "save", mode: "product" });
+    assert.deepEqual(events[1].detail, { action: "save", mode: "product", changed: true });
+    assert.deepEqual(events.map(event => event.target), Array.from({ length: 4 }, () => ({ tabId: TAB_ID })));
+    assert.match(JSON.stringify(events[3].detail), /Missing post identity/);
+  } finally { disablePipelineTraceForTest(); }
+});
+
+for (const existing of [false, true]) test(`session/move-to-product preserves capture, drops source signal and keeps navigation (existing=${existing})`, async () => {
+  const source = makeSession("audience", "topic");
+  const saved = makeSucceededItem("move");
+  source.items = [saved];
+  const product = makeSession("product", "product");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal(existing ? [source, product] : [source], source.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: source.id,
+    [backgroundTestables.tabStorageKey(TAB_ID)]: { ...createEmptyTabState(), activeItemId: saved.id, currentPreview: saved.descriptor, popupPage: "topics" },
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-move", source.id, saved.id, "topic-move")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-move", source.id, ["signal-move"])]
+  });
+  const response = await harness.dispatch({ type: "session/move-to-product", sessionId: source.id, itemId: saved.id });
+  assert.ok(response.ok);
+  const global = response.snapshot!.global;
+  assert.equal(global.activeSessionId, source.id);
+  assert.equal(global.sessions.find(s => s.id === source.id)!.items.length, 0);
+  assert.deepEqual(global.sessions.find(s => s.mode === "product")!.items, [saved]);
+  assert.equal(global.sessions.filter(s => s.mode === "product").length, 1);
+  assert.equal(response.snapshot!.tab.popupPage, "topics");
+  assert.equal(response.snapshot!.tab.activeItemId, null);
+  assert.equal(response.snapshot!.tab.currentPreview, null);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).some(s => s.id === "signal-move"), false);
+  assert.deepEqual((harness.state[TOPICS_STORAGE_KEY] as Topic[])[0].signalIds, []);
+});
+
+test("reader triage assign clears a topic and returns the post to 未分流", async () => {
+  const source = makeSession("audience", "topic");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source], source.id),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("s1", source.id, "i1", "t1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("t1", source.id, ["s1"])]
+  });
+  const response = await harness.dispatch({ type: "signal/triage", signalId: "s1", action: { kind: "assign", topicId: null } });
+  assert.ok(response.ok);
+  assert.equal(response.signals![0].topicId, undefined);
+  assert.equal(response.signals![0].inboxStatus, "unprocessed");
+  assert.deepEqual(response.topics![0].signalIds, []);
+});
+
+test("move rejects the same post with another ID before dropping its source signal", async () => {
+  const source = makeSession("audience", "topic");
+  const product = makeSession("product", "product");
+  const saved = makeSucceededItem("duplicate");
+  source.items = [saved];
+  product.items = [{ ...saved, id: "different-id" }];
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source, product], source.id),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("s1", source.id, saved.id)]
+  });
+  const response = await harness.dispatch({ type: "session/move-to-product", sessionId: source.id, itemId: saved.id });
+  assert.equal(response.ok, false);
+  assert.equal((harness.state[SIGNALS_STORAGE_KEY] as Signal[])[0].id, "s1");
+  assert.equal((harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0].items[0].id, saved.id);
+});
+
+test("topic/create persists the optional research question", async () => {
+  const source = makeSession("audience", "topic");
+  const harness = await createHarness({ [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([source], source.id) });
+  const response = await harness.dispatch({ type: "topic/create", sessionId: source.id, name: "Codex", context: { researchQuestion: "額度夠唔夠？" } });
+  assert.ok(response.ok);
+  assert.equal(response.topics![0].context?.researchQuestion, "額度夠唔夠？");
+});
+
+test('deep-reading/run refuses a key gap and single-flights the stored capture', async () => {
+  const { DEEP_READINGS_STORAGE_KEY } = await import('../src/compare/deep-reading-storage.ts');
+  const topic = makeSession('deep-session', 'topic');
+  const saved = createSessionItem(makeDescriptor('deep-post'));
+  saved.status = 'succeeded';
+  saved.latestCapture = {id:'deep-capture', result:{canonical_post:{author:'op',text:'RAG'},comments:[{comment_id:'q',author:'fan',text:'點樣做？'}]},analysis:{status:'succeeded',clusters:[]}} as any;
+  topic.items = [saved];
+  const seed = { [backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([topic],topic.id), [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]:topic.id, [backgroundTestables.tabStorageKey(TAB_ID)]:createEmptyTabState() };
+  const gapHarness = await createHarness(seed);
+  const gap = await gapHarness.dispatch({type:'deep-reading/run',itemId:saved.id});
+  assert.equal(gap.ok,false);if(!gap.ok)assert.match(gap.error,/設定未填 Google API key/);
+  const global=seed[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  global.settings={...global.settings,oneLinerProvider:'google',googleApiKey:'test-key'};
+  const harness = await createHarness(seed);
+  const previousFetch=globalThis.fetch;let calls=0;
+  const payload={background:'原帖討論方法。留言提出問題。',takeaway:'尚待實證。',terms:[],debates:[],evidence:{strong:[],weak:[]},unanswered:[{question:'點樣做？',refs:['e1']}]};
+  globalThis.fetch=async()=>{calls++; await Promise.resolve();return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(payload)}]}}]}));};
+  try {
+    const results=await Promise.all([harness.dispatch({type:'deep-reading/run',itemId:saved.id}),harness.dispatch({type:'deep-reading/run',itemId:saved.id})]);
+    assert.ok(results.every(r=>r.ok));assert.equal(calls,1);
+    const records=harness.state[DEEP_READINGS_STORAGE_KEY] as Record<string,{status:string;captureId:string}>;
+    assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
+  } finally {globalThis.fetch=previousFetch;}
+});
+
+test('deep-reading/run finds a product item and single-flights its stored capture', async () => {
+  const { DEEP_READINGS_STORAGE_KEY } = await import('../src/compare/deep-reading-storage.ts');
+  const topic = makeSession('deep-session', 'product');
+  const saved = createSessionItem(makeDescriptor('deep-post'));
+  saved.status = 'succeeded';
+  saved.latestCapture = {id:'deep-capture', result:{canonical_post:{author:'op',text:'RAG'},comments:[{comment_id:'q',author:'fan',text:'點樣做？'}]},analysis:{status:'succeeded',clusters:[]}} as any;
+  topic.items = [saved];
+  const seed = { [backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([topic],topic.id), [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]:topic.id, [backgroundTestables.tabStorageKey(TAB_ID)]:createEmptyTabState() };
+  const gapHarness = await createHarness(seed);
+  const gap = await gapHarness.dispatch({type:'deep-reading/run',itemId:saved.id});
+  assert.equal(gap.ok,false);if(!gap.ok)assert.match(gap.error,/設定未填 Google API key/);
+  const global=seed[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  global.settings={...global.settings,oneLinerProvider:'google',googleApiKey:'test-key'};
+  const harness = await createHarness(seed);
+  const previousFetch=globalThis.fetch;let calls=0;
+  const payload={background:'原帖討論方法。留言提出問題。',takeaway:'尚待實證。',terms:[],debates:[],evidence:{strong:[],weak:[]},unanswered:[{question:'點樣做？',refs:['e1']}]};
+  globalThis.fetch=async()=>{calls++; await Promise.resolve();return new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify(payload)}]}}]}));};
+  try {
+    const results=await Promise.all([harness.dispatch({type:'deep-reading/run',itemId:saved.id}),harness.dispatch({type:'deep-reading/run',itemId:saved.id})]);
+    assert.ok(results.every(r=>r.ok));assert.equal(calls,1);
+    const records=harness.state[DEEP_READINGS_STORAGE_KEY] as Record<string,{status:string;captureId:string}>;
+    assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
+  } finally {globalThis.fetch=previousFetch;}
 });

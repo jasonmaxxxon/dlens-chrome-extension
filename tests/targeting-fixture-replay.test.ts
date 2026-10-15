@@ -12,10 +12,10 @@
  * scores too weak to find a proper card root and would surface the
  * F2 wrong-author heuristic spuriously).
  *
- * What it locks: target_type, post_url, author_hint, engagement.likes
- * and engagement_source for the OP and the first OP-continuation
- * reply at today's behavior. Drift on these fails the test. F-area
- * selector "fixes" must update the snapshot in the same PR.
+ * What it locks: target_type, post_url, author_hint, engagement.likes,
+ * engagement_source and image_url for the OP and the first
+ * OP-continuation reply at today's behavior. Drift on these fails the
+ * test. F-area selector "fixes" must update the snapshot in the same PR.
  *
  * What it does NOT cover (no fixture):
  *   - direct-reply, reply-with-nested-quote, repost, quoted-post,
@@ -215,4 +215,23 @@ test.skip("descriptor replay: quoted-post — needs a quoted-post pressable card
 
 test.skip("descriptor replay: post-with-unrelated-page-counts — needs profile-side counters surrounding the post (no fixture yet)", () => {
   /* TODO: capture a post-detail page where the surrounding chrome shows author follower / view counts outside the card. */
+});
+
+test("descriptor replay: op-post — the author avatar is not captured as a thumbnail", () => {
+  withJsdom((dom) => {
+    const opBody = findHoverTargetByText(dom, "把 Hermes Agent 部署到雲端");
+    assert.ok(opBody, "OP body text not found in fixture");
+    const candidate = findCardCandidate(opBody);
+    assert.ok(candidate.root, "no card root resolved for OP");
+
+    // This capture is a text-only post whose card contains two 36x36
+    // profile pictures from the t51.*-19 media family and nothing else.
+    // The only wrong answer that matters here is a non-null one: a
+    // thumbnail column full of author avatars looks like it works.
+    const images = candidate.root!.querySelectorAll("img[src]");
+    assert.equal(images.length, 2, "fixture drifted: expected exactly the two avatars");
+
+    const descriptor = buildTargetDescriptor(candidate.root!, PAGE_URL);
+    assert.equal(descriptor!.image_url, null);
+  });
 });

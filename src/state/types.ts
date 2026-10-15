@@ -1,5 +1,6 @@
 import type { CaptureSnapshot, JobSnapshot } from "../contracts/ingest";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
+import { CURRENT_STORAGE_SCHEMA_VERSION } from "./storage-keys";
 import type { AiOutputProvenance } from "./ai-provenance";
 
 export type FolderMode = "archive" | "topic" | "product" | "pr-evidence";
@@ -7,23 +8,21 @@ export type TopicStatus = "pending" | "watching" | "learning" | "testing" | "arc
 export type SignalSource = "threads" | "manual";
 export type SignalInboxStatus = "unprocessed" | "assigned" | "archived" | "rejected";
 export type TriageAction =
-  | { kind: "assign"; topicId: string }
+  | { kind: "assign"; topicId: string | null }
   | { kind: "create-topic"; name: string; description?: string }
   | { kind: "archive" }
   | { kind: "reject" };
 
+/** Legacy route literals remain readable without migrating stored tabs. */
 export type MainPage =
+  | "collection"
   | "library"
   | "collect"
   | "compare"
   | "result"
-  | "casebook"
   | "topics"
   | "topic-detail"
-  | "inbox"
-  | "saved-signals"
-  | "classification"
-  | "actionable-filter"
+  | "signals"
   | "pr-evidence";
 export type PopupPage = MainPage | "settings" | "audit-report";
 export type SessionItemStatus = "saved" | "queued" | "running" | "succeeded" | "failed";
@@ -42,14 +41,24 @@ export interface LayoutPreferences {
   language?: UiLanguage;
 }
 
+/** Reference to the item a save just created, so the toast can offer an undo
+ *  inside the undo window. Absent when the save only refreshed an item that
+ *  was already in the folder — re-saving a known post is not undoable. */
+export interface InlineToastUndo {
+  sessionId: string;
+  itemId: string;
+}
+
 export interface InlineToast {
   id: string;
   kind: InlineToastKind;
   message: string;
   createdAt: string;
+  undo?: InlineToastUndo;
 }
 
 export interface ExtensionSettings {
+  deepReadingModels?: Partial<Record<"google" | "claude" | "openai", string>>;
   ingestBaseUrl: string;
   oneLinerProvider: "openai" | "claude" | "google" | null;
   openaiApiKey: string;
@@ -515,6 +524,8 @@ export interface ExtensionGlobalState {
   schemaVersion?: number;
   settings: ExtensionSettings;
   sessions: SessionRecord[];
+  /** Last inline save destination; stored in the existing global snapshot. */
+  lastCollectMode?: FolderMode;
   activeSessionId: string | null;
   updatedAt: string | null;
 }
@@ -566,7 +577,7 @@ export function createDefaultLayoutPreferences(): LayoutPreferences {
 
 export function createEmptyGlobalState(): ExtensionGlobalState {
   return {
-    schemaVersion: 2,
+    schemaVersion: CURRENT_STORAGE_SCHEMA_VERSION,
     settings: createDefaultSettings(),
     sessions: [],
     activeSessionId: null,
@@ -579,8 +590,8 @@ export function createEmptyTabState(): TabUiState {
     selectionMode: false,
     collectModeBannerVisible: false,
     popupOpen: false,
-    popupPage: "library",
-    currentMainPage: "library",
+    popupPage: "collection",
+    currentMainPage: "collection",
     currentPreview: null,
     hoveredTarget: null,
     hoveredTargetStrength: null,

@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 側欄 A</title>
+<!--
+  2026-10-08 mockup — side panel A. Reference only, not spec.
+  Keeps today's workspace shell (dlens / 收藏 / 工作區 / ⋯ 設定) and puts v12's discourse layer inside the 觀眾反應 workspace.
+  Posts join a 話題 by hand: from the card under the post, or from the 未分流 strip at the top of the workspace.
+  Every block is marked with where its data comes from today; nothing here needs a new crawl type or a new AI output.
+    話題 / 未分流            Topic + Signal (signal/triage assigns)                    no AI
+    講法                     TopicSynthesis.commonClusters (keyword, signalCount)      no AI (AI short names: later)
+    最早 / 本週               signal capturedAt + descriptor time_token                 no AI
+    畫面上                    content script reports the post in view                    no AI
+    發現 · 走勢               posts per 講法 per week                                    no AI
+    發現 · 共鳴               descriptor.engagement.likes per 講法                       no AI
+    發現 · 重複問題           question rule + reply chain over crawled comments           no AI
+    重複用語                  TopicSynthesis.memes                                       no AI
+    v12 留言反應 (per-comment stance) needs a new AI output and is left out.
+  Settings: AI key first, one provider at a time, saved and tested in place; product files folded away.
+  All data is fixture.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1b1a17; --sub: #3d3b35; --soft: #6c695e; --faint: #a19e93; --hair: rgba(27,26,23,.10); --hair2: rgba(27,26,23,.06);
+  --sage: #3f5a3b; --sage-w: rgba(63,90,59,.08); --amber: #a06a17; --amber-w: rgba(160,106,23,.08); --violet: #7b4a8a; --fail: #a8462e;
+  --card: #ffffff; --canvas: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
+  --sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --serif-cjk: 'Noto Serif TC', 'Songti TC', serif;
+  --page: #ece9e2;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 13px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+
+/* ---------- page ---------- */
+.intro { max-width: 1320px; margin: 0 auto; padding: 28px 24px 8px; }
+.intro h1 { margin: 0; font: 600 20px/1.3 var(--sans); }
+.intro p { margin: 6px 0 0; max-width: 820px; color: var(--soft); font-size: 13px; }
+.stage { max-width: 1320px; margin: 0 auto; padding: 18px 24px 48px; display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+.col { width: 400px; flex: none; }
+.col > h3 { margin: 0 0 8px; font: 600 12px/1.4 var(--sans); color: var(--soft); letter-spacing: .02em; }
+
+/* ---------- Chrome side panel frame ---------- */
+.cp { border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 18px 40px -22px rgba(27,26,23,.35); border: 1px solid #ddd9cf; }
+.cp-chrome { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px; border-bottom: 1px solid #ececec; font: 600 13px var(--sans); color: #3c3c3c; }
+.cp-chrome .ic { width: 16px; height: 16px; border-radius: 50%; border: 4px solid #2b2b2b; }
+.cp-chrome .r { margin-left: auto; display: flex; gap: 2px; color: #777; }
+.cp-chrome .r span { padding: 4px 6px; border-radius: 6px; }
+.panel { height: 760px; overflow: auto; background: var(--canvas); }
+
+/* ---------- reused workspace masthead ---------- */
+.mast { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 20px; padding: 14px 16px 0; background: rgba(255,255,255,.86); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hair2); }
+.mast .wm { font: 26px/1 var(--serif); letter-spacing: -.01em; }
+.mast .tab { padding: 6px 0 10px; border: 0; background: none; color: var(--soft); font-size: 14px; cursor: pointer; }
+.mast .tab.on { color: #1f3a5f; font-weight: 600; box-shadow: inset 0 -2px 0 #1f3a5f; }
+.mast .more { margin-left: auto; border: 0; background: none; font-size: 18px; color: var(--sub); cursor: pointer; padding: 0 2px 8px; }
+.crumb { display: flex; align-items: center; gap: 6px; padding: 12px 16px 0; font-size: 12.5px; color: var(--soft); }
+.crumb b { color: var(--sage); font-weight: 600; }
+.crumb .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); }
+.crumb .r { margin-left: auto; font-size: 12px; }
+
+.body { padding: 12px 16px 28px; }
+.k { display: flex; justify-content: space-between; align-items: baseline; margin: 22px 2px 8px; font-size: 12px; color: var(--soft); }
+.k b { color: var(--sub); font-weight: 600; }
+.src { font-size: 10.5px; color: var(--faint); letter-spacing: .02em; }
+
+/* ---------- 話題 chips ---------- */
+.topics { display: flex; flex-wrap: wrap; gap: 7px; }
+.topic { border: 0; padding: 6px 12px; border-radius: 999px; background: rgba(27,26,23,.05); font-size: 12.5px; font-weight: 500; color: var(--sub); cursor: pointer; }
+.topic em { font-style: normal; margin-left: 6px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.topic.on { background: var(--sage); color: #fff; }
+.topic.on em { color: rgba(255,255,255,.72); }
+.topic.add { background: none; box-shadow: inset 0 0 0 1px var(--hair); color: var(--soft); }
+
+/* ---------- 未分流 ---------- */
+.inbox { margin-top: 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--hair2); box-shadow: 0 1px 2px rgba(27,26,23,.04); }
+.inbox-h { width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 14px; border: 0; background: none; text-align: left; cursor: pointer; }
+.inbox-h .n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--amber-w); color: var(--amber); font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
+.inbox-h b { font-weight: 600; }
+.inbox-h span { color: var(--soft); font-size: 12px; }
+.inbox-h i { margin-left: auto; font-style: normal; color: var(--soft); }
+.ib-row { padding: 10px 14px 12px; border-top: 1px solid var(--hair2); }
+.ib-top { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 10px; }
+.av { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 10px var(--sans); background: linear-gradient(135deg, hsl(var(--h) 45% 60%), hsl(calc(var(--h) + 40) 42% 44%)); }
+.ib-t { min-width: 0; font-size: 12.5px; line-height: 1.45; }
+.ib-t b { font-weight: 600; }
+.ib-t b span { font-weight: 400; color: var(--soft); margin-left: 6px; }
+.ib-t em { display: block; font-style: normal; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 32px; }
+.pick button { border: 0; padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; background: var(--sage-w); color: var(--sage); }
+.pick button.ghost { background: none; box-shadow: inset 0 0 0 1px var(--hair); color: var(--soft); }
+.pick button.done { background: var(--sage); color: #fff; }
+
+/* ---------- topic head ---------- */
+.th { margin-top: 20px; }
+.th h2 { margin: 0; font: 700 21px/1.3 var(--serif-cjk); letter-spacing: .01em; }
+.th .cov { margin-top: 4px; font-size: 12px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.inview { margin-top: 14px; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 10px; padding: 10px 12px; border-radius: 12px; background: var(--sage-w); font-size: 12.5px; line-height: 1.5; color: var(--sub); }
+.inview .ring { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--sage); }
+.inview b { color: var(--ink); font-weight: 600; }
+.inview small { grid-column: 2; font-size: 11.5px; color: var(--soft); }
+.inview.out { background: none; box-shadow: inset 0 0 0 1px var(--hair); }
+.inview.out .ring { box-shadow: 0 0 0 2px var(--faint); }
+
+/* ---------- 發現 ---------- */
+.fd { margin-top: 8px; padding: 13px 14px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--hair2); box-shadow: 0 1px 2px rgba(27,26,23,.04); }
+.fd-k { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--fc); }
+.fd-k svg { width: 15px; height: 15px; }
+.fd-k .src { margin-left: auto; font-weight: 400; }
+.fd-t { margin: 6px 0 0; font-size: 13.5px; line-height: 1.6; }
+.fd-t b { font-weight: 650; }
+.fd-go { margin-top: 8px; border: 0; background: none; padding: 3px 0; color: var(--fc); font-size: 12px; font-weight: 600; cursor: pointer; }
+.wk { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.wk span { display: grid; gap: 4px; font-size: 10.5px; color: var(--soft); text-align: center; font-variant-numeric: tabular-nums; }
+.wk i { height: 34px; display: flex; align-items: flex-end; border-radius: 4px; background: var(--hair2); overflow: hidden; }
+.wk i b { width: 100%; background: color-mix(in srgb, var(--fc) 45%, transparent); border-radius: 4px; }
+.wk span.hot i b { background: var(--fc); }
+.mb { display: grid; gap: 6px; margin-top: 10px; }
+.mb-row { display: grid; grid-template-columns: 96px minmax(0,1fr) 44px; gap: 8px; align-items: center; font-size: 11.5px; color: var(--soft); }
+.mb-row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mb-row i { height: 6px; border-radius: 3px; background: var(--hair2); overflow: hidden; }
+.mb-row i b { display: block; height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--fc) 40%, transparent); }
+.mb-row.hot { color: var(--ink); font-weight: 600; }
+.mb-row.hot i b { background: var(--fc); }
+.mb-row .v { text-align: right; font-variant-numeric: tabular-nums; }
+.qd { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; font-size: 11.5px; color: var(--soft); }
+.qd span { display: inline-flex; align-items: center; gap: 5px; }
+.qd i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--amber); }
+.qd span.a i { background: #234f7a; box-shadow: none; }
+
+/* ---------- 講法 index ---------- */
+.fr { border-radius: 10px; }
+.fr + .fr { margin-top: 2px; }
+.fr-h { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px 12px; padding: 12px 10px 13px; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 10px; }
+.fr-h:hover { background: rgba(27,26,23,.04); }
+.fr-name { font-size: 14.5px; font-weight: 600; }
+.fr-new { font-style: normal; font-size: 11px; font-weight: 700; color: var(--amber); margin-left: 8px; }
+.fr-n { font-size: 12.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.fr-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--hair2); overflow: hidden; }
+.fr-bar b { display: block; height: 100%; border-radius: 3px; background: var(--sage); opacity: .7; }
+.fr-meta { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.fr-av { display: inline-flex; }
+.fr-av .av { width: 20px; height: 20px; font-size: 9.5px; box-shadow: 0 0 0 2px #fff; }
+.fr-av .av + .av { margin-left: -6px; }
+.fr-tag { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--sage); }
+.fr.now .fr-h { background: var(--sage-w); }
+.fr-posts { display: grid; gap: 2px; padding: 0 4px 10px; }
+.sp-post { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 10px; padding: 8px 6px; border-radius: 8px; }
+.sp-post:hover { background: rgba(27,26,23,.04); }
+.sp-pb { min-width: 0; font-size: 12.5px; line-height: 1.45; }
+.sp-pb b { font-weight: 600; }
+.sp-pb b span { font-weight: 400; color: var(--soft); margin-left: 6px; }
+.sp-pb em { display: block; font-style: normal; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-pl { font-size: 11.5px; color: var(--soft); font-variant-numeric: tabular-nums; }
+.meme { margin-top: 6px; padding: 12px 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--hair2); font-size: 13px; color: var(--sub); }
+.meme b { color: var(--ink); }
+.deep { margin-top: 18px; display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 14px; border: 1px dashed var(--hair); font-size: 12.5px; color: var(--soft); }
+.deep button { border: 0; background: none; color: var(--sage); font-weight: 600; cursor: pointer; font-size: 12.5px; }
+
+/* ---------- card under a post (Threads stand-in) ---------- */
+.post { margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid #e6e3dc; }
+.post-h { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
+.post-h b { font-weight: 600; }
+.post-h span { color: #999; font-size: 13px; }
+.post p { margin: 4px 0 0; font-size: 14px; }
+.card { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: #fbfbfa; border: 1px solid rgba(27,26,23,.08); font-size: 12px; color: var(--soft); }
+.card .h { display: flex; align-items: center; gap: 7px; }
+.card .h i { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); }
+.card .h b { color: var(--sage); font-weight: 650; }
+.card .line { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--sub); }
+.card .line .lbl { color: var(--soft); margin-right: 2px; }
+.card .line button { border: 0; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; cursor: pointer; background: var(--sage-w); color: var(--sage); }
+.card .line button.ghost { background: none; box-shadow: inset 0 0 0 1px var(--hair); color: var(--soft); }
+.card .line .go { margin-left: auto; background: none; color: var(--sage); font-weight: 600; padding: 3px 0; }
+.card .joined b { color: var(--ink); font-weight: 600; }
+
+/* ---------- settings ---------- */
+.set h2 { margin: 18px 0 2px; font: 700 21px/1.3 var(--serif-cjk); }
+.grp { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--card); border: 1px solid var(--hair2); box-shadow: 0 1px 2px rgba(27,26,23,.04); }
+.grp-h { display: flex; align-items: baseline; justify-content: space-between; }
+.grp-h b { font-size: 14px; font-weight: 650; }
+.grp-h span { font-size: 11.5px; color: var(--soft); }
+.grp p { margin: 6px 0 0; font-size: 12.5px; color: var(--soft); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 12px; padding: 3px; border-radius: 10px; background: rgba(27,26,23,.05); }
+.seg button { border: 0; padding: 7px 0; border-radius: 8px; background: none; font-size: 12.5px; color: var(--sub); cursor: pointer; }
+.seg button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(27,26,23,.12); }
+.seg button small { display: block; font-size: 10.5px; color: var(--soft); font-weight: 400; }
+.field { display: flex; gap: 8px; margin-top: 10px; }
+.field input { flex: 1; min-width: 0; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--hair); background: #fbfbfa; font: 13px var(--sans); }
+.btn { border: 0; padding: 8px 13px; border-radius: 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--sage); color: #fff; white-space: nowrap; }
+.btn.quiet { background: none; box-shadow: inset 0 0 0 1px var(--hair); color: var(--sub); }
+.ok { margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sage); }
+.ok.bad { color: var(--fail); }
+.ok i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.fold { margin-top: 14px; border-radius: 16px; border: 1px solid var(--hair2); background: rgba(255,255,255,.6); }
+.fold summary { list-style: none; display: flex; justify-content: space-between; padding: 12px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.fold summary span { font-weight: 400; font-size: 11.5px; color: var(--soft); }
+.fold summary::-webkit-details-marker { display: none; }
+.fold > div { padding: 0 14px 12px; font-size: 12.5px; color: var(--soft); }
+.mini { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--hair2); }
+.mini b { color: var(--sub); font-weight: 500; }
+
+.legend { max-width: 1320px; margin: 0 auto; padding: 0 24px 40px; color: var(--soft); font-size: 12px; }
+.legend table { border-collapse: collapse; width: 100%; max-width: 980px; }
+.legend td, .legend th { text-align: left; padding: 6px 10px 6px 0; border-top: 1px solid rgba(27,26,23,.08); vertical-align: top; }
+.legend th { color: var(--sub); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>DLens 側欄 A：沿用現有工作區，加入 v12 的討論層</h1>
+  <p>收藏、工作區、⋯ 設定照舊。觀眾反應工作區裡多一層「話題 → 講法 → 發現」。帖子由你手動放入話題：可以喺帖子下面嘅卡片揀，亦可以喺側欄頂嘅「未分流」揀。所有數字都係現有資料計出嚟，唔使新 AI。</p>
+</div>
+
+<div class="stage">
+  <!-- ============ 1. 觀眾反應 · 話題 ============ -->
+  <div class="col">
+    <h3>① 工作區 › 觀眾反應：揀咗一個話題</h3>
+    <div class="cp">
+      <div class="cp-chrome"><span class="ic"></span>DLens v4 beta<span class="r"><span>⌖</span><span>✕</span></span></div>
+      <div class="panel">
+        <div class="mast"><span class="wm">dlens</span><button class="tab">收藏</button><button class="tab on">工作區</button><button class="more" title="設定">⋯</button></div>
+        <div class="crumb">← 工作區 <span class="dot"></span><b>觀眾反應</b><span class="r">31 篇 · 4 話題</span></div>
+        <div class="body">
+          <div class="topics" role="tablist" id="topics">
+            <button class="topic on" data-t="ai">AI 工具額度<em>9</em></button>
+            <button class="topic" data-t="date">香港拍拖地點<em>6</em></button>
+            <button class="topic" data-t="grad">畢業生搵工<em>11</em></button>
+            <button class="topic" data-t="wfo">返 office<em>4</em></button>
+            <button class="topic add">＋ 新話題</button>
+          </div>
+
+          <div class="inbox">
+            <button class="inbox-h"><span class="n">1</span><b>未分流</b><span>放入話題先計入講法</span><i>⌄</i></button>
+          </div>
+
+          <div id="topicBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2. 手動分流 ============ -->
+  <div class="col">
+    <h3>② 手動分流：卡片上揀，或者側欄未分流揀</h3>
+    <div class="post">
+      <div class="post-h"><b>anna.s.darling</b><span>19h</span></div>
+      <p>香港有咩調情好地方？</p>
+      <div class="card">
+        <div class="h"><i></i><b>觀眾反應</b>· 81 / 85 則</div>
+        <div class="line"><span class="lbl">未放入話題 ·</span><button>香港拍拖地點</button><button>AI 工具額度</button><button class="ghost">＋ 新話題</button></div>
+      </div>
+    </div>
+    <div class="post">
+      <div class="post-h"><b>prompt_case</b><span>5h</span></div>
+      <p>今天 Codex 應該會 Reset 了</p>
+      <div class="card">
+        <div class="h"><i></i><b>觀眾反應</b>· 19 / 38 則</div>
+        <div class="line joined"><span class="lbl">屬</span>〈<b>reset / 額度</b>〉<span class="lbl">講法 · AI 工具額度內 4 篇</span><button class="go">側欄 ↗</button></div>
+      </div>
+    </div>
+    <div class="cp" style="margin-top:16px">
+      <div class="cp-chrome"><span class="ic"></span>DLens v4 beta<span class="r"><span>⌖</span><span>✕</span></span></div>
+      <div class="panel" style="height:auto;min-height:380px">
+        <div class="mast"><span class="wm">dlens</span><button class="tab">收藏</button><button class="tab on">工作區</button><button class="more">⋯</button></div>
+        <div class="crumb">← 工作區 <span class="dot"></span><b>觀眾反應</b><span class="r">31 篇 · 4 話題</span></div>
+        <div class="body">
+          <div class="inbox" style="margin-top:0">
+            <button class="inbox-h"><span class="n">2</span><b>未分流</b><span>放入話題先計入講法</span><i>⌃</i></button>
+            <div class="ib-row">
+              <div class="ib-top"><span class="av" style="--h:320">A</span><div class="ib-t"><b>anna.s.darling<span>19h · 85 則留言</span></b><em>香港有咩調情好地方？</em></div></div>
+              <div class="pick" data-pick><button>香港拍拖地點</button><button>AI 工具額度</button><button>畢業生搵工</button><button class="ghost">＋ 新話題</button></div>
+            </div>
+            <div class="ib-row">
+              <div class="ib-top"><span class="av" style="--h:40">J</span><div class="ib-t"><b>jth_0508<span>2h · 12 則留言</span></b><em>突然就....被重置了 這次是為什麼 不能晚一天嗎</em></div></div>
+              <div class="pick" data-pick><button>AI 工具額度</button><button>香港拍拖地點</button><button>畢業生搵工</button><button class="ghost">＋ 新話題</button></div>
+            </div>
+          </div>
+          <p style="margin:12px 2px 0;font-size:12px;color:var(--soft)">話題按最近用過排第一；放入之後，該帖會即刻計入話題嘅講法同發現。分錯可以喺講法入面再移。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3. 設定 ============ -->
+  <div class="col">
+    <h3>③ ⋯ › 設定：AI key 放第一，喺原位儲存同測試</h3>
+    <div class="cp">
+      <div class="cp-chrome"><span class="ic"></span>DLens v4 beta<span class="r"><span>⌖</span><span>✕</span></span></div>
+      <div class="panel">
+        <div class="mast"><span class="wm">dlens</span><button class="tab">收藏</button><button class="tab">工作區</button><button class="more">⋯</button></div>
+        <div class="body set">
+          <h2>設定</h2>
+          <div class="grp">
+            <div class="grp-h"><b>AI</b><span>用你自己嘅 key，只存喺呢部電腦</span></div>
+            <p>觀眾反應嘅「有咩做法 / 有咩分歧」同個人應用都用呢度揀嘅一家。</p>
+            <div class="seg" id="prov">
+              <button class="on" data-p="g">Google<small>已填</small></button>
+              <button data-p="o">OpenAI<small>未填</small></button>
+              <button data-p="c">Claude<small>未填</small></button>
+            </div>
+            <div class="field"><input id="key" type="password" value="AIzaSy••••••••••••••••••••" aria-label="Google API key"><button class="btn" id="save">儲存並測試</button></div>
+            <div class="ok" id="ok"><i></i>Google key 可用 · 10:42 測試過</div>
+          </div>
+          <div class="grp">
+            <div class="grp-h"><b>連線</b><span>抓留言用</span></div>
+            <div class="field"><input value="http://127.0.0.1:8000" aria-label="後端位址"><button class="btn quiet">儲存</button></div>
+            <div class="ok"><i></i>後端正常 · 抓取工作閒置</div>
+          </div>
+          <details class="fold">
+            <summary>個人應用：產品資料<span>0 / 3 份</span></summary>
+            <div>
+              <div class="mini"><b>README.md</b><span>匯入</span></div>
+              <div class="mini"><b>AGENTS.md</b><span>匯入</span></div>
+              <div class="mini"><b>AI agents 檔案</b><span>匯入</span></div>
+            </div>
+          </details>
+          <details class="fold">
+            <summary>儲存空間與清除<span>18.4 MB · 不限額</span></summary>
+            <div><div class="mini"><b>清除個人應用快取</b><span>保留收藏</span></div></div>
+          </details>
+          <p style="margin:14px 2px 0;font-size:11.5px;color:var(--faint)">每組自己儲存，唔再有底部「Save settings」。版本 v.0.4.4</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <table>
+    <tr><th>區塊</th><th>資料來源（今日已有）</th><th>AI</th></tr>
+    <tr><td>話題、未分流、手動放入</td><td>Topic、Signal；放入 = 現有 signal/triage</td><td>唔使</td></tr>
+    <tr><td>講法、篇數、最早 / 本週</td><td>TopicSynthesis.commonClusters（字詞分組）+ 收藏時間 / 帖子時間</td><td>唔使（講法短名稱可以之後由 AI 改寫）</td></tr>
+    <tr><td>畫面上</td><td>content script 報告你而家睇緊邊篇</td><td>唔使</td></tr>
+    <tr><td>發現 · 走勢 / 共鳴 / 重複問題</td><td>每週篇數；每篇讚數；已抓留言嘅提問規則 + 回覆鏈</td><td>唔使</td></tr>
+    <tr><td>重複用語</td><td>TopicSynthesis.memes</td><td>唔使</td></tr>
+    <tr><td>完整分析（Atlas）</td><td>現有 Topic Audit，原樣保留</td><td>用（手動開始）</td></tr>
+    <tr><td>v12 留言反應</td><td>要逐則留言判斷立場，係新嘅 AI 輸出</td><td>暫不做</td></tr>
+  </table>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const ICON = {
+  trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>',
+  like: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>',
+  ask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 3.4 6.5L4 20l1.1-3.5A8 8 0 0 1 4 12z"/><path d="M10 9.6a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9v.6M12 15.4v.1"/></svg>'
+};
+const hue = (h) => [...h].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+const av = (h) => `<span class="av" style="--h:${hue(h)}">${h[0].toUpperCase()}</span>`;
+// Fixture topics. frames = [keyword name, posts [[handle, date, text, likes]]], weeks = posts per week (oldest → this week).
+const T = {
+  ai: { name: 'AI 工具額度', cov: '9 篇貼文 · 已抓留言 412 則 · 更新 10:38', now: { frame: 'f1', handle: 'prompt_case', text: '今天 Codex 應該會 Reset 了' },
+    weeks: [0, 1, 3, 5], trend: '〈<b>reset / 額度</b>〉升緊：最近 7 日 <b>4 篇</b>，之前每星期平均 1.3 篇。',
+    like: '〈<b>Grok / 替代</b>〉篇數最少（2 篇），但平均每篇 <b>352 讚</b>，係其他講法平均（61）嘅 <b>5.8 倍</b>。',
+    likes: [['Grok / 替代', 352, 1], ['reset / 額度', 58, 0], ['積分 / 計算', 64, 0]],
+    ask: '「積分點樣計？」喺 <b>3 篇</b>貼文都有人問，只有 1 篇有人回覆。', askWho: [['prompt_case', 0], ['babykengg', 0], ['jth_0508', 1]],
+    frames: [
+      { id: 'f1', name: 'reset / 額度', isNew: false, posts: [['prompt_case', '10/7', '今天 Codex 應該會 Reset 了', '50'], ['jth_0508', '10/7', '突然就....被重置了', '12'], ['monkey1sai', '10/6', '我剩下6%非常需要', '33'], ['cooperchan', '10/4', '真的很需要他希望今天真的會reset', '8']], first: '9/30', week: 3 },
+      { id: 'f2', name: '積分 / 計算', isNew: true, posts: [['babykengg', '10/6', '想問一下怎樣計算 是積分制嗎', '41'], ['macpukpro', '10/5', '可唔可以分享吓有幾好用', '87']], first: '10/5', week: 2 },
+      { id: 'f3', name: 'Grok / 替代', isNew: false, posts: [['prompt_case', '10/4', '我後悔了，Grok Bot 真的超級好用', '352'], ['alan_890104', '9/28', '用 Grok 做 agent 後端', '351']], first: '9/28', week: 1 }
+    ],
+    meme: '「reset 咗」喺 <b>5 篇</b>、<b>27 則</b>留言出現。' },
+  date: { name: '香港拍拖地點', cov: '6 篇貼文 · 已抓留言 288 則 · 更新 09:55', now: null,
+    weeks: [1, 2, 1, 2], trend: '近 4 星期冇講法明顯升跌；全話題每星期 1–2 篇。',
+    like: '各講法平均讚數相近：412–837。', likes: [['離島 / 沙灘', 837, 0], ['夜景 / 山頂', 640, 0], ['餐廳 / 酒吧', 412, 0]],
+    ask: '「有冇唔使排隊嘅？」喺 <b>2 篇</b>貼文都有人問，樣本內都未見回覆。', askWho: [['anna.s.darling', 0], ['hk.dates', 0]],
+    frames: [
+      { id: 'd1', name: '離島 / 沙灘', isNew: false, posts: [['anna.s.darling', '10/7', '香港有咩調情好地方？', '837'], ['island.hk', '9/22', '南丫島日落一定要去', '512']], first: '9/22', week: 1 },
+      { id: 'd2', name: '夜景 / 山頂', isNew: false, posts: [['peak.lover', '10/1', '山頂夜景約會路線', '640'], ['hk.dates', '9/25', '拍拖去邊度睇夜景', '301']], first: '9/25', week: 0 },
+      { id: 'd3', name: '餐廳 / 酒吧', isNew: false, posts: [['foodie.ssp', '10/2', '中環 rooftop bar 推介', '412'], ['date.night', '9/18', '第一次約會食咩好', '228']], first: '9/18', week: 0 }
+    ],
+    meme: '「有伴邊度都係好地方」喺 <b>3 篇</b>、<b>9 則</b>留言出現。' }
+};
+let cur = 'ai', openFrame = 'f1';
+function render() {
+  const t = T[cur] || T.ai, max = Math.max(...t.frames.map((f) => f.posts.length)), wmax = Math.max(1, ...t.weeks);
+  const nowFrame = t.now && t.frames.find((f) => f.id === t.now.frame);
+  const now = t.now
+    ? `<div class="inview"><span class="ring"></span><div><b>畫面上：@${t.now.handle}</b> 屬〈${nowFrame.name}〉</div><small>${t.now.text}</small></div>`
+    : `<div class="inview out"><span class="ring"></span><div>畫面上嗰篇未放入呢個話題</div><small>喺卡片或者「未分流」揀話題</small></div>`;
+  const card = (key, color, label, text, shape, go) => `<div class="fd" style="--fc:${color}"><div class="fd-k">${ICON[key]}${label}<span class="src">無 AI</span></div><p class="fd-t">${text}</p>${shape}${go ? `<button class="fd-go">${go} ↗</button>` : ''}</div>`;
+  const weeks = `<div class="wk">${t.weeks.map((n, i) => `<span class="${i === 3 ? 'hot' : ''}"><i><b style="height:${Math.round(n / wmax * 100)}%"></b></i>${['9/16', '9/23', '9/30', '10/7'][i]} 週 · ${n}</span>`).join('')}</div>`;
+  const lmax = Math.max(...t.likes.map((x) => x[1]));
+  const likes = `<div class="mb">${t.likes.map(([n, v, hot]) => `<div class="mb-row${hot ? ' hot' : ''}"><span>${n}</span><i><b style="width:${Math.round(v / lmax * 100)}%"></b></i><span class="v">${v}</span></div>`).join('')}</div>`;
+  const asks = `<div class="qd">${t.askWho.map(([h, r]) => `<span class="${r ? 'a' : ''}"><i></i>@${h}</span>`).join('')}</div>`;
+  const frames = t.frames.map((f) => {
+    const isNow = nowFrame && nowFrame.id === f.id, open = openFrame === f.id;
+    return `<div class="fr${isNow ? ' now' : ''}"><button class="fr-h" data-f="${f.id}" aria-expanded="${open}"><span class="fr-name">${f.name}${f.isNew ? '<i class="fr-new">新</i>' : ''}</span><span class="fr-n">${f.posts.length} 篇</span>
+      <span class="fr-meta"><span class="fr-av">${f.posts.slice(0, 4).map(([h]) => av(h)).join('')}</span>最早 ${f.first} · 本週 +${f.week}${isNow ? '<span class="fr-tag">◉ 畫面上</span>' : ''}</span></button>
+      ${open ? `<div class="fr-posts">${f.posts.map(([h, d, x, l]) => `<div class="sp-post">${av(h)}<div class="sp-pb"><b>${h}<span>${d}</span></b><em>${x}</em></div><span class="sp-pl">♡ ${l}</span></div>`).join('')}</div>` : ''}</div>`;
+  }).join('');
+  $('#topicBody').innerHTML = `
+    <div class="th"><h2>${t.name}</h2><div class="cov">${t.cov}</div></div>
+    ${now}
+    <div class="k"><b>發現</b><span class="src">跨帖先見到；每句由規則 + 數字組成</span></div>
+    ${card('trend', '#3f5a3b', '走勢', t.trend, weeks, '睇呢幾篇')}
+    ${card('like', '#a06a17', '共鳴', t.like, likes, '睇高讚嗰啲')}
+    ${card('ask', '#7b4a8a', '重複問題', t.ask, asks, '睇呢幾篇')}
+    <div class="k"><b>講法</b><span class="src">按字詞分組 · 篇</span></div>
+    ${frames}
+    <div class="k"><b>重複用語</b><span class="src">無 AI</span></div>
+    <div class="meme">${t.meme}</div>
+    <div class="deep"><span>想睇成個話題嘅深入分析？</span><button>完整分析（Atlas）↗</button></div>`;
+}
+document.addEventListener('click', (e) => {
+  const tp = e.target.closest('#topics .topic[data-t]');
+  if (tp) { document.querySelectorAll('#topics .topic').forEach((x) => x.classList.toggle('on', x === tp)); cur = tp.dataset.t; openFrame = T[cur] ? T[cur].frames[0].id : null; render(); return; }
+  const fr = e.target.closest('.fr-h[data-f]');
+  if (fr) { openFrame = openFrame === fr.dataset.f ? null : fr.dataset.f; render(); return; }
+  const pick = e.target.closest('[data-pick] button:not(.ghost)');
+  if (pick) { pick.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('done', b === pick)); pick.textContent = `✓ ${pick.textContent.replace(/^✓ /, '')}`; return; }
+  const prov = e.target.closest('#prov button');
+  if (prov) {
+    document.querySelectorAll('#prov button').forEach((b) => b.classList.toggle('on', b === prov));
+    const name = prov.firstChild.textContent.trim(), filled = prov.querySelector('small').textContent === '已填';
+    $('#key').value = filled ? 'AIzaSy••••••••••••••••••••' : ''; $('#key').placeholder = `貼上 ${name} API key`; $('#key').setAttribute('aria-label', `${name} API key`);
+    const ok = $('#ok'); ok.classList.toggle('bad', !filled); ok.innerHTML = filled ? `<i></i>${name} key 可用 · 10:42 測試過` : `<i></i>未填 ${name} key：觀眾反應會顯示「未接 AI」`;
+    return;
+  }
+  if (e.target.id === 'save') { const ok = $('#ok'); ok.classList.remove('bad'); ok.innerHTML = '<i></i>測試中…'; setTimeout(() => { ok.innerHTML = `<i></i>${$('#prov .on').firstChild.textContent.trim()} key 可用 · 啱啱測試過`; }, 700); }
+});
+render();
+</script>
+</body>
+</html>

@@ -15,27 +15,27 @@ function readRepoFile(relativePath: string): string {
 test("request reconcile target keys are deterministic and omit empty fields", () => {
   assert.equal(
     buildRequestReconcileTargetKey({
-      itemBId: "item-b",
+      captureId: "item-b",
       sessionId: "session-1",
-      itemAId: "item-a",
+      itemId: "item-a",
       unused: null,
       empty: undefined
     }),
-    "itemAId:item-a|itemBId:item-b|sessionId:session-1"
+    "captureId:item-b|itemId:item-a|sessionId:session-1"
   );
 });
 
 test("request reconciler accepts the latest response for the same lane and target", () => {
   const reconciler = createRequestReconciler();
   const token = reconciler.begin({
-    lane: "compare.fetchBrief",
+    lane: "pr.matchCriteria",
     requestId: "request-1",
-    target: { sessionId: "session-1", itemAId: "item-a", itemBId: "item-b" }
+    target: { sessionId: "session-1", itemId: "item-a", captureId: "item-b" }
   });
 
   assert.deepEqual(
     reconciler.complete(token, {
-      currentTarget: { sessionId: "session-1", itemAId: "item-a", itemBId: "item-b" }
+      currentTarget: { sessionId: "session-1", itemId: "item-a", captureId: "item-b" }
     }),
     { accepted: true }
   );
@@ -72,18 +72,18 @@ test("request reconciler can check the latest request repeatedly without consumi
 test("request reconciler rejects an older response after a newer request starts in the same lane", () => {
   const reconciler = createRequestReconciler();
   const stale = reconciler.begin({
-    lane: "compare.fetchBrief",
+    lane: "pr.matchCriteria",
     requestId: "request-old",
-    target: { sessionId: "session-1", itemAId: "item-a", itemBId: "item-b" }
+    target: { sessionId: "session-1", itemId: "item-a", captureId: "item-b" }
   });
   reconciler.begin({
-    lane: "compare.fetchBrief",
+    lane: "pr.matchCriteria",
     requestId: "request-new",
-    target: { sessionId: "session-1", itemAId: "item-c", itemBId: "item-d" }
+    target: { sessionId: "session-1", itemId: "item-c", captureId: "item-d" }
   });
 
   const decision = reconciler.complete(stale, {
-    currentTarget: { sessionId: "session-1", itemAId: "item-c", itemBId: "item-d" }
+    currentTarget: { sessionId: "session-1", itemId: "item-c", captureId: "item-d" }
   });
 
   assert.equal(decision.accepted, false);
@@ -142,21 +142,8 @@ test("reconcile guard is wired into current async response write paths", () => {
   assert.match(controller, /buildSnapshotReconcileDescriptor/);
   assert.match(controller, /buildReconcileIgnoredEvent/);
 
-  const resultWorkspace = readRepoFile("src/ui/InPageCollectorResultWorkspace.tsx");
-  for (const lane of [
-    "compare.fetchBrief",
-    "compare.fetchClusterSummaries",
-    "compare.fetchEvidenceAnnotations"
-  ]) {
-    assert.match(resultWorkspace, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
-  assert.match(resultWorkspace, /settleCompareResponse\(token\)/);
-
   const appState = readRepoFile("src/ui/useInPageCollectorAppState.ts");
   for (const lane of [
-    "product.analyzeSignals",
-    "folder.generateSynthesis",
-    "folder.clearSynthesis",
     "pr.generateCriteria",
     "pr.saveGeneratedCriteria",
     "pr.matchCriteria",
@@ -168,15 +155,6 @@ test("reconcile guard is wired into current async response write paths", () => {
   }
   assert.doesNotMatch(appState, /product\.synthesizeSignalReading|product\/synthesize-signal-reading/);
   assert.match(appState, /settleReconciledResponse\(token/);
-
-  const topicAudit = readRepoFile("src/ui/useTopicAudit.ts");
-  assert.match(topicAudit, /topic\.audit\.run:\$\{topicId\}/);
-  assert.match(topicAudit, /topic\.audit\.p1:\$\{topicId\}:\$\{signalId\}/);
-  assert.match(topicAudit, /settleTopicAuditResponse\(token/);
-
-  const resultSurface = readRepoFile("src/ui/useResultSurfaceState.ts");
-  assert.match(resultSurface, /lane:\s*"judgment\.start"/);
-  assert.match(resultSurface, /buildReconcileIgnoredEvent\(token/);
 
   const background = readRepoFile("entrypoints/background.ts");
   assert.match(background, /beginBackgroundSnapshotReconcile/);
@@ -190,13 +168,10 @@ test("reconcile guard is wired into current async response write paths", () => {
   assert.match(background, /background\.session\.refresh-item/);
   assert.match(background, /background\.session\.queue-items-and-start-processing/);
   for (const lane of [
-    "folder.generateSynthesis",
-    "folder.clearSynthesis",
     "product.analyzeSignals",
     "product.reviewSignalReading",
     "pr.matchCriteria",
     "pr.fetchAdvancedMetrics",
-    "judgment.start"
   ]) {
     assert.match(background, new RegExp(lane.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

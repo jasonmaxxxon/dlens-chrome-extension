@@ -1,3 +1,4 @@
+import { stripThreadsTranslationChrome } from "../state/source-text";
 import type { EngagementMetrics, EngagementPresent, EngagementSource, TargetDescriptor, TargetSurface, TargetType } from "../contracts/target-descriptor";
 
 const TIME_TOKEN_RE = /\b\d+\s*[smhdw]\b/i;
@@ -93,11 +94,11 @@ function parseCount(label: string | null | undefined): number | null {
 
 export function inferThreadViewsFromText(text: string): number | null {
   const source = String(text || "").replace(/\s+/g, " ");
-  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:views|view)\b/i);
+  const english = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:views|view)\b/i);
   if (english) {
     return parseCount(english[1]);
   }
-  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:次)?(?:瀏覽|浏览|觀看|观看|查看)/);
+  const chinese = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:次)?(?:瀏覽|浏览|觀看|观看|查看)/);
   if (chinese) {
     return parseCount(chinese[1]);
   }
@@ -109,11 +110,11 @@ export function inferThreadFollowersFromText(text: string): number | null {
   if (/\bview\s+followers\b/i.test(source)) {
     return null;
   }
-  const english = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*followers\b/i);
+  const english = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*followers\b/i);
   if (english) {
     return parseCount(english[1]);
   }
-  const chinese = source.match(/(\d+(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:位|個|个)?(?:粉絲|粉丝|追蹤者|追踪者)/);
+  const chinese = source.match(/(\d[\d,]*(?:\.\d+)?\s*(?:[kKmM]|萬|万|千)?)\s*(?:位|個|个)?(?:粉絲|粉丝|追蹤者|追踪者)/);
   if (chinese) {
     return parseCount(chinese[1]);
   }
@@ -152,15 +153,11 @@ export function inferSurfaceFromLocation(url: string): TargetSurface {
 }
 
 function hasLikelyEngagementRow(card: HTMLElement): boolean {
-  // Threads uses svg[aria-label] for engagement icons (Like, Reply, Repost, Share)
-  const svgs = card.querySelectorAll<SVGElement>("svg[aria-label]");
-  let score = 0;
-  for (const svg of svgs) {
-    const label = svg.getAttribute("aria-label") || "";
-    if (classifyMetric(label)) {
-      score += 1;
-      if (score >= 2) return true;
-    }
+  const metrics = new Set<string>();
+  for (const { key } of findMetricElements(card)) {
+    if (key === "views" || key === "followers") continue;
+    metrics.add(key);
+    if (metrics.size >= 2) return true;
   }
   return false;
 }
@@ -458,7 +455,91 @@ export function classifyMetric(label: string): keyof EngagementMetrics | null {
   return null;
 }
 
-function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagement: EngagementMetrics; engagement_present: EngagementPresent; engagement_source: EngagementSource } {
+const METRIC_ELEMENT_SELECTOR =
+  'svg, button[aria-label], a[aria-label], [role="button"][aria-label], button[title], a[title], [role="button"][title]';
+const POST_BOUNDARY_SELECTOR = 'article, [role="article"], [data-pressable-container], blockquote';
+
+function belongsToCurrentPost(element: Element, card: HTMLElement): boolean {
+  // An article may wrap its own pressable container. Keep that wrapper, but
+  // exclude descendant post/quote boundaries that do not contain its permalink.
+  // A pressable without a post link may just be this post's metric control.
+  const ownPermalink = card.querySelector('a[href*="/post/"]');
+  let ancestor: Element | null = element;
+  while (ancestor && ancestor !== card) {
+    const isPostBoundary = ancestor.matches(POST_BOUNDARY_SELECTOR) &&
+      (ancestor.matches('article, [role="article"], blockquote') ||
+        Boolean(ancestor.querySelector('a[href*="/post/"]')));
+    if (isPostBoundary &&
+      (ancestor.matches("blockquote") || !ownPermalink || !ancestor.contains(ownPermalink))) {
+      return false;
+    }
+    ancestor = ancestor.parentElement;
+  }
+  return ancestor === card;
+}
+
+function readMetricLabel(element: Element): { key: keyof EngagementMetrics; label: string } | null {
+  const labels = [element.getAttribute("aria-label"), element.getAttribute("title")];
+  if (element.tagName.toLowerCase() === "svg") {
+    labels.push(element.querySelector("title")?.textContent ?? null);
+  }
+  for (const label of labels) {
+    const key = classifyMetric(label || "");
+    if (key) return { key, label: label! };
+  }
+  return null;
+}
+
+function findMetricElements(card: HTMLElement) {
+  return Array.from(card.querySelectorAll(METRIC_ELEMENT_SELECTOR)).flatMap((element) => {
+    if (!belongsToCurrentPost(element, card)) return [];
+    const metric = readMetricLabel(element);
+    return metric ? [{ element, ...metric }] : [];
+  });
+}
+
+/** Smallest common parent of this post's action controls, excluding quotes. */
+export function findPostActionBar(card: HTMLElement): HTMLElement | null {
+  const actions = findMetricElements(card).filter(({ key }) => key !== "views" && key !== "followers");
+  if (new Set(actions.map(({ key }) => key)).size < 2) return null;
+  const controls = actions.map(({ element }) => element.closest('button, [role="button"], a') ?? element.parentElement)
+    .filter((element): element is Element => Boolean(element));
+  let row = controls[0]?.parentElement ?? null;
+  while (row && row !== card && !controls.every((control) => row!.contains(control))) row = row.parentElement;
+  // A whole post (or a text/permalink wrapper) is not an action row.
+  if (!row || row === card || row.querySelector('a[href*="/post/"]')) return null;
+  return row;
+}
+
+function readScopedText(element: Element, card: HTMLElement): string {
+  if (element.matches("svg, script, style") || !belongsToCurrentPost(element, card)) return "";
+  return Array.from(element.childNodes).map((node) => {
+    if (node instanceof Element) return readScopedText(node, card);
+    return node.nodeType === Node.TEXT_NODE ? node.textContent || "" : "";
+  }).join(" ");
+}
+
+function readMetricCount(element: Element, label: string, key: keyof EngagementMetrics, card: HTMLElement): number | null {
+  const control = element.closest('button, [role="button"], a');
+  const scope = control && card.contains(control) ? control : element.parentElement;
+  // Without a button boundary, only a local single-icon wrapper is safe.
+  // Never read a row containing several metrics as one count.
+  if (scope && (scope !== card || control === card)) {
+    const keys = new Set(Array.from(scope.querySelectorAll(METRIC_ELEMENT_SELECTOR))
+      .map((candidate) => readMetricLabel(candidate)?.key).filter(Boolean));
+    if (keys.size <= 1) {
+      const text = readScopedText(scope, card).replace(/\s+/g, " ").trim();
+      if (/^\d[\d,]*(?:\.\d+)?\s*[kKmM萬万千]?$/.test(text) ||
+        (text.length <= 40 && classifyMetric(text) === key)) {
+        const count = parseCount(text);
+        if (count !== null) return count;
+      }
+    }
+  }
+  return parseCount(label);
+}
+
+function resolveEngagement(card: HTMLElement): { engagement: EngagementMetrics; engagement_present: EngagementPresent; engagement_source: EngagementSource } {
   const metrics: EngagementMetrics = {
     likes: null,
     comments: null,
@@ -475,99 +556,155 @@ function resolveEngagement(card: HTMLElement, targetType: TargetType): { engagem
     views: false,
     followers: false
   };
-  // F1 telemetry: did any metric come from the card itself vs the
-  // page-wide body fallback? "page_fallback" wins because it is the
-  // audit's risk class — those numbers may belong to unrelated chrome.
-  let usedCardSource = false;
-  let usedBodyFallback = false;
-
-  // Threads DOM: <svg aria-label="Like"> + <span>582</span> as sibling
-  const svgs = Array.from(card.querySelectorAll<SVGElement>("svg[aria-label]"));
-  for (const svg of svgs) {
-    const ariaLabel = svg.getAttribute("aria-label") || "";
-    const key = classifyMetric(ariaLabel);
-    if (!key || present[key]) continue;
-
-    // Count is in a sibling <span> next to the SVG
-    const parent = svg.parentElement;
-    const siblingSpan = parent?.querySelector("span");
-    const countText = siblingSpan ? (siblingSpan.textContent || "").trim() : "";
-
+  for (const { element, key, label } of findMetricElements(card)) {
     present[key] = true;
-    metrics[key] = countText ? parseCount(countText) : null;
-    usedCardSource = true;
+    if (metrics[key] == null) metrics[key] = readMetricCount(element, label, key, card);
   }
 
-  // Fallback: also check [aria-label] on non-SVG elements (buttons, links)
-  if (!present.likes && !present.comments && !present.reposts && !present.forwards) {
-    const controls = Array.from(card.querySelectorAll<HTMLElement>("button[aria-label], a[aria-label]"));
-    for (const el of controls.slice(0, 20)) {
-      const ariaLabel = el.getAttribute("aria-label") || "";
-      const key = classifyMetric(ariaLabel);
-      if (!key || present[key]) continue;
-
-      const text = (el.textContent || "").trim();
-      present[key] = true;
-      metrics[key] = text.length <= 20 ? parseCount(text) : null;
-      usedCardSource = true;
-    }
-  }
-
+  const cardText = readScopedText(card, card);
   if (!present.views) {
-    const cardText = card.innerText || card.textContent || "";
     const views = inferThreadViewsFromText(cardText);
     if (views !== null) {
       present.views = true;
       metrics.views = views;
-      usedCardSource = true;
-    }
-  }
-
-  if (targetType === "post" && !present.views) {
-    const bodyText = document.body?.innerText || document.body?.textContent || "";
-    const views = inferThreadViewsFromText(bodyText);
-    if (views !== null) {
-      present.views = true;
-      metrics.views = views;
-      usedBodyFallback = true;
     }
   }
 
   if (!present.followers) {
-    const cardText = card.innerText || card.textContent || "";
     const followers = inferThreadFollowersFromText(cardText);
     if (followers !== null) {
       present.followers = true;
       metrics.followers = followers;
-      usedCardSource = true;
     }
   }
 
-  if (targetType === "post" && !present.followers) {
-    const bodyText = document.body?.innerText || document.body?.textContent || "";
-    const followers = inferThreadFollowersFromText(bodyText);
-    if (followers !== null) {
-      present.followers = true;
-      metrics.followers = followers;
-      usedBodyFallback = true;
-    }
-  }
-
-  const engagement_source: EngagementSource = usedBodyFallback
-    ? "page_fallback"
-    : usedCardSource
-      ? "card"
-      : "missing";
+  // Page-wide counters cannot be attributed to this post. Keep them unknown.
+  const engagement_source: EngagementSource = Object.values(present).some(Boolean) ? "card" : "missing";
 
   return { engagement: metrics, engagement_present: present, engagement_source };
+}
+
+/**
+ * Upper bound on a stored image URL, in characters.
+ *
+ * Threads serves post photos, video posters and avatars from the Instagram CDN
+ * at ~500-700 chars. Link previews are different: they go through the
+ * `external.*.fbcdn.net/emg1/` proxy, which percent-encodes the entire source
+ * URL into the query string and reaches 1,300-1,700 chars in the captured
+ * fixture. A truncated URL is not a working URL, so anything over the cap is
+ * dropped rather than trimmed — the post renders with no thumbnail.
+ *
+ * This is the knob that bounds thumbnail storage growth. At this value a saved
+ * record grows by at most ~1KB; raising it to 2048 admits proxied link
+ * previews at up to ~2KB each.
+ */
+const MAX_IMAGE_URL_LENGTH = 1024;
+
+/**
+ * Smallest declared pixel edge we will accept as post content. Threads renders
+ * avatars at 36x36 and link-preview favicons at 14x14; real attachments either
+ * declare a large pixel size or size themselves with a percentage.
+ */
+const MIN_IMAGE_EDGE_PX = 64;
+
+// Instagram's profile-picture media family. Post content is served from the
+// `-15` families (t51.2885-15 and friends); avatars from `-19`.
+const PROFILE_PICTURE_PATH_RE = /\/t51\.\d+-19\//;
+
+// Threads localizes the avatar alt text; each locale keeps the same shape.
+const PROFILE_PICTURE_ALT_RE =
+  /(profile picture|大頭貼照|头像|大頭照|プロフィール写真|프로필 사진)/i;
+
+// A bare profile permalink: https://www.threads.net/@handle with nothing after
+// it. Avatars link here; a post attachment never does.
+const PROFILE_LINK_RE = /^https:\/\/www\.threads\.net\/@[^/]+$/i;
+
+/**
+ * Reads a declared pixel dimension. Returns null for percentage or missing
+ * values, which means "unknown" rather than "too small" — `height="100%"` is
+ * how Threads sizes real attachment images, so it must not be rejected.
+ *
+ * JSDOM has no layout engine, so naturalWidth/offsetWidth are always 0 here.
+ * Declared attributes are the only dimension signal that survives fixture
+ * replay, and they are what this filter uses in production too.
+ */
+function readDeclaredEdgePx(element: Element, attribute: "width" | "height"): number | null {
+  const raw = (element.getAttribute(attribute) || "").trim();
+  if (!raw || !/^\d+$/.test(raw)) {
+    return null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isTooSmallForContent(element: Element): boolean {
+  const width = readDeclaredEdgePx(element, "width");
+  const height = readDeclaredEdgePx(element, "height");
+  // Reject only when a declared pixel size proves the element is chrome-sized.
+  return (width !== null && width < MIN_IMAGE_EDGE_PX)
+    || (height !== null && height < MIN_IMAGE_EDGE_PX);
+}
+
+function isAvatarLike(element: Element): boolean {
+  if (PROFILE_PICTURE_ALT_RE.test(element.getAttribute("alt") || "")) {
+    return true;
+  }
+  if (PROFILE_PICTURE_PATH_RE.test(element.getAttribute("src") || "")) {
+    return true;
+  }
+  const anchor = element.closest("a[href]");
+  const href = anchor?.getAttribute("href");
+  return Boolean(href && PROFILE_LINK_RE.test(normalizeUrl(href)));
+}
+
+function readContentImageUrl(element: Element, attribute: "src" | "poster"): string | null {
+  const raw = (element.getAttribute(attribute) || "").trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) {
+    // data: and blob: sources are placeholders/previews, not durable URLs.
+    return null;
+  }
+  if (raw.length > MAX_IMAGE_URL_LENGTH) {
+    return null;
+  }
+  if (element.getAttribute("aria-hidden") === "true") {
+    return null;
+  }
+  if (isTooSmallForContent(element) || isAvatarLike(element)) {
+    return null;
+  }
+  return raw;
+}
+
+/**
+ * Picks the URL of the post's own attachment image, or null.
+ *
+ * Takes the first surviving candidate in document order rather than the
+ * largest: the card's own attachment precedes any nested quoted post, and
+ * without a layout engine there is no trustworthy size to rank by. Video
+ * posters count, so a video post still gets a thumbnail.
+ *
+ * Returns null for text-only posts, and for posts whose only images are
+ * avatars, favicons or over-long proxied URLs. That null is the same state the
+ * UI shows for an expired URL and for a pre-v3 saved record.
+ */
+export function extractImageUrl(card: HTMLElement): string | null {
+  const candidates = Array.from(card.querySelectorAll<HTMLElement>("img[src], video[poster]"));
+  for (const candidate of candidates) {
+    const attribute = candidate.tagName.toLowerCase() === "video" ? "poster" : "src";
+    const url = readContentImageUrl(candidate, attribute);
+    if (url) {
+      return url;
+    }
+  }
+  return null;
 }
 
 export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): TargetDescriptor | null {
   const normalizedPage = normalizeUrl(pageUrl || window.location.href || "");
   const { permalink, rawText } = extractPermalink(card);
   const targetType = classifyTargetType(card, normalizedPage, permalink);
-  const cleanedText = cleanBodyText(rawText);
-  const metricsResult = resolveEngagement(card, targetType);
+  const cleanedText = stripThreadsTranslationChrome(cleanBodyText(rawText));
+  const metricsResult = resolveEngagement(card);
 
   return {
     target_type: targetType,
@@ -580,6 +717,7 @@ export function buildTargetDescriptor(card: HTMLElement, pageUrl: string): Targe
     engagement: metricsResult.engagement,
     engagement_present: metricsResult.engagement_present,
     engagement_source: metricsResult.engagement_source,
+    image_url: extractImageUrl(card),
     captured_at: new Date().toISOString()
   };
 }

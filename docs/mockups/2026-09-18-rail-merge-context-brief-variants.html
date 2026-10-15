@@ -1,0 +1,484 @@
+<!doctype html>
+<!--
+  DLens · Rail Merge (Step 5) — Product context & Agent brief homes
+  Dated 2026-09-18. Reference-only, standalone. NOT a spec.
+
+  Fixed across all three variants (this is the merge itself, not the question):
+    議題 topics · 主題 casebook · 收件匣 inbox · 分類 classification ·
+    行動 actionable-filter  →  ONE 訊號 list + filter chips.
+    Rail drops from 5 signal-filter entries to 1.
+
+  The open question (review F3): after that merge, where do
+    (a) Product context — today: Settings ▸ 產品脈絡 + compiled preview
+    (b) Agent brief + folder packet export — today: owned by the 行動 page
+  actually live. A / B / C answer only that.
+-->
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rail Merge · Context &amp; Brief Homes</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #f2f7f3;
+      --surface: #f8fbf8;
+      --elevated: #ffffff;
+      --ink: #1b1a17;
+      --sub-ink: #3d3b35;
+      --muted: #6c695e;
+      --soft: #8a8677;
+      --line: rgba(27, 26, 23, 0.10);
+      --line-strong: rgba(27, 26, 23, 0.18);
+      --rail: rgba(248, 251, 248, 0.94);
+      --product: #234f7a;
+      --product-soft: rgba(35, 79, 122, 0.10);
+      --cyan: #1f6f6a;
+      --cyan-soft: rgba(31, 111, 106, 0.10);
+      --amber: #a16a17;
+      --amber-soft: rgba(161, 106, 23, 0.10);
+      --success: #2f6d3f;
+      --canvas: linear-gradient(172deg, #ffffff 0%, #f8fbf8 55%, #f2f7f3 100%);
+      --shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11);
+      --font-serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Iowan Old Style, Charter, Georgia, serif;
+      --font-sans: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 16px 48px;
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { color: inherit; font: inherit; cursor: pointer; }
+    h1, h2, h3 { margin: 0; font-family: var(--font-serif); }
+    p { margin: 0; }
+    [hidden] { display: none !important; }
+    .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+    /* ---------- page chrome (mockup furniture, not UI) ---------- */
+    .doc-head { width: min(720px, calc(100vw - 32px)); display: grid; gap: 10px; }
+    .doc-head h1 { font-size: 19px; }
+    .doc-head .dek { color: var(--muted); font-size: 12.5px; }
+    .switch { display: flex; gap: 6px; flex-wrap: wrap; }
+    .switch button {
+      padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line-strong);
+      background: transparent; font-size: 12px; font-weight: 700;
+    }
+    .switch button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+    .variant-note {
+      width: min(720px, calc(100vw - 32px));
+      display: grid; gap: 6px;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px;
+      background: var(--elevated); font-size: 12.5px; color: var(--sub-ink);
+    }
+    .variant-note b { font-family: var(--font-serif); font-size: 13.5px; }
+    .variant-note .cost { color: var(--amber); }
+
+    /* ---------- extension shell ---------- */
+    .shell {
+      width: min(720px, calc(100vw - 32px));
+      height: 780px;
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--canvas);
+      box-shadow: var(--shadow);
+    }
+    .rail {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 8px 12px; border-right: 1px solid var(--line); background: var(--rail);
+    }
+    .brand {
+      width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 6px;
+      border: 1px solid var(--line-strong); border-radius: 12px; background: var(--elevated);
+      font-family: var(--font-serif); font-size: 19px; font-weight: 800;
+    }
+    .rail-btn {
+      position: relative; width: 100%; min-height: 58px; padding: 8px 6px;
+      display: grid; place-items: center; gap: 5px;
+      border: 1px solid transparent; border-radius: 14px; background: transparent;
+      color: var(--muted); font-size: 9px; font-weight: 700;
+    }
+    .rail-btn[aria-current="page"] {
+      border-color: var(--line-strong); background: var(--elevated); color: var(--ink);
+      box-shadow: 0 1px 2px rgba(27,26,23,.06);
+    }
+    .rail-btn[aria-current="page"] svg { color: var(--product); }
+    .rail-btn .badge {
+      position: absolute; top: 4px; right: 6px; min-width: 15px; height: 15px; padding: 0 4px;
+      border-radius: 999px; background: var(--product); color: #fff;
+      font-size: 8px; font-weight: 700; display: grid; place-items: center;
+    }
+    .rail-btn .dot {
+      position: absolute; top: 8px; right: 12px; width: 7px; height: 7px;
+      border-radius: 999px; background: var(--amber);
+    }
+    .rail-divider { width: 28px; height: 1px; background: var(--line); margin: 2px 0; }
+    .rail-spacer { flex: 1; }
+    .rail-gear {
+      position: relative; width: 34px; height: 34px; display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: 11px; background: transparent; color: var(--muted);
+    }
+    .rail-gear .dot { position: absolute; top: -2px; right: -2px; width: 8px; height: 8px; border-radius: 999px; background: var(--amber); }
+
+    .main { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .masthead {
+      padding: 16px 18px 12px; border-bottom: 1px solid var(--line);
+      display: grid; gap: 4px;
+    }
+    .masthead .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .masthead h2 { font-size: 17px; }
+    .masthead .deck { color: var(--muted); font-size: 12px; }
+    .overflow {
+      width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--line);
+      background: transparent; color: var(--muted); display: grid; place-items: center; font-size: 15px; line-height: 1;
+    }
+    .overflow-menu {
+      margin-top: 6px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 11px;
+      background: var(--elevated); font-size: 12px; color: var(--sub-ink); display: grid; gap: 5px; justify-self: end;
+      box-shadow: 0 8px 18px -10px rgba(27,26,23,.25);
+    }
+    .overflow-menu span { white-space: nowrap; }
+
+    .scroll { flex: 1; overflow-y: auto; padding: 14px 18px 26px; display: grid; gap: 12px; align-content: start; }
+
+    .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong);
+      background: transparent; font-size: 11.5px; font-weight: 600; color: var(--sub-ink);
+    }
+    .chip[aria-pressed="true"] { background: var(--product); border-color: var(--product); color: #fff; }
+    .chip .n { opacity: .68; margin-left: 4px; font-variant-numeric: tabular-nums; }
+    .filter-origin { font-size: 11px; color: var(--soft); }
+
+    .context-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 14px;
+      background: linear-gradient(168deg, rgba(255,255,255,.9), rgba(255,255,255,.6));
+    }
+    .context-bar .lead { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--product); }
+    .context-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--product-soft); font-size: 11.5px; color: var(--sub-ink);
+    }
+    .context-chip .tick { color: var(--success); font-weight: 700; }
+    .context-bar .grow { flex: 1; }
+    .btn-ghost {
+      padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong);
+      background: transparent; font-size: 11.5px; font-weight: 600;
+    }
+    .btn-solid {
+      padding: 6px 13px; border-radius: 999px; border: 1px solid var(--product);
+      background: var(--product); color: #fff; font-size: 11.5px; font-weight: 700;
+    }
+
+    .row-card {
+      display: grid; gap: 7px; padding: 12px 13px;
+      border: 1px solid var(--line); border-radius: 14px; background: var(--elevated);
+    }
+    .row-card .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .row-card .author { font-size: 11.5px; color: var(--muted); }
+    .row-card .snippet { font-size: 13px; color: var(--sub-ink); line-height: 1.55; }
+    .stamp {
+      padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .02em;
+      border: 1px solid var(--line);
+    }
+    .stamp.try { background: rgba(47,109,63,.1); color: var(--success); border-color: rgba(47,109,63,.22); }
+    .stamp.watch { background: var(--amber-soft); color: var(--amber); border-color: rgba(161,106,23,.22); }
+    .stamp.topic { background: var(--cyan-soft); color: var(--cyan); border-color: rgba(31,111,106,.22); }
+    .stamp.untriaged { background: rgba(27,26,23,.05); color: var(--muted); }
+    .stamp.kind { background: var(--product-soft); color: var(--product); border-color: rgba(35,79,122,.2); }
+
+    .reading {
+      display: grid; gap: 10px; padding: 15px 15px 13px; margin-top: 2px;
+      border: 1px solid rgba(35,79,122,.28); border-radius: 18px;
+      background: linear-gradient(168deg, #ffffff, #fbfdfb);
+      box-shadow: 0 1px 2px rgba(27,26,23,.05), 0 14px 26px -18px rgba(27,26,23,.2);
+    }
+    .reading .label { font-size: 11px; font-weight: 700; letter-spacing: .05em; color: var(--product); }
+    .reading h3 { font-size: 15px; }
+    .reading p { font-size: 12.5px; color: var(--sub-ink); line-height: 1.6; }
+    .reading .meta { font-size: 11px; color: var(--soft); }
+    .reading footer {
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      padding-top: 10px; border-top: 1px solid var(--line);
+    }
+
+    .ctx-page { display: grid; gap: 12px; }
+    .ctx-field {
+      display: grid; gap: 5px; padding: 11px 13px;
+      border: 1px solid var(--line); border-radius: 13px; background: var(--elevated);
+    }
+    .ctx-field .k { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: var(--soft); }
+    .ctx-field .v { font-size: 12.5px; color: var(--sub-ink); line-height: 1.55; }
+    .ctx-field.editable .v { border-bottom: 1px dashed var(--line-strong); padding-bottom: 3px; }
+
+    .callout {
+      padding: 10px 12px; border-left: 3px solid var(--amber); border-radius: 0 10px 10px 0;
+      background: var(--amber-soft); font-size: 12px; color: var(--sub-ink);
+    }
+    .footnote { width: min(720px, calc(100vw - 32px)); font-size: 12px; color: var(--muted); display: grid; gap: 6px; }
+    .footnote code { font-family: var(--font-mono); font-size: 11.5px; }
+  </style>
+</head>
+<body>
+
+<header class="doc-head">
+  <h1>Rail 合併後：Product context 同 Agent brief 住邊</h1>
+  <p class="dek">
+    2026-09-18 · 參考用，唔係規格。三個變體之間<strong>唯一唔同</strong>就係嗰兩樣嘢嘅歸屬。
+    合併本身（議題／主題／收件匣／分類／行動 → 一個「訊號」列表 ＋ 篩選）三個都一樣。
+  </p>
+  <div class="switch" role="group" aria-label="變體">
+    <button type="button" data-variant="a" aria-pressed="true">A · 原地不動</button>
+    <button type="button" data-variant="b" aria-pressed="false">B · 篩選態擁有</button>
+    <button type="button" data-variant="c" aria-pressed="false">C · 脈絡頁</button>
+  </div>
+</header>
+
+<section class="variant-note" data-note="a">
+  <b>A · 原地不動（最平）</b>
+  <p>Product context 留喺 Settings ▸ 產品脈絡，唔搬。Agent brief 留喺完整判讀卡（本來就喺卡入面，唔係頁面 chrome）。
+     失去擁有者嘅只有「整個 Folder Packet 匯出」——收入列表標題嘅 ⋯ 選單。</p>
+  <p class="cost">代價：Product context 冇任何入口提示，編譯失效時你要自己記得入 Settings 睇。齒輪上加一點黃點係唯一提示。</p>
+</section>
+
+<section class="variant-note" data-note="b" hidden>
+  <b>B · 篩選態擁有（中間）</b>
+  <p>列表頂多一條會隨篩選變嘅脈絡列。揀「可試 / 觀察」時，嗰條列就係現行行動頁嘅擁有權濃縮版：
+     ProductContext 編譯狀態 chip（撳入 Settings）＋ 匯出整個 Folder Packet。Agent brief 照留判讀卡。</p>
+  <p class="cost">代價：多咗一個會變形嘅 surface；篩選一換，同一位置出唔同嘢，要寫清楚規則先唔會變成雜物架。</p>
+</section>
+
+<section class="variant-note" data-note="c" hidden>
+  <b>C · 脈絡頁（最貴，但正面答 F3）</b>
+  <p>合併五項之後，rail 加返一項「產品脈絡」：可以直接改 ProductContext（唔止 Settings 嘅唯讀預覽）、
+     擁有 Folder Packet 匯出、亦係 Agent brief 嘅常駐解釋位。Rail 淨變 5 → 2。</p>
+  <p class="cost">代價：加一個 view 同一條路由，one-in-one-out 靠合併嗰四項找數。另外 <code>library</code> 喺 archive mode 已經叫「脈絡」，撞名要處理。</p>
+</section>
+
+<div class="shell">
+  <nav class="rail" aria-label="Workspace modes">
+    <div class="brand">D</div>
+
+    <button class="rail-btn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5"/></svg>
+      <span>採集</span>
+    </button>
+
+    <button class="rail-btn" type="button" aria-current="page" data-rail="signals">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5z"/><path d="M8 9h8"/><path d="M8 13h5"/><path d="M8 17h3"/></svg>
+      <span>訊號</span>
+      <span class="badge">24</span>
+    </button>
+
+    <button class="rail-btn" type="button" data-rail="context" data-only="c" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M8 8h7"/><path d="M8 12h7"/></svg>
+      <span>脈絡</span>
+      <span class="dot" data-only="c" title="脈絡已過期"></span>
+    </button>
+
+    <span class="rail-divider" aria-hidden="true"></span>
+
+    <button class="rail-btn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><path d="M7 7l-4 5 4 5"/><path d="M17 7l4 5-4 5"/></svg>
+      <span>比較</span>
+    </button>
+
+    <span class="rail-spacer"></span>
+    <button class="rail-gear" type="button" aria-label="設定">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      <span class="dot" data-only="a" title="產品脈絡已過期"></span>
+    </button>
+  </nav>
+
+  <!-- ===================== 訊號列表（合併結果） ===================== -->
+  <div class="main" data-screen="signals">
+    <div class="masthead">
+      <div class="row">
+        <h2>訊號</h2>
+        <button class="overflow" type="button" aria-label="更多">⋯</button>
+      </div>
+      <p class="deck">一個列表，五種篩選。撳篩選只係換呢一頁嘅內容，唔會換頁。</p>
+      <div class="overflow-menu" data-only="a">
+        <span>匯出整個 Folder Packet</span>
+        <span>重新整理抓取狀態</span>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <div class="filters" role="group" aria-label="篩選">
+        <button class="chip" type="button" aria-pressed="false">全部<span class="n">24</span></button>
+        <button class="chip" type="button" aria-pressed="false">未分流<span class="n">6</span></button>
+        <button class="chip" type="button" aria-pressed="false">依議題<span class="n">4</span></button>
+        <button class="chip" type="button" aria-pressed="false">範疇<span class="n">6</span></button>
+        <button class="chip" type="button" aria-pressed="true">可試<span class="n">3</span></button>
+        <button class="chip" type="button" aria-pressed="false">觀察<span class="n">5</span></button>
+        <button class="chip" type="button" aria-pressed="false">噪音<span class="n">7</span></button>
+        <button class="chip" type="button" aria-pressed="false">證據不足<span class="n">3</span></button>
+      </div>
+      <p class="filter-origin">
+        未分流 ← 收件匣 · 依議題 ← 議題／主題 · 範疇 ← 分類 · 可試／觀察／噪音／證據不足 ← 行動
+      </p>
+
+      <!-- B only: filter-owned context bar -->
+      <div class="context-bar" data-only="b" hidden>
+        <span class="lead">可試</span>
+        <span class="context-chip"><span class="tick">✓</span> ProductContext v7 · 2026-09-12 編譯</span>
+        <span class="grow"></span>
+        <button class="btn-ghost" type="button">檢視脈絡</button>
+        <button class="btn-ghost" type="button">匯出 Folder Packet</button>
+      </div>
+
+      <article class="row-card">
+        <div class="top">
+          <span class="stamp try">可試</span>
+          <span class="stamp kind">需求</span>
+          <span class="stamp topic">求職焦慮</span>
+          <span class="author">@hkdevlife · 2026-09-14</span>
+        </div>
+        <p class="snippet">而家個 workflow 最煩係，我 save 咗一堆嘢之後根本搵唔返，要成日返去原 app 碌…</p>
+
+        <section class="reading">
+          <span class="label">完整判讀</span>
+          <h3>儲存同取回之間斷咗，唔係儲存唔夠快</h3>
+          <p>作者講嘅唔係收藏動作本身，而係收藏之後嘅取回路徑。佢形容返原 app 碌，即係現行索引冇覆蓋佢記得嘅線索（時間、作者、大概講咩）。</p>
+          <p class="meta">文字證據足夠 · 原文、r2</p>
+          <footer>
+            <button class="btn-solid" type="button">複製 Agent brief</button>
+            <span class="meta">三個變體都一樣：brief 掛喺判讀卡，唔係頁面 chrome。</span>
+          </footer>
+        </section>
+      </article>
+
+      <article class="row-card">
+        <div class="top">
+          <span class="stamp try">可試</span>
+          <span class="stamp kind">技術討論</span>
+          <span class="author">@ahfai.codes · 2026-09-13</span>
+        </div>
+        <p class="snippet">Chrome extension 個 storage quota 一多圖就爆，大家點解決？</p>
+      </article>
+
+      <article class="row-card">
+        <div class="top">
+          <span class="stamp try">可試</span>
+          <span class="stamp kind">競品分析</span>
+          <span class="stamp untriaged">未入議題</span>
+          <span class="author">@productdiary · 2026-09-11</span>
+        </div>
+        <p class="snippet">試咗個新 reader，佢個 highlight 直接變 note，呢個 flow 幾順…</p>
+      </article>
+
+      <div class="callout" data-only="a">
+        A：Folder Packet 匯出收咗入標題嘅 ⋯ 選單；Product context 冇入口，只靠齒輪嘅黃點提示。
+      </div>
+      <div class="callout" data-only="b">
+        B：換去「未分流」或「依議題」時，上面條脈絡列換成嗰個篩選own嘅嘢（例如「全選 → 移到議題」），唔係常駐雜物架。
+      </div>
+      <div class="callout" data-only="c">
+        C：呢一頁乾淨晒，冇脈絡列、冇 ⋯ 選單。撳左邊「脈絡」睇下一屏。
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== C only: 脈絡頁 ===================== -->
+  <div class="main" data-screen="context" hidden>
+    <div class="masthead">
+      <div class="row"><h2>產品脈絡</h2></div>
+      <p class="deck">判讀用嘅系統理解。喺呢度改，唔使入 Settings。</p>
+    </div>
+    <div class="scroll ctx-page">
+      <div class="context-bar">
+        <span class="context-chip"><span class="tick">✓</span> v7 · 2026-09-12 編譯 · 3 份文件</span>
+        <span class="grow"></span>
+        <button class="btn-ghost" type="button">重新編譯</button>
+        <button class="btn-solid" type="button">匯出 Folder Packet</button>
+      </div>
+
+      <div class="ctx-field editable">
+        <span class="k">PRODUCT PROMISE</span>
+        <span class="v">收藏 Threads 貼文之後，可以喺兩星期後用你記得嘅線索搵返，並且撳返原帖。</span>
+      </div>
+      <div class="ctx-field editable">
+        <span class="k">CORE WORKFLOWS</span>
+        <span class="v">hover 收集 · 議題分流 · 訊號判讀 · PR 證據核對</span>
+      </div>
+      <div class="ctx-field editable">
+        <span class="k">EXPLICIT CONSTRAINTS</span>
+        <span class="v">本地儲存為主 · 唔經 Supabase · user API key 唔上 backend</span>
+      </div>
+      <div class="ctx-field">
+        <span class="k">AGENT BRIEF 用到嘅欄位</span>
+        <span class="v">promise · workflows · constraints · nonGoals · evaluationCriteria。改咗呢度，之後產生嘅 brief 先會變；已存判讀會標示版本唔一致。</span>
+      </div>
+
+      <div class="callout">
+        C 嘅價值就喺呢句：Agent brief 講咩，由呢一頁決定，而呢一頁而家有得撳。
+        A 同 B 兩個變體入面，呢啲欄位只喺 Settings 出現，而且係唯讀預覽。
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="footnote">
+  <p><strong>三個都冇改嘅嘢：</strong>Agent brief 依然掛喺完整判讀卡上（現行 <code>ProductSignalViews.tsx</code> 已經係咁），
+     所以「brief 消失」嘅真正風險係<strong>整個 Folder Packet 匯出</strong>失去擁有者——AGENTS.md 寫明佢係行動頁擁有。</p>
+  <p><strong>撞名：</strong>archive mode 嘅 <code>library</code> rail label 已經係「脈絡 / Context」。C 要改其中一個名，否則同一個 rail 字出現兩個意思。</p>
+  <p><strong>路由：</strong>三個變體都要動 <code>MainPage</code>（<code>src/state/types.ts</code>）同 <code>PAGE_REGISTRY</code>。
+     A／B 係淨減；C 係減四加一。</p>
+</section>
+
+<script>
+  const variantButtons = document.querySelectorAll(".switch button");
+  const screens = {
+    signals: document.querySelector('[data-screen="signals"]'),
+    context: document.querySelector('[data-screen="context"]')
+  };
+
+  function applyVariant(variant) {
+    variantButtons.forEach((btn) => btn.setAttribute("aria-pressed", String(btn.dataset.variant === variant)));
+    document.querySelectorAll("[data-note]").forEach((el) => { el.hidden = el.dataset.note !== variant; });
+    document.querySelectorAll("[data-only]").forEach((el) => { el.hidden = el.dataset.only !== variant; });
+    showScreen("signals");
+  }
+
+  function showScreen(name) {
+    screens.signals.hidden = name !== "signals";
+    screens.context.hidden = name !== "context";
+    document.querySelectorAll('.rail-btn[data-rail]').forEach((btn) => {
+      if (btn.dataset.rail === name) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
+  }
+
+  variantButtons.forEach((btn) => btn.addEventListener("click", () => applyVariant(btn.dataset.variant)));
+  document.querySelectorAll(".rail-btn[data-rail]").forEach((btn) => {
+    btn.addEventListener("click", () => { if (!btn.hidden) showScreen(btn.dataset.rail); });
+  });
+  document.querySelectorAll(".filters .chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".filters .chip").forEach((other) => other.setAttribute("aria-pressed", "false"));
+      chip.setAttribute("aria-pressed", "true");
+      const bar = document.querySelector('.context-bar[data-only="b"]');
+      if (bar && !bar.hidden) bar.querySelector(".lead").textContent = chip.textContent.replace(/\d+$/, "").trim();
+    });
+  });
+
+  applyVariant("a");
+</script>
+</body>
+</html>

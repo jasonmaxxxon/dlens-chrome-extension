@@ -40,7 +40,7 @@ test("collect to capture background boundary emits every vertical phase with req
 
 test("collect save request and response emitters pass a shared requestId", () => {
   for (const relativePath of [
-    "entrypoints/threads.content.ts",
+    "src/content/inline-collect-runtime.ts",
     "src/ui/useInPageCollectorAppState.ts",
     "src/ui/useProcessingCoordinator.ts"
   ]) {

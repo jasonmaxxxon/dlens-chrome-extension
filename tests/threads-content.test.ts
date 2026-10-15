@@ -63,7 +63,7 @@ test("content root is a viewport host so fixed launcher remains hit-testable", (
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
   const start = source.indexOf("function ensureRoot()");
   assert.notEqual(start, -1);
-  const end = source.indexOf("\nfunction renderWorkspaceCrashFallback", start);
+  const end = source.indexOf("\nfunction installSpaNavigationReset", start);
   assert.notEqual(end, -1);
   const block = source.slice(start, end);
 
@@ -72,103 +72,43 @@ test("content root is a viewport host so fixed launcher remains hit-testable", (
   assert.match(block, /root\.style\.pointerEvents = "none";/);
 });
 
-test("content selection overlay uses the steel-blue product theme", () => {
+test("content wheel CSS follows the existing head injection route", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const start = source.indexOf("  product: {");
-  assert.notEqual(start, -1);
-  const end = source.indexOf('\n  "pr-evidence"', start);
-  assert.notEqual(end, -1);
-  const block = source.slice(start, end);
-
-  assert.match(block, /accent: "#234f7a"/);
-  assert.match(block, /accentMid: "#2f6a96"/);
-  assert.match(block, /borderStrong: "rgba\(35,79,122,0\.58\)"/);
-  assert.doesNotMatch(block, /#c2401f|#d65a36|194,64,31/);
+  assert.match(source, /style\.textContent = DLENS_INLINE_COLLECT_CSS/);
+  assert.match(source, /document\.head\.appendChild\(style\)/);
 });
 
-test("content selection overlay joins the scoped reduced-motion safety net", () => {
+test("content wheel keeps the shared reduced-motion keyframe registry", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const start = source.indexOf("function ensureOverlay()");
-  assert.notEqual(start, -1);
-  const end = source.indexOf("\nfunction ensureRoot()", start);
-  assert.notEqual(end, -1);
-  const block = source.slice(start, end);
-
-  assert.match(block, /overlay\.setAttribute\("data-dlens-control", "true"\);/);
-  assert.match(block, /overlay\.style\.transition = "[^"]*120ms[^"]*";/);
+  assert.match(source, /ensureDlensKeyframes\(document\)/);
+  assert.match(source, /root\.setAttribute\("data-dlens-control", "true"\)/);
 });
 
-test("launcher and popup surfaces opt back into pointer events inside the inert root host", () => {
-  const overlaySource = readFileSync(new URL("../src/ui/InPageCollectorOverlays.tsx", import.meta.url), "utf8");
-  const popupSource = readFileSync(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url), "utf8");
-
-  assert.match(overlaySource, /pointerEvents: "auto"/);
-  assert.match(popupSource, /pointerEvents: "auto"/);
+test("content no longer intercepts native post clicks for hover saves", () => {
+  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /session\/save-current-preview|selection\/hovered|function onClick|startSelectionMode/);
+  assert.match(source, /startInlineCollectRuntime\(root\)/);
 });
 
-test("collect mode click interception only happens after a collectable card descriptor is resolved", () => {
+test("Threads pages no longer mount the old workspace popup; the side panel hosts it", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const start = source.indexOf("function onClick(event: MouseEvent)");
-  assert.notEqual(start, -1);
-  const end = source.indexOf("\nfunction onKeyDown", start);
-  assert.notEqual(end, -1);
-  const block = source.slice(start, end);
-
-  const candidateIndex = block.indexOf("const candidate = findCardCandidate(event.target);");
-  const cardGuardIndex = block.indexOf("if (!card) {");
-  const descriptorGuardIndex = block.indexOf("if (!descriptor) {");
-  const preventIndex = block.indexOf("event.preventDefault();");
-  const stopIndex = block.indexOf("event.stopPropagation();");
-
-  assert.ok(candidateIndex >= 0);
-  assert.ok(cardGuardIndex > candidateIndex);
-  assert.ok(descriptorGuardIndex > cardGuardIndex);
-  assert.ok(preventIndex > descriptorGuardIndex);
-  assert.ok(stopIndex > descriptorGuardIndex);
+  assert.doesNotMatch(source, /InPageCollectorApp|ReactDOM|createRoot/);
+  const panel = readFileSync(new URL("../entrypoints/sidepanel/main.tsx", import.meta.url), "utf8");
+  assert.match(panel, /<InPageCollectorApp \/>/);
+  assert.match(panel, /sidepanel\/take-workspace-open/);
 });
 
-test("content hover lifecycle routes pointer, navigation and stop through one frame controller", () => {
+test("SPA navigation resets the wheel before publishing the changed page href", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const pointerStart = source.indexOf("function onPointerMove(event: MouseEvent)");
-  const pointerEnd = source.indexOf("\nfunction onClick", pointerStart);
-  const navigationStart = source.indexOf("function clearHoverStateForNavigation()");
-  const navigationEnd = source.indexOf("\nfunction installSpaNavigationReset", navigationStart);
-  const stopStart = source.indexOf("function stopSelectionMode(");
-  const stopEnd = source.indexOf("\nfunction startSelectionMode", stopStart);
-
-  assert.ok(pointerStart >= 0 && pointerEnd > pointerStart);
-  assert.ok(navigationStart >= 0 && navigationEnd > navigationStart);
-  assert.ok(stopStart >= 0 && stopEnd > stopStart);
-  assert.match(source.slice(pointerStart, pointerEnd), /hoverFrameController\.enqueue\(event\.target\)/);
-  assert.match(source.slice(navigationStart, navigationEnd), /hoverFrameController\.cancel\(\)/);
-  assert.match(source.slice(stopStart, stopEnd), /hoverFrameController\.cancel\(\)/);
+  const callback = source.indexOf("checkLocationChange(window.location.href, (href) => {");
+  const clear = source.indexOf("inlineCollect?.reset();", callback);
+  const publish = source.indexOf("dispatchPageLocationChange(href);", callback);
+  assert.ok(callback >= 0 && clear > callback && publish > clear);
 });
 
-test("SPA navigation clears hover before publishing the changed page href", () => {
+test("content pagehide disposes wheel injection and SPA reset", () => {
   const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const navigationStart = source.indexOf("function installSpaNavigationReset()");
-  const navigationEnd = source.indexOf("\nfunction stopSelectionMode", navigationStart);
-  assert.ok(navigationStart >= 0 && navigationEnd > navigationStart);
-  const block = source.slice(navigationStart, navigationEnd);
-  const callbackIndex = block.indexOf("checkLocationChange(window.location.href, (href) => {");
-  const clearIndex = block.indexOf("clearHoverStateForNavigation();", callbackIndex);
-  const publishIndex = block.indexOf("dispatchPageLocationChange(href);", callbackIndex);
-
-  assert.ok(callbackIndex >= 0);
-  assert.ok(clearIndex > callbackIndex);
-  assert.ok(publishIndex > clearIndex);
-  assert.equal(block.match(/dispatchPageLocationChange\(href\);/g)?.length, 1);
-});
-
-test("content hover update path consumes the measured rect without re-reading layout", () => {
-  const source = readFileSync(new URL("../entrypoints/threads.content.ts", import.meta.url), "utf8");
-  const setStart = source.indexOf("function setHoverCard(");
-  const setEnd = source.indexOf("\nconst hoverFrameController", setStart);
-  const renderStart = source.indexOf("function renderOverlay(");
-  const renderEnd = source.indexOf("\nfunction clearHoverIntent", renderStart);
-
-  assert.ok(setStart >= 0 && setEnd > setStart);
-  assert.ok(renderStart >= 0 && renderEnd > renderStart);
-  assert.doesNotMatch(source.slice(setStart, setEnd), /getBoundingClientRect\(\)/);
-  assert.doesNotMatch(source.slice(renderStart, renderEnd), /getBoundingClientRect\(\)/);
+  const cleanup = source.slice(source.indexOf('window.addEventListener("pagehide"'));
+  assert.match(cleanup, /inlineCollect\?\.destroy\(\)/);
+  assert.match(cleanup, /removeSpaNavigationReset\?\.\(\)/);
 });

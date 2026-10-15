@@ -1,3 +1,4 @@
+import { FOLDER_SYNTHESIS_STORAGE_KEY, loadFolderSynthesis, saveFolderSynthesis, FOLDER_SYNTHESIS_VERSION, SAVED_ANALYSES_STORAGE_KEY, listTopicSignalReadings, saveTopicSignalReading, TOPIC_AUDIT_EPISODES_STORAGE_KEY, TOPIC_AUDIT_EVIDENCE_STORAGE_KEY, TOPIC_AUDIT_MEMOS_STORAGE_KEY, TOPIC_AUDIT_REPORTS_STORAGE_KEY } from "./legacy-storage-fixtures.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -5,17 +6,7 @@ import { createSessionItem, createSessionRecord } from "../src/state/store-helpe
 import { PRODUCT_AGENT_TASK_FEEDBACK_STORAGE_KEY, listProductAgentTaskFeedback, saveProductAgentTaskFeedback } from "../src/compare/product-agent-task-feedback.ts";
 import { ensureSignalForSavedItem, ensureSignalsForSessionItems, ensureWorkspaceTopicForSession, handleTopicMessage } from "../src/state/topic-handlers.ts";
 import { loadSignals, loadTopics, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../src/state/topic-storage.ts";
-import { FOLDER_SYNTHESIS_STORAGE_KEY, loadFolderSynthesis, saveFolderSynthesis } from "../src/compare/folder-synthesis-storage.ts";
-import { FOLDER_SYNTHESIS_VERSION } from "../src/compare/folder-synthesis.ts";
-import { SAVED_ANALYSES_STORAGE_KEY } from "../src/compare/saved-analysis-storage.ts";
 import { listSignalReadings, saveSignalReading } from "../src/compare/signal-reading-storage.ts";
-import { listTopicSignalReadings, saveTopicSignalReading } from "../src/compare/topic-signal-reading-storage.ts";
-import {
-  TOPIC_AUDIT_EPISODES_STORAGE_KEY,
-  TOPIC_AUDIT_EVIDENCE_STORAGE_KEY,
-  TOPIC_AUDIT_MEMOS_STORAGE_KEY,
-  TOPIC_AUDIT_REPORTS_STORAGE_KEY
-} from "../src/state/topic-audit-storage.ts";
 import type { FolderSynthesis } from "../src/state/types.ts";
 
 function createStorageArea(bucket: Record<string, unknown> = {}) {

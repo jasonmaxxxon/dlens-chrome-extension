@@ -11,8 +11,8 @@ import type { FolderMode, PopupPage } from "../src/state/types.ts";
 const defaultPages: Record<FolderMode, PopupPage[]> = {
   archive: ["library", "collect"],
   topic: ["collect", "topics", "settings"],
-  product: ["saved-signals", "classification", "actionable-filter", "collect"],
-  "pr-evidence": ["pr-evidence", "collect"]
+  product: ["signals", "collect"],
+  "pr-evidence": ["pr-evidence"]
 };
 
 test("normalizeBuildVariant only enables the explicit PR-only variant", () => {
@@ -23,12 +23,12 @@ test("normalizeBuildVariant only enables the explicit PR-only variant", () => {
   assert.equal(resolveBuildVariant(undefined), "full");
 });
 
-test("resolveAllowedPagesForBuildVariant limits every folder mode to PR Evidence and Collect", () => {
+test("resolveAllowedPagesForBuildVariant limits every folder mode to PR Evidence only", () => {
   assert.equal(resolveAllowedPagesForBuildVariant("full", defaultPages), defaultPages);
   assert.deepEqual(resolveAllowedPagesForBuildVariant("pr-only", defaultPages), {
-    archive: ["pr-evidence", "collect"],
-    topic: ["pr-evidence", "collect"],
-    product: ["pr-evidence", "collect"],
-    "pr-evidence": ["pr-evidence", "collect"]
+    archive: ["pr-evidence"],
+    topic: ["pr-evidence"],
+    product: ["pr-evidence"],
+    "pr-evidence": ["pr-evidence"]
   });
 });

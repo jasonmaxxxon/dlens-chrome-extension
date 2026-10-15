@@ -4,7 +4,7 @@ import test from "node:test";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
 import { createEmptyTabState } from "../src/state/types.ts";
 import { createSessionItem, createSessionRecord } from "../src/state/store-helpers.ts";
-import { applyHoveredPreview, createInlineToast, isDescriptorSavedInFolder, setCollectModeState } from "../src/state/ui-state.ts";
+import { applyHoveredPreview, createInlineToast, isDescriptorSavedInFolder } from "../src/state/ui-state.ts";
 
 function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescriptor {
   return {
@@ -33,26 +33,6 @@ function makeDescriptor(overrides: Partial<TargetDescriptor> = {}): TargetDescri
     ...overrides
   };
 }
-
-test("setCollectModeState toggles banner and clears hover state when disabled", () => {
-  const descriptor = makeDescriptor();
-  const enabled = setCollectModeState(
-    applyHoveredPreview(createEmptyTabState(), descriptor),
-    true
-  );
-
-  assert.equal(enabled.selectionMode, true);
-  assert.equal(enabled.collectModeBannerVisible, true);
-  assert.deepEqual(enabled.hoveredTarget, descriptor);
-  assert.equal(enabled.hoveredTargetStrength, "hard");
-
-  const disabled = setCollectModeState(enabled, false);
-  assert.equal(disabled.selectionMode, false);
-  assert.equal(disabled.collectModeBannerVisible, false);
-  assert.equal(disabled.hoveredTarget, null);
-  assert.equal(disabled.hoveredTargetStrength, null);
-  assert.equal(disabled.flashPreview, null);
-});
 
 test("applyHoveredPreview updates currentPreview and flashPreview without clearing currentPreview on hover leave", () => {
   const descriptor = makeDescriptor();
