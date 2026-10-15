@@ -1,4 +1,9 @@
-## Current handoff — 2026-10-14 side panel rebuild (F1–F3, 0.4.4 candidate)
+## Current handoff — 2026-10-15 0.4.5 on main
+
+- `codex/inline-collect-wheel` squash-merged into `main` as 0.4.5. After `9056bb4`: `e398133` (refs once per author, one back button on the 話題 page, no `今日 +0`), `4cee589` (`/capture-target` retried 4 s / 12 s / 24 s on 5xx or unreachable backend only), `847d199` (replies as Threads-style cards in the reader; DLens' own lines sit outside them; frosted full-bleed `畫面上` bar), `86b2153` (taller lens tabs with a spring ink and answer bounce, also on the card under the post on click only; `開始讀` pill; 深入解讀 / 話題解讀 rebuilt on `src/ui/ReadingParts.tsx`; prompts v2 with a direct-voice rule; the crawler's `Reply to …` line stripped).
+- Live AI: 話題解讀 ran with the owner's Gemini key (worked; tone led to prompt v2). 深入解讀 has not been seen live yet. Backend: `dlens-ingest-core` `2e5bb28` (pool `check_connection`, `max_idle=120`) on branch `fix/post-images-own-card`, not merged.
+
+## Previous handoff — 2026-10-14 side panel rebuild (F1–F3)
 
 - Branch `codex/inline-collect-wheel`, worktree `~/.config/superpowers/worktrees/dlens-product-latest/inline-collect-wheel`. On origin up to `d11a80d`: `1b0a1d5` (D1 reading input: author replies, reply pairs, term scan, prompt v3) and `d11a80d` (D2 深入解讀 on demand, stronger model). Pushed 2026-10-14: `9dd3fca` F1, `2466b89` F2, `1d3d4cf` F3, `317d7d5` QA fixes. No PR, no main merge. Approved design: `docs/mockups/2026-10-13-sidepanel-v14.html`.
 - F1: one side panel reader for every saved post (`CollectionReader` in `src/ui/CollectionBrowser.tsx`). 觀眾反應 lens shows evidence by default with a share bar; 個人應用 lens (`src/viewmodel/product-reader.ts`) reads ProductSignalAnalysis into 講咩 / 啱唔啱你 / 點試 / 留言補充. The card's foot is one `側欄睇全部 →` (`sidepanel/open` with `itemId` + `lens`); the floating 展開證據 window is gone; 個人應用 uses the one-line card. 收藏 has filter chips and a `畫面上` bar.
