@@ -15,7 +15,7 @@ export function buildTopicReadingModel(topic:Topic,items:SessionItem[],settings:
  const complete=stored?.status==='complete' ? stored : null;
  return {coverageLabel:readingCoverageLabel(stored?.status==='complete' && !pending?stored.coverage:input.coverage),sourceItems:items,topicId:topic.id,state,staleLabel:!stored?.inputHash?"解讀方式已更新":stored?.signature!==input.signature?"有新貼文":"研究問題或解讀方式已更新",model:complete && !pending ? complete.model : model,postCount:complete && !pending?complete.inputPostCount:input.posts.length,
   omittedPostCount:complete && !pending?(complete.omittedPostCount ?? 0):input.omittedPostCount,uncapturedCount:items.filter(i=>!i.latestCapture?.id).length,
-  cost:estimate?`約 $${estimate.usd.toFixed(3)}`:'未有價目',reading:complete?.reading ?? null,refs:complete?.refs ?? [],
+  cost:estimate?`約 US$${estimate.usd.toFixed(3)}`:'未有價目',reading:complete?.reading ?? null,refs:complete?.refs ?? [],
   error:error || (stored?.status==='failed'?stored.error:dead?'上次解讀中斷，請重試':null)};
 }
 export type TopicReadingModel=ReturnType<typeof buildTopicReadingModel>;

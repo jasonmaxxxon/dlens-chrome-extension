@@ -196,15 +196,15 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
   const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
   return (
     <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>
-      <div data-reading-strip="" style={{ display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.sm }}>
+      {!query.trim() ? <div data-reading-strip="" style={{ display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.sm }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={metaStyle}>剛讀完</span>
         </div>
-        {arrival.recent.length ? arrival.recent.map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)} style={{ ...quietButton, color: tokens.color.ink, textAlign: "left", width: "100%" }}>
+        {arrival.recent.length ? arrival.recent.slice(0, 1).map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)} style={{ ...quietButton, color: tokens.color.ink, textAlign: "left", width: "100%" }}>
           <WorkspaceModeIcon mode={row.mode} /><span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}><b>@{row.post.author.replace(/^@/, "") || "匿名"}</b><span style={metaStyle}>{row.summary}</span></span><time style={metaStyle} dateTime={row.at}>{row.ago}</time>
         </button>) : <p style={{ ...metaStyle, margin: 0 }}>讀完會喺呢度出現，唔使留喺原帖等。</p>}
         {openedError ? <p role="alert" style={{ ...metaStyle, margin: 0 }}>{openedError}</p> : null}
-      </div>
+      </div> : null}
       <header style={{ display: "grid", gap: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
         <div role="group" aria-label="收藏篩選" style={{display:"flex",overflowX:"auto",gap:tokens.spacing.sm}}>{filtered.chips.map(chip=><button type="button" key={chip.key} data-collection-filter={chip.key} aria-pressed={chip.selected} onClick={()=>setFilter(chip.key)} style={{...quietButton,whiteSpace:"nowrap",flexShrink:0,borderRadius:tokens.radius.pill,background:chip.selected ? tokens.color.ink : tokens.collection.wash,color:chip.selected ? tokens.color.inverse : tokens.color.subInk}}>{chip.label} <small>{chip.count}</small></button>)}</div>
         <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, height: tokens.collection.searchHeight, width: "100%", minWidth: 0, boxSizing: "border-box", borderRadius: tokens.collection.thumbnailRadius, padding: `0 ${tokens.spacing.md}px` }}>
