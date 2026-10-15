@@ -1,3 +1,4 @@
+import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTopicReadingInput, buildTopicReadingPrompt, topicReadingPacket, TOPIC_READING_CHARACTER_BUDGET, parseTopicReadingResponse, topicReadingSignature } from '../src/compare/topic-reading.ts';
@@ -64,7 +65,7 @@ test('topic malformed repair fails after exactly two calls',async()=>{
 test('topic packet contains only matching current capture quick/deep readings',()=>{
  const item=deepItem();item.latestCapture!.analysis!.clusters=[{cluster_key:1,size_share:0.25,keywords:['方法']}] as any;
  const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:'v3',gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
- const deep:any={post:{status:'complete',captureId:'c1',promptVersion:'v1',reading:{takeaway:'先測試'}}};
+ const deep:any={post:{status:'complete',captureId:'c1',promptVersion:DEEP_READING_PROMPT_VERSION,reading:{takeaway:'先測試'}}};
  const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.match(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'先測試');
  inline.post.captureId='old';deep.post.promptVersion='old';const stale=buildTopicReadingInput(topic,[item],inline,deep);assert.equal(stale.posts[0].audience,null);assert.equal(stale.posts[0].takeaway,'');
 });

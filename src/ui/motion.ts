@@ -8,6 +8,8 @@ export const DLENS_KEYFRAMES_CSS = `
   [data-deep-skeleton], [data-topic-reading-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
 }
 
+@keyframes dlens-lens-swap { 0% { opacity: 0; transform: translateY(${tokens.motion.lens.risePx}px); } 60% { opacity: 1; transform: translateY(${tokens.motion.lens.overshootPx}px); } 100% { opacity: 1; transform: none; } }
+@keyframes dlens-lens-ink { 0% { opacity: .5; transform: scaleX(${tokens.motion.lens.inkFrom}); } 60% { opacity: 1; transform: scaleX(${tokens.motion.lens.inkOver}); } 100% { transform: scaleX(1); } }
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-collection-fold { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
 @keyframes dlens-collection-glide { from { transform: translateY(var(--collection-delta)); } to { transform: none; } }
@@ -123,6 +125,8 @@ export const DLENS_MOTION_CSS = `
 [data-collection-row]:hover + [data-collection-row] [data-collection-post]::before { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
   [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} var(--collection-delay, 0ms) backwards; }
+  [data-reader-ink] { transition: transform ${tokens.motion.lens.inkMs}ms ${tokens.motion.easing.spring}; }
+  [data-reader-answer-swap] { animation: dlens-lens-swap ${tokens.motion.lens.swapMs}ms ${tokens.motion.easing.entrance} both; }
   [data-reading-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} backwards; }
   [data-collection-state="arc"], [data-discourse-arc] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
   [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.motion.collection.glideMs}ms ${tokens.motion.easing.entrance} backwards; }

@@ -49,6 +49,10 @@ export interface InlineReadingInput {
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
 export const normalizeHandle = (value: unknown) => str(value).replace(/^@/, "").trim().toLowerCase();
+/** The crawl sometimes keeps Threads' own reply box text ("Reply to someone...") as a line of the reply. */
+const THREADS_CHROME_LINE = /^(?:reply to|回覆|回复)\s+@?[\p{L}\p{N}._]+\s*(?:…|\.{3})?$/iu;
+export const cleanCrawlText = (value: unknown): string =>
+  str(value).split("\n").filter((line) => !THREADS_CHROME_LINE.test(line.trim())).join("\n").trim();
 
 export function readCrawlComments(item: SessionItem): CrawlComment[] {
   return (item.latestCapture?.result?.comments ?? []).map((c) => ({
@@ -57,7 +61,7 @@ export function readCrawlComments(item: SessionItem): CrawlComment[] {
     sourceId: str(c.source_comment_id) || undefined,
     parentSourceId: str(c.parent_source_comment_id) || null,
     author: str(c.author),
-    text: str(c.text).trim(),
+    text: cleanCrawlText(c.text),
     likes: num(c.like_count),
     time: str(c.time_token) || null,
     replies: num(c.reply_count)

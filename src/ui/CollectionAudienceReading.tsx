@@ -76,7 +76,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
     {model.aiNote ? <p style={{ color: c.soft }}>{model.aiNote}</p> : null}
 
     <ReaderLensBar tabs={model.card.entries} selected={model.selected} onSelect={onLens} accent={key=>c.entryColors[key]} />
-    <div data-reader-answer="" style={{color:tokens.color.subInk}}>{model.answer ? <Answer answer={model.answer}/> : null}</div>
+    <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{color:tokens.color.subInk}}>{model.answer ? <Answer answer={model.answer}/> : null}</div>
     {model.evidence ? <div data-reader-evidence="" style={{ marginTop: tokens.spacing.lg }}><b style={{fontSize:tokens.reader.secondary}}>證據</b><p style={{fontSize:tokens.reader.meta, color: c.soft }}>{model.evidence.sub}</p>{model.evidence.groups.filter(group => group.chains.length || group.more).map((group, i) => {
       const color = group.tone === "noise" ? c.noise : group.tone === "method" ? c.entryColors.method : group.tone === "side" ? c.sideColors[group.index % c.sideColors.length] : c.clusterColors[group.index % c.clusterColors.length];
       return <section key={i} data-reader-evidence-group="" style={{ marginTop: tokens.reader.group.gap, padding: tokens.reader.group.padding, borderRadius: tokens.reader.group.radius, background: tokens.reader.group.background }}>

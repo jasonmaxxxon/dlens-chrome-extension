@@ -88,3 +88,29 @@ test("the 畫面上 bar is near-opaque and spans the panel", () => {
   assert.match(bar.style.background, /0\.96/);
   assert.match(bar.style.margin, /^0px -\d+px/);
 });
+
+test("crawled replies drop Threads' own reply-box line", async () => {
+  const { cleanCrawlText } = await import("../src/compare/inline-reading.ts");
+  assert.equal(cleanCrawlText("閒魚更新咗可以俾港幣\nReply to ella_www0210..."), "閒魚更新咗可以俾港幣");
+  assert.equal(cleanCrawlText("回覆 ella_www0210…\n假的"), "假的");
+  assert.equal(cleanCrawlText("Reply to the team about it"), "Reply to the team about it");
+});
+
+test("lens switches animate once: the reader re-keys its answer and the card marks only the click render", () => {
+  const motion = source("src/ui/motion.ts");
+  assert.match(motion, /@keyframes dlens-lens-swap/);
+  assert.match(motion, /@keyframes dlens-lens-ink/);
+  assert.match(motion, /\[data-reader-answer-swap\] \{ animation: dlens-lens-swap/);
+  assert.match(source("src/ui/CollectionAudienceReading.tsx"), /data-reader-answer-swap="" key=\{model\.selected/);
+  const runtime = source("src/content/inline-collect-runtime.ts");
+  assert.match(runtime, /swapping\.add\(post\.identity\); renderCard\(post\); swapping\.delete\(post\.identity\);/);
+  assert.match(source("src/content/inline-collect-card.ts"), /\.dlens-card\.swap \.answer \{animation:dlens-lens-swap/);
+});
+
+test("reading sources are a short line of links, not a wall of chips", async () => {
+  const { RefLinks } = await import("../src/ui/ReadingParts.tsx");
+  const items = ["a", "b", "c", "d", "e"].map(k => ({ key: k, label: k, onClick: () => undefined }));
+  const html = renderToStaticMarkup(<RefLinks items={items} />);
+  assert.equal((html.match(/data-reading-ref=/g) ?? []).length, 3);
+  assert.match(html, /\+2/);
+});

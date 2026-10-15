@@ -248,7 +248,7 @@ test('product reader uses four lens tabs, reply fallback and folded source',asyn
  const sessions=[session('product-workspace',[saved],'product')];
  const h=await mount({sessions,settings:createDefaultSettings(),selectedKey:buildCollectionPosts(sessions)[0].key});
  try{
-  assert.deepEqual([...h.container.querySelectorAll('[data-reader-entry]')].map(e=>e.textContent?.trim()),['講咩','啱唔啱你','點試','留言補充2 則']);
+  assert.deepEqual([...h.container.querySelectorAll('[data-reader-entry]')].map(e=>e.textContent?.trim()),['講咩—','啱唔啱你—','點試—','留言補充2 則']);
   assert.equal(h.container.querySelector('[data-reader-entry="add"]')?.getAttribute('aria-pressed'),'true');
   assert.match(h.container.querySelector('[data-reader-answer]')!.textContent!,/作者補充/);
   assert.equal(h.container.querySelector<HTMLDivElement>('[data-collection-reader-body]')!.style.webkitLineClamp,'3');

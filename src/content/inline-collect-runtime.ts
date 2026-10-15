@@ -43,6 +43,8 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const send = (message: ExtensionMessage) => chrome.runtime.sendMessage(message) as Promise<ExtensionResponse>;
   // The card under a saved post (v9): shown on save, × hides it, the chip toggles it back.
   let global: ExtensionGlobalState | null = null;
+  // Posts whose next render follows a lens click: only that render plays the switch animation, not the 4 s refreshes.
+  const swapping = new Set<string>();
   const cards = new Map<string, { hidden: boolean; lens: InlineCardEntryKey | null; expanded?: boolean }>();
   const closedView: { hidden: boolean; lens: InlineCardEntryKey | null; expanded?: boolean } = { hidden: false, lens: null };
   let readings:Record<string,InlineReadingRecord>={};
@@ -186,7 +188,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const full = destination.mode === "topic" ? view?.expanded : destination.mode !== "product";
     const html = (reads ? renderInlineSaveLine(line, !!view?.expanded, false, destination.mode as "topic" | "product") : "")
       + (pickingTopic ? renderInlineTopicPicker(pickerTopics, pickerSignal?.id ?? null) : "")
-      + (full ? renderInlineCard(vm, lens, Date.now(), { enter, fresh: arrived, topicLine: pickingTopic ? null : topicLine, naming: naming === post.identity }) : "");
+      + (full ? renderInlineCard(vm, lens, Date.now(), { enter, fresh: arrived, swap: swapping.has(post.identity), topicLine: pickingTopic ? null : topicLine, naming: naming === post.identity }) : "");
     if (slot.innerHTML !== html) slot.innerHTML = html;
     if (naming === post.identity) slot.querySelector<HTMLInputElement>("[data-dlens-topic-name]")?.focus();
   }
@@ -266,7 +268,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     const target = event.target instanceof Element ? event.target : null;
     const lens = target?.closest<HTMLElement>("[data-dlens-lens]")?.dataset.dlensLens as InlineCardEntryKey | undefined;
     const view = cards.get(post.identity) ?? closedView;
-    if (lens) { cards.set(post.identity, { ...view, lens: view.lens === lens ? null : lens }); renderCard(post); return; }
+    if (lens) { cards.set(post.identity, { ...view, lens: view.lens === lens ? null : lens }); swapping.add(post.identity); renderCard(post); swapping.delete(post.identity); return; }
     const act = target?.closest<HTMLElement>("[data-dlens-act]")?.dataset.dlensAct;
     const destination = saved(post.identity);
     if (act === "toggle-card" && destination) {

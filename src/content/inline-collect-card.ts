@@ -75,7 +75,7 @@ export function renderInlineTopicPicker(topics: readonly { id: string; name: str
   return `<div class="line-pick" style="--acc:${modeThemes.topic.accent}"><span>放入話題</span>${topics.map(t => `<button class="tp-chip" data-dlens-act="topic-pick" data-topic-id="${esc(t.id)}"${signalId ? ` data-signal-id="${esc(signalId)}"` : " disabled"}>${esc(t.name)}</button>`).join("")}<button class="tp-chip later" data-dlens-act="topic-later">遲啲先</button></div>`;
 }
 
-export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, motion: { enter?: boolean; fresh?: boolean; topicLine?: CardTopicLine | null; naming?: boolean } = {}): string {
+export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryKey | null, now: number, motion: { enter?: boolean; fresh?: boolean; swap?: boolean; topicLine?: CardTopicLine | null; naming?: boolean } = {}): string {
   const isRead = vm.mode === "topic" || vm.mode === "product";
   let status: string, dot = "";
   if (vm.phase === "failed") { status = `<span class="bad">抓取失敗</span>`; dot = "fail"; }
@@ -107,7 +107,7 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   const foot = vm.mode === "topic"
     ? `<div class="foot"><button class="btn primary" data-dlens-act="reader"${open ? ` data-reader-lens="${open}"` : ""}>側欄睇全部 →</button></div>`
     : `<div class="foot">${vm.mode === "archive" || vm.mode === "pr-evidence" ? `<button class="ln" data-dlens-act="move">移動</button>` : ""}<button class="ln open" data-dlens-act="open">開啟${vm.mode === "pr-evidence" ? "活動" : "工作區"} ↗</button></div>`;
-  return `<div class="dlens-card${motion.enter ? " enter" : ""}${motion.fresh ? " fresh" : ""}" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
+  return `<div class="dlens-card${motion.enter ? " enter" : ""}${motion.fresh ? " fresh" : ""}${motion.swap ? " swap" : ""}" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
 }
 
 /** Compact topic projection; the full reading markup mounts only after disclosure. */
@@ -216,6 +216,7 @@ export const DLENS_INLINE_CARD_CSS = `
 .dlens-card .ln.open {margin-left:auto;color:var(--acc);font-weight:600}
 @media (prefers-reduced-motion: no-preference) {.dlens-card .sk i {animation:dlens-card-shimmer ${cm.shimmerMs}ms linear infinite}}
 @media (prefers-reduced-motion: no-preference) {.dlens-card.enter {animation:dlens-card-in ${cm.enterMs}ms ${tokens.motion.collectWheel.spring}}}
+@media (prefers-reduced-motion: no-preference) {.dlens-card.swap .answer {animation:dlens-lens-swap ${tokens.motion.lens.swapMs}ms ${tokens.motion.easing.entrance} both} .dlens-card.swap .entry.on::after {animation:dlens-lens-ink ${tokens.motion.lens.inkMs}ms ${tokens.motion.easing.spring} both}}
 @media (prefers-reduced-motion: no-preference) {.dlens-card.fresh .entries,.dlens-card.fresh > .note,.dlens-card.fresh > .reply {animation:dlens-card-fresh ${cm.freshMs}ms ease-out}}
 @media (prefers-reduced-motion: no-preference) {.dlens-card .dt.live {animation:dlens-card-breathe ${cm.breatheMs}ms ease-in-out infinite}}
 @media (prefers-reduced-motion: reduce) {.dlens-card,.dlens-card * {transition:none !important;animation:none !important}}

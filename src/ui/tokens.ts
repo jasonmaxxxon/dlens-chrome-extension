@@ -28,8 +28,15 @@ export const tokens = {
     status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },
     skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10, skeletonBackground: "linear-gradient(90deg, rgba(123,74,138,.04), rgba(123,74,138,.12), rgba(123,74,138,.04))", skeletonBackgroundSize: "200% 100%"
   },
+  /* 深入解讀 / 話題解讀 cards: one compact run pill, quiet source links, folded detail. */
+  reading: {
+    runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
+    definition: "rgba(27,26,23,.04)", statusWash: { agree: "rgba(63,90,59,.09)", open: "rgba(160,106,23,.1)", heated: "rgba(168,70,46,.09)" },
+    basis: { experience: "#3f5a3b", opinion: "#6c695e", question: "#7b4a8a" }
+  },
   reader: {
     headline: 16, body: 14, secondary: 12.5, meta: 11.5, sourceLines: 3, lineHeight: 1.6,
+    lensLabel: 13.5, lensPadY: 11, lensGap: 3, lensInkInset: 14,
     /* A quoted reply is a small Threads card nested in DLens' own reading, so the two never read as one voice. */
     replyCard: { background: "#ffffff", border: "rgba(27,26,23,.09)", radius: 14, padding: "11px 13px 10px", shadow: "0 1px 2px rgba(27,26,23,.04)", avatar: 26, clampLines: 6, clampChars: 180, icon: 13, gap: 8 },
     group: { background: "rgba(27,26,23,.028)", radius: 16, padding: 12, gap: 8 }
@@ -273,6 +280,8 @@ export const tokens = {
       chipOffset: 8, chipScale: 0.9, toastOffset: 20, progFadeMs: 300, dotMs: 240
     },
     /* The card under a post: enters once, results fade up once, the live dot breathes, the peek shimmers. */
+    /* Switching a reading angle: the ink line springs to the tab, the answer rises with a small overshoot. */
+    lens: { inkMs: 460, swapMs: 420, risePx: 8, overshootPx: -2, inkFrom: 0.3, inkOver: 1.06 },
     collection: { riseMs: 420, risePx: 8, staggerMs: 28, staggerCap: 10, foldMs: 240, glideMs: 420, fadeMs: 280, mistMs: 18000, mistX: 24, mistY: 12, clockMs: 60000 },
     collectCard: { returnMs: 1200, returnTint: 16, enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
     /* Primitive durations — pair with easings to build named transitions. */

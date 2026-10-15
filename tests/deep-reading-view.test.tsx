@@ -1,3 +1,4 @@
+import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, useState } from 'react';
@@ -11,7 +12,7 @@ import type { DeepReadingRecord } from '../src/compare/deep-reading-storage.ts';
 const item={id:'i',status:'succeeded',descriptor:{author_hint:'op',text_snippet:'RAG'},latestCapture:{id:'c',result:{comments:[{comment_id:'x',author:'fan',text:'RAG?',url:'https://www.threads.net/@fan/post/abc'}]}}} as any;
 const input=buildDeepReadingInput(item)!;
 const payload={background:'背景。作者解釋。',takeaway:'按場景理解。',terms:[{term:'RAG',plain:'先搵資料。',refs:['e1']}],debates:[0,1].map(i=>({question:`問題${i}`,status:'open',sides:[{who:'fan',claim:'試過',basis:'experience',note:'自述',refs:['e1']}]})),evidence:{strong:[{text:'自述',refs:['e1']}],weak:[]},unanswered:[]};
-const record:DeepReadingRecord={status:'complete',itemId:'i',captureId:'c',promptVersion:'v1',model:'gemini-3.8-flash',inputReplyCount:1,estimatedCost:null,generatedAt:'2026-10-13',refs:input.refs,reading:parseDeepReadingResponse(JSON.stringify(payload),input)!};
+const record:DeepReadingRecord={status:'complete',itemId:'i',captureId:'c',promptVersion:DEEP_READING_PROMPT_VERSION,model:'gemini-3.8-flash',inputReplyCount:1,estimatedCost:null,generatedAt:'2026-10-13',refs:input.refs,reading:parseDeepReadingResponse(JSON.stringify(payload),input)!};
 test('term chip toggles, only one debate expands, and more starts folded',async()=>{
  const dom=new JSDOM('<div id="root"></div>',{url:'https://dlens.test'});const prior={window:globalThis.window,document:globalThis.document,HTMLElement:globalThis.HTMLElement};const g=globalThis as any;const priorAct=g.IS_REACT_ACT_ENVIRONMENT;
  Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement});g.IS_REACT_ACT_ENVIRONMENT=true;

@@ -22,7 +22,7 @@ test('話題解讀 projects offer → reading → done → stale → error, reta
   assert.match(html,new RegExp(`data-topic-reading="${m.state}"`));assert.match(html,/話題解讀/);
  }
  const html=renderToStaticMarkup(<TopicReadingView model={make(record)} onRun={()=>{}} onRef={()=>{}}/>);
- assert.match(html,/@a/);assert.match(html,/data-topic-reading-ref="p1"/);assert.doesNotMatch(html,/href=/);
+ assert.match(html,/@a/);assert.match(html,/data-reading-ref="p1"/);assert.doesNotMatch(html,/href=/);
 });
 test('interrupted runs allow retry and question edits mark old readings stale',()=>{
  const failed=buildTopicReadingModel(topic,items,settings,{...base,status:'running',startedAt:'2026-10-13'},'2026-10-14');assert.equal(failed.state,'error');

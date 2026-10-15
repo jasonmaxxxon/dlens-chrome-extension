@@ -1,3 +1,4 @@
+import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildDeepReadingInput, buildDeepReadingPrompt, parseDeepReadingResponse, DEEP_REPLY_CHARACTER_BUDGET, estimateDeepReadingCost } from '../src/compare/deep-reading.ts';
@@ -36,7 +37,7 @@ import { buildDeepReadingModel, EMPTY_DEEP_DISCLOSURE, toggleDeepDisclosure } fr
 import { mergeOneLinerSettings } from '../src/state/settings-storage.ts';
 function storage() {const data:Record<string,unknown>={};return {data,async get(key:string){return {[key]:data[key]};},async set(v:Record<string,unknown>){Object.assign(data,v);}};}
 const at='2026-10-13T00:00:00Z';
-function complete():DeepReadingRecord { const input=buildDeepReadingInput(deepItem())!;return {status:'complete',itemId:input.itemId,captureId:input.captureId,promptVersion:'v1',model:'gemini-3.8-flash',inputReplyCount:2,estimatedCost:null,generatedAt:at,reading:parseDeepReadingResponse(JSON.stringify(deepPayload()),input)!,refs:input.refs}; }
+function complete():DeepReadingRecord { const input=buildDeepReadingInput(deepItem())!;return {status:'complete',itemId:input.itemId,captureId:input.captureId,promptVersion:DEEP_READING_PROMPT_VERSION,model:'gemini-3.8-flash',inputReplyCount:2,estimatedCost:null,generatedAt:at,reading:parseDeepReadingResponse(JSON.stringify(deepPayload()),input)!,refs:input.refs}; }
 test('Google deep override and one repair preserve the quick model',async()=>{
  const prior=globalThis.fetch; const calls:{url:string;body:any}[]=[];
  globalThis.fetch=async(url,init)=>{ calls.push({url:String(url),body:JSON.parse(String(init?.body))});const text=calls.length===1 ? 'bad JSON' : calls.length===2 ? JSON.stringify(deepPayload()) : JSON.stringify({gist:'大家討論檢索',find:{},cluster_names:[],methods:[],split:{sides:[]}});return new Response(JSON.stringify({candidates:[{content:{parts:[{text}]},finishReason:'STOP'}]}));};
