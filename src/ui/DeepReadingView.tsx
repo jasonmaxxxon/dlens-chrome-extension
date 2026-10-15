@@ -1,3 +1,6 @@
+import {useState} from "react";
+import {resolveReadingSource, type ReadingSourceRef} from "../viewmodel/reading-source";
+import {ReadingSource} from "./ReadingSource";
 import type { CSSProperties } from 'react';
 import type { DeepReadingModel, DeepCommand } from '../viewmodel/deep-reading';
 import { ReadingHeader, RefLinks, RunButton, sectionKey, type RefLink } from './ReadingParts';
@@ -13,15 +16,16 @@ const BASIS = { experience: '有經驗', opinion: '意見', question: '提問' }
 /** 深入解讀: offer → reading → result, led by the summary with terms, debates and evidence folded. */
 export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel; onCommand: (command: DeepCommand) => void }) {
   const reading = model.reading;
-  // One link per author and destination within a point; replies without their own permalink would repeat.
+  const [sourceRef,setSourceRef]=useState<ReadingSourceRef|null>(null);
+  // Distinct comments remain distinct even when neither has a permalink.
   const refs = (ids: string[]): RefLink[] => {
     const seen = new Set<string>();
     return ids.flatMap(id => {
       const ref = model.refs.find(x => x.ref === id);
-      const key = ref ? `${ref.url ?? ''}:${ref.author}` : '';
+      const key = ref ? ref.commentId : '';
       if (!ref || seen.has(key)) return [];
       seen.add(key);
-      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href: ref.url }];
+      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href: ref.url, onClick:()=>setSourceRef({itemId:model.itemId,captureId:model.sourceCaptureId ?? '',commentId:ref.commentId}) }];
     });
   };
   const meta = `${model.model} · ${model.replyCount} 則 · ${model.cost}`;
@@ -62,6 +66,7 @@ export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel;
           {reading.unanswered.map((point, i) => <div key={`q${i}`} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0,1fr)', gap: tokens.spacing.xs }}><b aria-hidden="true" style={{ color: t.accent }}>?</b><span>{point.question}<RefLinks items={refs(point.refs)} /></span></div>)}
         </div> : null}
       </div>
+      {sourceRef ? <ReadingSource source={resolveReadingSource(model.sourceItems,sourceRef)}/> : null}
       <footer style={{ marginTop: rd.sectionGap, fontSize: r.meta, color: tokens.color.softInk }}>每點都連返原留言</footer>
     </> : null}
   </section>;

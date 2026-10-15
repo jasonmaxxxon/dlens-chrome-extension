@@ -1,15 +1,15 @@
+import { ReaderReply } from "./ReaderReply";
+export { ReaderReply } from "./ReaderReply";
 import { ReaderLensBar } from "./ReaderLensBar";
 import { DeepReadingView } from "./DeepReadingView";
 import type { DeepReadingModel, DeepCommand } from "../viewmodel/deep-reading";
-import { useState, type CSSProperties, type ReactNode } from "react";
-import { Heart, MessageCircle } from "lucide-react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { CollectionReaderModel } from "../viewmodel/collection-reader";
-import type { InlineCardAnswer, InlineCardEntryKey, InlineEvidenceRow } from "../viewmodel/inline-card";
-import { avatarGradient, getModeTheme, tokens, textStyles } from "./tokens";
+import type { InlineCardAnswer, InlineCardEntryKey } from "../viewmodel/inline-card";
+import { getModeTheme, tokens, textStyles } from "./tokens";
 
 const c = tokens.collectCard;
 const button: CSSProperties = { ...textStyles.meta, border: 0, borderRadius: tokens.radius.pill, padding: c.btnPadding, cursor: "pointer" };
-const rc = tokens.reader.replyCard;
 const h3: CSSProperties = { fontSize: tokens.reader.headline, color: tokens.color.ink, margin: `${tokens.spacing.md}px 0` };
 /** DLens' own words (a side, a method, a status) sit above the quoted reply cards, never inside them. */
 const lead = (title: string, note?: string | null, dot?: string) => <div data-reader-lead="" style={{ display: "grid", gridTemplateColumns: dot ? `${c.dot}px minmax(0,1fr)` : "minmax(0,1fr)", gap: `2px ${tokens.spacing.sm}px`, alignItems: "baseline", marginTop: tokens.spacing.md }}>
@@ -41,26 +41,6 @@ function Answer({ answer }: { answer: InlineCardAnswer }) {
 function AskStatus({ status }: { status: "none" | "author" | "other" }) {
   const label = status === "none" ? "樣本內未見回覆" : status === "author" ? "作者回覆咗" : "有人回覆咗";
   return <span style={{ fontSize: tokens.reader.meta, fontWeight: 600, color: c.askColors[status] }}>{label}</span>;
-}
-/** A reply as a small Threads card: avatar, handle, text, likes and replies. Long text folds behind 全文. */
-export function ReaderReply({ row, threaded = false, footer }: { row: InlineEvidenceRow; threaded?: boolean; footer?: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const long = row.text.length > rc.clampChars;
-  const meta = <span style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.md, fontSize: tokens.reader.meta, color: c.soft }}>
-    {row.likes !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Heart size={rc.icon} aria-hidden="true" />{row.likes}</span> : null}
-    {row.replies !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><MessageCircle size={rc.icon} aria-hidden="true" />{row.replies}</span> : null}
-  </span>;
-  return <article data-reader-reply="" style={{ display: "grid", gridTemplateColumns: `${rc.avatar}px minmax(0,1fr)`, gap: `0 ${rc.gap}px`, marginTop: tokens.spacing.sm, marginLeft: threaded ? tokens.spacing.lg : 0, padding: rc.padding, background: rc.background, border: `1px solid ${rc.border}`, borderRadius: rc.radius, boxShadow: rc.shadow, minWidth: 0 }}>
-    <span aria-hidden="true" style={{ width: rc.avatar, height: rc.avatar, borderRadius: tokens.radius.round, background: avatarGradient(row.author || "?"), color: tokens.color.inverse, display: "grid", placeItems: "center", fontSize: tokens.reader.meta }}>{[...(row.author || "?")][0]}</span>
-    <div style={{ minWidth: 0 }}>
-      {row.author ? <div style={{ fontSize: tokens.reader.secondary, color: c.soft }}><b style={{ color: tokens.color.ink }}>{row.author}</b>{row.isAuthor ? <span style={{ marginLeft: tokens.spacing.xs, padding: "0 5px", borderRadius: tokens.radius.xs, background: c.wash, color: c.askColors.author, fontWeight: 600 }}>作者</span> : null}{row.time ? ` · ${row.time}` : ""}</div> : null}
-      <p style={{ fontSize: tokens.reader.body, color: tokens.color.ink, margin: `${tokens.spacing.xs}px 0`, whiteSpace: "pre-wrap", overflowWrap: "anywhere", ...(long && !open ? { display: "-webkit-box", WebkitLineClamp: rc.clampLines, WebkitBoxOrient: "vertical", overflow: "hidden" } : {}) }}>{row.text}</p>
-      <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.md, flexWrap: "wrap" }}>
-        {meta}{footer}
-        {long ? <button type="button" data-reader-reply-full="" onClick={() => setOpen(v => !v)} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, fontSize: tokens.reader.meta, color: c.soft, cursor: "pointer" }}>{open ? "收起" : "全文"}</button> : null}
-      </div>
-    </div>
-  </article>;
 }
 export function CollectionAudienceReading({ model, onMore, onLens, onAssign, assignmentPending, deepReading, onDeepCommand }: {
   deepReading?: DeepReadingModel | null; onDeepCommand?: (command: DeepCommand) => void;

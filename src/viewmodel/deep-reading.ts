@@ -18,7 +18,7 @@ export function buildDeepReadingModel(item: SessionItem, settings: ExtensionSett
   const dead=stored?.status==='running' && Date.parse(now)-Date.parse(stored.startedAt)>180_000;
   const state = pending ? 'reading' : error ? 'error' : stale ? 'stale' : stored?.status==='complete' ? 'done' : stored?.status==='failed' || dead ? 'error' : stored?.status==='running' ? 'reading' : 'offer';
   const reading=stored?.status==='complete' ? guardDeepAudienceReading(stored.reading,stored.refs,item,stored.captureId) : null;
-  return { itemId:item.id, state, model:reading && state==='done' ? stored!.model : model, replyCount:input.catalog.length,
+  return { sourceItems:[item], sourceCaptureId:stored?.captureId, itemId:item.id, state, model:reading && state==='done' ? stored!.model : model, replyCount:input.catalog.length,
     cost:estimate ? `約 $${estimate.usd.toFixed(3)}` : '未有價目', error:error || (stored?.status==='failed' ? stored.error : dead ? '上次解讀中斷，請重試' : null),
     reading,refs:stored?.status==='complete' ? stored.refs : [],disclosure,
     run:{type:'run',itemId:item.id} as DeepCommand };

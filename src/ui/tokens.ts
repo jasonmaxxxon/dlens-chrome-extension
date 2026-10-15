@@ -30,7 +30,7 @@ export const tokens = {
   },
   /* 深入解讀 / 話題解讀 cards: one compact run pill, quiet source links, folded detail. */
   reading: {
-    runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
+    sourceOutlineWidth: 2, runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
     definition: "rgba(27,26,23,.04)", statusWash: { agree: "rgba(63,90,59,.09)", open: "rgba(160,106,23,.1)", heated: "rgba(168,70,46,.09)" },
     basis: { experience: "#3f5a3b", opinion: "#6c695e", question: "#7b4a8a" }
   },

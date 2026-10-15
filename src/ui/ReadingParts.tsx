@@ -18,10 +18,9 @@ export function RefLinks({ items }: { items: RefLink[] }) {
   const shown = all ? items : items.slice(0, rr.refsShown);
   const link: CSSProperties = { color: tokens.deepReading.accent, textDecoration: "none", border: 0, background: "transparent", padding: 0, font: "inherit", cursor: "pointer" };
   return <span data-reading-refs="" style={{ display: "block", marginTop: tokens.spacing.xs, fontSize: r.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>
-    {shown.map((item, i) => <span key={item.key}>{i ? " · " : ""}{item.href
-      ? <a data-reading-ref={item.key} href={item.href} target="_blank" rel="noopener noreferrer" style={link}>@{item.label} ↗</a>
-      : item.onClick ? <button type="button" data-reading-ref={item.key} onClick={item.onClick} style={link}>@{item.label} ↗</button>
-      : <span data-reading-ref={item.key}>@{item.label}</span>}</span>)}
+    {shown.map((item, i) => <span key={item.key}>{i ? " · " : ""}{item.onClick
+      ? <button type="button" data-reading-ref={item.key} onClick={item.onClick} style={link}>@{item.label}</button>
+      : <span data-reading-ref={item.key}>@{item.label}</span>}{item.href ? <> <a data-reading-ref-site={item.key} href={item.href} target="_blank" rel="noopener noreferrer" style={link}>原站 ↗</a></> : null}</span>)}
     {items.length > shown.length ? <button type="button" data-reading-refs-more="" onClick={() => setAll(true)} style={{ ...link, color: tokens.color.softInk, marginLeft: tokens.spacing.xs }}>+{items.length - shown.length}</button> : null}
   </span>;
 }
