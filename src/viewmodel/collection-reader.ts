@@ -15,7 +15,7 @@ export function collectionAudienceSource(post: CollectionPost | undefined, sessi
  * A stored error is left alone; the reader shows it with its own retry. */
 export function readerNeedsReading(item: SessionRecord["items"][number], stored: InlineReadingRecord | undefined): boolean {
   if (item.status !== "succeeded" || item.latestCapture?.analysis?.status !== "succeeded") return false;
-  return !stored || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
+  return !stored || stored.captureId !== item.latestCapture?.id || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
 }
 
 /** Projection only: the reading and evidence remain owned by inline-card. */

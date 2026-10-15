@@ -1,11 +1,11 @@
-import { TOPIC_READING_PROMPT_VERSION, parseTopicReadingResponse, type TopicReading, type TopicReadingRef } from './topic-reading.ts';
+import { TOPIC_READING_PROMPT_VERSION, TOPIC_READING_BUDGET_VERSION, parseTopicReadingResponse, type TopicReading, type TopicReadingRef } from './topic-reading.ts';
 import type { DeepCost } from './deep-reading.ts';
 import type { StorageAreaLike } from './inline-reading-storage.ts';
 export const TOPIC_READINGS_STORAGE_KEY='dlens:v1:topic-readings';
-interface Metadata {topicId:string;signature:string;question:string;promptVersion:string;model:string;inputPostCount:number;omittedPostCount?:number;estimatedCost:DeepCost|null}
+interface Metadata {inputHash?:string;budgetVersion?:string;topicId:string;signature:string;question:string;promptVersion:string;model:string;inputPostCount:number;omittedPostCount?:number;estimatedCost:DeepCost|null}
 export type TopicReadingRecord=Metadata & ({status:'running';startedAt:string}|{status:'failed';error:string;at:string}|{status:'complete';generatedAt:string;reading:TopicReading;refs:TopicReadingRef[]});
-export function topicReadingStale(record:TopicReadingRecord,signature:string,question?:string):boolean {
- return record.signature!==signature || record.promptVersion!==TOPIC_READING_PROMPT_VERSION || question!==undefined && record.question!==question.trim();
+export function topicReadingStale(record:TopicReadingRecord,signature:string,question?:string,inputHash?:string,model?:string):boolean {
+ return !record.inputHash || record.budgetVersion!==TOPIC_READING_BUDGET_VERSION || inputHash!==undefined && record.inputHash!==inputHash || model!==undefined && record.model!==model || record.signature!==signature || record.promptVersion!==TOPIC_READING_PROMPT_VERSION || question!==undefined && record.question!==question.trim();
 }
 export function normalizeTopicReadingRecords(value:unknown):Record<string,TopicReadingRecord> {
  if(!value || typeof value!=='object' || Array.isArray(value))return {};

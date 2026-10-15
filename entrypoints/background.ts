@@ -1,3 +1,4 @@
+import {createInlineReadingRunner} from "../src/state/inline-reading-run";
 import { createTopicReadingRunner, selectTopicReadingItems } from "../src/state/topic-reading-run";
 import { loadDeepReadingRecords } from "../src/compare/deep-reading-storage";
 import { createDeepReadingRunner } from "../src/state/deep-reading-run";
@@ -64,9 +65,9 @@ import { buildDLensSignalPacket, buildSignalPacketIndex } from "../src/compare/s
 import { exportSignalPackets } from "../src/compare/signal-packet-export";
 import { buildProductSignalPreferenceExamples } from "../src/compare/product-signal-history";
 import { OPENAI_COMPARE_MODEL, CLAUDE_COMPARE_MODEL, GOOGLE_COMPARE_MODEL, generatePrCampaignSetupSuggestion, generatePrCriteriaMatches, generatePrNarrativePostReadings, generatePrNarrativeSynthesis, generatePrSummaryDraft, generateProductSignalAnalysis, generateInlineReading, testProviderKey } from "../src/compare/provider";
-import { buildInlineReadingInput, INLINE_READING_PROMPT_VERSION, readCrawlComments } from "../src/compare/inline-reading";
+import { buildInlineReadingInput, readCrawlComments } from "../src/compare/inline-reading";
 import { aiKeyGap, providerKeyFromSettings } from "../src/state/ai-key";
-import { loadInlineReadingRecords, saveInlineReadingRecord } from "../src/compare/inline-reading-storage";
+import { loadInlineReadingRecords } from "../src/compare/inline-reading-storage";
 import {
   appendSignalReadingReview,
   getSignalReading,
@@ -1954,15 +1955,14 @@ export const backgroundTestables = {
   tabStorageKey
 };
 
-// 觀眾反應 cards ask for their AI pass; one run per item at a time. A "running" record older than this is a dead worker's.
+// 觀眾反應 cards and the reader share per-item/capture AI work.
 const runDeepReading = (item: SessionItem, settings: ExtensionSettings) => {
   deepReadingRunner ??= createDeepReadingRunner(chrome.storage.local);
   return deepReadingRunner(item, settings);
 };
 let deepReadingRunner: ReturnType<typeof createDeepReadingRunner> | undefined;
 let topicReadingRunner: ReturnType<typeof createTopicReadingRunner> | undefined;
-const inlineReadingsInFlight = new Set<string>();
-const INLINE_READING_STALE_MS = 3 * 60_000;
+let inlineReadingRunner: ReturnType<typeof createInlineReadingRunner> | undefined;
 const INLINE_READING_MIN_COMMENTS = 10;
 
 async function ensureInlineReading(tabId: number, sessionId: string, itemId: string, retry: boolean): Promise<"started" | "exists" | "no-key" | "not-ready"> {
@@ -1977,22 +1977,10 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
   if (!input) return "not-ready";
   const providerConfig = providerKeyForRequest(current.global);
   if (!providerConfig) return "no-key";
-  const existing = (await loadInlineReadingRecords(chrome.storage.local))[item.id];
-  const stale = existing?.status === "running" && Date.now() - Date.parse(existing.startedAt) > INLINE_READING_STALE_MS;
-  if (inlineReadingsInFlight.has(item.id)) return "exists";
-  const outdated = existing?.status === "complete" && existing.reading.promptVersion !== INLINE_READING_PROMPT_VERSION;
-  if (existing && existing.captureId === input.captureId && !stale && !outdated && !(retry && existing.status === "failed")) return "exists";
-  inlineReadingsInFlight.add(item.id);
-  const storage = chrome.storage.local;
-  await saveInlineReadingRecord(storage, { status: "running", itemId: item.id, captureId: input.captureId, startedAt: new Date().toISOString() });
-  void generateInlineReading(providerConfig.provider, providerConfig.apiKey, input)
-    .then(
-      (reading) => saveInlineReadingRecord(storage, { status: "complete", itemId: item.id, captureId: input.captureId, reading }),
-      (error) => saveInlineReadingRecord(storage, { status: "failed", itemId: item.id, captureId: input.captureId, error: error instanceof Error ? error.message : String(error), at: new Date().toISOString() })
-    )
-    .catch((error) => console.error("[dlens] inline reading could not be saved:", error))
-    .finally(() => inlineReadingsInFlight.delete(item.id));
-  return "started";
+  inlineReadingRunner ??= createInlineReadingRunner(chrome.storage.local);
+  const result = await inlineReadingRunner(input, () => generateInlineReading(providerConfig.provider, providerConfig.apiKey, input), retry);
+  result.completion?.catch((error) => console.error("[dlens] inline reading could not be saved:", error));
+  return result.status;
 }
 
 // The post in view per Threads tab, for a side panel that opens after the user stopped scrolling.

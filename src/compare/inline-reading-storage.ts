@@ -80,3 +80,15 @@ export function saveInlineReadingRecord(storageArea: StorageAreaLike, record: In
   writes = run.catch(() => undefined);
   return run;
 }
+
+/** Check and publish in the same writer queue: an older capture cannot replace a newer run. */
+export function saveInlineReadingRecordIfCapture(storageArea:StorageAreaLike,record:InlineReadingRecord,expectedCaptureId:string):Promise<boolean> {
+ const run=writes.then(async()=>{
+  const records=await loadInlineReadingRecords(storageArea);
+  if(records[record.itemId]?.captureId!==expectedCaptureId)return false;
+  await storageArea.set({[INLINE_READINGS_STORAGE_KEY]:{...records,[record.itemId]:record}});
+  return true;
+ });
+ writes=run.catch(()=>undefined);
+ return run;
+}

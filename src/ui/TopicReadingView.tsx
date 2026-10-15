@@ -26,7 +26,7 @@ export function TopicReadingView({ model, onRun, onRef }: { model: TopicReadingM
   const run = (label: string) => <RunButton label={label} onClick={onRun} data={{ 'data-topic-reading-run': '' }} />;
   const meta = `${model.postCount} 篇 · ${model.model}${model.state === 'offer' ? ` · ${model.cost}` : ''}`;
   return <section data-topic-reading={model.state} aria-label="話題解讀" aria-busy={model.state === 'reading'} style={card}>
-    <ReadingHeader title="話題解讀" sub={model.state === 'offer' ? '讀晒啲帖答你嘅問題' : '答你嘅問題'} meta={meta} action={model.state === 'offer' ? run('開始讀') : model.state === 'stale' ? run('重讀') : model.state === 'error' ? run('重試') : undefined} />
+    <ReadingHeader title="話題解讀" sub={model.state === 'offer' ? '讀晒啲帖答你嘅問題' : '答你嘅問題'} meta={meta} action={model.state === 'offer' ? run('開始讀') : (model.state === 'stale' || model.state === 'done') ? run('重讀') : model.state === 'error' ? run('重試') : undefined} />
     {model.state === 'reading' ? <div role="status" style={{ display: 'grid', gap: d.gap, marginTop: rd.sectionGap }}><span style={{ fontSize: r.secondary, color: d.soft }}>讀緊 {model.postCount} 篇</span>{t.skeletonWidths.map((width, i) => <i key={i} aria-hidden="true" data-topic-reading-skeleton="" style={{ display: 'block', width, height: t.skeletonHeight, borderRadius: tokens.radius.sm, background: t.skeletonBackground, backgroundSize: t.skeletonBackgroundSize }} />)}</div> : null}
     {model.state === 'stale' ? <p role="status" style={{ margin: `${tokens.spacing.sm}px 0 0`, fontSize: r.meta, color: d.soft }}>{model.staleLabel}，下面係上次嘅解讀。</p> : null}
     {model.state === 'error' ? <p role="alert" style={{ margin: `${tokens.spacing.sm}px 0 0`, fontSize: r.secondary }}>{model.error}</p> : null}

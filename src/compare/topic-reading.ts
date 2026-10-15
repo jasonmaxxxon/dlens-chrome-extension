@@ -3,28 +3,29 @@ import type { InlineReadingRecord } from './inline-reading-storage.ts';
 import type { DeepReadingRecord } from './deep-reading-storage.ts';
 import { DEEP_READING_PROMPT_VERSION } from './deep-reading.ts';
 import { INLINE_READING_PROMPT_VERSION, readCrawlComments, readOpHandle } from './inline-reading.ts';
-export const TOPIC_READING_PROMPT_VERSION = 'v2';
+export const TOPIC_READING_PROMPT_VERSION = 'v3';
+export const TOPIC_READING_BUDGET_VERSION = 'bounded-packet-v1';
 /** Whole serialized input, including the ref catalog, is bounded to 48,000 UTF-16 chars.
  * Excludes local post-set signature and topic id. Replies/summaries shrink fairly across all posts
  * before root excerpts; only a root catalog exceeding the budget uses a disclosed subset. */
 export const TOPIC_READING_CHARACTER_BUDGET = 48_000;
 export interface TopicReadingRef { ref:string; itemId:string; captureId:string; author:string; commentId?:string }
 export interface TopicReadingPost { ref:string; author:string; text:string; audience:unknown; takeaway:string; replies:{ref:string;commentId:string;author:string;text:string;likes:number|null}[] }
-export interface TopicReadingInput { topicId:string; question:string; signature:string; omittedPostCount:number; posts:TopicReadingPost[]; refs:TopicReadingRef[] }
+export interface TopicReadingInput { topicId:string; question:string; signature:string; omittedPostCount:number; inputHash:string; budgetVersion:string; posts:TopicReadingPost[]; refs:TopicReadingRef[] }
 export interface TopicReading { answer:string; points:{text:string;refs:string[]}[]; gaps:{text:string}[] }
 export function topicReadingSignature(items:SessionItem[]):string {
  return JSON.stringify(items.map(i=>[i.id,i.latestCapture?.id ?? i.captureId ?? '']).sort((a,b)=>a[0].localeCompare(b[0])));
 }
 const clean=(v:unknown,cap:number)=>typeof v==='string' ? v.replace(/\s+/g,' ').trim().slice(0,cap) : '';
 export function buildTopicReadingInput(topic:Topic,items:SessionItem[],inline:Record<string,InlineReadingRecord>={},deep:Record<string,DeepReadingRecord>={}):TopicReadingInput {
- const input:TopicReadingInput={topicId:topic.id,question:clean(topic.context?.researchQuestion,480) || clean(topic.name,480),signature:topicReadingSignature(items),omittedPostCount:0,posts:[],refs:[]};
+ const input:TopicReadingInput={topicId:topic.id,question:clean(topic.context?.researchQuestion,480) || clean(topic.name,480),signature:topicReadingSignature(items),omittedPostCount:0,inputHash:"",budgetVersion:TOPIC_READING_BUDGET_VERSION,posts:[],refs:[]};
  for(const item of [...items].sort((a,b)=>a.id.localeCompare(b.id))) {
   if(!item.latestCapture?.id)continue;
   const captureId=item.latestCapture.id,ref=`p${input.posts.length+1}`,author=clean(readOpHandle(item),80);
   const ir=inline[item.id];const reading=ir?.status==='complete' && ir.captureId===captureId && ir.reading.promptVersion===INLINE_READING_PROMPT_VERSION ? ir.reading : null;
   const dr=deep[item.id];const takeaway=dr?.status==='complete' && dr.captureId===captureId && dr.promptVersion===DEEP_READING_PROMPT_VERSION ? clean(dr.reading.takeaway,240) : '';
   const audience=reading ? {gist:clean(reading.gist,240),clusters:(item.latestCapture.analysis?.clusters ?? []).slice(0,12).map(c=>({name:clean(reading.clusterNames[String(c.cluster_key)] || c.keywords?.join('、'),80),pct:Math.round(c.size_share*100)})),methods:reading.methods.slice(0,6).map(m=>({name:clean(m.name,100),fit:clean(m.fit,160)})),split:reading.split.sides.slice(0,2).map(s=>({claim:clean(s.claim,160),why:clean(s.why,160)})),asks:clean(reading.find.ask,240)} : null;
-  const replies=readCrawlComments(item).sort((a,b)=>(b.likes ?? 0)-(a.likes ?? 0)).slice(0,5).map((r,i)=>({ref:`${ref}.r${i+1}`,commentId:r.id,author:clean(r.author,80),text:clean(r.text,600),likes:r.likes}));
+  const replies=readCrawlComments(item).sort((a,b)=>(b.likes ?? 0)-(a.likes ?? 0) || a.id.localeCompare(b.id)).slice(0,5).map((r,i)=>({ref:`${ref}.r${i+1}`,commentId:r.id,author:clean(r.author,80),text:clean(r.text,600),likes:r.likes}));
   const post:TopicReadingPost={ref,author,text:clean(item.latestCapture.result?.canonical_post?.text,280) || clean(item.descriptor.text_snippet,280),audience,takeaway,replies};
   const refs:TopicReadingRef[]=[{ref,itemId:item.id,captureId,author},...replies.map(r=>({ref:r.ref,itemId:item.id,captureId,author:r.author,commentId:r.commentId}))];
   if(!post.text){input.omittedPostCount++;continue;}
@@ -40,7 +41,15 @@ export function buildTopicReadingInput(topic:Topic,items:SessionItem[],inline:Re
  while(input.posts.length && packetSize()>TOPIC_READING_CHARACTER_BUDGET){
   const removed=input.posts.pop()!;input.refs=input.refs.filter(r=>r.ref!==removed.ref);input.omittedPostCount++;
  }
+ input.inputHash=topicReadingInputHash(input);
  return input;
+}
+/** Stable content identity of the actual reduced packet, independent of run timestamps/cost. */
+export function topicReadingInputHash(input:TopicReadingInput):string {
+ const serialized=JSON.stringify({packet:topicReadingPacket(input),promptVersion:TOPIC_READING_PROMPT_VERSION,budgetVersion:input.budgetVersion});
+ let hash=14695981039346656037n;
+ for(let i=0;i<serialized.length;i++)hash=BigInt.asUintN(64,(hash ^ BigInt(serialized.charCodeAt(i)))*1099511628211n);
+ return hash.toString(16).padStart(16,'0');
 }
 export function topicReadingPacket(input:TopicReadingInput){return {question:input.question,posts:input.posts,inputPostCount:input.posts.length,refs:input.refs,omittedPostCount:input.omittedPostCount};}
 

@@ -32,7 +32,7 @@ export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel;
   const run = (label: string) => <RunButton label={label} onClick={() => onCommand(model.run)} data={{ 'data-deep-run': '' }} />;
   if (model.state === 'offer') return <section data-deep-reading="offer" aria-label="深入解讀" style={{ ...card, boxShadow: 'none', border: `1px solid ${tokens.color.line}` }}><ReadingHeader title="深入解讀" sub="背景、術語、爭論" meta={meta} action={run('開始讀')} /></section>;
   return <section data-deep-reading={model.state} aria-label="深入解讀" aria-busy={model.state === 'reading'} style={card}>
-    <ReadingHeader title="深入解讀" sub="背景、術語、爭論" meta={meta} action={model.state === 'stale' ? run('重讀') : undefined} />
+    <ReadingHeader title="深入解讀" sub="背景、術語、爭論" meta={meta} action={(model.state === 'stale' || model.state === 'done') ? run('重讀') : undefined} />
     {model.state === 'reading' ? <div role="status" style={{ ...section, display: 'grid', gap: tokens.spacing.sm }}><span style={{ fontSize: r.secondary, color: tokens.color.softInk }}>讀緊 {model.replyCount} 則留言</span>{t.skeletonWidths.map((width, i) => <i key={i} aria-hidden="true" data-deep-skeleton="" style={{ display: 'block', width, height: t.skeletonHeight, borderRadius: tokens.radius.sm, background: t.skeletonBackground, backgroundSize: t.skeletonBackgroundSize }} />)}</div> : null}
     {model.state === 'error' ? <div role="alert" style={{ ...section, display: 'flex', gap: tokens.spacing.md, alignItems: 'center' }}><p style={{ margin: 0, flex: 1, fontSize: r.secondary }}>{model.error}</p>{run('重試')}</div> : null}
     {model.state === 'stale' ? <p role="status" style={{ margin: `${tokens.spacing.sm}px 0 0`, fontSize: r.meta, color: tokens.color.softInk }}>爬到新留言，下面係上次嘅解讀。</p> : null}
