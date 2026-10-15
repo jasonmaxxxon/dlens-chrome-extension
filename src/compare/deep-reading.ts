@@ -56,7 +56,7 @@ export function buildDeepReadingPrompt(input: DeepReadingInput): string {
 const obj = (v: unknown): Record<string, unknown> | null => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
 const text = (v: unknown, cap: number) => typeof v === 'string' ? v.replace(/\s+/g,' ').trim().slice(0,cap) : '';
 const list = (v: unknown, cap: number) => (Array.isArray(v) ? v : []).slice(0,cap).flatMap(x => obj(x) ? [obj(x)!] : []);
-export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: string }[] }): DeepReading | null {
+export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: string; role?: "op" | "reply" }[] }): DeepReading | null {
   let p: Record<string, unknown> | null;
   try { p = obj(JSON.parse(raw.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim())); } catch { return null; }
   if (!p || !text(p.background,480) || !text(p.takeaway,240) || !Array.isArray(p.terms) || !Array.isArray(p.debates) || !obj(p.evidence) || !Array.isArray(obj(p.evidence)!.strong) || !Array.isArray(obj(p.evidence)!.weak) || !Array.isArray(p.unanswered)) return null;
@@ -64,14 +64,39 @@ export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: s
   const refs = (v: unknown): string[] | null => Array.isArray(v) && v.length > 0 && v.every(r=>typeof r==='string' && known.has(r)) ? [...new Set(v as string[])].slice(0,6) : null;
   const grounded = (v: unknown, cap: number): (Record<string, unknown> & { refs: string[] })[] => list(v,cap).flatMap(x=> { const r=refs(x.refs); return r ? [{...x,refs:r}] : []; });
   const points = (v: unknown) => grounded(v,8).flatMap(x=>text(x.text,240) ? [{text:text(x.text,240),refs:x.refs}] : []);
-  return { background:text(p.background,480),takeaway:text(p.takeaway,240),
+  let droppedAudienceSide = false;
+  const reading: DeepReading = { background:text(p.background,480),takeaway:text(p.takeaway,240),
     terms:grounded(p.terms,20).flatMap(x=> text(x.term,60) && text(x.plain,160) ? [{term:text(x.term,60),plain:text(x.plain,160),refs:x.refs}] : []),
     debates:list(p.debates,8).flatMap(d=>{
       if (!['agree','open','heated'].includes(String(d.status)) || !text(d.question,120)) return [];
       const sides=grounded(d.sides,4).flatMap(s=> ['experience','opinion','question'].includes(String(s.basis)) && text(s.claim,240) && text(s.who,60) ? [{who:text(s.who,60),claim:text(s.claim,240),basis:s.basis as 'experience'|'opinion'|'question',note:text(s.note,160),refs:s.refs}] : []);
-      return sides.length ? [{question:text(d.question,120),status:d.status as 'agree'|'open'|'heated',sides}] : [];
+      // Multi-sided debates describe audience positions: every side needs audience support.
+      // A single author explanation remains valid context and keeps its cited source.
+      const audienceRefs = new Set(input.catalog.filter(c => c.role !== 'op').map(c => c.ref));
+      const audienceSides = sides.length > 1 ? sides.filter(s => s.refs.some(ref => audienceRefs.has(ref))) : sides;
+      if (audienceSides.length !== sides.length || (sides.length === 1 && d.status === 'agree' && sides[0].refs.every(ref => !audienceRefs.has(ref)))) droppedAudienceSide = true;
+      if (sides.length > 1 && audienceSides.length < 2) return [];
+      return audienceSides.length ? [{question:text(d.question,120),status:(audienceSides.every(s => s.refs.every(ref => !audienceRefs.has(ref))) ? 'open' : d.status) as 'agree'|'open'|'heated',sides:audienceSides}] : [];
     }), evidence:{strong:points(obj(p.evidence)?.strong),weak:points(obj(p.evidence)?.weak)},
     unanswered:grounded(p.unanswered,8).flatMap(x=>text(x.question,160) ? [{question:text(x.question,160),refs:x.refs}] : []) };
+  if (droppedAudienceSide) {
+    reading.background = reading.background.replace(/[^。！？!?]*?(?:一致|共識|全都|所有觀眾)[^。！？!?]*[。！？!?]?/g, '').trim() || '作者提供解釋；未見足夠觀眾分歧。';
+    reading.takeaway = '未見足夠觀眾分歧；作者回應只作解釋。';
+  }
+  return reading;
+}
+/** Cached aliases resolve through their saved comment ids, never through a newer catalog position. */
+export function guardDeepAudienceReading(reading: DeepReading, refs: DeepRef[], item: SessionItem, captureId: string): DeepReading | null {
+  const sameCapture = captureId === item.latestCapture?.id;
+  const comments = new Map((sameCapture ? readCrawlComments(item) : []).map(c => [c.id, c]));
+  const op = readOpHandle(item);
+  const catalog = refs.map(ref => {
+    const comment = comments.get(ref.commentId);
+    // Unknown or replaced captures cannot establish an audience position. Keep cited explanations.
+    const role = comment && op && comment.author.replace(/^@/, '').trim().toLowerCase() !== op ? 'reply' as const : 'op' as const;
+    return { ref: ref.ref, role };
+  });
+  return parseDeepReadingResponse(JSON.stringify(reading), { catalog });
 }
 export interface DeepCost { usd: number; inputTokens: number; outputTokens: number; priceDate: string }
 /** Mixed CJK/Latin approximation: two UTF-16 characters per token. Full prompt + system,

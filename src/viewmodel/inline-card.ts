@@ -1,6 +1,6 @@
-import { isReplyQuestion } from "../compare/reply-thread";
+import { buildReplyThreads, isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
-import { readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
+import { guardInlineAudienceReading, readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { InlineReading } from "../compare/inline-reading";
 
@@ -11,7 +11,7 @@ import type { InlineReading } from "../compare/inline-reading";
  */
 export type InlineCardPhase = "saved" | "queued" | "running" | "failed" | "done";
 export type InlineCardEntryKey = "stance" | "method" | "split" | "top" | "op" | "ask";
-export interface InlineCardQuote { text: string; author: string; likes: number | null }
+export interface InlineCardQuote { text: string; author: string; likes: number | null; isAuthor?: boolean }
 export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark: string; finding: string }
 export type InlineCardAnswer =
   | { kind: "clusters"; headline: string; segments: { label: string; pct: number; noise: boolean }[]; quote: InlineCardQuote | null }
@@ -76,7 +76,6 @@ export const estimateCrawlSeconds = (item: SessionItem) =>
 
 type Comment = CrawlComment;
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes });
 const short = (text: string, max = 24) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
 function phaseOf(item: SessionItem): InlineCardPhase {
@@ -134,7 +133,7 @@ const keywordLabel = (keywords: string[]) => keywords.map((k) => k.trim()).filte
 const pct = (share: number) => Math.round(share * 100);
 
 function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined) {
-  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? ai.reading : null;
+  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? guardInlineAudienceReading(ai.reading, buildReplyThreads(readCrawlComments(item), readOpHandle(item))) : null;
 }
 function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined): InlineCardViewModel["ai"] {
   if (!ai) return null;
@@ -164,6 +163,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
 
   const t = readInlineCardThread(item);
+  const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes, isAuthor: !!t.op && handle(c.author) === t.op });
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
   const currentReading = readingOf(item, context.ai);
@@ -188,7 +188,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
       kind: "clusters",
       headline: reading?.gist ?? `最大一群講「${nameOf(lead)}」，佔已讀留言 ${pct(lead.size_share)}%。`,
       segments: ordered.map((c) => ({ label: nameOf(c), pct: pct(c.size_share), noise: isNoise(c, reading) })),
-      quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null } : null
+      quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null, isAuthor: !!t.op && handle(evidence.author) === t.op } : null
     };
   }
 

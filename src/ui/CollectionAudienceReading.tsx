@@ -30,13 +30,13 @@ function ShareBar({ segments }: { segments: { label: string; pct: number; noise:
 }
 function Answer({ answer }: { answer: InlineCardAnswer }) {
   if (answer.kind === "empty") return <h3 style={h3}>{answer.text}</h3>;
-  if (answer.kind === "clusters") return <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} />{answer.quote ? quote(answer.quote.text, answer.quote.author, answer.quote.likes) : null}</>;
-  if (answer.kind === "methods") return <><h3 style={h3}>有咩做法</h3>{answer.rows.map(r => <div key={r.name}>{lead(r.name, r.fit, c.entryColors.method)}</div>)}{quote(answer.quote.text, answer.quote.author, answer.quote.likes)}</>;
-  if (answer.kind === "split") return <><h3 style={h3}>{answer.agree}</h3>{answer.sides.map((s, i) => <div key={s.claim}>{lead(s.claim, s.why, c.sideColors[i % c.sideColors.length])}{quote(s.quote.text, s.quote.author, s.quote.likes)}</div>)}{answer.note ? <p style={{ color: c.soft }}>{answer.note}</p> : null}</>;
+  if (answer.kind === "clusters") return <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} />{answer.quote ? quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor) : null}</>;
+  if (answer.kind === "methods") return <><h3 style={h3}>有咩做法</h3>{answer.rows.map(r => <div key={r.name}>{lead(r.name, r.fit, c.entryColors.method)}</div>)}{quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor)}</>;
+  if (answer.kind === "split") return <><h3 style={h3}>{answer.agree}</h3>{answer.sides.map((s, i) => <div key={s.claim}>{lead(s.claim, s.why, c.sideColors[i % c.sideColors.length])}{quote(s.quote.text, s.quote.author, s.quote.likes, undefined, s.quote.isAuthor)}</div>)}{answer.note ? <p style={{ color: c.soft }}>{answer.note}</p> : null}</>;
   // The questions themselves appear once, below, grouped by who answered them and with the answers attached.
   if (answer.kind === "ask") return <h3 style={h3}>{answer.headline}</h3>;
   if (answer.kind === "op") return <><h3 style={h3}>作者回應</h3>{answer.rows.map((r, i) => <div key={i}><p style={{ fontSize: tokens.reader.secondary, color: c.soft, margin: `${tokens.spacing.md}px 0 0` }}>回應「{r.inReplyTo}」</p>{quote(r.text, r.author ?? "", r.likes ?? null, undefined, true)}</div>)}</>;
-  return <><h3 style={h3}>樣本內最高讚</h3>{answer.rows.map((r, i) => <div key={i}>{quote(r.text, r.author, r.likes)}</div>)}</>;
+  return <><h3 style={h3}>樣本內最高讚</h3>{answer.rows.map((r, i) => <div key={i}>{quote(r.text, r.author, r.likes, undefined, r.isAuthor)}</div>)}</>;
 }
 function AskStatus({ status }: { status: "none" | "author" | "other" }) {
   const label = status === "none" ? "樣本內未見回覆" : status === "author" ? "作者回覆咗" : "有人回覆咗";

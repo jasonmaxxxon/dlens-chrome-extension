@@ -111,7 +111,7 @@ test("v3 renders author threads and only technical prompts include terms; author
   const reading = parseInlineReadingResponse(raw, input, "test", "now")!;
   assert.equal(reading.gist.length, 55);
   assert.equal(reading.methods[0].quote.commentId, "b");
-  assert.equal(reading.split.sides[0].quote.commentId, "b");
+  assert.deepEqual(reading.split.sides, [], "author-only side is explanation, not audience disagreement");
   assert.equal(parseInlineReadingResponse(raw, general, "test", "now")!.gist, "字".repeat(40) + "…");
 });
 
