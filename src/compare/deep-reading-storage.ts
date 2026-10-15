@@ -1,7 +1,8 @@
+import { normalizeReadingCoverage, type ReadingCoverage } from './reading-coverage.ts';
 import { DEEP_READING_PROMPT_VERSION, parseDeepReadingResponse, threadsReplyUrl, type DeepReading, type DeepRef, type DeepCost } from './deep-reading.ts';
 import type { StorageAreaLike } from './inline-reading-storage.ts';
 export const DEEP_READINGS_STORAGE_KEY = 'dlens:v1:deep-readings';
-interface Metadata { itemId: string; captureId: string; promptVersion: string; model: string; inputReplyCount: number; estimatedCost: DeepCost | null }
+interface Metadata {coverage?:ReadingCoverage; itemId: string; captureId: string; promptVersion: string; model: string; inputReplyCount: number; estimatedCost: DeepCost | null }
 export type DeepReadingRecord = Metadata & (
   | { status:'running'; startedAt:string }
   | { status:'failed'; error:string; at:string }
@@ -21,8 +22,9 @@ export function normalizeDeepReadingRecords(value: unknown): Record<string, Deep
     if (r.status==='complete') {
       if (typeof r.generatedAt!=='string' || !Array.isArray(r.refs)) return [];
       const refs=r.refs.flatMap(x=>x && typeof x.ref==='string' && typeof x.commentId==='string' && typeof x.author==='string' ? [{...x,url:threadsReplyUrl(x.url)}] : []);
+      const {coverage:_coverage,...withoutCoverage}=r;
       const reading=parseDeepReadingResponse(JSON.stringify(r.reading),{catalog:refs});
-      return reading ? [[id,{...r,reading,refs,estimatedCost}]] : [];
+      return reading ? [[id,{...withoutCoverage,reading,refs,estimatedCost,...(normalizeReadingCoverage(r.coverage)?{coverage:normalizeReadingCoverage(r.coverage)}:{})}]] : [];
     }
     if (r.status==='running' && typeof r.startedAt==='string' || r.status==='failed' && typeof r.error==='string' && typeof r.at==='string') return [[id,{...r,estimatedCost}]];
     return [];

@@ -1,3 +1,4 @@
+import type { ReadingCoverage } from './reading-coverage.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, classifyPostKind, renderReplyThreads, type ThreadReply, type ThreadTerm, type PostKind } from "./reply-thread.ts";
 import type { SessionItem } from "../state/types.ts";
 
@@ -22,6 +23,7 @@ export interface CrawlComment {
 }
 export interface InlineReadingQuote { commentId: string; text: string; author: string; likes: number | null; isAuthor?: boolean }
 export interface InlineReading {
+  coverage?:ReadingCoverage;
   itemId: string;
   captureId: string;
   promptVersion: string;
@@ -37,6 +39,7 @@ export interface InlineReading {
   split: { agree: string; sides: { claim: string; why: string; quote: InlineReadingQuote }[] };
 }
 export interface InlineReadingInput {
+  coverage?:ReadingCoverage;
   itemId: string;
   captureId: string;
   postText: string;
@@ -82,10 +85,11 @@ export function buildInlineReadingInput(item: SessionItem): InlineReadingInput |
   const catalog = selectReplyThreads(replies, terms);
   if (!catalog.length) return null;
   const evidence = capture.analysis?.evidence ?? [];
-  return {
+  const input:InlineReadingInput = {
     itemId: item.id,
     captureId: capture.id,
     postText,
+    coverage:{posts:{included:1,omitted:0,captured:1},bodyCharacters:{sent:postText.length,captured:postText.length},replyQuotes:{sent:catalog.length,captured:replies.length},summaries:{sent:0,available:0},reductions:replies.length>catalog.length?[{kind:'replies-selected'}]:[]},
     terms,
     postKind: classifyPostKind(terms),
     catalog,
@@ -96,6 +100,12 @@ export function buildInlineReadingInput(item: SessionItem): InlineReadingInput |
       quotes: [...new Set((evidence.find((e) => e.cluster_key === c.cluster_key)?.comments ?? []).map((e) => str(e.text).replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 5)
     }))
   };
+  // Cluster samples are also sent verbatim; count their additional source rows, not just the main catalog.
+  const quoted=new Set(catalog.map(c=>c.id));
+  for(const c of replies)if(input.clusters.some(cluster=>cluster.quotes.some(q=>q===c.text.replace(/\s+/g,' ').trim())))quoted.add(c.id);
+  input.coverage!.replyQuotes.sent=quoted.size;
+  if(quoted.size===replies.length)input.coverage!.reductions=[];
+  return input;
 }
 
 export const INLINE_READING_SYSTEM_PROMPT =
@@ -227,6 +237,7 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
   return guardInlineAudienceReading({
     itemId: input.itemId,
     captureId: input.captureId,
+    coverage:input.coverage,
     promptVersion: INLINE_READING_PROMPT_VERSION,
     model,
     generatedAt,

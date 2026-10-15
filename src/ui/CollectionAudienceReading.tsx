@@ -53,6 +53,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
       {model.chips.map(chip => <button key={chip.id ?? "inbox"} type="button" data-reader-topic={chip.id ?? ""} aria-pressed={chip.selected} disabled={!model.signalId || assignmentPending} onClick={() => model.signalId && onAssign(model.signalId, chip.id)} style={{ ...button, whiteSpace: "nowrap", flexShrink: 0, background: chip.selected ? theme.accent : theme.accentSoft, color: chip.selected ? tokens.color.inverse : theme.accent }}>{chip.name} <small>{chip.count}</small></button>)}
     </div>
     {model.stateLine ? <p role="status" data-reader-state="" style={{ color: model.card.phase === "failed" ? c.fail : c.soft }}>{model.stateLine}</p> : null}
+    <p data-reading-coverage="" style={{fontSize:tokens.reader.meta,color:c.soft}}>{model.coverageLabel}</p>
     {model.aiNote ? <p style={{ color: c.soft }}>{model.aiNote}</p> : null}
 
     <ReaderLensBar tabs={model.card.entries} selected={model.selected} onSelect={onLens} accent={key=>c.entryColors[key]} />

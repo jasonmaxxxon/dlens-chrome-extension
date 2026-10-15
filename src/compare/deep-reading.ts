@@ -1,3 +1,4 @@
+import type { ReadingCoverage } from './reading-coverage.ts';
 import type { SessionItem } from '../state/types.ts';
 import { readCrawlComments, readOpHandle } from './inline-reading.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, renderReplyThreads, type ThreadReply, type ThreadTerm } from './reply-thread.ts';
@@ -8,7 +9,7 @@ export const DEEP_READING_MODELS = { google: 'gemini-3.8-flash', claude: 'claude
 export type DeepProvider = keyof typeof DEEP_READING_MODELS;
 export const deepModel = (provider: DeepProvider, overrides?: Partial<Record<DeepProvider, string>>) => overrides?.[provider]?.trim() || DEEP_READING_MODELS[provider];
 export interface DeepRef { ref: string; commentId: string; author: string; url: string | null }
-export interface DeepReadingInput { itemId: string; captureId: string; postText: string; catalog: ThreadReply[]; refs: DeepRef[]; terms: ThreadTerm[]; clusters: { key: number; share: number; keywords: string[] }[] }
+export interface DeepReadingInput { itemId: string; captureId: string; postText: string; coverage:ReadingCoverage; catalog: ThreadReply[]; refs: DeepRef[]; terms: ThreadTerm[]; clusters: { key: number; share: number; keywords: string[] }[] }
 export interface DeepPoint { text: string; refs: string[] }
 export interface DeepReading {
   background: string; takeaway: string;
@@ -33,6 +34,7 @@ export function buildDeepReadingInput(item: SessionItem): DeepReadingInput | nul
   if (!catalog.length) return null;
   const comments = capture.result?.comments ?? [];
   return { itemId: item.id, captureId: capture.id, postText, catalog, terms,
+    coverage:{posts:{included:1,omitted:0,captured:1},bodyCharacters:{sent:postText.length,captured:(typeof rawPost==='string'?rawPost:item.descriptor.text_snippet || '').length},replyQuotes:{sent:catalog.length,captured:rows.length},summaries:{sent:0,available:0},reductions:[...(rows.length>catalog.length?[{kind:'replies-selected' as const}]:[]),...((typeof rawPost==='string'?rawPost.length:0)>postText.length?[{kind:'bodies-cut' as const,limit:16000}]:[])]},
     refs: catalog.map(c => { const raw = comments.find(r => (r.comment_id || r.source_comment_id) === c.id); return { ref: c.ref, commentId: c.id, author: c.author, url: threadsReplyUrl(raw?.url) }; }),
     clusters: (capture.analysis?.clusters ?? []).slice(0, 12).map(c => ({ key: c.cluster_key, share: c.size_share, keywords: (c.keywords ?? []).slice(0, 5) })) };
 }
