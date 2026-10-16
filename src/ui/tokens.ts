@@ -30,7 +30,7 @@ export const tokens = {
   },
   /* 深入解讀 / 話題解讀 cards: one compact run pill, quiet source links, folded detail. */
   reading: {
-    runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
+    sourceOutlineWidth: 2, runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
     definition: "rgba(27,26,23,.04)", statusWash: { agree: "rgba(63,90,59,.09)", open: "rgba(160,106,23,.1)", heated: "rgba(168,70,46,.09)" },
     basis: { experience: "#3f5a3b", opinion: "#6c695e", question: "#7b4a8a" }
   },
@@ -44,7 +44,7 @@ export const tokens = {
   collection: {
     modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
-    headerHeight: 48, logoSize: 21, tabWidth: 54, tabGap: 18, searchHeight: 36,
+    headerHeight: 48, tabWidth: 54, tabGap: 18, searchHeight: 36,
     thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,
     rowPadding: 10, rowLift: -2, cardPress: .985, indicatorHeight: 2, segmentPadding: 2,
     segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,

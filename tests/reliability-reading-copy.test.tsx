@@ -1,0 +1,50 @@
+import React from 'react';
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { buildInlineReadingInput, parseInlineReadingResponse } from '../src/compare/inline-reading.ts';
+import { buildDeepReadingInput, parseDeepReadingResponse } from '../src/compare/deep-reading.ts';
+import { parseTopicReadingResponse } from '../src/compare/topic-reading.ts';
+import { buildDeepReadingModel } from '../src/viewmodel/deep-reading.ts';
+import { buildTopicReadingModel } from '../src/viewmodel/topic-reading.ts';
+import { buildInlineCardViewModel } from '../src/viewmodel/inline-card.ts';
+import { CollectionBrowser } from '../src/ui/CollectionBrowser.tsx';
+import { createDefaultSettings, type SessionItem } from '../src/state/types.ts';
+import { item, capture, descriptor, session } from './collection-browser.fixtures.ts';
+const source=()=>item('i',{status:'succeeded',descriptor:descriptor({author_hint:'op'}),latestCapture:capture({author:'op'},{result:{canonical_post:{text:'合成正文。',author:'op'},comments:[{comment_id:'q',author:'reader',text:'e3 p1.r2 點樣先可以做到？',like_count:1},{comment_id:'a',author:'op',parent_comment_id:'q',text:'合成作者回覆。'}]} as any})});
+test('quick summaries stop at clauses, cluster labels remain whole and internal refs never leak into copy',()=>{
+ const input=buildInlineReadingInput(source())!;input.clusters=[{key:1,pct:100,keywords:[],quotes:[]}];
+ const raw={gist:'大家關心用法。'+ '後續討論非常複雜'.repeat(12),find:{method:'e3 做法',split:'r12 暫無分歧',ask:'p1.r2 點樣用？'},cluster_names:[{cluster_key:1,name:'extraordinarycluster',noise:false}],methods:[{name:'e3 照做',fit:'r12 適用。',ref:'e2'}],split:{agree:'e3 未見分歧。',sides:[]}};
+ const reading=parseInlineReadingResponse(JSON.stringify(raw),input,'test','now')!;
+ assert.equal(reading.gist,'大家關心用法。');
+ assert.doesNotMatch(JSON.stringify({...reading,methods:reading.methods.map(({quote,...m})=>m)}),/\b(?:e3|r12|p1\.r2)\b/);
+ assert.ok(!reading.clusterNames['1'] || reading.clusterNames['1']==='extraordinarycluster');
+ const card=buildInlineCardViewModel(source(),'topic','合成',{forReader:true});
+ const preview=card.answers.op;
+ assert.ok(preview?.kind==='op');assert.doesNotMatch(preview.rows[0].inReplyTo,/\be3\b|p1\.r2/);
+ assert.doesNotMatch(card.entries.find(e=>e.key==='ask')!.finding,/\be3\b|p1\.r2/);
+ const ask=card.answers.ask;assert.ok(ask?.kind==='ask');assert.doesNotMatch(ask.rows[0].text,/\be3\b|p1\.r2/);
+});
+test('deep and topic parsers strip prose aliases without removing structured source refs',()=>{
+ const input=buildDeepReadingInput(source())!;
+ const p={background:'e1 背景。',takeaway:'r12 結論。',terms:[{term:'術語',plain:'e1 解釋。',refs:['e1']}],debates:[],evidence:{strong:[],weak:[]},unanswered:[{question:'p1.r2 點用？',refs:['e1']}]};
+ const reading=parseDeepReadingResponse(JSON.stringify(p),input)!;
+ assert.doesNotMatch([reading.background,reading.takeaway,reading.terms[0].plain,reading.unanswered[0].question].join(' '),/\be1\b|r12|p1\.r2/);
+ assert.deepEqual(reading.terms[0].refs,['e1']);
+ const topic=parseTopicReadingResponse(JSON.stringify({answer:'p1.r2 大家關心用法。',points:[{text:'e3 做法。',refs:['p1']},{text:'r12 仍待確認。',refs:['p1']}],gaps:[]}),{refs:[{ref:'p1'}]} as any)!;
+ assert.doesNotMatch([topic.answer,...topic.points.map(p=>p.text)].join(' '),/p1\.r2|e3|r12/);
+});
+test('cost labels identify US dollars for both reading offers',()=>{
+ const s=createDefaultSettings(),now='2026-10-15T00:00:00Z';
+ assert.match(buildDeepReadingModel(source(),s,undefined,now)!.cost,/US\$\d+\.\d{3}/);
+ assert.match(buildTopicReadingModel({id:'t',name:'合成'} as any,[source()],s,undefined,now).cost,/US\$\d+\.\d{3}/);
+});
+test('recent completions use one compact row and disappear while searching',()=>{
+ const now=Date.parse('2026-10-15T00:00:00Z');
+ const posts=Array.from({length:3},(_,i)=>item(String(i),{status:'succeeded',completedAt:new Date(now-i*1000).toISOString(),descriptor:descriptor({post_url:`https://www.threads.com/@test/post/${i}`}),latestCapture:capture({},{analysis:{status:'succeeded',generated_at:new Date(now-i*1000).toISOString(),clusters:[],evidence:[]} as any})}));
+ const props={sessions:[session('s',posts,'topic')],query:'',onQueryChange:()=>{},selectedKey:null,onSelect:()=>{},onOpenWorkspace:()=>{},nowMs:now};
+ const html=renderToStaticMarkup(<CollectionBrowser {...props}/>);
+ assert.equal((html.match(/data-reading-arrival=""/g)||[]).length,1);
+ const search=renderToStaticMarkup(<CollectionBrowser {...props} query="收藏"/>);
+ assert.doesNotMatch(search,/data-reading-strip|剛讀完/);
+});

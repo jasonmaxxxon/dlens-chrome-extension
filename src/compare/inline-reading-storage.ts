@@ -1,3 +1,4 @@
+import { normalizeReadingCoverage } from './reading-coverage.ts';
 import type { InlineReading, InlineReadingQuote } from "./inline-reading.ts";
 
 export const INLINE_READINGS_STORAGE_KEY = "dlens:v1:inline-readings";
@@ -30,6 +31,7 @@ function normalizeReading(value: unknown): InlineReading | null {
   const names = obj(raw.clusterNames) ?? {};
   return {
     itemId: str(raw.itemId), captureId: str(raw.captureId), promptVersion: str(raw.promptVersion), model: str(raw.model), generatedAt: str(raw.generatedAt),
+    coverage:normalizeReadingCoverage(raw.coverage),
     gist: str(raw.gist),
     find: { method: str(find.method), split: str(find.split), ask: str(find.ask) },
     clusterNames: Object.fromEntries(Object.entries(names).filter(([, name]) => typeof name === "string" && name)) as Record<string, string>,
@@ -79,4 +81,16 @@ export function saveInlineReadingRecord(storageArea: StorageAreaLike, record: In
   });
   writes = run.catch(() => undefined);
   return run;
+}
+
+/** Check and publish in the same writer queue: an older capture cannot replace a newer run. */
+export function saveInlineReadingRecordIfCapture(storageArea:StorageAreaLike,record:InlineReadingRecord,expectedCaptureId:string):Promise<boolean> {
+ const run=writes.then(async()=>{
+  const records=await loadInlineReadingRecords(storageArea);
+  if(records[record.itemId]?.captureId!==expectedCaptureId)return false;
+  await storageArea.set({[INLINE_READINGS_STORAGE_KEY]:{...records,[record.itemId]:record}});
+  return true;
+ });
+ writes=run.catch(()=>undefined);
+ return run;
 }

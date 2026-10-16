@@ -17,7 +17,7 @@ test('deep input keeps stable roles and pairs under a larger rendered budget',()
  assert.ok(DEEP_REPLY_CHARACTER_BUDGET>=96000);
 });
 test('parser drops whole entries with unresolved refs and caps text',()=>{
- const payload=deepPayload(); payload.terms.push({term:'bad',plain:'bad',refs:['e1','e99']}); payload.terms[0].plain='字'.repeat(900);
+ const payload=deepPayload(); payload.terms.push({term:'bad',plain:'bad',refs:['e1','e99']}); payload.terms[0].plain='合成完整句子。'.repeat(100);
  const parsed=parseDeepReadingResponse(JSON.stringify(payload),buildDeepReadingInput(deepItem())!)!;
  assert.equal(parsed.terms.length,1); assert.ok(parsed.terms[0].plain.length<=160);
  assert.equal(parseDeepReadingResponse('bad',buildDeepReadingInput(deepItem())!),null);

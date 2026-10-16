@@ -91,8 +91,8 @@ test("the 1-second peek fetches the saved path through the page's own origin", a
 });
 
 
-test("v3 renders author threads and only technical prompts include terms; author refs stay grounded", () => {
-  assert.equal(INLINE_READING_PROMPT_VERSION, "v3");
+test("v4 renders author threads and only technical prompts include terms; author refs stay grounded", () => {
+  assert.equal(INLINE_READING_PROMPT_VERSION, "v4");
   const technical = item();
   technical.latestCapture!.result!.canonical_post!.text = "RAG KG BM25 MCP embedding rerank F1";
   const input = buildInlineReadingInput(technical)!;
@@ -107,12 +107,12 @@ test("v3 renders author threads and only technical prompts include terms; author
   assert.equal(general.postKind, "general");
   assert.doesNotMatch(buildInlineReadingPrompt(general), /\[術語/);
   assert.match(buildInlineReadingPrompt(general), /40 字內/);
-  const raw = JSON.stringify({ gist: "字".repeat(55), methods: [{ name: "作者做法", ref: "e2" }], split: { sides: [{ claim: "甲", ref: "e2" }, { claim: "乙", ref: "e1" }] } });
+  const raw = JSON.stringify({ gist: "觀眾關心實際用法。" + "補充說明相當詳細".repeat(12), methods: [{ name: "作者做法", ref: "e2" }], split: { sides: [{ claim: "甲", ref: "e2" }, { claim: "乙", ref: "e1" }] } });
   const reading = parseInlineReadingResponse(raw, input, "test", "now")!;
-  assert.equal(reading.gist.length, 55);
+  assert.equal(reading.gist, "觀眾關心實際用法。");
   assert.equal(reading.methods[0].quote.commentId, "b");
-  assert.equal(reading.split.sides[0].quote.commentId, "b");
-  assert.equal(parseInlineReadingResponse(raw, general, "test", "now")!.gist, "字".repeat(40) + "…");
+  assert.deepEqual(reading.split.sides, [], "author-only side is explanation, not audience disagreement");
+  assert.equal(parseInlineReadingResponse(raw, general, "test", "now")!.gist, "觀眾關心實際用法。");
 });
 
 test("input normalizes parent_source_comment_id and resolves a source alias", () => {

@@ -1,3 +1,4 @@
+import {readingCoverageLabel} from '../compare/reading-coverage';
 import type { SessionRecord, Signal, Topic } from "../state/types";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
@@ -15,7 +16,7 @@ export function collectionAudienceSource(post: CollectionPost | undefined, sessi
  * A stored error is left alone; the reader shows it with its own retry. */
 export function readerNeedsReading(item: SessionRecord["items"][number], stored: InlineReadingRecord | undefined): boolean {
   if (item.status !== "succeeded" || item.latestCapture?.analysis?.status !== "succeeded") return false;
-  return !stored || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
+  return !stored || stored.captureId !== item.latestCapture?.id || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
 }
 
 /** Projection only: the reading and evidence remain owned by inline-card. */
@@ -46,7 +47,7 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   else if (card.phase === "done") stateLine = "";
   const aiNote = card.ai?.state === "failed" ? `AI 整理失敗：${card.ai.error}`
     : card.entries.length && !card.ai && !card.analysisPending ? "尚未有已存 AI 閱讀 · 字詞同回覆" : null;
-  return { sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
+  return { coverageLabel:readingCoverageLabel(stored?.status==='complete'?stored.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
     answer: selected ? card.answers[selected] : undefined, stateLine, aiNote,
     evidence: buildInlineCardEvidence(item, card, selected, ai, groupLimits) };
 }

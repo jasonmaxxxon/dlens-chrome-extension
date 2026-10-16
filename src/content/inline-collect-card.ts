@@ -23,7 +23,7 @@ export function formatEta(fromIso: string, seconds: number, now: number): string
   return left < 60 ? `約 ${left} 秒` : `約 ${Math.floor(left / 60)} 分 ${String(left % 60).padStart(2, "0")} 秒`;
 }
 
-const cite = (q: InlineCardQuote) => `@${esc(q.author)}${q.likes !== null ? ` · ${q.likes} 讚` : ""}`;
+const cite = (q: InlineCardQuote) => `@${esc(q.author)}${q.isAuthor ? " · <b>作者</b>" : ""}${q.likes !== null ? ` · ${q.likes} 讚` : ""}`;
 function peekHtml(peek: InlineCardPeek | null): string {
   if (!peek) return "";
   if (peek.state === "loading") return `<div class="sk" aria-label="讀取首批留言"><i></i><i></i></div>`;
@@ -39,7 +39,7 @@ function answerHtml(a: InlineCardAnswer): string {
       <div class="legend">${segs.map((s) => `<span${s.noise ? ` class="nz" title="AI 判斷為廣告、洗版或離題"` : ""}><i style="background:${s.color}"></i><b>${esc(s.label)}</b><em>${s.pct}%</em></span>`).join("")}</div>
       ${a.quote ? `<div class="q1"><q>「${esc(a.quote.text)}」</q><cite>${cite(a.quote)}</cite></div>` : ""}`;
   }
-  if (a.kind === "quotes") return `<div class="rows">${a.rows.map((q) => `<div class="row top"><span class="n">${q.likes ?? 0} 讚</span><span class="t">「${esc(q.text)}」<small>@${esc(q.author)}</small></span></div>`).join("")}</div>`;
+  if (a.kind === "quotes") return `<div class="rows">${a.rows.map((q) => `<div class="row top"><span class="n">${q.likes ?? 0} 讚</span><span class="t">「${esc(q.text)}」<small>@${esc(q.author)}${q.isAuthor ? " · <b>作者</b>" : ""}</small></span></div>`).join("")}</div>`;
   if (a.kind === "methods") {
     return `<div class="rows">${a.rows.map((m, i) => `<div class="row meth${i === 0 ? " main" : ""}"><span class="t"><b>${esc(m.name)}</b>${m.fit ? `<small>${esc(m.fit)}</small>` : ""}</span></div>`).join("")}</div>
       <div class="q1"><q>「${esc(a.quote.text)}」</q><cite>${cite(a.quote)}</cite></div>`;

@@ -15,7 +15,7 @@ export function createDeepReadingRunner(storage: StorageAreaLike, generate = gen
       const input=buildDeepReadingInput(item); if (!input || item.status!=='succeeded') throw new Error('尚未有已抓取留言');
       const model=deepModel(key.provider,settings.deepReadingModels);
       const at=now();
-      const metadata={itemId:item.id,captureId:input.captureId,promptVersion:DEEP_READING_PROMPT_VERSION,model,inputReplyCount:input.catalog.length,estimatedCost:estimateDeepReadingCost(buildDeepReadingPrompt(input).length+DEEP_READING_SYSTEM_PROMPT.length,model,at)};
+      const metadata={coverage:input.coverage,itemId:item.id,captureId:input.captureId,promptVersion:DEEP_READING_PROMPT_VERSION,model,inputReplyCount:input.catalog.length,estimatedCost:estimateDeepReadingCost(buildDeepReadingPrompt(input).length+DEEP_READING_SYSTEM_PROMPT.length,model,at)};
       await saveDeepReadingRecord(storage,{...metadata,status:'running',startedAt:at});
       try {
         const reading=await generate(key.provider,key.apiKey,input,model);

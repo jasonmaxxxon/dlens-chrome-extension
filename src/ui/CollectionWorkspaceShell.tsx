@@ -20,7 +20,6 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
   return (
     <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0 }}>
       <header style={{ position: "sticky", top: 0, zIndex: 3, background: tokens.collection.header, backdropFilter: tokens.collection.headerBlur, WebkitBackdropFilter: tokens.collection.headerBlur, height: tokens.collection.headerHeight, boxSizing: "border-box", display: "flex", alignItems: "center", gap: tokens.collection.tabGap, margin: `0 -${tokens.spacing.section}px`, padding: `0 ${tokens.spacing.section}px`, borderBottom: `1px solid ${tokens.color.line}` }}>
-        <span style={{ fontFamily: tokens.font.serif, fontSize: tokens.collection.logoSize, color: tokens.color.ink }}>dlens</span>
         <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: tokens.collection.tabGap, height: "100%", flex: 1 }}>
           {([['collection', '收藏'], ['workspaces', '工作區']] as const).filter(([key]) => allowCollection || key !== 'collection').map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} disabled={busy} onClick={() => onTabChange(key)}

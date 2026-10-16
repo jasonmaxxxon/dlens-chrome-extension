@@ -31,8 +31,8 @@ test("manifest grants unlimited local storage for the long-lived collection libr
   );
 });
 
-test("release target is 0.4.5", () => {
-  assert.equal(packageJson.version, "0.4.5");
+test("release target is 0.4.6", () => {
+  assert.equal(packageJson.version, "0.4.6");
 });
 
 test("extension version is synchronized across package lock, manifest, and UI", () => {

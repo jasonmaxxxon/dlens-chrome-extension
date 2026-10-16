@@ -1,3 +1,4 @@
+import { INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
 import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,8 +17,8 @@ test('topic input preserves parseable budget and top five reply refs',()=>{
 });
 test('topic parser drops whole point with unresolved ref and caps text',()=>{
  const input=buildTopicReadingInput(topic,[deepItem()]);
- const r=parseTopicReadingResponse(JSON.stringify({answer:'回答。仍有未明。',points:[{text:'字'.repeat(900),refs:['p1']},{text:'第二點',refs:['p1.r1']},{text:'bad',refs:['p1','p99']}],gaps:[{text:'未驗證'}]}),input)!;
- assert.equal(r.points.length,2);assert.equal(r.points[0].text.length,240);assert.equal(parseTopicReadingResponse('bad',input),null);
+ const r=parseTopicReadingResponse(JSON.stringify({answer:'回答。仍有未明。',points:[{text:'合成完整句子。'.repeat(100),refs:['p1']},{text:'第二點',refs:['p1.r1']},{text:'bad',refs:['p1','p99']}],gaps:[{text:'未驗證'}]}),input)!;
+ assert.equal(r.points.length,2);assert.ok(r.points[0].text.length<=240); assert.ok(r.points[0].text.endsWith("。"));assert.equal(parseTopicReadingResponse('bad',input),null);
 });
 import { generateTopicReading } from '../src/compare/provider.ts';
 import { createTopicReadingRunner } from '../src/state/topic-reading-run.ts';
@@ -64,7 +65,7 @@ test('topic malformed repair fails after exactly two calls',async()=>{
 });
 test('topic packet contains only matching current capture quick/deep readings',()=>{
  const item=deepItem();item.latestCapture!.analysis!.clusters=[{cluster_key:1,size_share:0.25,keywords:['方法']}] as any;
- const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:'v3',gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
+ const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
  const deep:any={post:{status:'complete',captureId:'c1',promptVersion:DEEP_READING_PROMPT_VERSION,reading:{takeaway:'先測試'}}};
  const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.match(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'先測試');
  inline.post.captureId='old';deep.post.promptVersion='old';const stale=buildTopicReadingInput(topic,[item],inline,deep);assert.equal(stale.posts[0].audience,null);assert.equal(stale.posts[0].takeaway,'');

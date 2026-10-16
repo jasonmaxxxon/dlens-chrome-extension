@@ -1,6 +1,7 @@
-import { isReplyQuestion } from "../compare/reply-thread";
+import { clipReadingCopy, cleanReadingCopy } from "../compare/reading-copy";
+import { buildReplyThreads, isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
-import { readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
+import { guardInlineAudienceReading, readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { InlineReading } from "../compare/inline-reading";
 
@@ -11,7 +12,7 @@ import type { InlineReading } from "../compare/inline-reading";
  */
 export type InlineCardPhase = "saved" | "queued" | "running" | "failed" | "done";
 export type InlineCardEntryKey = "stance" | "method" | "split" | "top" | "op" | "ask";
-export interface InlineCardQuote { text: string; author: string; likes: number | null }
+export interface InlineCardQuote { text: string; author: string; likes: number | null; isAuthor?: boolean }
 export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark: string; finding: string }
 export type InlineCardAnswer =
   | { kind: "clusters"; headline: string; segments: { label: string; pct: number; noise: boolean }[]; quote: InlineCardQuote | null }
@@ -76,8 +77,7 @@ export const estimateCrawlSeconds = (item: SessionItem) =>
 
 type Comment = CrawlComment;
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes });
-const short = (text: string, max = 24) => (text.length > max ? `${text.slice(0, max)}…` : text);
+const short = (text: string, max = 24) => clipReadingCopy(text, max) || "提問詳見原留言";
 
 function phaseOf(item: SessionItem): InlineCardPhase {
   if (item.status === "succeeded") return "done";
@@ -130,11 +130,11 @@ const isNoise = (cluster: { cluster_key: number }, reading: InlineReading | null
 /** Largest first, but noise (spam, ads, off-topic) after every real reaction. */
 const orderClusters = <C extends { cluster_key: number }>(clusters: C[], reading: InlineReading | null) =>
   [...clusters.filter((c) => !isNoise(c, reading)), ...clusters.filter((c) => isNoise(c, reading))];
-const keywordLabel = (keywords: string[]) => keywords.map((k) => k.trim()).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
+const keywordLabel = (keywords: string[]) => keywords.map(cleanReadingCopy).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
 const pct = (share: number) => Math.round(share * 100);
 
 function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined) {
-  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? ai.reading : null;
+  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? guardInlineAudienceReading(ai.reading, buildReplyThreads(readCrawlComments(item), readOpHandle(item))) : null;
 }
 function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined): InlineCardViewModel["ai"] {
   if (!ai) return null;
@@ -164,6 +164,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
 
   const t = readInlineCardThread(item);
+  const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes, isAuthor: !!t.op && handle(c.author) === t.op });
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
   const currentReading = readingOf(item, context.ai);
@@ -188,7 +189,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
       kind: "clusters",
       headline: reading?.gist ?? `最大一群講「${nameOf(lead)}」，佔已讀留言 ${pct(lead.size_share)}%。`,
       segments: ordered.map((c) => ({ label: nameOf(c), pct: pct(c.size_share), noise: isNoise(c, reading) })),
-      quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null } : null
+      quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null, isAuthor: !!t.op && handle(evidence.author) === t.op } : null
     };
   }
 
@@ -224,9 +225,9 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   }
 
   const open = t.asks.filter((a) => a.status === "none").length;
-  base.entries.push({ key: "ask", label: "大家問咩", mark: t.asks.length ? (open ? `${open} 未回` : "都有回覆") : "", finding: reading?.find.ask ?? t.asks[0]?.c.text ?? "未見提問" });
+  base.entries.push({ key: "ask", label: "大家問咩", mark: t.asks.length ? (open ? `${open} 未回` : "都有回覆") : "", finding: cleanReadingCopy(reading?.find.ask ?? t.asks[0]?.c.text) || "未見提問" });
   base.answers.ask = t.asks.length
-    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: a.c.text, status: a.status })) }
+    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: cleanReadingCopy(a.c.text), status: a.status })) }
     : { kind: "empty", text: "已讀留言裡未見提問。" };
   base.hasEvidence = t.clusters.length > 0 || t.ranked.length > 0 || (!!context.forReader && t.comments.length > 0);
   return base;

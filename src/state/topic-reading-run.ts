@@ -20,7 +20,7 @@ export function createTopicReadingRunner(storage:StorageAreaLike,generate=genera
    const key=providerKeyFromSettings(settings);if(!key)throw new Error(aiKeyGap(settings) || '設定未選 AI provider');
    const input=buildTopicReadingInput(topic,items,inline,deep);if(!input.posts.length)throw new Error('未有讀完嘅貼文');
    const model=deepModel(key.provider,settings.deepReadingModels),at=now();
-   const metadata={topicId:topic.id,signature:input.signature,question:input.question,promptVersion:TOPIC_READING_PROMPT_VERSION,model,inputPostCount:input.posts.length,omittedPostCount:input.omittedPostCount,estimatedCost:estimateDeepReadingCost(buildTopicReadingPrompt(input).length+TOPIC_READING_SYSTEM_PROMPT.length,model,at)};
+   const metadata={coverage:input.coverage,topicId:topic.id,signature:input.signature,inputHash:input.inputHash,budgetVersion:input.budgetVersion,question:input.question,promptVersion:TOPIC_READING_PROMPT_VERSION,model,inputPostCount:input.posts.length,omittedPostCount:input.omittedPostCount,estimatedCost:estimateDeepReadingCost(buildTopicReadingPrompt(input).length+TOPIC_READING_SYSTEM_PROMPT.length,model,at)};
    await saveTopicReadingRecord(storage,{...metadata,status:'running',startedAt:at});
    try{const reading=await generate(key.provider,key.apiKey,input,model);const record:TopicReadingRecord={...metadata,status:'complete',generatedAt:now(),reading,refs:input.refs};await saveTopicReadingRecord(storage,record);return record;}
    catch(e){await saveTopicReadingRecord(storage,{...metadata,status:'failed',error:e instanceof Error ? e.message : String(e),at:now()});throw e;}
