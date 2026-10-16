@@ -18,5 +18,7 @@ export function readingCoverageLabel(c:ReadingCoverage|undefined):string {
  if(!c)return '覆蓋：未知';
  const bodyCap=c.reductions.filter((r):r is {kind:'bodies-cut';limit:number}=>r.kind==='bodies-cut').at(-1)?.limit;
  const notes=[c.reductions.some(r=>r.kind==='summaries-cleared')?'預分析已移除':'',c.reductions.some(r=>r.kind==='replies-cleared')?'留言原句已移除':'',c.reductions.some(r=>r.kind==='replies-cut')?'留言原句已縮短':'',c.reductions.some(r=>r.kind==='replies-selected')?'留言經抽樣':'',c.posts.omitted?`${c.posts.omitted} 篇未納入`:''].filter(Boolean);
- return `送入模型：${c.posts.included} 篇正文${bodyCap?`（截至 ${bodyCap} 字）`:''} · ${c.replyQuotes.sent} 則留言原句 · ${c.summaries.sent} 份預分析。正文 ${c.bodyCharacters.sent}／已抓取 ${c.bodyCharacters.captured} 字；留言 ${c.replyQuotes.sent}／已抓取 ${c.replyQuotes.captured}；預分析 ${c.summaries.sent}／可用 ${c.summaries.available}。${notes.join('；')}`;
+ const captured=c.replyQuotes.captured>c.replyQuotes.sent?`（已抓取 ${c.replyQuotes.captured} 則）`:'';
+ const summaries=c.summaries.available?` · ${c.summaries.sent} 份預分析`:'';
+ return `送入模型：${c.posts.included} 篇正文${bodyCap?`（截至 ${bodyCap} 字）`:''} · ${c.replyQuotes.sent} 則留言原句${captured}${summaries}${notes.length?`。${notes.join('；')}`:''}`;
 }

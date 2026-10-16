@@ -1,5 +1,4 @@
-import {useState} from "react";
-import {resolveReadingSource, type ReadingSourceRef} from "../viewmodel/reading-source";
+import {resolveReadingSource} from "../viewmodel/reading-source";
 import {ReadingSource} from "./ReadingSource";
 import type { CSSProperties } from 'react';
 import type { TopicReadingModel } from '../viewmodel/topic-reading';
@@ -11,7 +10,6 @@ const card: CSSProperties = { marginTop: tokens.spacing.md, padding: rd.cardPadd
 
 /** 話題解讀: refs reveal the exact captured source inside the side panel reader. */
 export function TopicReadingView({ model, onRun, onRef }: { model: TopicReadingModel; onRun: () => void; onRef: (itemId: string) => void }) {
-  const [sourceRef,setSourceRef]=useState<ReadingSourceRef|null>(null);
   // Deduplicate only the same capture and comment; one author may supply several sources.
   const refs = (ids: string[]): RefLink[] => {
     const seen = new Set<string>();
@@ -20,7 +18,7 @@ export function TopicReadingView({ model, onRun, onRef }: { model: TopicReadingM
       const key = ref ? `${ref.itemId}:${ref.captureId}:${ref.commentId ?? "root"}` : '';
       if (!ref || seen.has(key)) return [];
       seen.add(key);
-      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href:resolveReadingSource(model.sourceItems,ref).url,onClick: () => setSourceRef(ref) }];
+      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href:resolveReadingSource(model.sourceItems,ref).url,source: () => <ReadingSource source={resolveReadingSource(model.sourceItems, ref)} /> }];
     });
   };
   const run = (label: string) => <RunButton label={label} onClick={onRun} data={{ 'data-topic-reading-run': '' }} />;
@@ -33,8 +31,7 @@ export function TopicReadingView({ model, onRun, onRef }: { model: TopicReadingM
     {model.state === 'error' ? <p role="alert" style={{ margin: `${tokens.spacing.sm}px 0 0`, fontSize: r.secondary }}>{model.error}</p> : null}
     {model.reading && (model.state === 'done' || model.state === 'stale') ? <div style={{ marginTop: rd.sectionGap, paddingTop: rd.sectionGap, borderTop: `1px solid ${tokens.color.line}` }}>
       <p style={{ margin: 0, color: tokens.color.ink }}>{model.reading.answer}</p>
-      <ul style={{ margin: `${tokens.spacing.md}px 0 0`, padding: 0, listStyle: 'none', display: 'grid', gap: tokens.spacing.md }}>{model.reading.points.map((p, i) => <li key={i} style={{ display: 'grid', gridTemplateColumns: '12px minmax(0,1fr)', gap: tokens.spacing.xs, fontSize: r.secondary + 0.5, color: tokens.color.subInk }}><span aria-hidden="true" style={{ color: t.accent, lineHeight: 1.9, fontSize: 8 }}>●</span><span>{p.text}<RefLinks items={refs(p.refs)} /></span></li>)}</ul>
-      {sourceRef ? <ReadingSource source={resolveReadingSource(model.sourceItems,sourceRef)}/> : null}
+      <ul style={{ margin: `${tokens.spacing.md}px 0 0`, padding: 0, listStyle: 'none', display: 'grid', gap: tokens.spacing.md }}>{model.reading.points.map((p, i) => <li key={i} style={{ display: 'grid', gridTemplateColumns: '12px minmax(0,1fr)', gap: tokens.spacing.xs, fontSize: r.secondary + 0.5, color: tokens.color.subInk }}><span aria-hidden="true" style={{ color: t.accent, lineHeight: 1.9, fontSize: 8 }}>●</span><div>{p.text}<RefLinks items={refs(p.refs)} /></div></li>)}</ul>
       {model.reading.gaps.map((g, i) => <p key={i} style={{ margin: `${tokens.spacing.md}px 0 0`, padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`, borderRadius: tokens.radius.card, background: rd.definition, fontSize: r.secondary, color: tokens.color.subInk }}><b style={{ color: t.status.open }}>未答到</b> · {g.text}</p>)}
     </div> : null}
     {model.uncapturedCount ? <p style={{ margin: `${tokens.spacing.sm}px 0 0`, fontSize: r.meta, color: d.soft }}>{model.uncapturedCount ? `${model.uncapturedCount} 篇未有擷取，未納入。` : ''}</p> : null}

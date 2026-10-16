@@ -1,5 +1,4 @@
-import {useState} from "react";
-import {resolveReadingSource, type ReadingSourceRef} from "../viewmodel/reading-source";
+import {resolveReadingSource} from "../viewmodel/reading-source";
 import {ReadingSource} from "./ReadingSource";
 import type { CSSProperties } from 'react';
 import type { DeepReadingModel, DeepCommand } from '../viewmodel/deep-reading';
@@ -16,7 +15,6 @@ const BASIS = { experience: '有經驗', opinion: '意見', question: '提問' }
 /** 深入解讀: offer → reading → result, led by the summary with terms, debates and evidence folded. */
 export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel; onCommand: (command: DeepCommand) => void }) {
   const reading = model.reading;
-  const [sourceRef,setSourceRef]=useState<ReadingSourceRef|null>(null);
   // Distinct comments remain distinct even when neither has a permalink.
   const refs = (ids: string[]): RefLink[] => {
     const seen = new Set<string>();
@@ -25,7 +23,7 @@ export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel;
       const key = ref ? ref.commentId : '';
       if (!ref || seen.has(key)) return [];
       seen.add(key);
-      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href: ref.url, onClick:()=>setSourceRef({itemId:model.itemId,captureId:model.sourceCaptureId ?? '',commentId:ref.commentId}) }];
+      return [{ key: id, label: ref.author.replace(/^@/, '') || 'unknown', href: ref.url, source: () => <ReadingSource source={resolveReadingSource(model.sourceItems, { itemId: model.itemId, captureId: model.sourceCaptureId ?? '', commentId: ref.commentId })} /> }];
     });
   };
   const meta = `${model.model} · ${model.replyCount} 則 · ${model.cost}`;
@@ -53,21 +51,21 @@ export function DeepReadingView({ model, onCommand }: { model: DeepReadingModel;
             <small style={{ flexShrink: 0, padding: '2px 7px', borderRadius: tokens.radius.pill, fontSize: r.meta - 1, fontWeight: 600, background: rd.statusWash[debate.status], color: t.status[debate.status] }}>{STATUS[debate.status]}</small>
             <span aria-hidden="true" style={{ flexShrink: 0, fontSize: r.meta, color: tokens.color.softInk }}>{model.disclosure.debate === i ? '▴' : '▾'}</span>
           </button>
-          {model.disclosure.debate === i ? debate.sides.map((side, j) => <div key={j} data-deep-side="" style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: `2px ${tokens.spacing.sm}px`, marginTop: tokens.spacing.sm, fontSize: r.secondary }}>
-            <span style={{ color: tokens.color.softInk, whiteSpace: 'nowrap' }}>{side.who}</span>
-            <span style={{ color: tokens.color.subInk }}>{side.claim}</span>
-            <span style={{ gridColumn: 2, fontSize: r.meta, color: tokens.color.softInk }}><b style={{ color: rd.basis[side.basis] }}>{BASIS[side.basis]}</b>{side.note ? ` · ${side.note}` : ''}<RefLinks items={refs(side.refs)} /></span>
+          {model.disclosure.debate === i ? debate.sides.map((side, j) => <div key={j} data-deep-side="" style={{ marginTop: tokens.spacing.sm, paddingLeft: tokens.spacing.md, borderLeft: `2px solid ${rd.basis[side.basis]}`, fontSize: r.secondary }}>
+            <span style={{ display: 'block', fontSize: r.meta, fontWeight: 600, color: tokens.color.softInk }}>{side.who}</span>
+            <span style={{ display: 'block', color: tokens.color.ink }}>{side.claim}</span>
+            <span style={{ display: 'block', marginTop: 2, fontSize: r.meta, color: tokens.color.softInk }}><b style={{ color: rd.basis[side.basis] }}>{BASIS[side.basis]}</b>{side.note ? ` · ${side.note}` : ''}</span>
+            <RefLinks items={refs(side.refs)} />
           </div>) : null}
         </div>)}
       </div> : null}
       <div style={section}>
         <button type="button" data-deep-more="" aria-expanded={model.disclosure.more} onClick={() => onCommand({ type: 'more' })} style={{ ...quiet, fontSize: r.secondary, color: tokens.color.softInk }}>{model.disclosure.more ? '收起 ▴' : '更多：證據強弱 · 冇人答 ▾'}</button>
         {model.disclosure.more ? <div data-deep-evidence="" style={{ display: 'grid', gap: tokens.spacing.sm, marginTop: tokens.spacing.sm, fontSize: r.secondary, color: tokens.color.subInk }}>
-          {(['strong', 'weak'] as const).flatMap(kind => reading.evidence[kind].map((point, i) => <div key={`${kind}${i}`} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0,1fr)', gap: tokens.spacing.xs }}><span aria-hidden="true" style={{ color: kind === 'strong' ? t.status.agree : t.status.open }}>{kind === 'strong' ? '●' : '○'}</span><span>{point.text}<RefLinks items={refs(point.refs)} /></span></div>))}
-          {reading.unanswered.map((point, i) => <div key={`q${i}`} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0,1fr)', gap: tokens.spacing.xs }}><b aria-hidden="true" style={{ color: t.accent }}>?</b><span>{point.question}<RefLinks items={refs(point.refs)} /></span></div>)}
+          {(['strong', 'weak'] as const).flatMap(kind => reading.evidence[kind].map((point, i) => <div key={`${kind}${i}`} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0,1fr)', gap: tokens.spacing.xs }}><span aria-hidden="true" style={{ color: kind === 'strong' ? t.status.agree : t.status.open }}>{kind === 'strong' ? '●' : '○'}</span><div>{point.text}<RefLinks items={refs(point.refs)} /></div></div>))}
+          {reading.unanswered.map((point, i) => <div key={`q${i}`} style={{ display: 'grid', gridTemplateColumns: '14px minmax(0,1fr)', gap: tokens.spacing.xs }}><b aria-hidden="true" style={{ color: t.accent }}>?</b><div>{point.question}<RefLinks items={refs(point.refs)} /></div></div>)}
         </div> : null}
       </div>
-      {sourceRef ? <ReadingSource source={resolveReadingSource(model.sourceItems,sourceRef)}/> : null}
       <footer style={{ marginTop: rd.sectionGap, fontSize: r.meta, color: tokens.color.softInk }}>每點都連返原留言</footer>
     </> : null}
   </section>;

@@ -83,8 +83,10 @@ export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: s
     }), evidence:{strong:points(obj(p.evidence)?.strong),weak:points(obj(p.evidence)?.weak)},
     unanswered:grounded(p.unanswered,8).flatMap(x=>text(x.question,160) ? [{question:text(x.question,160),refs:x.refs}] : []) };
   if (droppedAudienceSide) {
-    reading.background = reading.background.replace(/[^。！？!?]*?(?:一致|共識|全都|所有觀眾)[^。！？!?]*[。！？!?]?/g, '').trim() || '作者提供解釋；未見足夠觀眾分歧。';
-    reading.takeaway = '未見足夠觀眾分歧；作者回應只作解釋。';
+    // Only the consensus sentences lean on the dropped side; the rest of the reading still stands.
+    const consensus = /[^。！？!?]*?(?:一致|共識|全都|所有觀眾)[^。！？!?]*[。！？!?]?/g;
+    reading.background = reading.background.replace(consensus, '').trim() || '作者提供解釋；未見足夠觀眾分歧。';
+    reading.takeaway = reading.takeaway.replace(consensus, '').trim() || '未見足夠觀眾分歧；作者回應只作解釋。';
   }
   return reading;
 }
