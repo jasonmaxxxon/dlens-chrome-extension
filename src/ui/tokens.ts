@@ -44,7 +44,7 @@ export const tokens = {
   collection: {
     modeTileSize: 34,
     bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
-    headerHeight: 48, logoSize: 21, tabWidth: 54, tabGap: 18, searchHeight: 36,
+    headerHeight: 48, tabWidth: 54, tabGap: 18, searchHeight: 36,
     thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,
     rowPadding: 10, rowLift: -2, cardPress: .985, indicatorHeight: 2, segmentPadding: 2,
     segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,
