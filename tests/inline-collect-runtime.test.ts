@@ -613,3 +613,20 @@ test('product one-line verdict follows analysis storage updates and failure keep
  assert.match(s.dom.window.document.querySelector('.dlens-save-line')!.textContent!,/抓取失敗.*backend/);assert.ok(s.dom.window.document.querySelector('.dlens-save-line [data-dlens-act="crawl"]'));
  }finally{s.cleanup();}
 });
+
+test("pressing 重試 again while a crawl start is pending sends nothing more", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.click(); await tick();
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("archive", "saved"), tab: createEmptyTabState() } }); await tick();
+    const before = s.calls.length;
+    s.emitGlobal(readingGlobal("topic", "failed"));
+    const retry = () => s.dom.window.document.querySelector<HTMLButtonElement>('[data-dlens-act="crawl"]')!.click();
+    retry(); await tick(); retry(); await tick(); retry(); await tick();
+    const starts = s.calls.slice(before).filter(call => call.message.type === "session/queue-items-and-start-processing");
+    assert.equal(starts.length, 1);
+    starts[0].resolve({ ok: true, processingStatus: "started", queuedItemIds: ["item-a"], failedItemIds: [] } as ExtensionResponse); await tick();
+    retry(); await tick();
+    assert.equal(s.calls.slice(before).filter(call => call.message.type === "session/queue-items-and-start-processing").length, 2, "a settled start can be retried");
+  } finally { s.cleanup(); }
+});

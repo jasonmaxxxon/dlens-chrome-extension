@@ -3655,3 +3655,38 @@ test('deep-reading/run finds a product item and single-flights its stored captur
     assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
   } finally {globalThis.fetch=previousFetch;}
 });
+
+test("a crawl start for a post already queued joins its job instead of posting another capture", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    const queued = { ...createSessionItem(makeDescriptor("in-flight")), id: "item-in-flight", status: "queued" as const, captureId: "cap-in-flight", jobId: "job-in-flight", canonicalTargetUrl: "https://www.threads.net/@dlens/post/in-flight" };
+    const fresh = { ...createSessionItem(makeDescriptor("fresh")), id: "item-fresh" };
+    const topic = { ...makeSession("topic-session", "topic"), items: [queued, fresh] };
+    const posts: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method || "GET").toUpperCase();
+      if (url.endsWith("/capture-target") && method === "POST") {
+        posts.push(String(init?.body));
+        return jsonResponse(makeCaptureTargetResponse("fresh"));
+      }
+      if (url.endsWith("/worker/drain")) return jsonResponse({ status: "already_running" });
+      throw new Error(`not ready: ${url}`);
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, ingestBaseUrl: "" } },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({ type: "session/queue-items-and-start-processing", sessionId: topic.id, itemIds: ["item-in-flight", "item-in-flight", "item-fresh"] } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.equal(posts.length, 1, "only the post that was not crawling is submitted");
+    assert.match(posts[0], /fresh/);
+    assert.deepEqual((response as { queuedItemIds: string[] }).queuedItemIds, ["item-in-flight", "item-in-flight", "item-fresh"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

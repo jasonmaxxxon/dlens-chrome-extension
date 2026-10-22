@@ -1694,7 +1694,7 @@ async function queueSessionItem(
   tabId: number,
   sessionId: string,
   itemId: string,
-  options: { reconcileToken?: RequestReconcileToken | null } = {}
+  options: { reconcileToken?: RequestReconcileToken | null; joinInFlight?: boolean } = {}
 ): Promise<{ snapshot: ExtensionSnapshot; submit: CaptureTargetResponse }> {
   // Raw lock: this mutation returns ingest submit metadata in addition to the saved snapshot.
   return withSnapshotLock(async () => {
@@ -1703,6 +1703,13 @@ async function queueSessionItem(
     const item = session?.items.find((candidate) => candidate.id === itemId);
     if (!session || !item) {
       throw new Error("Saved post not found.");
+    }
+    // A post already queued or crawling joins its job: repeated 重試 presses stacked 20 jobs for one post (2026-10-21).
+    if (options.joinInFlight && (item.status === "queued" || item.status === "running") && item.jobId && item.captureId) {
+      return {
+        snapshot: current,
+        submit: { capture_id: item.captureId, job_id: item.jobId, status: "queued", job_type: "threads_post_comments_crawl", canonical_target_url: item.canonicalTargetUrl ?? "" }
+      };
     }
 
     const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
@@ -1780,7 +1787,8 @@ async function queueSessionItems(
     itemIds,
     queueOne: async (itemId) => {
       const result = await queueSessionItem(tabId, sessionId, itemId, {
-        reconcileToken: options.reconcileToken
+        reconcileToken: options.reconcileToken,
+        joinInFlight: true
       });
       return result.snapshot;
     }

@@ -74,7 +74,11 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const repaintCard = (identity: string) => injection?.entries().filter((entry) => entry.identity === identity).forEach(renderCard);
   // A crawl request that never reached a job leaves the item 「saved」; the card says why instead of staying silent.
   const startErrors = new Map<string, string>();
+  // One start request per post at a time; presses while it is pending are ignored instead of queueing more crawls.
+  const starting = new Set<string>();
   function crawl(destination: InlineCollectSavedPost) {
+    if (starting.has(destination.itemId)) return;
+    starting.add(destination.itemId);
     const fail = (reason: string) => {
       startErrors.set(destination.postKey, reason);
       repaintCard(destination.postKey);
@@ -87,7 +91,8 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
         if (!response.ok) fail(response.error || "後端拒絕了抓取請求。");
         else if (!response.queuedItemIds.length) fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
         else if (response.processingError) fail(`已排隊，但後端未開始處理：${response.processingError}`);
-      }, () => fail("未能連上 DLens 背景程式。"));
+      }, () => fail("未能連上 DLens 背景程式。"))
+      .finally(() => starting.delete(destination.itemId));
   }
   // 1-second peek: the post page's own first replies, fetched once per post while its crawl is pending.
   const peeks = new Map<string, InlineCardPeekInput>();
