@@ -427,6 +427,12 @@ export function expireStaleInFlightItems(
   };
 }
 
+/** An item whose crawl job is already queued or running keeps that job; re-submitting would stack duplicate crawls behind the single worker. */
+export function inFlightSubmit(item: SessionItem): CaptureTargetResponse | null {
+  if ((item.status !== "queued" && item.status !== "running") || !item.jobId || !item.captureId || !item.canonicalTargetUrl) return null;
+  return { capture_id: item.captureId, job_id: item.jobId, status: "queued", job_type: "threads_post_comments_crawl", canonical_target_url: item.canonicalTargetUrl };
+}
+
 export function markSessionItemQueued(
   item: SessionItem,
   submit: CaptureTargetResponse,

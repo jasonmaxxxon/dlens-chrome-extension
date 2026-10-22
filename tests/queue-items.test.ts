@@ -45,3 +45,17 @@ test("queueItemsSequential keeps queueing after one item fails", async () => {
     console.error = originalError;
   }
 });
+
+test("inFlightSubmit reuses the job of a queued or running item and nothing else", async () => {
+  const { inFlightSubmit } = await import("../src/state/store-helpers.ts");
+  const base = { captureId: "cap-1", jobId: "job-1", canonicalTargetUrl: "https://www.threads.net/@a/post/X" };
+  for (const status of ["queued", "running"] as const) {
+    const submit = inFlightSubmit({ ...base, status } as never);
+    assert.equal(submit?.job_id, "job-1");
+    assert.equal(submit?.capture_id, "cap-1");
+  }
+  for (const status of ["saved", "failed", "succeeded"] as const) {
+    assert.equal(inFlightSubmit({ ...base, status } as never), null);
+  }
+  assert.equal(inFlightSubmit({ ...base, status: "queued", jobId: null } as never), null);
+});

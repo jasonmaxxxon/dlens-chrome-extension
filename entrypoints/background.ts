@@ -105,6 +105,7 @@ import {
   getActiveSession,
   getSessionById,
   getPostIdentity,
+  inFlightSubmit,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
@@ -1704,6 +1705,9 @@ async function queueSessionItem(
     if (!session || !item) {
       throw new Error("Saved post not found.");
     }
+
+    const inFlight = inFlightSubmit(item);
+    if (inFlight) return { snapshot: current, submit: inFlight };
 
     const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
     const submit = await submitCaptureTarget(baseUrl, item.descriptor, session.name);
