@@ -3390,6 +3390,45 @@ test("signal/delete keeps shared item tags until the last signal reference disap
 });
 
 
+test("signal/delete onlyIfOrphan keeps a signal whose backing item landed after the side panel snapshot", async () => {
+  const fresh = makeSucceededItem("fresh", "new save");
+  fresh.id = "item-fresh";
+  const session = { ...makeSession("topic-session", "topic"), items: [fresh] };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: createEmptyTabState(),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-fresh", session.id, "item-fresh", "topic-1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-fresh"])]
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-fresh", onlyIfOrphan: true });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).map((signal) => signal.id), ["signal-fresh"]);
+  assert.deepEqual((response.signals ?? []).map((signal) => signal.id), ["signal-fresh"]);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.deepEqual(global.sessions[0]?.items.map((item) => item.id), ["item-fresh"]);
+});
+
+test("signal/delete onlyIfOrphan still removes a signal with no backing item", async () => {
+  const session = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: createEmptyTabState(),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-orphan", session.id, "item-gone", "topic-1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-orphan"])]
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-orphan", onlyIfOrphan: true });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY] as Signal[], []);
+});
+
 test("inline collect picks the newest destination and preserves workspace navigation", async () => {
   const topic = makeSession("topic-active", "topic");
   const older = makeSession("product-old", "product");

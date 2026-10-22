@@ -149,7 +149,7 @@ import {
   requireSessionItemActionTarget,
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
-import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
+import { applySignalDeletionToGlobalState, deleteSignalStorageRecords, isSignalMissingBackingItem } from "../src/state/session-signal-seam";
 import { createInlineToast } from "../src/state/ui-state";
 import { getModeHomePage, projectBackendWorkStatus } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -2565,7 +2565,21 @@ export default defineBackground(() => {
             const resultRef: {
               value: Awaited<ReturnType<typeof deleteSignalStorageRecords>> | null;
             } = { value: null };
+            const keptRef: { value: { signals: Signal[]; topics: Topic[] } | null } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
+              if (message.onlyIfOrphan) {
+                // Re-read under the lock: the sender saw an older folder snapshot, and a save may have landed since.
+                const signal = (await loadAllSignals(chrome.storage.local)).find((entry) => entry.id === message.signalId);
+                const session = signal ? current.global.sessions.find((entry) => entry.id === signal.sessionId) : null;
+                if (!signal || !session || !isSignalMissingBackingItem(session, signal)) {
+                  const sessionId = signal?.sessionId ?? null;
+                  keptRef.value = {
+                    signals: sessionId ? await loadSignals(chrome.storage.local, sessionId) : [],
+                    topics: sessionId ? await loadTopics(chrome.storage.local, sessionId) : []
+                  };
+                  return current;
+                }
+              }
               const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
               const deletedItem = current.global.sessions.flatMap(session => session.items).find(item => item.id === deletion.deleted.itemId);
               if (deletedItem) invalidateInlineCollectUndo(deletedItem.descriptor);
@@ -2593,6 +2607,10 @@ export default defineBackground(() => {
                 }
               };
             });
+            if (keptRef.value) {
+              sendResponse({ ok: true, tabId, snapshot, ...keptRef.value } satisfies ExtensionResponse);
+              return;
+            }
             const deletion = resultRef.value;
             if (!deletion) {
               throw new Error("Signal deletion did not complete.");
