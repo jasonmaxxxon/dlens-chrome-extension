@@ -105,6 +105,7 @@ import {
   getActiveSession,
   getSessionById,
   getPostIdentity,
+  inFlightSubmit,
   markSessionItemQueued,
   mergeItemRefreshResultsIntoGlobal,
   mergeRefreshResults,
@@ -148,7 +149,7 @@ import {
   requireSessionItemActionTarget,
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
-import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
+import { applySignalDeletionToGlobalState, deleteSignalStorageRecords, isSignalMissingBackingItem } from "../src/state/session-signal-seam";
 import { createInlineToast } from "../src/state/ui-state";
 import { getModeHomePage, projectBackendWorkStatus } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -1705,6 +1706,9 @@ async function queueSessionItem(
       throw new Error("Saved post not found.");
     }
 
+    const inFlight = inFlightSubmit(item);
+    if (inFlight) return { snapshot: current, submit: inFlight };
+
     const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
     const submit = await submitCaptureTarget(baseUrl, item.descriptor, session.name);
     const initialJob = await fetchJob(baseUrl, submit.job_id).catch(() => null);
@@ -1728,7 +1732,9 @@ async function queueSessionItem(
         lastSavedToast: createInlineToast("queued", session.name),
         error: null
       }
-    }, { reconcileToken: options.reconcileToken });
+    });
+    // Not gated by options.reconcileToken: the backend job already exists, so its ids must persist even when a newer
+    // request superseded this one. Dropping them lets the next caller see the item as "saved" and queue a duplicate job.
     if (session.mode === "product") {
       queueProductSignalAutoAnalysis(tabId, nextSnapshot.global, sessionId);
     }
@@ -2559,7 +2565,22 @@ export default defineBackground(() => {
             const resultRef: {
               value: Awaited<ReturnType<typeof deleteSignalStorageRecords>> | null;
             } = { value: null };
+            const keptRef: { value: { signals?: Signal[]; topics?: Topic[] } | null } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
+              if (message.onlyIfOrphan) {
+                // Re-read under the lock: the sender saw an older folder snapshot, and a save may have landed since.
+                const signal = (await loadAllSignals(chrome.storage.local)).find((entry) => entry.id === message.signalId);
+                const session = signal ? current.global.sessions.find((entry) => entry.id === signal.sessionId) : null;
+                if (!signal || !session || !isSignalMissingBackingItem(session, signal)) {
+                  const sessionId = signal?.sessionId ?? null;
+                  // A signal another cleanup already removed has no folder to report; omitting the lists lets the caller
+                  // drop just that id instead of blanking its whole list until the next hydrate.
+                  keptRef.value = sessionId
+                    ? { signals: await loadSignals(chrome.storage.local, sessionId), topics: await loadTopics(chrome.storage.local, sessionId) }
+                    : {};
+                  return current;
+                }
+              }
               const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
               const deletedItem = current.global.sessions.flatMap(session => session.items).find(item => item.id === deletion.deleted.itemId);
               if (deletedItem) invalidateInlineCollectUndo(deletedItem.descriptor);
@@ -2587,6 +2608,10 @@ export default defineBackground(() => {
                 }
               };
             });
+            if (keptRef.value) {
+              sendResponse({ ok: true, tabId, snapshot, ...keptRef.value } satisfies ExtensionResponse);
+              return;
+            }
             const deletion = resultRef.value;
             if (!deletion) {
               throw new Error("Signal deletion did not complete.");

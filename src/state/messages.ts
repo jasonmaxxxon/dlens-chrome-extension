@@ -66,7 +66,8 @@ export type ExtensionMessagePayload =
   | { type: "extension/open-page"; path: string }
   | { type: "signal/list"; sessionId: string; status?: SignalInboxStatus }
   | { type: "signal/triage"; signalId: string; action: TriageAction }
-  | { type: "signal/delete"; signalId: string }
+  /** onlyIfOrphan: automatic cleanup; the background deletes only if the signal still has no backing item. */
+  | { type: "signal/delete"; signalId: string; onlyIfOrphan?: boolean }
   | { type: "product/list-signal-analyses"; signalIds?: string[] }
   | { type: "product/analyze-signals"; sessionId: string }
   | { type: "product/list-agent-task-feedback" }

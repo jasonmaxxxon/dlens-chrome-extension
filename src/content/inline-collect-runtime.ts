@@ -86,7 +86,8 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       .then((response) => {
         if (!response.ok) fail(response.error || "後端拒絕了抓取請求。");
         else if (!response.queuedItemIds.length) fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
-        else if (response.processingError) fail(`已排隊，但後端未開始處理：${response.processingError}`);
+        // The job exists, so this is not a failed crawl; nothing here retries the worker start, so the copy promises nothing.
+        else if (response.processingError) wheel.showToast("已排隊，但未能確認後端開始處理。請勿重複建單。");
       }, () => fail("未能連上 DLens 背景程式。"));
   }
   // 1-second peek: the post page's own first replies, fetched once per post while its crawl is pending.

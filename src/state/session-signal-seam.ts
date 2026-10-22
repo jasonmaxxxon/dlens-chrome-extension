@@ -4,7 +4,21 @@ import { deleteSignalReadingsBySignalId } from "../compare/signal-reading-storag
 import { deleteTopicSignalReadingsBySignalId } from "../compare/topic-signal-reading-storage";
 import { removeSessionItem } from "./store-helpers";
 import { deleteSignal, type StorageAreaLike } from "./topic-storage";
-import type { ExtensionGlobalState, Signal, Topic } from "./types";
+import type { ExtensionGlobalState, SessionRecord, Signal, Topic } from "./types";
+
+/** A signal that points at an item this folder no longer holds, or holds without any identifying descriptor field. */
+export function isSignalMissingBackingItem(session: SessionRecord, signal: Signal): boolean {
+  if (signal.sessionId !== session.id || !signal.itemId) {
+    return false;
+  }
+  const descriptor = session.items.find((item) => item.id === signal.itemId)?.descriptor;
+  return !descriptor || !(
+    descriptor.text_snippet?.trim() ||
+    descriptor.post_url ||
+    descriptor.page_url ||
+    descriptor.author_hint?.trim()
+  );
+}
 
 export type SignalStorageDeletion = {
   deleted: Signal;

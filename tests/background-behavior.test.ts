@@ -1981,7 +1981,7 @@ test("pr/fetch-advanced-metrics writes broadcast state/updated exactly once per 
   }
 });
 
-test("session/queue-item ignores stale request writes before storage and broadcast", async () => {
+test("session/queue-item persists a created job even when a newer request superseded it", async () => {
   enablePipelineTraceForTest();
   const originalFetch = globalThis.fetch;
   let releaseOldCaptureTarget: ((response: Response) => void) | null = null;
@@ -2063,24 +2063,67 @@ test("session/queue-item ignores stale request writes before storage and broadca
 
     assert.equal(oldResponse.ok, true);
     assert.equal(newResponse.ok, true);
-    assert.equal(harness.writes.length, 1);
-    assert.equal(harness.tabMessages.filter((message) => message.type === "state/updated").length, 1);
+    assert.equal(harness.writes.length, 2);
 
     const storedGlobal = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
-    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.status, "saved");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.status, "queued");
+    assert.equal(storedGlobal.sessions.find((session) => session.id === oldSession.id)?.items[0]?.jobId, "job-old");
     assert.equal(storedGlobal.sessions.find((session) => session.id === newSession.id)?.items[0]?.status, "queued");
-    assert.equal(
-      readPipelineTrace().some((event) =>
-        event.step === "reconcile.stale-result.ignore"
-        && event.requestId === "queue-old"
-      ),
-      true
-    );
   } finally {
     globalThis.fetch = originalFetch;
     disablePipelineTraceForTest();
   }
 });
+
+test("overlapping queue messages for one item create one backend job", async () => {
+  const originalFetch = globalThis.fetch;
+  let releaseFirst: ((response: Response) => void) | null = null;
+  const firstResponse = new Promise<Response>((resolve) => { releaseFirst = resolve; });
+  let capturePosts = 0;
+  let drains = 0;
+  try {
+    const session = {
+      ...makeSession("s", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("old")), id: "item-old" }]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    const global = makeGlobal([session], session.id);
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method || "GET").toUpperCase();
+      if (url.endsWith("/capture-target") && method === "POST") {
+        capturePosts += 1;
+        return capturePosts === 1 ? firstResponse : jsonResponse(makeCaptureTargetResponse("old"));
+      }
+      if (url.endsWith("/worker/drain") && method === "POST") { drains += 1; return jsonResponse({ status: "started" }); }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, ingestBaseUrl: "" } },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+      [tabKey]: createEmptyTabState()
+    });
+    const message = (requestId: string) => ({
+      type: "session/queue-items-and-start-processing", requestId, sessionId: session.id, itemIds: ["item-old"]
+    }) as ExtensionMessage;
+    const first = harness.dispatch(message("q1"));
+    await waitFor(() => capturePosts === 1, "first capture-target request");
+    const second = harness.dispatch(message("q2"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    releaseFirst?.(jsonResponse(makeCaptureTargetResponse("old")));
+    const [a, b] = await Promise.all([first, second]);
+
+    assert.equal(a.ok, true);
+    assert.equal(b.ok, true);
+    assert.equal(capturePosts, 1, "the second overlapping message reuses the first job");
+    const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(stored.sessions[0]?.items[0]?.jobId, "job-old");
+    assert.equal(stored.sessions[0]?.items[0]?.status, "queued");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 
 test("session/refresh-item ignores stale request writes before storage and broadcast", async () => {
   enablePipelineTraceForTest();
@@ -3346,6 +3389,51 @@ test("signal/delete keeps shared item tags until the last signal reference disap
   assertStateUpdatedBroadcastOnce(harness);
 });
 
+
+test("signal/delete onlyIfOrphan keeps a signal whose backing item landed after the side panel snapshot", async () => {
+  const fresh = makeSucceededItem("fresh", "new save");
+  fresh.id = "item-fresh";
+  const session = { ...makeSession("topic-session", "topic"), items: [fresh] };
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: createEmptyTabState(),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-fresh", session.id, "item-fresh", "topic-1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-fresh"])]
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-fresh", onlyIfOrphan: true });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual((harness.state[SIGNALS_STORAGE_KEY] as Signal[]).map((signal) => signal.id), ["signal-fresh"]);
+  assert.deepEqual((response.signals ?? []).map((signal) => signal.id), ["signal-fresh"]);
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.deepEqual(global.sessions[0]?.items.map((item) => item.id), ["item-fresh"]);
+});
+
+test("signal/delete onlyIfOrphan still removes a signal with no backing item", async () => {
+  const session = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+    [tabKey]: createEmptyTabState(),
+    [SIGNALS_STORAGE_KEY]: [makeSignal("signal-orphan", session.id, "item-gone", "topic-1")],
+    [TOPICS_STORAGE_KEY]: [makeTopic("topic-1", session.id, ["signal-orphan"])]
+  });
+
+  const response = await harness.dispatch({ type: "signal/delete", signalId: "signal-orphan", onlyIfOrphan: true });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY] as Signal[], []);
+
+  // A repeated cleanup for the already-removed signal must not report empty lists the side panel would adopt.
+  const repeated = await harness.dispatch({ type: "signal/delete", signalId: "signal-orphan", onlyIfOrphan: true });
+  assert.equal(repeated.ok, true);
+  assert.equal(repeated.signals, undefined);
+  assert.equal(repeated.topics, undefined);
+});
 
 test("inline collect picks the newest destination and preserves workspace navigation", async () => {
   const topic = makeSession("topic-active", "topic");
