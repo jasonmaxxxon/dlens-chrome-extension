@@ -1732,7 +1732,9 @@ async function queueSessionItem(
         lastSavedToast: createInlineToast("queued", session.name),
         error: null
       }
-    }, { reconcileToken: options.reconcileToken });
+    });
+    // Not gated by options.reconcileToken: the backend job already exists, so its ids must persist even when a newer
+    // request superseded this one. Dropping them lets the next caller see the item as "saved" and queue a duplicate job.
     if (session.mode === "product") {
       queueProductSignalAutoAnalysis(tabId, nextSnapshot.global, sessionId);
     }

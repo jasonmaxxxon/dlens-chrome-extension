@@ -327,7 +327,7 @@ test("a queued job whose worker start failed is a wait, not a failed crawl", asy
     s.calls[1].resolve({ ok: true, queuedItemIds: ["item-a"], failedItemIds: [], processingError: "drain down" }); await tick();
     const toast = s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent!;
     assert.doesNotMatch(toast, /未能開始抓取/);
-    assert.match(toast, /已排隊/);
+    assert.match(toast, /已排隊，但未能確認後端開始處理/);
   } finally { s.cleanup(); }
 });
 
