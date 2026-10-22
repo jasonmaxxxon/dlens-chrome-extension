@@ -3427,6 +3427,12 @@ test("signal/delete onlyIfOrphan still removes a signal with no backing item", a
 
   assert.equal(response.ok, true);
   assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY] as Signal[], []);
+
+  // A repeated cleanup for the already-removed signal must not report empty lists the side panel would adopt.
+  const repeated = await harness.dispatch({ type: "signal/delete", signalId: "signal-orphan", onlyIfOrphan: true });
+  assert.equal(repeated.ok, true);
+  assert.equal(repeated.signals, undefined);
+  assert.equal(repeated.topics, undefined);
 });
 
 test("inline collect picks the newest destination and preserves workspace navigation", async () => {

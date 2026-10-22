@@ -2565,7 +2565,7 @@ export default defineBackground(() => {
             const resultRef: {
               value: Awaited<ReturnType<typeof deleteSignalStorageRecords>> | null;
             } = { value: null };
-            const keptRef: { value: { signals: Signal[]; topics: Topic[] } | null } = { value: null };
+            const keptRef: { value: { signals?: Signal[]; topics?: Topic[] } | null } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
               if (message.onlyIfOrphan) {
                 // Re-read under the lock: the sender saw an older folder snapshot, and a save may have landed since.
@@ -2573,10 +2573,11 @@ export default defineBackground(() => {
                 const session = signal ? current.global.sessions.find((entry) => entry.id === signal.sessionId) : null;
                 if (!signal || !session || !isSignalMissingBackingItem(session, signal)) {
                   const sessionId = signal?.sessionId ?? null;
-                  keptRef.value = {
-                    signals: sessionId ? await loadSignals(chrome.storage.local, sessionId) : [],
-                    topics: sessionId ? await loadTopics(chrome.storage.local, sessionId) : []
-                  };
+                  // A signal another cleanup already removed has no folder to report; omitting the lists lets the caller
+                  // drop just that id instead of blanking its whole list until the next hydrate.
+                  keptRef.value = sessionId
+                    ? { signals: await loadSignals(chrome.storage.local, sessionId), topics: await loadTopics(chrome.storage.local, sessionId) }
+                    : {};
                   return current;
                 }
               }
