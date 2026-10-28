@@ -148,7 +148,7 @@ import {
   requireSessionItemActionTarget,
   type SaveCurrentPreviewActionTarget
 } from "../src/state/action-target";
-import { applySignalDeletionToGlobalState, deleteSignalStorageRecords } from "../src/state/session-signal-seam";
+import { applySignalDeletionToGlobalState, deleteSignalStorageRecords, findSignalsMissingBackingItems } from "../src/state/session-signal-seam";
 import { createInlineToast } from "../src/state/ui-state";
 import { getModeHomePage, projectBackendWorkStatus } from "../src/state/processing-state";
 import { sanitizeSnapshotForContentScript } from "../src/state/sanitize-snapshot";
@@ -2558,8 +2558,19 @@ export default defineBackground(() => {
             const tabId = await resolveTabId(sender);
             const resultRef: {
               value: Awaited<ReturnType<typeof deleteSignalStorageRecords>> | null;
+              skippedSessionId?: string;
             } = { value: null };
             const snapshot = await mutateSnapshot(tabId, async (current) => {
+              if (message.onlyIfOrphan) {
+                // The panel can observe a signal before its post snapshot. Recheck
+                // under the save/delete lock instead of trusting that stale view.
+                const signal = (await loadAllSignals(chrome.storage.local)).find(entry => entry.id === message.signalId);
+                const session = current.global.sessions.find(entry => entry.id === signal?.sessionId) ?? null;
+                if (!signal?.itemId || (session && findSignalsMissingBackingItems(session, [signal]).length === 0)) {
+                  resultRef.skippedSessionId = signal?.sessionId;
+                  return current;
+                }
+              }
               const deletion = await deleteSignalStorageRecords(chrome.storage.local, message.signalId);
               const deletedItem = current.global.sessions.flatMap(session => session.items).find(item => item.id === deletion.deleted.itemId);
               if (deletedItem) invalidateInlineCollectUndo(deletedItem.descriptor);
@@ -2589,6 +2600,16 @@ export default defineBackground(() => {
             });
             const deletion = resultRef.value;
             if (!deletion) {
+              if (message.onlyIfOrphan) {
+                sendResponse({
+                  ok: true, tabId, snapshot,
+                  ...(resultRef.skippedSessionId ? {
+                    signals: await loadSignals(chrome.storage.local, resultRef.skippedSessionId),
+                    topics: await loadTopics(chrome.storage.local, resultRef.skippedSessionId)
+                  } : {})
+                } satisfies ExtensionResponse);
+                return;
+              }
               throw new Error("Signal deletion did not complete.");
             }
             const productSignalAnalyses = await listProductSignalAnalyses(

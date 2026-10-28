@@ -1,0 +1,40 @@
+{
+  "scope": "standalone synthetic graph mockup",
+  "fixture_matches_v2": true,
+  "v1_unchanged": true,
+  "browser": "Codex IAB",
+  "viewport_checks": [
+    1280,
+    328
+  ],
+  "horizontal_overflow": false,
+  "clipped_nodes_at_328": 0,
+  "pair_selection_keeps_node_geometry": true,
+  "pair_F_I_common_points": [
+    "private",
+    "writing"
+  ],
+  "pair_F_I_active_edges": [
+    "F:private",
+    "F:writing",
+    "I:private",
+    "I:writing"
+  ],
+  "pair_scoped_quote_count": 2,
+  "graph_point_clears_previous_pair": true,
+  "quote_option_keyboard_focus": "point-writing",
+  "picker_max_four": true,
+  "picker_min_two": true,
+  "pair_F_G_common_points": 0,
+  "console_errors": 0,
+  "repository_gate": {
+    "typecheck": "pass",
+    "boundary_guard": "pass",
+    "storage_seam_guard": "pass",
+    "test_pass": 1076,
+    "test_skip": 5,
+    "test_fail": 0,
+    "build": "pass",
+    "diff_check": "pass"
+  }
+}

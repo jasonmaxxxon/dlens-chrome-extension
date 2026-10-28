@@ -2,7 +2,8 @@
 
 DLens is a mode-aware MV3 Chrome extension for capturing Threads posts and turning them into research, product-signal, and PR evidence workflows.
 
-> Last updated: 2026-10-15
+> Last updated: 2026-10-16
+> Topic collection fix (2026-10-16, local): automatic orphan cleanup now rechecks the backing post under the snapshot lock, so a stale side-panel view cannot delete a new save before topic assignment. Gate: typecheck, both boundary guards, storage seam guard, 1081 tests / 1076 pass / 5 existing skips / 0 fail, build and diff check. Jason's Chrome Default profile: rebuilt/reloaded 0.4.6; with the side panel open, a fresh Threads save remained present and was successfully assigned to 職場. This verifies collection/triage only; the rest of 0.4.6 acceptance remains pending.
 > Current source version: `0.4.6` on `codex/reliability-046` — author/audience invariants, exact local source refs, capture/input freshness, persisted input coverage and concise reading copy. Release history: `0.4.5` is on main at `8fc38b5`; 0.4.6 integration and live Chrome acceptance are pending.
 > Capture: top-level posts expose a DLens action button. Tap saves to the last-used mode; hold/flick or S opens the fixed mode wheel using the v9 gesture/motion values. Removal supports version-bound undo. Saving into 觀眾反應 / 個人應用 starts the reply crawl at once.
 > Card under a saved post: 觀眾反應 and 個人應用 saves show one line (peek → `讀緊留言 · 約 N 分` → `讀完 · …`). A 觀眾反應 line opens the full card (大家點睇 / 有咩做法 / 有咩分歧 / 大家問咩); its foot is one `側欄睇全部 →` that opens that post's side panel reader on the open lens. There is no floating evidence window; evidence lives in the reader. Contracts: AGENTS.md "Inline collect card".

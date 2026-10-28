@@ -1,0 +1,30 @@
+{
+  "captured_on": "2026-10-21",
+  "method": "CUA browser screenshots of official public examples; not logged-in product sessions",
+  "heptabase": {
+    "file": "heptabase.jpg",
+    "page": "https://wiki.heptabase.com/organize-knowledge-and-projects",
+    "asset": "https://wiki.heptabase.com/assets/images/organize-05-8adafbd641491400bc6d05ff6494b9be.png",
+    "type": "official UI screenshot displayed in browser, captured at displayed size"
+  },
+  "liquidtext": {
+    "file": "liquidtext.jpg",
+    "page": "https://www.liquidtext.net/liquidtextadeeperdive",
+    "asset": "https://images.squarespace-cdn.com/content/v1/5b5147e4ee1759d33c6773bc/1568231215655-IGJL1V4DAN0WJB4K9XTR/notes%2Band%2Bsources%2B%28from%2BKanov%29%2B-%2Bwith%2Bshadow.gif",
+    "type": "one captured frame of official demo animation"
+  },
+  "prezi": {
+    "files": [
+      "prezi.jpg",
+      "prezi-detail.jpg"
+    ],
+    "page": "https://support.prezi.com/hc/en-us/articles/360003499333-How-to-add-topics-subtopics-and-pages-in-Prezi-Present",
+    "asset": "https://support.prezi.com/hc/article_attachments/25938456868631",
+    "type": "overview and detail captured frames of official animation"
+  },
+  "upset": {
+    "file": "upset.jpg",
+    "page": "https://upset.js.org/integrations/r/articles/upsetjs.html#basic-user-interface",
+    "type": "rendered official interactive SVG demo"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-21",
+  "scope": "four standalone reference inspired mockups and official screenshot comparison gallery",
+  "artifacts": [
+    "2026-10-21-topic-047-reference-a-heptabase.html",
+    "2026-10-21-topic-047-reference-b-liquidtext.html",
+    "2026-10-21-topic-047-reference-c-prezi.html",
+    "2026-10-21-topic-047-reference-d-upset.html",
+    "2026-10-21-topic-047-reference-gallery.html"
+  ],
+  "same_fixtures": true,
+  "reference_captures": "official public UI images/animation frames and rendered UpSet example; provenance in reference-assets/sources.json",
+  "browser": "Codex IAB",
+  "sidebar_widths_tested": [
+    320,
+    328
+  ],
+  "all_four_no_horizontal_overflow": true,
+  "gallery_390px_no_horizontal_overflow": true,
+  "keyboard_checks": [
+    "A source dialog Escape restores opener",
+    "B source dialog Escape restores reader",
+    "C Escape post to point to overview restores source and region focus",
+    "gallery tab Home and image dialog Escape restore focus"
+  ],
+  "interactions": [
+    "A same source highlights three regions and shows three excerpts",
+    "A expands all sixteen citation cards",
+    "B select two snippets, gather, extract and return",
+    "C overview to point to source quote and back",
+    "D three-post intersection has two points and single-post intersection has one",
+    "D excerpts match selected source set",
+    "gallery all five reference screenshots load",
+    "Prezi reference overview/detail switch"
+  ],
+  "production_gate": {
+    "typecheck": "pass",
+    "boundaries": "pass",
+    "storage_seam": "pass",
+    "tests_pass": 1076,
+    "tests_skip": 5,
+    "tests_fail": 0,
+    "build": "pass",
+    "diff_check": "pass"
+  }
+}

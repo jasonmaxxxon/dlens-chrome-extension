@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 話題頁 0.4.7</title>
+<!--
+  2026-10-21 mockup for 0.4.7 — the 話題 page once every post is pre-read. Reference only, not spec.
+  Content is synthetic (made-up handles, posts and replies).
+  1. 預讀: each saved post's replies are read once in shards into a short, ref-linked digest (cached by
+     content + prompt + model). The topic reading then reads digests + a few original quotes, so a large
+     topic no longer drops every reply to fit the budget. Progress is visible; nothing runs without 開始.
+  2. 重點 × 帖子: rows are the points of the finished 話題解讀, columns are the topic's posts.
+     A dot means "this point cites this post"; it says nothing about stance. Tap a dot = the cited reply opens
+     under that row (the 0.4.6 source card). Tap a column head = that post is highlighted everywhere.
+  3. 時間軸: post date per post, from data we already store. No AI.
+  4. Coverage stays honest: what reached the model, which posts were not pre-read, and that the chart only
+     shows what this reading cited.
+  Panel width 328px (the real Chrome side panel). Type scale 16 / 14 / 12.5 / 11.5.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1b1a17;--sub:#3d3b35;--soft:#6c695e;--faint:#a19e93;--hair:rgba(27,26,23,.08);--wash:rgba(27,26,23,.04);
+  --sage:#3f5a3b;--sage-w:rgba(63,90,59,.09);--amber:#a06a17;--amber-w:rgba(160,106,23,.1);
+  --violet:#7b4a8a;--violet-w:rgba(123,74,138,.09);--blue:#35628a;--blue-w:rgba(53,98,138,.09);
+  --paper:#fbfbf9;--card:#fff;--stage:#e9e7e1;
+  --sans:'Noto Sans TC',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--serif-cjk:'Noto Serif TC','Songti TC',serif;
+  --out:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--stage);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+.intro{max-width:1100px;margin:0 auto;padding:24px 16px 4px;color:var(--sub);font-size:13px}
+.intro h1{margin:0 0 4px;font-size:18px;color:var(--ink)}
+.intro p{margin:0 0 4px}
+.stage{display:flex;gap:24px;padding:16px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.frame{display:grid;gap:8px}
+.frame>small{font-size:12px;color:var(--soft);padding-left:4px}
+.panel{width:328px;max-width:100%;height:860px;overflow:auto;background:var(--paper);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.12)}
+.chrome{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;font-weight:600;background:#f6f4f0;border-bottom:1px solid var(--hair)}
+.chrome i{width:16px;height:16px;border-radius:4px;background:var(--ink)}
+.chrome span{margin-left:auto;color:var(--faint);font-weight:400;letter-spacing:6px}
+.head{position:sticky;top:0;z-index:4;height:44px;display:flex;align-items:center;gap:18px;padding:0 16px;background:rgba(251,251,249,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--hair)}
+.tab{font-size:13.5px;color:var(--soft)}.tab.on{color:var(--sage);font-weight:600;box-shadow:inset 0 -2px 0 var(--sage);height:44px;display:flex;align-items:center}
+.head .more{margin-left:auto;color:var(--soft)}
+.body{padding:12px 16px 40px}
+.back{border:0;background:none;color:var(--sage);font-size:13px;padding:2px 0;cursor:pointer}
+h2{margin:10px 0 2px;font-size:16px;line-height:1.45}
+.q{margin:0;font-size:12.5px;color:var(--soft)}
+.q b{color:var(--sub);font-weight:600}
+
+/* 預讀 strip */
+.pre{margin-top:14px;padding:12px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair)}
+.pre-top{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.pre-top b{font-size:13.5px}
+.pre-top .run{margin-left:auto;height:28px;padding:0 12px;border:0;border-radius:999px;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px;cursor:pointer}
+.meter{display:flex;gap:3px;margin-top:10px}
+.meter i{flex:1;height:6px;border-radius:3px;background:var(--hair)}
+.meter i.done{background:var(--sage)}.meter i.now{background:linear-gradient(90deg,var(--sage) 40%,var(--hair) 40%)}
+.pre small{display:block;margin-top:6px;font-size:11.5px;color:var(--soft)}
+
+/* reading card */
+.rc{margin-top:14px;padding:14px;border-radius:14px;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--hair)}
+.rh{display:flex;align-items:center;gap:10px}
+.tile{width:28px;height:28px;border-radius:8px;background:var(--violet-w);color:var(--violet);display:grid;place-items:center;flex:none}
+.rh div{flex:1;min-width:0}.rh b{display:block;font-size:14px}.rh small{display:block;font-size:11.5px;color:var(--soft)}
+.rh small span{white-space:nowrap}
+.pill{height:28px;padding:0 12px;border:0;border-radius:999px;background:var(--ink);color:#fff;font-weight:600;font-size:12.5px;flex:none}
+.cov{margin:8px 0 0;font-size:11.5px;color:var(--soft)}
+.answer{margin:12px 0 0;padding-top:12px;border-top:1px solid var(--hair);font-family:var(--serif-cjk);font-size:14.5px;line-height:1.7}
+.key{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 8px;font-size:12px;font-weight:600;color:var(--soft);letter-spacing:.04em}
+.key span{font-weight:400;letter-spacing:0}
+
+/* 重點 × 帖子 */
+.mx{--cols:12;display:grid;gap:0}
+.cols,.dots{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:2px}
+.cols{position:sticky;top:44px;z-index:2;padding:6px 0;background:var(--card)}
+.cols button{border:0;padding:0;background:none;cursor:pointer;display:grid;place-items:center}
+.av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;transition:transform .2s var(--out),box-shadow .2s}
+.cols button.sel .av{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink);transform:scale(1.08)}
+.cols button.pending .av{opacity:.35}
+.pt{padding:10px 0;border-top:1px dashed var(--hair)}
+.pt:first-of-type{border-top:0}
+.pt p{margin:0 0 6px;font-size:13px;line-height:1.55;color:var(--sub)}
+.pt p em{font-style:normal;font-size:11.5px;color:var(--soft);margin-left:4px}
+.dots button{height:22px;border:0;padding:0;background:none;display:grid;place-items:center;cursor:default;border-radius:6px}
+.dots button i{width:6px;height:6px;border-radius:50%;background:var(--hair)}
+.dots button.hit{cursor:pointer}
+.dots button.hit i{width:12px;height:12px;background:var(--violet);opacity:.85;transition:transform .2s var(--out)}
+.dots button.hit:hover i{transform:scale(1.25)}
+.dots button.col{background:var(--wash)}
+.dots button.open i{box-shadow:0 0 0 3px var(--violet-w);opacity:1}
+.src{margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--paper);box-shadow:0 0 0 1px var(--hair);font-size:12.5px;animation:rise .35s var(--out)}
+.src header{display:flex;align-items:center;gap:6px;font-size:12px}
+.src header .av{width:18px;height:18px;font-size:9px}
+.src header small{color:var(--faint)}
+.src p{margin:4px 0 0;color:var(--ink);line-height:1.6}
+.src footer{display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--soft)}
+.src footer a{color:var(--violet);text-decoration:none}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.note{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:var(--wash);font-size:11.5px;color:var(--soft)}
+
+/* 時間軸 */
+.tl{position:relative;height:74px;margin:4px 6px 0}
+.tl .axis{position:absolute;left:0;right:0;top:34px;height:1px;background:var(--hair)}
+.tl .mk{position:absolute;top:24px;transform:translateX(-50%);border:0;padding:0;background:none;cursor:pointer}
+.tl .mk .av{width:20px;height:20px}
+.tl .mk.sel .av{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink)}
+.tl .mk.stack{top:2px}
+.tl .lbl{position:absolute;top:52px;font-size:11px;color:var(--faint);transform:translateX(-50%);white-space:nowrap}
+.tl-info{margin:2px 0 0;font-size:12px;color:var(--sub);min-height:20px}
+.tl-info b{font-weight:600}
+
+/* posts list */
+.post{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 6px;border-radius:10px;font-size:12.5px}
+.post.sel{background:var(--wash)}
+.post .av{width:24px;height:24px;font-size:11px}
+.post span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--sub)}
+.post small{color:var(--faint);white-space:nowrap}
+.post small.wait{color:var(--amber)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>0.4.7 話題頁 mockup</h1>
+  <p>三個狀態都係 328px 真實側欄闊度。數據係虛構。撳圓點會喺嗰行下面展開引用原句；撳頂部頭像或時間軸上嘅頭像，會喺對照表、時間軸同帖子列表一齊標示嗰篇帖。</p>
+</div>
+<div class="stage">
+
+  <!-- ===== A: 預讀 before / during ===== -->
+  <div class="frame"><small>A · 預讀中（新加入 2 篇）</small>
+  <div class="panel">
+    <div class="chrome"><i></i>DLens<span>⌖ ✕</span></div>
+    <div class="head"><span class="tab">收藏</span><span class="tab on">工作區</span><span class="more">⋯</span></div>
+    <div class="body">
+      <button class="back">← 觀眾反應</button>
+      <h2>返工用 AI 工具</h2>
+      <p class="q"><b>想答：</b>公司禁唔禁、大家點偷偷用、邊啲工種最受影響？</p>
+      <div class="pre">
+        <div class="pre-top"><b>預讀</b><span style="color:var(--soft)">10 / 12 篇</span><button class="run" disabled style="opacity:.5">讀緊…</button></div>
+        <div class="meter"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i></div>
+        <small>每篇讀晒抓到嘅留言，濃縮成連住原句嘅摘要；讀過就唔使再讀。<br>今次 2 篇 · 約 410 則留言 · 約 US$0.004</small>
+      </div>
+      <div class="rc">
+        <div class="rh"><span class="tile">✦</span><div><b>話題解讀</b><small><span>12 篇</span> · <span>gemini-3.8-flash</span> · <span>約 US$0.012</span></small></div><button class="pill" style="opacity:.5">等預讀</button></div>
+        <p class="cov">預讀完先開始，咁先會包括新加嘅 2 篇。</p>
+      </div>
+      <div class="key">帖子 · 12<span>按日期</span></div>
+      <div id="listA"></div>
+    </div>
+  </div></div>
+
+  <!-- ===== B: done, matrix ===== -->
+  <div class="frame"><small>B · 解讀完：重點 × 帖子</small>
+  <div class="panel" id="pB">
+    <div class="chrome"><i></i>DLens<span>⌖ ✕</span></div>
+    <div class="head"><span class="tab">收藏</span><span class="tab on">工作區</span><span class="more">⋯</span></div>
+    <div class="body">
+      <button class="back">← 觀眾反應</button>
+      <h2>返工用 AI 工具</h2>
+      <p class="q"><b>想答：</b>公司禁唔禁、大家點偷偷用、邊啲工種最受影響？</p>
+      <div class="rc">
+        <div class="rh"><span class="tile">✦</span><div><b>話題解讀</b><small><span>12 篇</span> · <span>gemini-3.8-flash</span> · <span>2 日前</span></small></div><button class="pill">重讀</button></div>
+        <p class="cov">送入模型：12 份預讀摘要（由 3,140 則留言濃縮）· 48 則原句</p>
+        <p class="answer">大部分公司冇明文禁止，但多數人都係自己靜靜用；最常見嘅係寫 email 同整理會議紀錄。文職同客服最擔心被取代，設計同工程就多數講效率。</p>
+        <div class="key">重點 × 帖子<span>圓點 = 呢點引用咗嗰篇</span></div>
+        <div class="mx" id="mxB"></div>
+        <p class="note">只顯示今次解讀引用咗邊篇，唔代表其他帖冇講，亦唔代表立場。</p>
+      </div>
+      <div class="key">時間軸<span>帖子發佈日期</span></div>
+      <div class="tl" id="tlB"></div>
+      <p class="tl-info" id="tlInfoB">撳頭像睇嗰篇帖。</p>
+      <div class="key">帖子 · 12</div>
+      <div id="listB"></div>
+    </div>
+  </div></div>
+
+  <!-- ===== C: a post selected + source open ===== -->
+  <div class="frame"><small>C · 揀咗一篇帖 + 展開原句</small>
+  <div class="panel" id="pC">
+    <div class="chrome"><i></i>DLens<span>⌖ ✕</span></div>
+    <div class="head"><span class="tab">收藏</span><span class="tab on">工作區</span><span class="more">⋯</span></div>
+    <div class="body">
+      <button class="back">← 觀眾反應</button>
+      <h2>返工用 AI 工具</h2>
+      <div class="rc">
+        <div class="rh"><span class="tile">✦</span><div><b>話題解讀</b><small><span>12 篇</span> · <span>gemini-3.8-flash</span> · <span>2 日前</span></small></div><button class="pill">重讀</button></div>
+        <div class="key">重點 × 帖子<span>圓點 = 呢點引用咗嗰篇</span></div>
+        <div class="mx" id="mxC"></div>
+      </div>
+      <div class="key">時間軸<span>帖子發佈日期</span></div>
+      <div class="tl" id="tlC"></div>
+      <p class="tl-info" id="tlInfoC"></p>
+    </div>
+  </div></div>
+
+</div>
+<script>
+// Synthetic topic: 12 posts, 5 points.
+const posts=[
+ {id:'A',h:'office.mei',c:'#7b4a8a',d:'9月2日',x:.02,s:'公司話唔准用 ChatGPT，但個個都用緊',n:412},
+ {id:'B',h:'devlam',c:'#35628a',d:'9月5日',x:.07,s:'寫 code 快咗一倍，但 review 辛苦咗',n:230},
+ {id:'C',h:'cs_kiki',c:'#a8462e',d:'9月11日',x:.2,s:'客服部已經裁咗一半人',n:388},
+ {id:'D',h:'hr.notes',c:'#2f7f78',d:'9月12日',x:.22,s:'HR 角度：我哋點睇員工用 AI',n:156},
+ {id:'E',h:'design.wo',c:'#a06a17',d:'9月20日',x:.37,s:'設計師唔驚，驚嘅係唔識用嘅人',n:274},
+ {id:'F',h:'acct_sam',c:'#3f5a3b',d:'9月26日',x:.48,s:'會計部用 AI 對數，老闆唔知',n:198},
+ {id:'G',h:'law.pp',c:'#5b5f97',d:'10月1日',x:.57,s:'律師行全面禁用，原因係保密',n:142},
+ {id:'H',h:'newgrad.j',c:'#8a4a5f',d:'10月3日',x:.6,s:'畢業生：見工被問識唔識 prompt',n:351},
+ {id:'I',h:'pm.yan',c:'#4a7a8a',d:'10月9日',x:.72,s:'會議紀錄全部交俾 AI',n:120},
+ {id:'J',h:'it.sec',c:'#6a6a4a',d:'10月12日',x:.79,s:'IT 部：偷偷用 AI 係資料外洩風險',n:265},
+ {id:'K',h:'teacher.c',c:'#9a5a2a',d:'10月16日',x:.9,s:'學校老師用 AI 出卷',n:180,pend:true},
+ {id:'L',h:'cs_lok',c:'#c0504d',d:'10月18日',x:.97,s:'客服仲有冇得做？',n:230,pend:true},
+];
+const points=[
+ {t:'大部分公司冇明文禁止，員工多數自己靜靜用',hits:{A:'公司 IT 封咗網址，我哋用手機開。',F:'老闆唔知我用 AI 對數，快咗兩粒鐘。',I:'冇人講過可唔可以，大家就照用。',D:'我哋 HR 都未有政策，係最近先開始傾。'}},
+ {t:'律師行、IT 部以保密為由禁止',hits:{G:'客戶資料一入 AI 就係違約，所以全面禁。',J:'上個月有同事將合約貼入去，即刻要報告。',A:'我哋公司都係因為呢個原因封網。'}},
+ {t:'寫 email 同會議紀錄係最常見用法',hits:{I:'每次開完會錄音丟入去，十分鐘有紀錄。',A:'寫 email 俾老闆用嚟潤色。',B:'寫 commit message 同文件。',F:'用嚟寫對數報告嘅說明。'}},
+ {t:'文職同客服最擔心被取代',hits:{C:'我哋組由 12 個減到 6 個。',H:'見工時人哋話「呢啲 AI 做得到」。',E:'驚嘅唔係設計師，係只識跟稿嗰啲。'}},
+ {t:'設計同工程多數講效率，唔係講被取代',hits:{B:'快咗，但 review 時間多咗。',E:'我用 AI 出初稿，之後自己改。'}},
+];
+const av=(p,size)=>`<span class="av" style="background:${p.c}${size?`;width:${size}px;height:${size}px`:''}">${p.h[0].toUpperCase()}</span>`;
+function list(el,sel){
+ el.innerHTML=posts.map(p=>`<div class="post${sel===p.id?' sel':''}" data-p="${p.id}">${av(p)}<span>${p.s}</span><small class="${p.pend?'wait':''}">${p.pend?'預讀中':p.n+' 則'}</small></div>`).join('');
+}
+function matrix(el,state,rerender){
+ const head=`<div class="cols">${posts.map(p=>`<button class="${state.sel===p.id?'sel':''}${p.pend?' pending':''}" data-col="${p.id}" title="@${p.h}">${av(p)}</button>`).join('')}</div>`;
+ const rows=points.map((pt,i)=>{
+  const cnt=Object.keys(pt.hits).length;
+  const dots=posts.map(p=>{const hit=pt.hits[p.id];const open=state.open&&state.open[0]===i&&state.open[1]===p.id;
+   return `<button class="${hit?'hit':''}${state.sel===p.id?' col':''}${open?' open':''}" ${hit?`data-row="${i}" data-col="${p.id}" aria-label="@${p.h} 原句"`:'disabled'}><i></i></button>`}).join('');
+  let src='';
+  if(state.open&&state.open[0]===i){const p=posts.find(x=>x.id===state.open[1]);
+   src=`<div class="src"><header>${av(p)}<b>@${p.h}</b><small>· 留言 · ${p.d}</small></header><p>${pt.hits[p.id]}</p><footer><span>帖：${p.s}</span><a href="#" onclick="return false">原站 ↗</a></footer></div>`;}
+  return `<div class="pt"><p>${pt.t}<em>${cnt} 篇</em></p><div class="dots">${dots}</div>${src}</div>`;
+ }).join('');
+ el.innerHTML=head+rows;
+ el.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.row!==undefined){const k=[+b.dataset.row,b.dataset.col];state.open=state.open&&state.open[0]===k[0]&&state.open[1]===k[1]?null:k;}
+  else if(b.dataset.col){state.sel=state.sel===b.dataset.col?null:b.dataset.col;}
+  rerender();};
+}
+function timeline(el,info,state,rerender){
+ const months=[{l:'9月',x:.02},{l:'10月',x:.55}];
+ let last=-1,stack=false;
+ el.innerHTML=`<div class="axis"></div>`+posts.map(p=>{stack=p.x-last<.04?!stack:false;last=p.x;
+  return `<button class="mk${stack?' stack':''}${state.sel===p.id?' sel':''}" style="left:${p.x*100}%" data-col="${p.id}" title="${p.d} @${p.h}">${av(p)}</button>`}).join('')
+  +months.map(m=>`<span class="lbl" style="left:${m.x*100}%">${m.l}</span>`).join('');
+ const p=posts.find(x=>x.id===state.sel);
+ info.innerHTML=p?`<b>${p.d}</b> · @${p.h} · ${p.s}`:'撳頭像睇嗰篇帖。';
+ el.onclick=e=>{const b=e.target.closest('[data-col]');if(!b)return;state.sel=state.sel===b.dataset.col?null:b.dataset.col;rerender();};
+}
+list(document.getElementById('listA'));
+const sB={sel:null,open:null};
+const rB=()=>{matrix(mxB,sB,rB);timeline(tlB,tlInfoB,sB,rB);list(listB,sB.sel);};rB();
+const sC={sel:'F',open:[0,'F']};
+const rC=()=>{matrix(mxC,sC,rC);timeline(tlC,tlInfoC,sC,rC);};rC();
+</script>
+</body>
+</html>

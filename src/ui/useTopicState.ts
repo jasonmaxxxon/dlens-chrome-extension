@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ExtensionMessage, ExtensionResponse } from "../state/messages";
 import { emitPipelineEvent, type PipelineEventInput } from "../state/pipeline-trace";
 import { SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KEY } from "../state/topic-storage";
+import { findSignalsMissingBackingItems } from "../state/session-signal-seam";
+export { findSignalsMissingBackingItems } from "../state/session-signal-seam";
 import type { FolderMode, SessionRecord, Signal, Topic, TriageAction } from "../state/types";
 import { sendExtensionMessage } from "./controller";
 
@@ -70,28 +72,6 @@ export function applyTopicListResponses({
   if (signalsResponse.ok) {
     setSignals(signalsResponse.signals ?? []);
   }
-}
-
-export function findSignalsMissingBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
-  if (!activeFolder?.id) {
-    return [];
-  }
-  const itemById = new Map(activeFolder?.items.map((item) => [item.id, item]) ?? []);
-  return signals.filter((signal) => {
-    if (signal.sessionId !== activeFolder.id) {
-      return false;
-    }
-    if (!signal.itemId) {
-      return false;
-    }
-    const descriptor = itemById.get(signal.itemId)?.descriptor;
-    return !descriptor || !(
-      descriptor.text_snippet?.trim() ||
-      descriptor.post_url ||
-      descriptor.page_url ||
-      descriptor.author_hint?.trim()
-    );
-  });
 }
 
 export function filterSignalsWithBackingItems(activeFolder: SessionRecord | null, signals: Signal[]): Signal[] {
@@ -220,7 +200,7 @@ export function useTopicState({ popupOpen, activeFolder, activeFolderMode, state
         continue;
       }
       orphanCleanupAttemptedIdsRef.current.add(orphan.id);
-      void onRemoveSignal(orphan.id).catch(() => {
+      void onRemoveSignal(orphan.id, true).catch(() => {
         // Keep the corrupt row hidden locally even if storage cleanup is delayed.
       });
     }
@@ -283,14 +263,15 @@ export function useTopicState({ popupOpen, activeFolder, activeFolderMode, state
     }
   }
 
-  async function onRemoveSignal(signalId: string) {
+  async function onRemoveSignal(signalId: string, onlyIfOrphan = false) {
     const response = await sendAndSync<{
       ok: true;
       signals?: Signal[];
       topics?: Topic[];
     } | { ok: false; error: string }>({
       type: "signal/delete",
-      signalId
+      signalId,
+      ...(onlyIfOrphan ? { onlyIfOrphan: true } : {})
     });
     if (response.ok) {
       setSignals(response.signals ?? signals.filter((signal) => signal.id !== signalId));

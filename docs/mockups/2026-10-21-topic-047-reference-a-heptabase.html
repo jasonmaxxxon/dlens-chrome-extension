@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A · 分區卡片 — DLens</title>
+<!-- Standalone synthetic reference. Each named section is an existing topic-reading
+     point. Repeated cards are the same source post cited by different points.
+     Position, size and adjacency do not encode agreement, opposition or importance. -->
+<style>
+:root{--ink:#1b1a17;--sub:#3d3b35;--soft:#6c695e;--hair:rgba(27,26,23,.12);--sage:#3f5a3b;--sage-w:#eff4ec;--line:#aeb8a9;--paper:#fbfbf9;--stage:#e9e7e1;--sans:-apple-system,BlinkMacSystemFont,'PingFang TC','Noto Sans TC',system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}button{font:inherit;color:inherit;cursor:pointer}button,a{-webkit-tap-highlight-color:transparent}button{background:none;border:0}button:focus-visible,a:focus-visible{outline:2px solid var(--sage);outline-offset:3px}[hidden]{display:none!important}a{color:var(--sage);text-underline-offset:3px}h1,h2,h3,p{margin:0}button:disabled{cursor:default}body:has(dialog[open]){overflow:hidden}.intro,.footer{width:328px;max-width:100%;margin:24px auto 18px;padding:0 10px}.intro small{font-size:11px;color:var(--soft)}.intro h1{font-size:23px;line-height:1.4;margin:5px 0 6px}.intro p,.footer{font-size:12px;color:var(--soft)}.intro p+p{margin-top:7px}.surface{width:328px;max-width:100%;margin:auto;background:var(--paper);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 12px 36px -25px rgba(27,26,23,.3)}.chrome{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--hair);font-weight:600;font-size:12px}.chrome span:last-child{color:var(--soft);font-weight:400;font-size:11px}.nav{display:flex;gap:23px;padding:10px 16px 0;font-size:12px;color:var(--soft);border-bottom:1px solid var(--hair)}.nav b{color:var(--ink);font-weight:600;border-bottom:2px solid var(--sage);padding-bottom:9px}.body{padding:15px 12px 14px;min-width:0}.crumb{font-size:10.5px;color:var(--soft);margin-bottom:3px}h2{font-size:20px;line-height:1.45;font-weight:600;letter-spacing:-.03em}.coverage{font-size:11px;color:var(--soft);margin-top:5px}.module-title{display:flex;align-items:center;justify-content:space-between;margin-top:19px;gap:8px}.module-title h3{font-size:14px;font-weight:600}.quiet{font-size:11px;color:var(--sage);padding:5px 0 5px 5px;white-space:nowrap}.intro-line{font-size:11px;color:var(--soft);margin:2px 0 10px}.board{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:12px 7px 10px;background:radial-gradient(circle,rgba(27,26,23,.1) .75px,transparent .9px) 0 0/12px 12px;border:1px solid var(--hair);border-radius:13px;align-items:start;isolation:isolate}.zone{min-width:0;border:1px solid rgba(27,26,23,.17);border-radius:9px;background:rgba(249,250,246,.93);padding:8px 7px 9px;position:relative}.zone:first-child{grid-column:1/-1}.zone:nth-child(2){margin-top:2px}.zone:nth-child(3){margin-top:13px}.zone:nth-child(4){margin-top:3px}.zone:nth-child(5){margin-top:15px}.zone.is-linked{border-color:var(--sage);background:var(--sage-w)}.zone-heading{width:100%;padding:0;display:flex;align-items:flex-start;justify-content:space-between;text-align:left;gap:5px;line-height:1.5}.zone-title{font-size:12px;font-weight:600;overflow-wrap:anywhere}.chevron{font-size:11px;color:var(--soft);flex:0 0 auto}.zone-count{font-size:10px;color:var(--soft);display:block;margin:3px 0 7px}.card-space{position:relative;min-width:0;display:grid;gap:7px}.zone:first-child .card-space{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.zone:first-child .card-space.single{grid-template-columns:minmax(0,1fr)}.card{display:block;position:relative;z-index:1;width:100%;padding:9px 8px 8px;text-align:left;border:1px solid var(--hair);border-radius:6px;background:#fff;box-shadow:0 2px 3px rgba(27,26,23,.035);min-width:0}.card-title{display:block;font-size:12px;line-height:1.55;font-weight:500;overflow-wrap:anywhere}.card-meta{font-size:10px;line-height:1.4;color:var(--soft);margin-top:5px;display:block;overflow-wrap:anywhere}.card[aria-pressed=true]{border-color:var(--sage);box-shadow:0 0 0 1px var(--sage);background:#fff}.same-source{display:block;color:var(--sage);font-size:10px;font-weight:600;margin-bottom:3px}.card-space.stacked:before,.card-space.stacked:after{content:"";position:absolute;inset:4px 2px -4px;border:1px solid var(--hair);border-radius:6px;background:var(--paper);z-index:-1}.card-space.stacked:after{inset:7px 5px -7px;z-index:-2}.more{width:100%;padding:12px 0 0;color:var(--soft);font-size:10px;text-align:left;line-height:1.5}.more:hover,.zone-heading:hover{color:var(--sage)}.board-caption{font-size:10.5px;color:var(--soft);margin:8px 0 0;line-height:1.55}.selection{margin-top:12px;border:1px solid var(--hair);border-radius:10px;padding:10px 11px;background:#fff;min-width:0}.selection-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.selection-label{font-size:10px;color:var(--sage);font-weight:600}.clear{font-size:11px;color:var(--soft);padding:2px 0 2px 6px}.selected-title{font-size:13px;line-height:1.55;font-weight:500;margin-top:5px;overflow-wrap:anywhere}.selection-meta{font-size:10.5px;color:var(--soft);margin-top:3px}.quote-button{display:block;width:100%;border-radius:7px;padding:8px 9px;margin-top:9px;background:var(--sage-w);color:var(--sage);font-size:12px;text-align:left}.quote-button span{float:right}.empty-selection{font-size:11.5px;line-height:1.65;color:var(--soft)}.pending{margin-top:12px;border-top:1px solid var(--hair);padding-top:8px}.pending summary{font-size:11px;color:var(--soft);cursor:pointer}.pending-list{margin-top:7px;display:grid;gap:7px}.pending-post{font-size:12px;line-height:1.6}.pending-post small{display:block;font-size:10px;color:var(--soft)}.sample-note{font-size:10px;color:var(--soft);margin-top:11px}.footer{line-height:1.6;margin-top:13px}.sr-only{position:absolute;width:1px;height:1px;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}dialog{color:var(--ink);background:var(--paper);border:1px solid var(--hair);border-radius:14px;box-shadow:0 18px 48px -18px rgba(27,26,23,.3);padding:0;width:304px;max-width:calc(100% - 20px);max-height:calc(100dvh - 36px);margin:auto;overflow:auto}dialog::backdrop{background:rgba(27,26,23,.28)}.dialog-head{position:sticky;top:0;z-index:1;background:var(--paper);border-bottom:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;padding:11px 13px;gap:10px}.dialog-head h2{font-size:14px;letter-spacing:0}.close{font-size:12px;flex:none;color:var(--soft);padding:4px}.dialog-body{padding:13px}.dialog-source{font-size:14px;font-weight:600;line-height:1.6}.dialog-meta{font-size:11px;color:var(--soft);margin:5px 0 13px;overflow-wrap:anywhere}.quote{border-top:1px solid var(--hair);padding-top:12px;margin-top:12px}.quote h3{font-size:12px;color:var(--sage);font-weight:600;line-height:1.6}.quote blockquote{margin:8px 0 5px;padding:0 0 0 10px;border-left:2px solid var(--line);font-size:14px;line-height:1.75}.quote small{color:var(--soft);font-size:10px}.embedded body{background:var(--paper)}.embedded .intro,.embedded .footer{display:none}.embedded .surface{width:100%;max-width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.embedded .body{padding-top:12px}@media(max-width:340px){.intro,.footer{padding-inline:12px}.surface{border-radius:0}.body{padding-inline:10px}.board{gap:8px;padding-inline:6px}.zone{padding-inline:6px}.card{padding-inline:7px}}@media(prefers-reduced-motion:no-preference){button{transition:background .15s,border-color .15s,box-shadow .15s}.card:hover{box-shadow:0 3px 8px rgba(27,26,23,.1)}}
+</style>
+<script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('embedded');</script>
+</head>
+<body>
+<header class="intro"><small>DLens / 跨帖引用研究</small><h1>A · 分區卡片</h1><p>點一張帖卡，看同一來源在哪些分區出現；再看引用原句。</p><p>參考 <a href="https://wiki.heptabase.com/organize-knowledge-and-projects" target="_blank" rel="noopener noreferrer">Heptabase Sections ↗</a></p></header>
+<main class="surface" aria-label="DLens 分區卡片原型">
+ <div class="chrome"><span>DLens</span><span>側欄</span></div>
+ <div class="nav"><span>收藏</span><b>工作區</b></div>
+ <div class="body">
+  <p class="crumb">觀眾反應 / 話題</p><h2>返工用 AI 工具</h2><p class="coverage" id="coverage"></p>
+  <div class="module-title"><h3>跨帖引用</h3><button class="quiet" id="view-toggle" aria-pressed="false">展開全部卡片</button></div>
+  <p class="intro-line" id="summary"></p>
+  <div class="board" id="board" aria-label="按既有解讀重點分區的來源帖卡"></div>
+  <p class="board-caption">分區＝解讀重點 · 卡片＝被引用的來源帖</p>
+  <div class="selection" id="selection" aria-label="已選來源"></div>
+  <details class="pending" id="pending"><summary id="pending-summary"></summary><div class="pending-list" id="pending-list"></div></details>
+  <p class="sample-note">虛構資料示範 · 僅呈現本次解讀的引用關係。</p>
+ </div>
+</main>
+<p class="footer">收合後仍保留區名和來源帖題；同一帖可以出現在多個引用分區。鍵盤 Tab 選取，Escape 清除。</p>
+<p class="sr-only" role="status" aria-live="polite" id="announcement"></p>
+<dialog id="quote-dialog" aria-labelledby="quote-dialog-title"><div class="dialog-head"><h2 id="quote-dialog-title">引用原句</h2><button class="close" id="close-dialog" autofocus>關閉</button></div><div class="dialog-body" id="quote-body"></div></dialog>
+<script>
+const posts=[
+ {id:'A',handle:'office.mei',date:'2026-09-02',title:'公司話唔准用 ChatGPT，但個個都用緊',replies:412},
+ {id:'B',handle:'devlam',date:'2026-09-05',title:'寫 code 快咗一倍，但 review 辛苦咗',replies:230},
+ {id:'C',handle:'cs_kiki',date:'2026-09-11',title:'客服部已經裁咗一半人',replies:388},
+ {id:'D',handle:'hr.notes',date:'2026-09-12',title:'HR 角度：我哋點睇員工用 AI',replies:156},
+ {id:'E',handle:'design.wo',date:'2026-09-20',title:'設計師唔驚，驚嘅係唔識用嘅人',replies:274},
+ {id:'F',handle:'acct_sam',date:'2026-09-26',title:'會計部用 AI 對數，老闆唔知',replies:198},
+ {id:'G',handle:'law.pp',date:'2026-10-01',title:'律師行全面禁用，原因係保密',replies:142},
+ {id:'H',handle:'newgrad.j',date:'2026-10-03',title:'畢業生：見工被問識唔識 prompt',replies:351},
+ {id:'I',handle:'pm.yan',date:'2026-10-09',title:'會議紀錄全部交俾 AI',replies:120},
+ {id:'J',handle:'it.sec',date:'2026-10-12',title:'IT 部：偷偷用 AI 係資料外洩風險',replies:265},
+ {id:'K',handle:'teacher.c',date:'2026-10-16',title:'學校老師用 AI 出卷',replies:180,pending:true},
+ {id:'L',handle:'cs_lok',date:'2026-10-18',title:'客服仲有冇得做？',replies:230,pending:true}
+];
+const points=[
+ {id:'private',label:'員工私下用 AI，公司政策有鬆有緊',short:'私下使用與公司政策',hits:{A:'公司 IT 封咗網址，我哋用手機開。',F:'老闆唔知我用 AI 對數，快咗兩粒鐘。',I:'冇人講過可唔可以，大家就照用。',D:'我哋 HR 都未有政策，係最近先開始傾。'}},
+ {id:'privacy',label:'資料保密是禁用或收緊使用的原因',short:'資料保密的限制',hits:{G:'客戶資料一入 AI 就係違約，所以全面禁。',J:'上個月有同事將合約貼入去，即刻要報告。',A:'我哋公司都係因為呢個原因封網。'}},
+ {id:'writing',label:'AI 已用於電郵、會議紀錄與工作文件',short:'電郵、紀錄與文件',hits:{I:'每次開完會錄音丟入去，十分鐘有紀錄。',A:'寫 email 俾老闆用嚟潤色。',B:'寫 commit message 同文件。',F:'用嚟寫對數報告嘅說明。'}},
+ {id:'jobs',label:'職位取代的壓力，出現在裁員、求職與技能要求',short:'職位與技能壓力',hits:{C:'我哋組由 12 個減到 6 個。',H:'見工時人哋話「呢啲 AI 做得到」。',E:'驚嘅唔係設計師，係只識跟稿嗰啲。'}},
+ {id:'review',label:'程式與設計使用 AI 後，仍需人工檢查和修改',short:'初稿之後的人工工作',hits:{B:'快咗，但 review 時間多咗。',E:'我用 AI 出初稿，之後自己改。'}}
+];
+
+const byId=new Map(posts.map(p=>[p.id,p]));
+const included=posts.filter(p=>!p.pending);
+const referenceCount=points.reduce((n,p)=>n+Object.keys(p.hits).length,0);
+const refsFor=id=>points.filter(p=>Object.hasOwn(p.hits,id));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state={selected:null,expanded:new Set(),all:false};
+const board=document.getElementById('board');
+const selection=document.getElementById('selection');
+const dialog=document.getElementById('quote-dialog');
+let quoteOpener=null;
+const dateLabel=d=>`${Number(d.slice(5,7))}月${Number(d.slice(8))}日`;
+function sourceIds(point){return Object.keys(point.hits).sort((a,b)=>refsFor(b).length-refsFor(a).length||posts.findIndex(p=>p.id===a)-posts.findIndex(p=>p.id===b));}
+function cardMarkup(point,id){
+ const post=byId.get(id),active=state.selected===id;
+ return `<button class="card" data-post="${id}" data-point="${point.id}" data-focus="card-${point.id}-${id}" aria-pressed="${active}" aria-label="${esc(post.title)}，來源帖 @${esc(post.handle)}，${esc(point.short)}引用此帖${active?'，同一來源已突出':''}">${active?'<span class="same-source">✓ 同一來源</span>':''}<span class="card-title">${esc(post.title)}</span><span class="card-meta">@${esc(post.handle)}</span></button>`;
+}
+function render(focusKey,fallbackFocusKey){
+ board.innerHTML=points.map((point,i)=>{
+  const ids=sourceIds(point),expanded=state.all||state.expanded.has(point.id),linked=state.selected&&ids.includes(state.selected);
+  const initial=ids.slice(0,i===0?2:1);
+  // Keep the region in place. When a hidden source is selected elsewhere, expose
+  // that same card here; all references remain available through expansion.
+  const shown=expanded?ids:linked&&!initial.includes(state.selected)?[state.selected,...initial.slice(0,i===0?1:0)]:initial;
+  const hidden=ids.length-shown.length;
+  return `<section class="zone${linked?' is-linked':''}" data-zone="${point.id}" aria-label="${esc(point.short)}"><button class="zone-heading" data-expand="${point.id}" data-focus="zone-${point.id}" aria-expanded="${expanded}" aria-controls="cards-${point.id}"><span class="zone-title">${esc(point.short)}</span><span class="chevron" aria-hidden="true">${expanded?'−':'＋'}</span></button><span class="zone-count">引用 ${ids.length} 篇${linked?' · 有選中來源':''}</span><div class="card-space${hidden?' stacked':''}${shown.length===1?' single':''}" id="cards-${point.id}">${shown.map(id=>cardMarkup(point,id)).join('')}</div>${hidden?`<button class="more" data-expand="${point.id}" data-focus="more-${point.id}" aria-expanded="false">另有 ${hidden} 篇 · 展開</button>`:''}</section>`;
+ }).join('');
+ if(state.selected){
+  const post=byId.get(state.selected),refs=refsFor(post.id);
+  selection.innerHTML=`<div class="selection-top"><span class="selection-label">同一來源 · ${refs.length} 個分區</span><button class="clear" id="clear-selection">清除</button></div><p class="selected-title">${esc(post.title)}</p><p class="selection-meta">來源帖 @${esc(post.handle)} · ${dateLabel(post.date)}</p><button class="quote-button" id="open-quotes">看 ${refs.length} 段引用原句 <span aria-hidden="true">↗</span></button>`;
+ }else selection.innerHTML='<p class="empty-selection">點一張卡片，追蹤它在其他分區的出現。<br>再按「看原句」，核對每個重點的引用。</p>';
+ const toggle=document.getElementById('view-toggle');
+ toggle.textContent=state.all?'收合成分區總覽':'展開全部卡片';toggle.setAttribute('aria-pressed',String(state.all));
+ if(focusKey)(document.querySelector(`[data-focus="${CSS.escape(focusKey)}"]`)||(fallbackFocusKey&&document.querySelector(`[data-focus="${CSS.escape(fallbackFocusKey)}"]`)))?.focus({preventScroll:true});
+}
+function announce(text){document.getElementById('announcement').textContent=text;}
+function clearSelection(){const id=state.selected;state.selected=null;render();if(id)(board.querySelector(`[data-post="${id}"]`)||board.querySelector(`[data-expand="${refsFor(id)[0].id}"]`))?.focus({preventScroll:true});announce('已清除來源選取。');}
+function showQuotes(opener){
+ if(!state.selected)return;
+ quoteOpener=opener;
+ const post=byId.get(state.selected),refs=refsFor(post.id);
+ document.getElementById('quote-body').innerHTML=`<p class="dialog-source">${esc(post.title)}</p><p class="dialog-meta">來源帖 @${esc(post.handle)} · ${dateLabel(post.date)}<br>${refs.length} 個重點引用此帖</p>${refs.map(point=>`<section class="quote" data-quote="${point.id}:${post.id}"><h3>${esc(point.label)}</h3><blockquote>${esc(point.hits[post.id])}</blockquote><small>留言節錄 · 作者未提供</small></section>`).join('')}`;
+ dialog.showModal();document.getElementById('close-dialog').focus();
+}
+board.addEventListener('click',event=>{
+ const card=event.target.closest('button[data-post]');
+ if(card){state.selected=state.selected===card.dataset.post?null:card.dataset.post;render(card.dataset.focus,`zone-${card.dataset.point}`);announce(state.selected?`已突出來源帖「${byId.get(state.selected).title}」，出現在 ${refsFor(state.selected).length} 個分區。`:'已清除來源選取。');return;}
+ const expand=event.target.closest('button[data-expand]');
+ if(expand){const id=expand.dataset.expand;if(state.all){state.all=false;state.expanded=new Set(points.map(p=>p.id).filter(p=>p!==id));}else if(state.expanded.has(id))state.expanded.delete(id);else state.expanded.add(id);render(`zone-${id}`);}
+});
+selection.addEventListener('click',event=>{if(event.target.closest('#clear-selection'))clearSelection();else if(event.target.closest('#open-quotes'))showQuotes(event.target.closest('#open-quotes'));});
+document.getElementById('view-toggle').addEventListener('click',()=>{state.all=!state.all;state.expanded.clear();render();announce(state.all?`已顯示全部 ${referenceCount} 張引用卡片。`:'已收合卡片，保留全部分區標題。');});
+document.getElementById('close-dialog').addEventListener('click',()=>dialog.close());
+dialog.addEventListener('close',()=>{if(quoteOpener?.isConnected)quoteOpener.focus({preventScroll:true});quoteOpener=null;});
+dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!dialog.open&&state.selected){event.preventDefault();clearSelection();}});
+document.getElementById('coverage').textContent=`本次解讀 ${included.length} / ${posts.length} 篇 · ${posts.filter(p=>p.pending).length} 篇待預讀`;
+document.getElementById('summary').textContent=`${points.length} 個分區 · ${referenceCount} 次引用 · 點卡片追蹤來源`;
+document.getElementById('pending-summary').textContent=`${posts.filter(p=>p.pending).length} 篇待預讀 · 尚未進入引用分區`;
+document.getElementById('pending-list').innerHTML=posts.filter(p=>p.pending).map(post=>`<p class="pending-post">${esc(post.title)}<small>來源帖 @${esc(post.handle)} · ${dateLabel(post.date)}</small></p>`).join('');
+render();
+</script>
+</body>
+</html>

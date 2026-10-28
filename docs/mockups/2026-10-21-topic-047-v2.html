@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DLens 0.4.7 · 重點與來源</title>
+<!--
+  Standalone design reference, 2026-10-21. Production code is not changed.
+  Baseline: 2026-10-21-topic-047.html, kept untouched.
+  Reuses its 12 synthetic posts and 16 quote excerpts. No real accounts or outbound links.
+  Corrected claims avoid unsupported majority, frequency, and comparative-stance assertions.
+  A post is a source thread; the fixture does not identify each quoted comment's author/date.
+  Completed reading includes 10 posts, 2,536 captured replies and 16 cited excerpts.
+  Two pending posts (410 replies) are outside that reading. All 12 posts total 2,946 replies.
+  All counts/links are derived from this one fixture, never from visual positions or colours.
+  Source relationship means citation only. Post dates are publication dates, not collection dates.
+  Panel A/B/C show independently operable states of the same 328px interface.
+  Palette/type follow the existing tokens.ts reading/reader/collection family.
+-->
+<style>
+:root{--ink:#1b1a17;--sub:#3d3b35;--soft:#6c695e;--hair:rgba(27,26,23,.10);--wash:rgba(27,26,23,.035);--sage:#3f5a3b;--sage-w:rgba(63,90,59,.07);--amber:#a06a17;--paper:#fbfbf9;--card:#fff;--stage:#e9e7e1;--sans:-apple-system,BlinkMacSystemFont,'PingFang TC','Noto Sans TC',system-ui,sans-serif;--serif:'Songti TC','Noto Serif TC',serif}
+*{box-sizing:border-box}html,body{margin:0}body{font:14px/1.6 var(--sans);color:var(--ink);background:var(--stage);-webkit-font-smoothing:antialiased}button{font:inherit;color:inherit;cursor:pointer}button,a{-webkit-tap-highlight-color:transparent}button{border:0;background:none}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--sage);outline-offset:3px}button:hover{color:var(--sage)}[hidden]{display:none!important}
+.intro{max-width:1032px;margin:30px auto 22px;padding:0 8px}.eyebrow{font-size:11px;letter-spacing:.09em;color:var(--soft)}.intro h1{font-size:24px;font-weight:600;letter-spacing:-.025em;margin:5px 0 8px;line-height:1.45}.intro p{margin:3px 0;font-size:13px;color:var(--soft)}.intro a{color:var(--sub);text-underline-offset:3px}.stage{display:grid;grid-template-columns:repeat(3,328px);gap:24px;max-width:1032px;margin:0 auto 28px;align-items:start}.frame{min-width:0}.caption{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;font-size:12px;color:var(--soft)}.caption b{font-weight:600;color:var(--sub)}.panel{width:328px;max-width:100%;height:840px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#d1d2c9 transparent;background:var(--paper);border:1px solid rgba(27,26,23,.10);border-radius:12px;box-shadow:0 10px 28px -20px rgba(27,26,23,.30);scroll-padding-top:88px}.chrome{height:36px;padding:0 14px;border-bottom:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;font-size:12px;background:#f6f4f0}.chrome small{font-size:11px;color:var(--soft)}.global-nav{height:43px;display:flex;gap:22px;align-items:center;padding:0 16px;background:var(--paper);border-bottom:1px solid var(--hair);font-size:13px}.global-nav span{color:var(--soft)}.global-nav .current{height:100%;display:flex;align-items:center;border-bottom:2px solid var(--sage);color:var(--sage);font-weight:600}.body{padding:16px 16px 28px;min-width:0}.breadcrumb{color:var(--soft);font-size:11.5px;margin:0 0 8px}h2{font-family:var(--serif);font-size:22px;font-weight:600;line-height:1.4;margin:0 0 7px;letter-spacing:-.02em}.question{font-size:12.5px;color:var(--soft);margin:0 0 16px}.question span{color:var(--sub)}.summary{font-size:14px;line-height:1.7;margin:0 0 10px}.coverage{font-size:11.5px;color:var(--soft);margin-bottom:17px}.coverage summary{cursor:pointer;list-style:none;padding:4px 0}.coverage summary::-webkit-details-marker{display:none}.coverage summary:after{content:' ＋';color:var(--soft)}.coverage[open] summary:after{content:' −'}.coverage .detail{margin-top:6px;padding:10px 11px;border-radius:9px;background:var(--wash)}.coverage .detail p{margin:0 0 5px}.coverage .detail p:last-child{margin:0}.coverage strong{font-weight:500;color:var(--sub)}
+.view-tabs{display:flex;gap:22px;border-bottom:1px solid var(--hair);margin-bottom:2px}.view-tabs button{min-height:43px;padding:0 1px;font-size:13px;position:relative;color:var(--soft)}.view-tabs button[aria-selected=true]{color:var(--ink);font-weight:600}.view-tabs button[aria-selected=true]:after{content:'';position:absolute;height:2px;background:var(--sage);left:0;right:0;bottom:-1px}.tab-count{margin-left:5px;font-weight:400;font-size:11.5px;color:var(--soft)}.view-hint{margin:11px 0 3px;color:var(--soft);font-size:11.5px}.point{border-bottom:1px solid var(--hair)}.point-toggle{display:grid;grid-template-columns:19px minmax(0,1fr) 12px;gap:7px;align-items:start;width:100%;padding:14px 0;text-align:left;border-radius:4px}.ordinal{font-size:11px;font-variant-numeric:tabular-nums;color:var(--soft);padding-top:3px}.point-label{font-size:14px;line-height:1.6;color:var(--ink);font-weight:500}.point-meta{display:block;color:var(--sage);font-size:11.5px;font-weight:400;margin-top:5px}.chevron{font-size:15px;color:var(--soft);line-height:1.7}.point-toggle[aria-expanded=true]{padding-bottom:10px}.point-toggle[aria-expanded=true] .point-label{color:var(--sage)}.sources{margin:0 0 14px 25px;border:1px solid var(--hair);border-radius:10px;background:var(--card);overflow:hidden}.source+.source{border-top:1px solid var(--hair)}.source-toggle{width:100%;display:block;text-align:left;padding:10px 11px}.source-toggle[aria-expanded=true]{background:var(--sage-w)}.source-meta{font-size:11px;color:var(--soft);display:flex;justify-content:space-between;gap:6px;align-items:baseline}.source-meta span:first-child{min-width:0;overflow-wrap:anywhere}.source-meta time{white-space:nowrap;flex:none}.source-title{display:block;font-size:12.5px;line-height:1.55;font-weight:500;color:var(--sub);margin-top:4px;overflow-wrap:anywhere}.source-toggle[aria-expanded=true] .source-title{color:var(--sage)}.quote-wrap{padding:11px;background:var(--card)}.quote-label{font-size:10.5px;line-height:1.6;color:var(--soft);margin:0 0 7px}blockquote{margin:0;padding:0 0 0 10px;border-left:2px solid var(--sage);font-size:13px;line-height:1.7;color:var(--ink)}.related{border-top:1px solid var(--hair);padding-top:9px;margin-top:11px}.related p{font-size:10.5px;color:var(--soft);margin:0 0 3px}.related button{width:100%;min-height:36px;text-align:left;display:flex;gap:7px;align-items:baseline;padding:5px 0;font-size:11.5px;line-height:1.5;color:var(--sage)}.related button span{flex:1}.related button i{font-style:normal;font-size:12px;color:var(--soft)}.after-note{font-size:11px;color:var(--soft);margin:13px 0 0;line-height:1.6}
+.post-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0 7px;font-size:11.5px;color:var(--soft)}.post-tools button{padding:5px 0;min-height:32px;font-size:11.5px;color:var(--sub)}.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}.filters button{border:1px solid var(--hair);border-radius:6px;font-size:11px;min-height:30px;padding:4px 8px;color:var(--soft)}.filters button[aria-pressed=true]{background:var(--sage-w);border-color:rgba(63,90,59,.18);color:var(--sage)}.month{font-size:11.5px;font-weight:600;color:var(--soft);display:flex;align-items:center;gap:10px;margin:16px 0 2px}.month:after{content:'';flex:1;height:1px;background:var(--hair)}.post-row{border-bottom:1px solid var(--hair)}.post-toggle{display:grid;grid-template-columns:29px minmax(0,1fr);gap:9px;width:100%;padding:12px 0;text-align:left}.day{font-size:14px;color:var(--soft);font-variant-numeric:tabular-nums;font-weight:500;line-height:1.6}.post-title{display:block;font-size:13px;line-height:1.6;color:var(--ink);font-weight:500;overflow-wrap:anywhere}.post-meta{display:block;margin-top:5px;font-size:10.5px;color:var(--soft);line-height:1.6;overflow-wrap:anywhere}.post-meta .pending{color:var(--amber)}.post-references{margin:0 0 13px 38px;padding:8px 10px;border-radius:8px;background:var(--wash)}.post-references p{font-size:11px;color:var(--soft);margin:0}.post-references button{display:flex;width:100%;align-items:baseline;gap:7px;text-align:left;font-size:12px;line-height:1.55;min-height:38px;color:var(--sage);padding:7px 0}.post-references button span{flex:1}.post-references button i{font-style:normal;color:var(--soft)}.empty{font-size:12px;color:var(--soft);padding:16px 0}.study-footer{max-width:1032px;padding:0 8px 30px;margin:auto;font-size:12px;color:var(--soft)}.study-footer p{margin:3px 0}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(prefers-reduced-motion:no-preference){.quote-wrap{animation:appear .16s ease-out}@keyframes appear{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}}
+@media(max-width:1080px){.intro,.study-footer{padding-left:20px;padding-right:20px}.stage{grid-template-columns:repeat(2,328px);max-width:680px}.frame:last-child{grid-column:1/-1;justify-self:center;width:328px}}
+@media(max-width:720px){.intro{margin-top:20px}.intro h1{font-size:21px}.stage{display:flex;flex-direction:column;align-items:center;gap:24px;padding:0 12px}.frame,.frame:last-child{width:328px;max-width:100%}.panel{height:800px}.study-footer{padding-bottom:24px}}
+</style>
+</head>
+<body>
+<header class="intro">
+  <div class="eyebrow">DLENS / 0.4.7 · 探索稿 02</div>
+  <h1>重點 → 來源 → 原句</h1>
+  <p>三個可操作狀態，每欄 328px。點重點看來源，點帖題看原句；按日期找帖，也能回到引用它的重點。</p>
+  <p>沿用原稿的虛構帖子與節錄 · <a href="./2026-10-21-topic-047.html">查看原稿</a></p>
+</header>
+<main class="stage">
+  <section class="frame" aria-label="重點概覽示範"><div class="caption"><b>01 · 先讀重點</b><span>來源數量退到第二層</span></div><div class="panel" id="panel-a"></div></section>
+  <section class="frame" aria-label="引用展開示範"><div class="caption"><b>02 · 沿來源看原句</b><span>同帖的其他引用也看得見</span></div><div class="panel" id="panel-b"></div></section>
+  <section class="frame" aria-label="按日期找帖示範"><div class="caption"><b>03 · 依日期找帖</b><span>時間與帖題放在一起</span></div><div class="panel" id="panel-c"></div></section>
+</main>
+<footer class="study-footer"><p>示意資料：12 篇收藏，其中 10 篇納入這次解讀、2 篇待預讀。所有引用表示來源關係。</p><p>這是一份互動 mockup；頁面內的數字均由示意資料計算。</p></footer>
+<script>
+'use strict';
+const posts=[
+ {id:'A',handle:'office.mei',date:'2026-09-02',title:'公司話唔准用 ChatGPT，但個個都用緊',replies:412},
+ {id:'B',handle:'devlam',date:'2026-09-05',title:'寫 code 快咗一倍，但 review 辛苦咗',replies:230},
+ {id:'C',handle:'cs_kiki',date:'2026-09-11',title:'客服部已經裁咗一半人',replies:388},
+ {id:'D',handle:'hr.notes',date:'2026-09-12',title:'HR 角度：我哋點睇員工用 AI',replies:156},
+ {id:'E',handle:'design.wo',date:'2026-09-20',title:'設計師唔驚，驚嘅係唔識用嘅人',replies:274},
+ {id:'F',handle:'acct_sam',date:'2026-09-26',title:'會計部用 AI 對數，老闆唔知',replies:198},
+ {id:'G',handle:'law.pp',date:'2026-10-01',title:'律師行全面禁用，原因係保密',replies:142},
+ {id:'H',handle:'newgrad.j',date:'2026-10-03',title:'畢業生：見工被問識唔識 prompt',replies:351},
+ {id:'I',handle:'pm.yan',date:'2026-10-09',title:'會議紀錄全部交俾 AI',replies:120},
+ {id:'J',handle:'it.sec',date:'2026-10-12',title:'IT 部：偷偷用 AI 係資料外洩風險',replies:265},
+ {id:'K',handle:'teacher.c',date:'2026-10-16',title:'學校老師用 AI 出卷',replies:180,pending:true},
+ {id:'L',handle:'cs_lok',date:'2026-10-18',title:'客服仲有冇得做？',replies:230,pending:true}
+];
+const points=[
+ {id:'private',label:'員工私下用 AI，公司政策有鬆有緊',short:'私下使用與公司政策',hits:{A:'公司 IT 封咗網址，我哋用手機開。',F:'老闆唔知我用 AI 對數，快咗兩粒鐘。',I:'冇人講過可唔可以，大家就照用。',D:'我哋 HR 都未有政策，係最近先開始傾。'}},
+ {id:'privacy',label:'資料保密是禁用或收緊使用的原因',short:'資料保密的限制',hits:{G:'客戶資料一入 AI 就係違約，所以全面禁。',J:'上個月有同事將合約貼入去，即刻要報告。',A:'我哋公司都係因為呢個原因封網。'}},
+ {id:'writing',label:'AI 已用於電郵、會議紀錄與工作文件',short:'電郵、紀錄與文件',hits:{I:'每次開完會錄音丟入去，十分鐘有紀錄。',A:'寫 email 俾老闆用嚟潤色。',B:'寫 commit message 同文件。',F:'用嚟寫對數報告嘅說明。'}},
+ {id:'jobs',label:'職位取代的壓力，出現在裁員、求職與技能要求',short:'職位與技能壓力',hits:{C:'我哋組由 12 個減到 6 個。',H:'見工時人哋話「呢啲 AI 做得到」。',E:'驚嘅唔係設計師，係只識跟稿嗰啲。'}},
+ {id:'review',label:'程式與設計使用 AI 後，仍需人工檢查和修改',short:'初稿之後的人工工作',hits:{B:'快咗，但 review 時間多咗。',E:'我用 AI 出初稿，之後自己改。'}}
+];
+const byId=new Map(posts.map(p=>[p.id,p]));
+const included=posts.filter(p=>!p.pending);
+const citedIds=new Set(points.flatMap(p=>Object.keys(p.hits)));
+const quoteCount=points.reduce((n,p)=>n+Object.keys(p.hits).length,0);
+const number=n=>n.toLocaleString('en-US');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dateLabel=date=>`${Number(date.slice(5,7))}月${Number(date.slice(8))}日`;
+const relatedTo=id=>points.filter(p=>Object.hasOwn(p.hits,id));
+const ordinal=i=>String(i+1).padStart(2,'0');
+const summary='有人私下用 AI 寫文件、對數與整理會議；公司政策有未制定，也有明文禁止。效率與職位壓力，出現在不同工作情境。';
+const states={a:{tab:'points',point:null,source:null,filter:'all',post:null,ascending:false,coverage:false},b:{tab:'points',point:'private',source:'F',filter:'all',post:null,ascending:false,coverage:false},c:{tab:'posts',point:null,source:null,filter:'all',post:null,ascending:false,coverage:false}};
+function coverage(s){return `<details class="coverage" ${s.coverage?'open':''}><summary>本次解讀 ${included.length} / ${posts.length} 篇 · ${posts.length-included.length} 篇待預讀</summary><div class="detail"><p><strong>送入這次解讀</strong>：${included.length} 份摘要、${quoteCount} 則引用節錄。</p><p>已預讀素材：${number(included.reduce((n,p)=>n+p.replies,0))} 則留言。全部收藏共 ${number(posts.reduce((n,p)=>n+p.replies,0))} 則。</p><p>另 ${posts.length-included.length} 篇待預讀，尚未納入。引用篇數只表示這次解讀使用的來源。</p></div></details>`;}
+function quoteMarkup(point,post){
+ const related=relatedTo(post.id).filter(p=>p.id!==point.id);
+ return `<div class="quote-wrap"><p class="quote-label">留言節錄 · 作者未提供</p><blockquote>${esc(point.hits[post.id])}</blockquote>${related.length?`<div class="related"><p>這篇亦被引用於</p>${related.map(p=>`<button data-action="jump" data-point="${p.id}" data-source="${post.id}" data-focus="jump-${point.id}-${p.id}-${post.id}"><span>${esc(p.short)}</span><i aria-hidden="true">↗</i></button>`).join('')}</div>`:''}</div>`;
+}
+function sourcesMarkup(key,point,s){return `<div class="sources" id="${key}-sources-${point.id}">${Object.keys(point.hits).map(id=>{
+ const post=byId.get(id),open=s.source===id;
+ return `<div class="source"><button class="source-toggle" data-action="source" data-point="${point.id}" data-source="${id}" data-focus="source-${point.id}-${id}" aria-expanded="${open}" aria-controls="${key}-quote-${point.id}-${id}"><span class="source-meta"><span>來源帖 @${esc(post.handle)}</span><time datetime="${post.date}">${dateLabel(post.date)}</time></span><span class="source-title">${esc(post.title)}</span></button><div id="${key}-quote-${point.id}-${id}" ${open?'':'hidden'}>${open?quoteMarkup(point,post):''}</div></div>`;
+ }).join('')}</div>`;}
+function pointsMarkup(key,s){return `<p class="view-hint">點開一個重點，沿來源查看原句。</p>${points.map((point,i)=>{
+ const open=s.point===point.id;
+ return `<article class="point"><button class="point-toggle" data-action="point" data-point="${point.id}" data-focus="point-${point.id}" aria-expanded="${open}" aria-controls="${key}-sources-${point.id}"><span class="ordinal" aria-hidden="true">${ordinal(i)}</span><span><span class="point-label">${esc(point.label)}</span><span class="point-meta">引用自 ${Object.keys(point.hits).length} 篇${open?' · 收起':' · 看來源'}</span></span><span class="chevron" aria-hidden="true">${open?'−':'›'}</span></button>${open?sourcesMarkup(key,point,s):`<div id="${key}-sources-${point.id}" hidden></div>`}</article>`;
+ }).join('')}<p class="after-note">未被引用，仍可能談到同一件事。</p>`;}
+function postsMarkup(key,s){
+ const visible=posts.filter(p=>s.filter==='all'||(s.filter==='cited'?citedIds.has(p.id):p.pending)).sort((a,b)=>(s.ascending?1:-1)*a.date.localeCompare(b.date));
+ let lastMonth='';
+ return `<div class="post-tools"><span>按帖子發布日期</span><button data-action="sort" data-focus="sort">${s.ascending?'舊到新 ↑':'新到舊 ↓'}</button></div><div class="filters" aria-label="帖子篩選">${[['all',`全部 ${posts.length}`],['cited',`本次引用 ${citedIds.size}`],['pending',`待預讀 ${posts.filter(p=>p.pending).length}`]].map(([filter,label])=>`<button data-action="filter" data-filter="${filter}" data-focus="filter-${filter}" aria-pressed="${s.filter===filter}">${label}</button>`).join('')}</div>${visible.map(post=>{
+  const month=post.date.slice(0,7),heading=month!==lastMonth?`<h3 class="month">${Number(month.slice(5))}月</h3>`:'';lastMonth=month;
+  const related=relatedTo(post.id),open=s.post===post.id;
+  return `${heading}<article class="post-row" data-post="${post.id}"><button class="post-toggle" data-action="post" data-source="${post.id}" data-focus="post-${post.id}" aria-expanded="${open}" aria-controls="${key}-post-refs-${post.id}"><time class="day" datetime="${post.date}" aria-label="${dateLabel(post.date)}">${Number(post.date.slice(8))}</time><span><span class="post-title">${esc(post.title)}</span><span class="post-meta">@${esc(post.handle)} · ${post.pending?'<span class="pending">待預讀</span>':`被 ${related.length} 個重點引用`} ${open?'−':'›'}</span></span></button><div class="post-references" id="${key}-post-refs-${post.id}" ${open?'':'hidden'}>${related.length?`<p>這次解讀引用它的重點</p>${related.map(point=>`<button data-action="jump" data-point="${point.id}" data-source="${post.id}" data-focus="post-jump-${post.id}-${point.id}"><span>${esc(point.short)}</span><i aria-hidden="true">↗</i></button>`).join('')}`:`<p>這篇尚待預讀，未納入這次解讀。</p><p>已抓到 ${number(post.replies)} 則留言。</p>`}</div></article>`;
+ }).join('')}${visible.length?'':'<p class="empty">沒有符合篩選的帖子。</p>'}`;
+}
+function render(key,focusKey){
+ const s=states[key],root=document.getElementById(`panel-${key}`);
+ root.innerHTML=`<div class="chrome"><span>DLens</span><small>側欄</small></div><div class="global-nav"><span>收藏</span><span class="current">工作區</span></div><div class="body"><p class="breadcrumb">觀眾反應 / 話題</p><h2>返工用 AI 工具</h2><p class="question"><span>想了解</span>　公司點管、員工點用、工作有咩改變？</p><p class="summary">${summary}</p>${coverage(s)}<div class="view-tabs" role="tablist" aria-label="話題閱讀方式">${[['points','重點',points.length],['posts','帖子',posts.length]].map(([tab,label,count])=>`<button role="tab" id="${key}-tab-${tab}" data-action="tab" data-tab="${tab}" data-focus="tab-${tab}" aria-selected="${s.tab===tab}" aria-controls="${key}-view-${tab}" tabindex="${s.tab===tab?0:-1}">${label}<span class="tab-count">${count}</span></button>`).join('')}</div><div role="tabpanel" id="${key}-view-points" aria-labelledby="${key}-tab-points" ${s.tab==='points'?'':'hidden'}>${s.tab==='points'?pointsMarkup(key,s):''}</div><div role="tabpanel" id="${key}-view-posts" aria-labelledby="${key}-tab-posts" ${s.tab==='posts'?'':'hidden'}>${s.tab==='posts'?postsMarkup(key,s):''}</div></div>`;
+ root.querySelector('details').addEventListener('toggle',event=>{s.coverage=event.currentTarget.open;});
+ if(focusKey){const target=root.querySelector(`[data-focus="${CSS.escape(focusKey)}"]`);if(target)target.focus({preventScroll:false});}
+}
+for(const key of Object.keys(states)){
+ const root=document.getElementById(`panel-${key}`),s=states[key];
+ root.addEventListener('click',event=>{
+  const b=event.target.closest('button[data-action]');if(!b||!root.contains(b))return;
+  let focus=b.dataset.focus;
+  switch(b.dataset.action){
+   case'tab':s.tab=b.dataset.tab;break;
+   case'point':s.point=s.point===b.dataset.point?null:b.dataset.point;s.source=null;break;
+   case'source':s.source=s.source===b.dataset.source?null:b.dataset.source;break;
+   case'jump':s.tab='points';s.point=b.dataset.point;s.source=b.dataset.source;focus=`source-${s.point}-${s.source}`;break;
+   case'post':s.post=s.post===b.dataset.source?null:b.dataset.source;break;
+   case'filter':s.filter=b.dataset.filter;s.post=null;break;
+   case'sort':s.ascending=!s.ascending;break;
+  }
+  render(key,focus);
+ });
+ root.addEventListener('keydown',event=>{
+  const tab=event.target.closest('[role=tab]');
+  if(tab&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+   event.preventDefault();s.tab=event.key==='Home'?'points':event.key==='End'?'posts':s.tab==='points'?'posts':'points';render(key,`tab-${s.tab}`);return;
+  }
+  if(event.key!=='Escape')return;
+  if(s.tab==='points'&&s.source){event.preventDefault();const id=s.source;s.source=null;render(key,`source-${s.point}-${id}`);}
+  else if(s.tab==='points'&&s.point){event.preventDefault();const id=s.point;s.point=null;render(key,`point-${id}`);}
+  else if(s.tab==='posts'&&s.post){event.preventDefault();const id=s.post;s.post=null;render(key,`post-${id}`);}
+ });
+ render(key);
+}
+</script>
+</body>
+</html>

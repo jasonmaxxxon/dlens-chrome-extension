@@ -3347,6 +3347,66 @@ test("signal/delete keeps shared item tags until the last signal reference disap
 });
 
 
+test("stale orphan cleanup queued during a topic save preserves the post and its topic assignment", async () => {
+  const session = makeSession("topic-session", "topic");
+  let releaseSignalWrite!: () => void;
+  const signalWriteGate = new Promise<void>(resolve => { releaseSignalWrite = resolve; });
+  let pendingSignal: Signal | undefined;
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [TOPICS_STORAGE_KEY]: [{
+      id: "topic-work", sessionId: session.id, name: "職場", status: "pending",
+      signalIds: [], pairIds: [], tags: [], createdAt: session.createdAt, updatedAt: session.updatedAt
+    }]
+  }, {
+    onSet: async payload => {
+      if (!pendingSignal && Array.isArray(payload[SIGNALS_STORAGE_KEY])) {
+        pendingSignal = (payload[SIGNALS_STORAGE_KEY] as Signal[])[0];
+        await signalWriteGate;
+      }
+    }
+  });
+  const save = harness.dispatch({
+    type: "session/inline-collect", action: "save", mode: "topic", descriptor: makeDescriptor("topic-save-race")
+  });
+  await waitFor(() => Boolean(pendingSignal), "new signal before its backing post is published");
+  assert.equal((harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0].items.length, 0);
+  const cleanup = harness.dispatch({
+    type: "signal/delete", signalId: pendingSignal!.id, onlyIfOrphan: true
+  } as unknown as ExtensionMessage);
+  releaseSignalWrite();
+  const [saved, cleaned] = await Promise.all([save, cleanup]);
+  assert.equal(saved.ok, true);
+  assert.equal(cleaned.ok, true);
+  const triage = await harness.dispatch({
+    type: "signal/triage", signalId: pendingSignal!.id, action: { kind: "assign", topicId: "topic-work" }
+  });
+  assert.equal(triage.ok, true, triage.error);
+  assert.equal(triage.signals?.[0]?.topicId, "topic-work");
+  const global = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(global.sessions[0].items[0]?.id, pendingSignal!.itemId);
+});
+
+test("conditional orphan cleanup still removes a signal whose backing post is missing", async () => {
+  const session = makeSession("topic-session", "topic");
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([session], session.id),
+    [SIGNALS_STORAGE_KEY]: [{
+      id: "orphan", sessionId: session.id, itemId: "missing-item", source: "threads",
+      inboxStatus: "unprocessed", capturedAt: session.createdAt
+    }]
+  });
+  const response = await harness.dispatch({
+    type: "signal/delete", signalId: "orphan", onlyIfOrphan: true
+  } as unknown as ExtensionMessage);
+  assert.equal(response.ok, true);
+  assert.deepEqual(harness.state[SIGNALS_STORAGE_KEY], []);
+  const repeated = await harness.dispatch({
+    type: "signal/delete", signalId: "orphan", onlyIfOrphan: true
+  });
+  assert.equal(repeated.ok, true, "another panel's cleanup of an already removed orphan is harmless");
+});
+
 test("inline collect picks the newest destination and preserves workspace navigation", async () => {
   const topic = makeSession("topic-active", "topic");
   const older = makeSession("product-old", "product");

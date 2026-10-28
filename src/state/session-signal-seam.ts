@@ -4,7 +4,19 @@ import { deleteSignalReadingsBySignalId } from "../compare/signal-reading-storag
 import { deleteTopicSignalReadingsBySignalId } from "../compare/topic-signal-reading-storage";
 import { removeSessionItem } from "./store-helpers";
 import { deleteSignal, type StorageAreaLike } from "./topic-storage";
-import type { ExtensionGlobalState, Signal, Topic } from "./types";
+import type { ExtensionGlobalState, SessionRecord, Signal, Topic } from "./types";
+
+export function findSignalsMissingBackingItems(session: SessionRecord | null, signals: Signal[]): Signal[] {
+  if (!session?.id) return [];
+  const itemById = new Map(session.items.map(item => [item.id, item]));
+  return signals.filter(signal => {
+    if (signal.sessionId !== session.id || !signal.itemId) return false;
+    const descriptor = itemById.get(signal.itemId)?.descriptor;
+    return !descriptor || !(
+      descriptor.text_snippet?.trim() || descriptor.post_url || descriptor.page_url || descriptor.author_hint?.trim()
+    );
+  });
+}
 
 export type SignalStorageDeletion = {
   deleted: Signal;

@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DLens 跨帖選項 v5</title>
+<!--
+  2026-10-22 mockup v5 — no matrices, no dot rows (owner, 2026-10-22). Ways to show one 話題 across posts in the 328px side panel. Reference only, not spec.
+  Content is synthetic (made-up handles, posts and replies). One shared dataset drives every option.
+  Rules carried from the 0.4.6 review and the research round:
+  - a mark means "this point cites this post"; never stance, never share of opinion;
+  - no percentages: replies are not a representative sample, so quotes are examples (Pew's practice);
+  - "冇提" only exists for posts that were pre-read, and means "the digest does not mention it";
+  - posts still being pre-read stay visible but are never counted as silent.
+  References: Talk to the City / Prezi (drill), MAXQDA Code Matrix Browser + Document Portrait, NVivo framework matrix,
+  ATLAS.ti Sankey, Ground News bias bar, Pew open-ended quotes, UpSet, Voyant KWIC, Kialo.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1b1a17;--sub:#3d3b35;--soft:#6c695e;--faint:#a19e93;--hair:rgba(27,26,23,.09);--wash:rgba(27,26,23,.045);
+  --sage:#3f5a3b;--violet:#7b4a8a;--violet-w:rgba(123,74,138,.09);--amber:#a06a17;--amber-w:rgba(160,106,23,.1);
+  --paper:#fbfbf9;--card:#fff;--stage:#e9e7e1;
+  --sans:'Noto Sans TC',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;--serif-cjk:'Noto Serif TC','Songti TC',serif;
+  --out:cubic-bezier(.16,1,.3,1);--spring:cubic-bezier(.34,1.56,.64,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--stage);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+.intro{max-width:1180px;margin:0 auto;padding:28px 16px 8px}
+.intro h1{margin:0 0 6px;font-size:22px}
+.intro p{margin:0 0 6px;color:var(--sub);font-size:13.5px;max-width:860px}
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.jump a{font-size:12.5px;padding:4px 10px;border-radius:999px;background:var(--card);color:var(--sub);text-decoration:none;box-shadow:0 0 0 1px var(--hair)}
+.jump a b{color:var(--violet);margin-right:4px}
+.grid{max-width:1180px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(344px,1fr));gap:28px 20px;justify-items:center}
+.frame{width:344px;display:grid;gap:10px;align-content:start;scroll-margin-top:16px}
+.meta{padding:0 8px}
+.meta h3{margin:0;font-size:15px;display:flex;gap:8px;align-items:baseline}
+.meta h3 b{color:var(--violet);font-size:13px}
+.meta .ref{margin:2px 0 6px;font-size:12px;color:var(--soft)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:999px;margin-right:4px}
+.tag.now{background:rgba(63,90,59,.12);color:var(--sage)}.tag.pre{background:var(--violet-w);color:var(--violet)}.tag.later{background:var(--amber-w);color:var(--amber)}
+.meta ul{margin:6px 0 0;padding:0;list-style:none;font-size:12px;color:var(--sub);display:grid;gap:2px}
+.meta li::before{content:attr(data-k);font-weight:600;margin-right:6px;color:var(--soft)}
+.panel{width:328px;height:720px;overflow:auto;background:var(--paper);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.12);justify-self:center;overscroll-behavior:contain}
+.chrome{height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;font-size:13px;font-weight:600;background:#f6f4f0;border-bottom:1px solid var(--hair)}
+.chrome i{width:16px;height:16px;border-radius:4px;background:var(--ink)}
+.chrome span{margin-left:auto;color:var(--faint);font-weight:400;letter-spacing:6px}
+.head{position:sticky;top:0;z-index:5;height:42px;display:flex;align-items:center;gap:18px;padding:0 16px;background:rgba(251,251,249,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--hair);font-size:13.5px;color:var(--soft)}
+.head .on{color:var(--sage);font-weight:600;height:42px;display:flex;align-items:center;box-shadow:inset 0 -2px 0 var(--sage)}
+.head .more{margin-left:auto}
+.body{padding:12px 16px 32px}
+.back{color:var(--sage);font-size:13px}
+h2{margin:6px 0 0;font-size:16px;line-height:1.45}
+.cov{margin:4px 0 0;font-size:11.5px;color:var(--soft)}
+.answer{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair);font-family:var(--serif-cjk);font-size:14px;line-height:1.75}
+.key{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:16px 0 8px;font-size:12px;font-weight:600;color:var(--soft);letter-spacing:.03em}
+.key span{font-weight:400;letter-spacing:0;text-align:right}
+.note{margin:10px 0 0;padding:8px 10px;border-radius:10px;background:var(--wash);font-size:11.5px;color:var(--soft);line-height:1.55}
+.in{animation:rise .38s var(--out) both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}70%{transform:translateY(-1px)}to{opacity:1;transform:none}}
+.num{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--c);color:#fff;font-size:10.5px;font-weight:700;flex:none;line-height:1}
+.av{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;flex:none}
+.chip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;background:var(--card);box-shadow:0 0 0 1px var(--hair);font-size:12.5px;color:var(--sub);white-space:nowrap}
+.chip.on{background:var(--ink);color:#fff;box-shadow:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.src{margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair);font-size:12.5px;animation:rise .35s var(--out) both}
+.src header{display:flex;align-items:center;gap:6px;font-size:12px}
+.src header .av{width:18px;height:18px;font-size:9px}
+.src header small{color:var(--faint)}
+.src p{margin:4px 0 0;color:var(--ink);line-height:1.6;font-size:13px}
+.src footer{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:11.5px;color:var(--soft)}
+.src footer span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.src footer a{color:var(--violet);text-decoration:none;white-space:nowrap}
+.dig{font-size:12.5px;color:var(--sub);line-height:1.55}
+.dig::before{content:'預讀摘要 · ';color:var(--violet);font-weight:600;font-size:11.5px}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pendtag{font-size:11px;color:var(--amber);font-weight:600}
+
+/* 1 tiles */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{display:grid;gap:4px;align-content:start;padding:10px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair),inset 3px 0 0 var(--c);transition:transform .25s var(--spring),box-shadow .2s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 0 0 1px var(--hair),inset 3px 0 0 var(--c),0 6px 16px rgba(0,0,0,.06)}
+.tile:last-child:nth-child(odd){grid-column:1/-1}
+.tile .tn{display:flex;align-items:center;gap:6px}.tile .tn em{font-style:normal;font-size:11.5px;color:var(--soft)}
+.tile b{font-size:13px;line-height:1.45}
+.tile .tp{font-size:11.5px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:8px;border-left:2px solid var(--hair)}
+.tile .more{font-size:11px;color:var(--faint)}
+.crumb{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;color:var(--faint);margin-top:12px}
+.crumb button{color:var(--sage)}
+.lvl-h{display:flex;gap:8px;align-items:flex-start;margin:10px 0 4px}
+.lvl-h b{font-size:15px;line-height:1.45}
+.prow{display:grid;gap:3px;width:100%;padding:10px 0;border-top:1px dashed var(--hair)}
+.prow:first-of-type{border-top:0}
+.prow b{font-size:13px}.prow small{font-size:11.5px;color:var(--faint)}
+.also{margin-top:12px;font-size:12px;color:var(--soft)}
+
+/* 2 matrix */
+.legend{display:grid;gap:4px}
+.lg{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--sub);padding:2px 4px;border-radius:6px}
+.lg.on{background:var(--wash);font-weight:600}
+.mxh,.mxr{display:grid;grid-template-columns:minmax(0,1fr) repeat(5,26px);gap:2px;align-items:center}
+.mxh{position:sticky;top:42px;z-index:3;background:var(--paper);padding:8px 0 6px;border-bottom:1px solid var(--hair);font-size:11.5px;color:var(--soft)}
+.mxh button{display:grid;place-items:center;height:26px;border-radius:6px}
+.mxh button.on{background:var(--wash)}
+.mxr{padding:6px 0;border-bottom:1px dashed var(--hair)}
+.mxt{min-width:0}.mxt b{display:block;font-size:12.5px;line-height:1.4;font-weight:500}.mxt small{font-size:11px;color:var(--faint)}
+.mc{display:grid;place-items:center;height:26px;border-radius:6px}
+.mc i{width:5px;height:5px;border-radius:50%;background:var(--hair)}
+.mc.hit i{width:12px;height:12px;background:var(--c);transition:transform .2s var(--spring)}
+.mc.hit:hover i{transform:scale(1.25)}
+.mc.col{background:var(--wash)}
+.mc.open i{box-shadow:0 0 0 3px var(--wash),0 0 0 4px var(--c)}
+.mxr.pend .mxt b{color:var(--faint)}
+.mc.pd{color:var(--faint);font-size:11px}
+.mxd{padding:4px 0 10px;border-bottom:1px dashed var(--hair)}
+
+/* 3 framework */
+.acc{border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair);margin-top:8px;overflow:hidden}
+.acc>button{display:flex;gap:8px;align-items:center;width:100%;padding:10px 12px}
+.acc>button b{flex:1;font-size:13px}.acc>button small{color:var(--soft);font-size:11.5px;white-space:nowrap}
+.acc .rows{padding:0 12px 10px}
+.frow{display:grid;gap:2px;width:100%;padding:8px 0;border-top:1px dashed var(--hair)}
+.frow .pt{font-size:11.5px;color:var(--soft)}
+.frow .d{font-size:12.5px;color:var(--ink);line-height:1.55}
+.silent{margin-top:6px;font-size:11.5px;color:var(--faint)}
+.silent summary{cursor:pointer;color:var(--soft)}
+
+/* 4 sankey */
+.sk{width:100%;height:auto;display:block;margin-top:4px}
+.sk text{font-family:var(--sans);font-size:11.5px;fill:var(--sub)}
+.sk .lab{cursor:pointer}
+.sk path{transition:opacity .2s,stroke-width .2s}
+
+/* 5 fingerprint */
+.fp{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;width:100%;padding:9px 0;border-bottom:1px dashed var(--hair)}
+.fp b{font-size:12.5px;font-weight:500;line-height:1.4}
+.fp small{grid-column:1;font-size:11px;color:var(--faint)}
+.strip{display:flex;gap:2px;grid-row:1/span 2;grid-column:2}
+.strip i{width:9px;height:22px;border-radius:2px;background:var(--hair)}
+.strip.pd i{background:repeating-linear-gradient(135deg,var(--hair) 0 3px,transparent 3px 6px)}
+.fpx{padding:6px 0 10px;border-bottom:1px dashed var(--hair);display:grid;gap:8px}
+.fpx div{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;font-size:12.5px;color:var(--sub)}
+
+/* 6 coverage bars */
+.cv{padding:10px 0;border-bottom:1px dashed var(--hair)}
+.cv-h{display:flex;gap:8px;align-items:center;font-size:13px}
+.cv-h b{flex:1;font-weight:600;font-size:12.5px}.cv-h small{font-size:11.5px;color:var(--soft);white-space:nowrap}
+.few{font-size:10.5px;font-weight:700;color:var(--amber);background:var(--amber-w);padding:1px 6px;border-radius:999px}
+.bar{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin-top:6px}
+.bar>*{height:14px;border-radius:3px;background:var(--hair)}
+.bar button{background:var(--c);transition:transform .2s var(--spring)}
+.bar button:hover{transform:scaleY(1.3)}
+.bar button.open{outline:2px solid var(--ink);outline-offset:1px}
+.bar .pd{background:repeating-linear-gradient(135deg,rgba(27,26,23,.14) 0 3px,transparent 3px 6px)}
+.cvl{display:flex;gap:12px;font-size:11px;color:var(--soft);flex-wrap:wrap}
+.cvl i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+/* 7 quotes */
+.qrow{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 10px;margin:0 -16px;padding-left:16px;padding-right:16px}
+.qcard{flex:0 0 236px;scroll-snap-align:start;padding:12px;border-radius:14px;background:var(--card);box-shadow:0 0 0 1px var(--hair),0 4px 12px rgba(0,0,0,.04);display:grid;gap:6px;align-content:start}
+.qcard p{margin:0;font-family:var(--serif-cjk);font-size:14px;line-height:1.7}
+.qcard header{display:flex;gap:6px;align-items:center;font-size:12px}
+.qcard footer{font-size:11px;color:var(--soft)}
+
+/* 8 upset */
+.ups{display:grid;gap:0;margin-top:6px}
+.ur{display:grid;align-items:center;gap:2px}
+.ub{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:64px;font-size:11px;color:var(--soft)}
+.ub i{width:16px;border-radius:3px 3px 0 0;background:var(--ink);transition:height .3s var(--spring)}
+.ub button{display:contents}
+.ucell{position:relative;display:grid;place-items:center;height:30px}
+.ucell i{width:9px;height:9px;border-radius:50%;background:var(--hair);position:relative;z-index:1}
+.ucell.on i{width:12px;height:12px;background:var(--ink)}
+.ucell.ln::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ink)}
+.ucell.top::before{top:50%}.ucell.bot::before{bottom:50%}
+.ucol-on{background:var(--wash);border-radius:6px}
+.ut{font-size:12px;line-height:1.35;min-width:0}
+.ut small{display:block;font-size:10.5px;color:var(--faint)}
+
+/* 9 kwic */
+.search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:10px;background:var(--card);box-shadow:0 0 0 1px var(--hair)}
+.search input{flex:1;border:0;outline:0;font:inherit;font-size:13.5px;background:transparent;min-width:0}
+.kg{margin-top:12px}
+.kg h4{margin:0 0 4px;font-size:12px;color:var(--soft);font-weight:600;display:flex;gap:6px;align-items:center}
+.kw{margin:0;padding:5px 0;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:2px;font-size:12.5px;border-bottom:1px dashed var(--hair)}
+.kw .l{text-align:right;white-space:nowrap;overflow:hidden;color:var(--soft)}
+.kw .r{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--soft)}
+.kw mark{background:var(--violet-w);color:var(--violet);font-weight:700;padding:0 2px;border-radius:3px}
+
+/* 10 vertical timeline */
+.vt{position:relative;margin-top:6px}
+.vt::before{content:'';position:absolute;left:51px;top:6px;bottom:6px;width:1px;background:var(--hair)}
+.vm{margin:12px 0 4px;font-size:12px;font-weight:600;color:var(--soft)}
+.vi{display:grid;grid-template-columns:44px 16px minmax(0,1fr);gap:0 0;width:100%;padding:6px 0;align-items:start}
+.vi .d{font-size:11.5px;color:var(--faint);text-align:right;padding-right:6px;padding-top:1px}
+.vi .dot{width:9px;height:9px;border-radius:50%;background:var(--card);box-shadow:0 0 0 2px var(--ink);margin:5px 0 0 3px;position:relative;z-index:1}
+.vi.pd .dot{box-shadow:0 0 0 2px var(--amber)}
+.vi b{font-size:12.5px;font-weight:500;line-height:1.45;display:block}
+.minis{display:flex;gap:3px;margin-top:4px}
+.minis .num{width:15px;height:15px;font-size:9px}
+.vx{margin:2px 0 6px 60px;display:grid;gap:6px}
+
+/* 11 point timeline */
+.pt-svg{width:100%;height:auto;display:block}
+.pt-svg text{font-family:var(--sans);font-size:11px;fill:var(--soft)}
+.pt-svg .nm{font-size:11.5px;fill:var(--sub);font-weight:600}
+.pt-svg circle{cursor:pointer;transition:r .2s}
+
+/* 12 stance */
+.soon{padding:8px 10px;border-radius:10px;background:var(--amber-w);color:var(--amber);font-size:12px;font-weight:600}
+.thesis{margin-top:12px;padding:12px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair);font-weight:700;font-size:14px;text-align:center}
+.side{margin-top:10px;border-left:3px solid var(--c);padding:2px 0 2px 10px}
+.side h5{margin:0;font-size:12.5px;color:var(--c)}
+.claim{margin-top:6px;border-radius:10px;background:var(--card);box-shadow:0 0 0 1px var(--hair);padding:8px 10px;font-size:12.5px}
+.claim summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px}
+.claim summary small{color:var(--soft);white-space:nowrap}
+.tree-line{width:2px;height:14px;background:var(--hair);margin:0 auto}
+
+/* 13 composite */
+.tabs{position:sticky;top:42px;z-index:4;display:flex;gap:4px;margin:14px -16px 0;padding:8px 16px;background:rgba(251,251,249,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--hair)}
+.tabs button{flex:1;text-align:center;height:30px;border-radius:999px;font-size:12.5px;color:var(--soft)}
+.tabs button.on{background:var(--ink);color:#fff;font-weight:600}
+.preline{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--soft)}
+.preline .m{flex:1;display:flex;gap:2px}.preline .m i{flex:1;height:5px;border-radius:3px;background:var(--sage)}.preline .m i.p{background:var(--hair)}
+
+/* v5 · bubbles */
+.bub{position:relative;height:330px;margin-top:6px}
+.bb{position:absolute;border-radius:50%;display:grid;place-items:center;text-align:center;padding:10px;color:#fff;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 70%,#fff),var(--c));box-shadow:0 8px 24px color-mix(in srgb,var(--c) 30%,transparent);transition:transform .45s var(--spring),opacity .3s;animation:float 6s ease-in-out infinite}
+.bb:nth-child(2){animation-delay:-1.5s}.bb:nth-child(3){animation-delay:-3s}.bb:nth-child(4){animation-delay:-4.5s}.bb:nth-child(5){animation-delay:-2.2s}
+.bb b{display:block;font-size:12.5px;line-height:1.35}.bb small{display:block;font-size:11px;opacity:.85}
+.bb.dim{opacity:.28}.bb.on{transform:scale(1.08);animation-play-state:paused}
+@keyframes float{0%,100%{translate:0 0}50%{translate:0 -5px}}
+.tchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tchip{display:inline-flex;align-items:center;max-width:100%;padding:5px 10px;border-radius:10px;background:var(--card);box-shadow:0 0 0 1px var(--hair);font-size:12.5px;color:var(--sub);text-align:left}
+.tchip.on{box-shadow:0 0 0 2px var(--ink)}
+.ptag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--c) 12%,transparent);color:var(--c);margin:0 4px 4px 0}
+/* v5 · story */
+.ch{margin-top:14px;padding:16px 14px;border-radius:16px;background:var(--card);box-shadow:0 0 0 1px var(--hair),0 6px 18px rgba(0,0,0,.04);border-top:4px solid var(--c)}
+.ch .n{font-size:11.5px;font-weight:700;color:var(--c);letter-spacing:.06em}
+.ch h4{margin:2px 0 4px;font-family:var(--serif-cjk);font-size:17px;line-height:1.45}
+.ch blockquote{margin:10px 0 0;padding:0 0 0 10px;border-left:2px solid var(--hair);font-size:13px;line-height:1.65;color:var(--ink)}
+.ch blockquote cite{display:block;font-style:normal;font-size:11px;color:var(--soft);margin-top:2px}
+/* v5 · post cards */
+.pc{display:block;width:100%;margin-top:8px;padding:11px 12px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair)}
+.pc b{display:block;font-size:13px;line-height:1.45}
+.pc small{display:block;font-size:11px;color:var(--faint);margin:2px 0 6px}
+.pcx{display:grid;gap:6px;margin-top:6px;padding-top:8px;border-top:1px dashed var(--hair)}
+.pcx p{margin:0;font-size:12.5px;color:var(--sub)}
+/* v5 · evolve */
+.ev{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);box-shadow:0 0 0 1px var(--hair)}
+.ev h4{margin:0;font-size:14px;display:flex;justify-content:space-between;align-items:baseline}
+.ev h4 small{font-size:11.5px;color:var(--soft);font-weight:400}
+.ev .lbl{margin:8px 0 2px;font-size:11.5px;font-weight:600;color:var(--soft)}
+.ev ul{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:4px}
+.ev li button{font-size:12.5px;color:var(--sub);text-align:left}
+.ev.pd{background:transparent;box-shadow:0 0 0 1px dashed var(--hair);border:1px dashed rgba(160,106,23,.4)}
+/* v5 · compare two */
+.pick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pick select{width:100%;height:34px;border-radius:10px;border:0;box-shadow:0 0 0 1px var(--hair);background:var(--card);font:inherit;font-size:12.5px;padding:0 8px}
+.cmp{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--hair)}
+.cmp h5{margin:0 0 6px;font-size:13px;display:flex;gap:6px;align-items:center}
+.who{margin:6px 0 0;padding-left:10px;border-left:3px solid var(--c);font-size:12.5px;color:var(--sub)}
+.who b{display:block;font-size:11px;color:var(--c)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<section class="intro">
+  <h1>跨帖顯示 · 12 個選項（v5：冇矩陣、冇點列）</h1>
+  <p>全部用同一個虛構話題「返工用 AI 工具」：12 篇帖，10 篇預讀完，2 篇預讀中；話題解讀得出 5 個重點。每個選項都係 328px 真實側欄闊度，可以直接撳。</p>
+  <p>規則：所有連結、標籤、氣泡只代表「呢個重點引用咗嗰篇帖」，唔代表立場；唔顯示百分比；「冇提」只適用於預讀完嘅帖，意思係預讀摘要冇提。標籤：<span class="tag now">而家有數據</span><span class="tag pre">要 0.4.7 預讀</span><span class="tag later">要 0.4.8 立場</span></p>
+  <nav class="jump" id="jump"></nav>
+</section>
+<main class="grid" id="grid"></main>
+<script>
+'use strict';
+// ---------- shared synthetic data ----------
+const PT=[
+ {id:1,name:'私下照用，公司未有政策',short:'私下照用',c:'#3f5a3b'},
+ {id:2,name:'保密理由令部分公司禁用',short:'保密禁用',c:'#35628a'},
+ {id:3,name:'最常用嚟寫 email 同會議紀錄',short:'email／紀錄',c:'#a06a17'},
+ {id:4,name:'文職同客服最擔心被取代',short:'擔心取代',c:'#a8462e'},
+ {id:5,name:'設計同工程講效率多過取代',short:'講效率',c:'#7b4a8a'},
+];
+const P=[
+ {id:'A',t:'公司話唔准用 ChatGPT，但個個都用緊',h:'office.mei',c:'#7b4a8a',date:'2026-09-02',n:412},
+ {id:'B',t:'寫 code 快咗一倍，但 review 辛苦咗',h:'devlam',c:'#35628a',date:'2026-09-05',n:230},
+ {id:'C',t:'客服部已經裁咗一半人',h:'cs_kiki',c:'#a8462e',date:'2026-09-11',n:388},
+ {id:'D',t:'HR 角度：我哋點睇員工用 AI',h:'hr.notes',c:'#2f7f78',date:'2026-09-12',n:156},
+ {id:'E',t:'設計師唔驚，驚嘅係唔識用嘅人',h:'design.wo',c:'#a06a17',date:'2026-09-20',n:274},
+ {id:'F',t:'會計部用 AI 對數，老闆唔知',h:'acct_sam',c:'#3f5a3b',date:'2026-09-26',n:198},
+ {id:'G',t:'律師行全面禁用，原因係保密',h:'law.pp',c:'#5b5f97',date:'2026-10-01',n:142},
+ {id:'H',t:'畢業生：見工被問識唔識 prompt',h:'newgrad.j',c:'#8a4a5f',date:'2026-10-03',n:351},
+ {id:'I',t:'會議紀錄全部交俾 AI',h:'pm.yan',c:'#4a7a8a',date:'2026-10-09',n:120},
+ {id:'J',t:'IT 部：偷偷用 AI 係資料外洩風險',h:'it.sec',c:'#6a6a4a',date:'2026-10-12',n:265},
+ {id:'K',t:'學校老師用 AI 出卷',h:'teacher.c',c:'#9a5a2a',date:'2026-10-16',n:180,pend:true},
+ {id:'L',t:'客服仲有冇得做？',h:'cs_lok',c:'#c0504d',date:'2026-10-18',n:230,pend:true},
+];
+// C[point][post] = {d: pre-read digest line, q: cited reply, by: reply author}
+const C={
+ 1:{A:{d:'員工用手機繞過公司封鎖',q:'公司 IT 封咗網址，我哋用手機開。',by:'kc.wong'},D:{d:'HR 承認未有政策，最近先開始傾',q:'我哋 HR 都未有政策，係最近先開始傾。',by:'mandy.hr'},F:{d:'會計部私下用，老闆唔知',q:'老闆唔知我用 AI 對數，快咗兩粒鐘。',by:'sam.c'},I:{d:'冇人講過可唔可以，大家照用',q:'冇人講過可唔可以，大家就照用。',by:'yan_pm'},H:{d:'見工被問平時有冇用 AI',q:'見工問我平時有冇用 ChatGPT，我唔知應該點答。',by:'jj.grad'}},
+ 2:{G:{d:'客戶保密條款，律師行全面禁',q:'客戶資料一入 AI 就係違約，所以全面禁。',by:'pp.law'},J:{d:'有同事貼合約入 AI，要即時報告',q:'上個月有同事將合約貼入去，即刻要報告。',by:'sec.ivan'},A:{d:'封網原因同樣係保密',q:'我哋公司都係因為呢個原因封網。',by:'tszyan.c'},D:{d:'HR 擔心員工資料外洩',q:'最驚係有人將員工資料貼入去。',by:'mandy.hr'}},
+ 3:{I:{d:'會議錄音交 AI 出紀錄',q:'每次開完會錄音丟入去，十分鐘有紀錄。',by:'yan_pm'},A:{d:'email 用嚟潤色',q:'寫 email 俾老闆用嚟潤色。',by:'bobo.tse'},B:{d:'commit message 同文件最好用',q:'寫 commit message 同文件最好用。',by:'dev.k'},F:{d:'寫對數報告嘅說明',q:'用嚟寫對數報告嘅說明。',by:'sam.c'}},
+ 4:{C:{d:'客服組由 12 人減到 6 人',q:'我哋組由 12 個減到 6 個。',by:'kiki.cs'},H:{d:'見工被話「AI 做得到」',q:'見工時人哋話「呢啲 AI 做得到」。',by:'jj.grad'},E:{d:'驚嘅係只識跟稿嘅人',q:'驚嘅唔係設計師，係只識跟稿嗰啲。',by:'wo.design'}},
+ 5:{B:{d:'快咗，但 review 時間多咗',q:'快咗，但 review 時間多咗。',by:'dev.k'},E:{d:'AI 出初稿，自己再改',q:'我用 AI 出初稿，之後自己改。',by:'wo.design'}},
+};
+const EXTRA={A:['我哋 team 個個都偷偷開 AI 寫嘢。','封網都冇用，手機一樣開到。'],B:['review AI 寫嘅 code 好攰，因為佢好自信咁錯。','新人用 AI 寫嘢，review 嘅人辛苦。'],C:['客服用 AI 回覆，客人一聽就知。','公司話唔會裁人，結果下個月就裁。'],D:['公司禁唔禁都好，最緊要有指引。','HR 自己都有用 AI 寫 JD。'],E:['識用 AI 嘅設計師反而多咗工。','客人要求用 AI 出圖，價錢就壓低。'],F:['會計對數用 AI 要自己再核對。','老闆知道咗反而叫全組用。'],G:['我哋都係禁，連 Grammarly 都禁埋。','禁咗之後大家用自己手機。'],H:['見工問 AI，我答有用嚟寫紀錄。','畢業生唔識 AI 反而吃虧。'],I:['紀錄出得快，但要人手改名同數字。','AI 出嘅紀錄成日漏咗決定。'],J:['IT 部最驚係有人貼客戶資料入去。','公司應該自己架一個內部 AI，唔好禁。'],K:['出卷快咗，但題目要自己改。','學校冇禁，但家長有意見。'],L:['客服而家多數係處理 AI 搞唔掂嘅個案。','我哋都開始用 AI 寫回覆範本。']};
+const ANSWER='大部分公司冇明文禁止，多數人自己靜靜用，最常見係寫 email 同會議紀錄；律師行同 IT 部以保密為由禁用。文職同客服最擔心被取代，設計同工程多數講效率。';
+const COV='送入模型：10 份預讀摘要（由 2,946 則留言濃縮）· 48 則原句 · 2 篇預讀中';
+
+const post=id=>P.find(p=>p.id===id), pt=id=>PT[id-1];
+const cell=(t,p)=>C[t]&&C[t][p];
+const postsOf=t=>P.filter(p=>cell(t,p.id));
+const ptsOf=p=>PT.filter(t=>cell(t.id,p));
+const ready=P.filter(p=>!p.pend), pending=P.filter(p=>p.pend);
+const dl=p=>{const [,m,d]=p.date.split('-');return `${+m}月${+d}日`};
+const num=t=>`<span class="num" style="--c:${t.c}">${t.id}</span>`;
+const av=(p,ch)=>`<span class="av" style="background:${p.c}">${(ch||p.h)[0].toUpperCase()}</span>`;
+const quote=(t,pid)=>{const c=cell(t,pid),p=post(pid);return `<div class="src"><header>${av(p,c.by)}<b>@${c.by}</b><small>· 留言 · ${dl(p)}</small></header><p>${c.q}</p><footer><span>帖：${p.t}</span><a href="#" onclick="return false">原站 ↗</a></footer></div>`};
+const hdr=(extra='')=>`<button class="back">← 觀眾反應</button><h2>返工用 AI 工具</h2><p class="cov">${COV}</p>${extra}`;
+const mount=(el,draw,onAct)=>{el.onclick=e=>{const b=e.target.closest('[data-a]');if(!b||!el.contains(b))return;e.preventDefault();onAct(b.dataset.a,b.dataset.v,b);draw();};draw();};
+
+// ---------- 1 · tiles → drill ----------
+function vTiles(el,opt={}){const s={lvl:0,t:null,p:null};
+ const draw=()=>{let h=opt.bare?'':hdr();
+  if(s.lvl===0){
+   if(!opt.bare)h+=`<p class="answer">${ANSWER}</p>`;
+   h+=`<div class="key">重點 · ${PT.length}<span>撳入去睇邊幾篇講</span></div><div class="tiles in">`+PT.map(t=>{const ps=postsOf(t.id);return `<button class="tile" data-a="t" data-v="${t.id}" style="--c:${t.c}"><span class="tn">${num(t)}<em>${ps.length} 篇帖</em></span><b>${t.name}</b>${ps.slice(0,2).map(p=>`<span class="tp">${p.t}</span>`).join('')}${ps.length>2?`<span class="more">另外 ${ps.length-2} 篇</span>`:''}</button>`}).join('')+`</div><p class="note">${pending.length} 篇預讀中，未計入。</p>`;
+  } else {
+   const t=pt(s.t);
+   h+=`<nav class="crumb"><button data-a="lvl" data-v="0">全部重點</button>›${s.lvl===2?`<button data-a="t" data-v="${t.id}">${t.short}</button>›<span>${post(s.p).t.slice(0,10)}…</span>`:`<span>${t.short}</span>`}</nav>`;
+   if(s.lvl===1){
+    h+=`<div class="in"><div class="lvl-h">${num(t)}<b>${t.name}</b></div><p class="cov">${postsOf(t.id).length} 篇帖講到 · 撳一篇睇原句</p>`+postsOf(t.id).map(p=>`<button class="prow" data-a="p" data-v="${p.id}"><b>${p.t}</b><span class="dig">${cell(t.id,p.id).d}</span><small>@${p.h} · ${dl(p)} · ${p.n} 則留言</small></button>`).join('')+`</div>`;
+   } else {
+    const others=ptsOf(s.p).filter(x=>x.id!==t.id);
+    h+=`<div class="in"><div class="lvl-h">${num(t)}<b>${post(s.p).t}</b></div><p class="dig">${cell(t.id,s.p).d}</p>${quote(t.id,s.p)}${others.length?`<p class="also">呢篇帖仲講到：</p><div class="chips">${others.map(x=>`<button class="chip" data-a="t" data-v="${x.id}">${num(x)}${x.short}</button>`).join('')}</div>`:''}</div>`;
+   }
+  }
+  el.innerHTML=h;};
+ mount(el,draw,(a,v)=>{if(a==='lvl'){s.lvl=0}if(a==='t'){s.t=+v;s.lvl=1}if(a==='p'){s.p=v;s.lvl=2}});
+}
+
+// ---------- 3 · framework matrix (NVivo) ----------
+function vFrame(el){const s={open:new Set([1]),q:null};
+ const draw=()=>{let h=hdr(`<p class="answer">${ANSWER}</p>`)+`<div class="key">每個重點，每篇帖講咩<span>一句預讀摘要／篇</span></div>`;
+  for(const t of PT){const ps=postsOf(t.id),silent=ready.filter(p=>!cell(t.id,p.id)),o=s.open.has(t.id);
+   h+=`<div class="acc"><button data-a="acc" data-v="${t.id}" aria-expanded="${o}">${num(t)}<b>${t.name}</b><small>${ps.length} 篇 ${o?'▴':'▾'}</small></button>`;
+   if(o){h+=`<div class="rows in">`+ps.map(p=>{const k=`${t.id}|${p.id}`;return `<button class="frow" data-a="q" data-v="${k}"><span class="pt">${p.t}</span><span class="d">${cell(t.id,p.id).d}</span></button>${s.q===k?quote(t.id,p.id):''}`}).join('')+`<details class="silent"><summary>預讀摘要冇提 · ${silent.length} 篇</summary>${silent.map(p=>p.t).join('；')}</details><p class="silent">未預讀 · ${pending.length} 篇（未知）</p></div>`}
+   h+=`</div>`;}
+  el.innerHTML=h;};
+ mount(el,draw,(a,v)=>{if(a==='acc'){const n=+v;s.open.has(n)?s.open.delete(n):s.open.add(n)}if(a==='q')s.q=s.q===v?null:v});
+}
+
+// ---------- 4 · sankey (ATLAS.ti) ----------
+function vSankey(el){const s={sel:null,link:null};
+ const draw=()=>{const W=296,rowH=30,H=ready.length*rowH+12,lx=100,rx=190;
+  const ly=t=>12+(H-24)*(t-.5)/PT.length, ry=i=>12+i*rowH+rowH/2-6;
+  const hit=(t,p)=>!s.sel||(s.sel[0]==='t'&&s.sel[1]==t)||(s.sel[0]==='p'&&s.sel[1]===p);
+  let paths='',hits='';
+  PT.forEach(t=>ready.forEach((p,i)=>{if(!cell(t.id,p.id))return;const y1=ly(t.id),y2=ry(i),d=`M${lx} ${y1} C${(lx+rx)/2} ${y1} ${(lx+rx)/2} ${y2} ${rx} ${y2}`,on=hit(t.id,p.id),lk=s.link===`${t.id}|${p.id}`;
+   paths+=`<path d="${d}" fill="none" stroke="${t.c}" stroke-width="${lk?4:on&&s.sel?3:2}" opacity="${lk?1:on?(s.sel?.85:.4):.08}"/>`;
+   hits+=`<path d="${d}" fill="none" stroke="transparent" stroke-width="10" data-a="link" data-v="${t.id}|${p.id}" style="cursor:pointer"/>`;}));
+  const lefts=PT.map(t=>`<g class="lab" data-a="t" data-v="${t.id}"><rect x="${lx-4}" y="${ly(t.id)-14}" width="4" height="28" rx="2" fill="${t.c}"/><text x="${lx-10}" y="${ly(t.id)+4}" text-anchor="end" font-weight="${s.sel&&s.sel[0]==='t'&&s.sel[1]==t.id?700:500}">${t.id} ${t.short}</text></g>`).join('');
+  const rights=ready.map((p,i)=>`<g class="lab" data-a="p" data-v="${p.id}"><rect x="${rx}" y="${ry(i)-9}" width="4" height="18" rx="2" fill="${p.c}"/><text x="${rx+10}" y="${ry(i)+4}" font-weight="${s.sel&&s.sel[1]===p.id?700:400}">${p.t.slice(0,7)}…</text></g>`).join('');
+  let info='<p class="note">撳左邊重點或右邊帖子突出佢嘅連線；撳一條線睇原句。線一樣粗，唔代表數量。</p>';
+  if(s.link){const [t,p]=s.link.split('|');info=`<div class="in"><p class="dig">${cell(+t,p).d}</p>${quote(+t,p)}</div>`}
+  else if(s.sel&&s.sel[0]==='p'){const p=post(s.sel[1]);info=`<p class="cov in"><b>${p.t}</b> · 講到 ${ptsOf(p.id).map(t=>t.short).join('、')}</p>`}
+  else if(s.sel){const t=pt(s.sel[1]);info=`<p class="cov in"><b>${t.name}</b> · ${postsOf(t.id).length} 篇帖</p>`}
+  el.innerHTML=hdr()+`<div class="key">重點 → 帖子<span>撳線睇原句</span></div><svg class="sk" viewBox="0 0 ${W} ${H}">${paths}${hits}${lefts}${rights}</svg>${info}<p class="note">${pending.map(p=>p.t).join('、')}：預讀中，未畫入。</p>`;};
+ mount(el,draw,(a,v)=>{if(a==='t'||a==='p'){const key=[a,a==='t'?+v:v];s.sel=s.sel&&s.sel[0]===key[0]&&s.sel[1]===key[1]?null:key;s.link=null}if(a==='link')s.link=s.link===v?null:v});
+}
+
+// ---------- 7 · quote wall (Pew) ----------
+function vQuotes(el){const s={t:1};
+ const draw=()=>{const t=pt(s.t),ps=postsOf(t.id);
+  el.innerHTML=hdr()+`<div class="key">揀一個重點<span></span></div><div class="chips">${PT.map(x=>`<button class="chip ${x.id===s.t?'on':''}" data-a="t" data-v="${x.id}">${num(x)}${x.short}</button>`).join('')}</div>
+  <div class="key">${t.name}<span>${ps.length} 篇講到 · 左右掃</span></div><div class="qrow in">${ps.map(p=>{const c=cell(t.id,p.id);return `<article class="qcard"><header>${av(p,c.by)}<b>@${c.by}</b></header><p>「${c.q}」</p><footer>帖：${p.t}</footer><a href="#" onclick="return false" style="font-size:11.5px;color:var(--violet);text-decoration:none">原站 ↗</a></article>`}).join('')}</div>
+  <p class="note">每篇揀一則做例子（引用嗰則）。呢啲係例子，唔代表幾多人咁諗。</p>`;};
+ mount(el,draw,(a,v)=>{if(a==='t')s.t=+v});
+}
+
+// ---------- 9 · search in replies (KWIC) ----------
+function vKwic(el,opt={}){let q='禁';
+ el.innerHTML=(opt.bare?'':hdr())+`<div class="key">搜尋留言原句<span>唔使 AI · 包括預讀中嘅帖</span></div><label class="search"><span style="color:var(--faint)">⌕</span><input value="${q}" aria-label="搜尋留言"></label><div class="chips" style="margin-top:8px">${['禁','review','紀錄','裁','手機'].map(w=>`<button class="chip" data-w="${w}">${w}</button>`).join('')}</div><div class="res"></div>`;
+ const input=el.querySelector('input'),res=el.querySelector('.res');
+ const all=P.map(p=>({p,lines:[...PT.flatMap(t=>cell(t.id,p.id)?[cell(t.id,p.id).q]:[]),...EXTRA[p.id]].filter((x,i,a)=>a.indexOf(x)===i)}));
+ const drawRes=()=>{const term=q.trim();if(!term){res.innerHTML='<p class="note">打一個詞，例如「禁」。</p>';return}
+  const lo=term.toLowerCase();let n=0;const groups=all.map(g=>({p:g.p,hits:g.lines.filter(l=>l.toLowerCase().includes(lo))})).filter(g=>g.hits.length);
+  const html=groups.map(g=>`<div class="kg in"><h4>${av(g.p)}${g.p.t.slice(0,16)}…${g.p.pend?' <span class="pendtag">預讀中</span>':''}</h4>${g.hits.map(l=>{n++;const i=l.toLowerCase().indexOf(lo);return `<p class="kw"><span class="l">${i>9?'…':''}${l.slice(Math.max(0,i-9),i)}</span><mark>${l.slice(i,i+term.length)}</mark><span class="r">${l.slice(i+term.length,i+term.length+10)}${l.length>i+term.length+10?'…':''}</span></p>`}).join('')}</div>`).join('');
+  res.innerHTML=`<p class="cov" style="margin-top:10px">${n} 則留言 · ${groups.length} 篇帖</p>`+(html||'<p class="note">冇留言提到呢個詞。</p>');};
+ input.addEventListener('input',()=>{q=input.value;drawRes()});
+ el.addEventListener('click',e=>{const b=e.target.closest('[data-w]');if(!b)return;q=b.dataset.w;input.value=q;drawRes()});
+ drawRes();
+}
+
+// ---------- 12 · stance tree preview (Kialo) ----------
+function vStance(el){el.innerHTML=hdr()+`<p class="soon" style="margin-top:12px">預覽：要 0.4.8 由預讀摘要抽出立場先做得到。而家嘅數據只知道「引用咗」，唔知道「支持定反對」。</p>
+ <div class="thesis">公司應唔應該禁員工用 AI？</div><div class="tree-line"></div>
+ <div class="side" style="--c:#35628a"><h5>應該禁 · 2 個論點</h5>
+  <details class="claim"><summary><span>客戶資料一入 AI 就係違約</span><small>2 篇 ▾</small></summary>${quote(2,'G')}${quote(2,'J')}</details>
+  <details class="claim"><summary><span>員工資料外洩風險</span><small>1 篇 ▾</small></summary>${quote(2,'D')}</details></div>
+ <div class="side" style="--c:#3f5a3b"><h5>唔應該禁 · 2 個論點</h5>
+  <details class="claim"><summary><span>禁都冇用，大家用手機照開</span><small>1 篇 ▾</small></summary>${quote(1,'A')}</details>
+  <details class="claim"><summary><span>寫 email、紀錄快好多</span><small>2 篇 ▾</small></summary>${quote(3,'I')}${quote(1,'F')}</details></div>
+ <div class="side" style="--c:#a06a17"><h5>折衷 · 1 個論點</h5>
+  <details class="claim"><summary><span>唔好禁，要有指引或者內部 AI</span><small>2 篇 ▾</small></summary><p class="dig" style="margin-top:6px">HR 同 IT 都提議有指引，多過一刀切禁。</p></details></div>
+ <p class="note">論點下嘅篇數係「有引用」，唔係支持人數。</p>`;}
+
+
+// ---------- v5 · bubbles ----------
+const BUB=[{x:90,y:80},{x:215,y:76},{x:76,y:218},{x:190,y:198},{x:252,y:278}];
+function vBubbles(el){const s={t:null,q:null};
+ const draw=()=>{const size=t=>56+postsOf(t.id).length*15;
+  let h=hdr()+`<div class="key">重點氣泡<span>大細 = 幾多篇帖講</span></div><div class="bub">${PT.map((t,i)=>{const d=size(t);return `<button class="bb ${s.t===t.id?'on':s.t?'dim':''}" data-a="t" data-v="${t.id}" style="--c:${t.c};width:${d}px;height:${d}px;left:${BUB[i].x-d/2}px;top:${BUB[i].y-d/2}px"><span><b>${t.short}</b><small>${postsOf(t.id).length} 篇</small></span></button>`}).join('')}</div>`;
+  if(s.t){const t=pt(s.t),ps=postsOf(t.id);
+   h+=`<div class="in"><div class="lvl-h">${num(t)}<b>${t.name}</b></div><div class="tchips">${ps.map(p=>`<button class="tchip ${s.q===p.id?'on':''}" data-a="q" data-v="${p.id}">${p.t}</button>`).join('')}</div>${s.q&&cell(t.id,s.q)?`<p class="dig" style="margin-top:8px">${cell(t.id,s.q).d}</p>${quote(t.id,s.q)}`:''}`;
+   const shared=PT.filter(x=>x.id!==t.id).map(x=>({x,ps:ps.filter(p=>cell(x.id,p.id))})).filter(o=>o.ps.length);
+   h+=shared.length?`<p class="also">同其他重點共用嘅帖：</p>${shared.map(o=>`<p class="cov" style="margin:2px 0"><span class="ptag" style="--c:${o.x.c}">${o.x.short}</span>${o.ps.map(p=>p.t.slice(0,10)+'…').join('、')}</p>`).join('')}`:'';
+   h+=`</div>`;}
+  else h+=`<p class="note">撳一個氣泡，睇邊幾篇帖講、同邊幾個重點共用。${pending.length} 篇預讀中，未計入。</p>`;
+  el.innerHTML=h;};
+ mount(el,draw,(a,v)=>{if(a==='t'){s.t=s.t===+v?null:+v;s.q=null}if(a==='q')s.q=s.q===v?null:v});
+}
+
+// ---------- v5 · story chapters ----------
+function vStory(el){const s={open:new Set()};
+ const draw=()=>{el.innerHTML=hdr(`<p class="answer">${ANSWER}</p>`)+PT.map(t=>{const ps=postsOf(t.id),o=s.open.has(t.id);return `<article class="ch in" style="--c:${t.c}"><span class="n">第 ${t.id} 點 · ${ps.length} 篇帖</span><h4>${t.name}</h4>${ps.slice(0,2).map(p=>`<blockquote>「${cell(t.id,p.id).q}」<cite>@${cell(t.id,p.id).by} · ${p.t}</cite></blockquote>`).join('')}${ps.length>2?`<button class="back" style="margin-top:10px" data-a="o" data-v="${t.id}">${o?'收起 ▴':`其餘 ${ps.length-2} 篇 ▾`}</button>${o?ps.slice(2).map(p=>`<blockquote>「${cell(t.id,p.id).q}」<cite>@${cell(t.id,p.id).by} · ${p.t}</cite></blockquote>`).join(''):''}`:''}</article>`}).join('')+`<p class="note">每章揀兩則原句做例子，唔代表比例。</p>`;};
+ mount(el,draw,(a,v)=>{if(a==='o'){const n=+v;s.open.has(n)?s.open.delete(n):s.open.add(n)}});
+}
+
+// ---------- v5 · post cards with point tags ----------
+function vPostCards(el,opt={}){const s={sort:'date',open:null};
+ const draw=()=>{const rows=[...P].sort((a,b)=>s.sort==='cover'?(a.pend-b.pend)||(ptsOf(b.id).length-ptsOf(a.id).length):a.date.localeCompare(b.date));
+  el.innerHTML=(opt.bare?'':hdr())+`<div class="key">帖子 · ${P.length}<span><button class="chip ${s.sort==='date'?'on':''}" data-a="sort" data-v="date">日期</button> <button class="chip ${s.sort==='cover'?'on':''}" data-a="sort" data-v="cover">講得多</button></span></div>`+rows.map(p=>`<button class="pc" data-a="row" data-v="${p.id}"><b>${p.t}</b><small>@${p.h} · ${dl(p)} · ${p.n} 則留言</small>${p.pend?'<span class="pendtag">預讀中 · 未知講咩</span>':ptsOf(p.id).map(t=>`<span class="ptag" style="--c:${t.c}">${t.short}</span>`).join('')}${s.open===p.id&&!p.pend?`<span class="pcx in">${ptsOf(p.id).map(t=>`<p><span class="ptag" style="--c:${t.c}">${t.short}</span>${cell(t.id,p.id).d}</p>`).join('')}</span>`:''}</button>`).join('');};
+ mount(el,draw,(a,v)=>{if(a==='sort')s.sort=v;if(a==='row')s.open=s.open===v?null:v});
+}
+
+// ---------- v5 · how the topic evolved (text periods) ----------
+const PERIODS=[{name:'9月上旬',from:'2026-09-01',to:'2026-09-15'},{name:'9月下旬',from:'2026-09-16',to:'2026-09-30'},{name:'10月上旬',from:'2026-10-01',to:'2026-10-15'},{name:'10月中',from:'2026-10-16',to:'2026-10-31'}];
+function vEvolve(el,opt={}){const s={q:null};
+ const draw=()=>{const seen=new Set();let h=(opt.bare?'':hdr())+`<div class="key">話題點樣演變<span>按帖子發佈日期分段</span></div>`;
+  for(const per of PERIODS){const ps=P.filter(p=>p.date>=per.from&&p.date<=per.to);if(!ps.length)continue;const pd=ps.every(p=>p.pend);
+   const here=PT.filter(t=>ps.some(p=>cell(t.id,p.id)));const fresh=here.filter(t=>!seen.has(t.id)),again=here.filter(t=>seen.has(t.id));here.forEach(t=>seen.add(t.id));
+   h+=`<section class="ev ${pd?'pd':''}"><h4>${per.name}<small>${ps.length} 篇帖</small></h4>${pd?'<p class="cov">預讀中，未知講咩。</p>':`${fresh.length?`<p class="lbl">新出現</p>${fresh.map(t=>`<span class="ptag" style="--c:${t.c}">${t.name}</span>`).join('')}`:''}${again.length?`<p class="lbl">繼續有人講</p>${again.map(t=>`<span class="ptag" style="--c:${t.c}">${t.short}</span>`).join('')}`:''}`}<ul>${ps.map(p=>`<li><button data-a="q" data-v="${p.id}">${dl(p)} · ${p.t}</button>${s.q===p.id&&!p.pend?`<div class="in">${ptsOf(p.id).map(t=>`<p class="dig" style="margin:4px 0 0"><span class="ptag" style="--c:${t.c}">${t.short}</span>${cell(t.id,p.id).d}</p>`).join('')}</div>`:''}</li>`).join('')}</ul></section>`;}
+  el.innerHTML=h+`<p class="note">「新出現」係按引用咗嗰點嘅帖子日期計，唔使 AI；即係邊段時間第一次有帖講到。</p>`;};
+ mount(el,draw,(a,v)=>{if(a==='q')s.q=s.q===v?null:v});
+}
+
+// ---------- v5 · read two side by side (text) ----------
+function vCompare2(el){const s={a:'A',b:'F'};
+ const draw=()=>{const A=post(s.a),B=post(s.b),opts=sel=>ready.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${p.t}</option>`).join('');
+  const both=PT.filter(t=>cell(t.id,A.id)&&cell(t.id,B.id)),onlyA=PT.filter(t=>cell(t.id,A.id)&&!cell(t.id,B.id)),onlyB=PT.filter(t=>!cell(t.id,A.id)&&cell(t.id,B.id));
+  const who=(p,t)=>`<p class="who" style="--c:${p.c}"><b>@${p.h}</b>${cell(t.id,p.id).d}</p>`;
+  el.innerHTML=hdr()+`<div class="key">揀兩篇對讀<span></span></div><div class="pick"><select data-s="a">${opts(s.a)}</select><select data-s="b">${opts(s.b)}</select></div>`+
+   `<div class="key">兩篇都講 · ${both.length}<span></span></div>${both.map(t=>`<div class="cmp in"><h5>${num(t)}${t.name}</h5>${who(A,t)}${who(B,t)}</div>`).join('')||'<p class="note">兩篇冇共同重點。</p>'}`+
+   `<div class="key">只有 @${A.h} 講<span></span></div>${onlyA.map(t=>`<div class="cmp"><h5>${num(t)}${t.name}</h5>${who(A,t)}</div>`).join('')||'<p class="cov">冇</p>'}`+
+   `<div class="key">只有 @${B.h} 講<span></span></div>${onlyB.map(t=>`<div class="cmp"><h5>${num(t)}${t.name}</h5>${who(B,t)}</div>`).join('')||'<p class="cov">冇</p>'}`;
+  el.querySelectorAll('select').forEach(x=>x.onchange=()=>{s[x.dataset.s]=x.value;draw()});};
+ draw();
+}
+
+// ---------- v5 · composite ----------
+function vCombo(el){const s={tab:'pt'};
+ const draw=()=>{el.innerHTML=hdr(`<div class="preline"><span>預讀</span><span class="m">${P.map(p=>`<i class="${p.pend?'p':''}"></i>`).join('')}</span><span>10 / 12</span></div>`)+`<p class="answer">${ANSWER}</p><nav class="tabs">${[['pt','重點'],['post','帖子'],['time','演變'],['find','搜尋']].map(([k,l])=>`<button class="${s.tab===k?'on':''}" data-tab="${k}">${l}</button>`).join('')}</nav><div class="sub in"></div>`;
+  const sub=el.querySelector('.sub');({pt:vTiles,post:vPostCards,time:vEvolve,find:vKwic})[s.tab](sub,{bare:true});};
+ el.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;s.tab=b.dataset.tab;draw()});
+ draw();
+}
+
+// ---------- frames ----------
+const V=[
+ {k:'1',name:'重點格 → 逐層睇',ref:'Talk to the City · Prezi 逐層展開',tag:'pre',f:vTiles,good:'第一眼睇到全部重點同篇數；撳入去先見帖、再見原句',bad:'睇唔到帖與帖之間點重疊'},
+ {k:'2',name:'重點氣泡',ref:'ChatGPT 提議嘅 bubble · 氣泡圖',tag:'now',f:vBubbles,good:'最有探索感；撳一粒就見邊幾篇帖講、同邊幾點共用帖',bad:'氣泡大細只係篇數，容易被當成「重要程度」'},
+ {k:'3',name:'章節故事',ref:'Pew 原句例子 · 長文敘事',tag:'now',f:vStory,good:'最易讀：每點一章，標題 + 兩句原句，好似讀報導',bad:'長，要捲；睇唔到帖與帖關係'},
+ {k:'4',name:'每點每篇一句',ref:'NVivo framework（文字版）',tag:'pre',f:vFrame,good:'最似研究筆記：每篇帖講呢點嘅一句摘要',bad:'文字多，要逐個重點打開'},
+ {k:'5',name:'連線圖',ref:'ATLAS.ti Sankey',tag:'now',f:vSankey,good:'最有「關係」感，一撳就見一篇帖連去邊幾點',bad:'帖題要截短；超過 15 篇會擠'},
+ {k:'6',name:'帖子卡 + 重點標籤',ref:'',tag:'now',f:vPostCards,good:'以帖為主：每張卡用文字標籤寫住講咗邊幾點，唔使記顏色',bad:'睇唔到單一重點嘅全貌'},
+ {k:'7',name:'原句牆',ref:'Pew 開放式答案',tag:'now',f:vQuotes,good:'最有人味，直接見到大家點講',bad:'一次只睇一點；冇總覽'},
+ {k:'8',name:'兩篇對讀',ref:'文字版交集',tag:'pre',f:vCompare2,good:'答「呢兩篇有咩同、有咩唔同」最直接，全部係文字',bad:'一次只比兩篇'},
+ {k:'9',name:'搜尋原句',ref:'Voyant KWIC',tag:'now',f:vKwic,good:'唔使 AI，即時；預讀中嘅帖都搜到；自己核對最快',bad:'只係字面搜尋，同義詞搵唔到'},
+ {k:'10',name:'話題演變',ref:'文字時間分段',tag:'now',f:vEvolve,good:'按時間分段，寫明每段「新出現」同「繼續有人講」，唔使 AI',bad:'帖少時分段意義不大'},
+ {k:'11',name:'立場樹（預覽）',ref:'Kialo',tag:'later',f:vStance,good:'最直接答「支持定反對」',bad:'要 0.4.8 立場抽取；而家做會誤導'},
+ {k:'12',name:'組合：建議版',ref:'1 + 6 + 10 + 9',tag:'pre',f:vCombo,good:'答案 + 四個分頁：重點、帖子、演變、搜尋；全部文字或格，冇矩陣',bad:'功能最多，要控制唔好太擠'},
+];
+const TAG={now:'而家有數據',pre:'要 0.4.7 預讀',later:'要 0.4.8 立場'};
+const grid=document.getElementById('grid'),jump=document.getElementById('jump');
+for(const v of V){
+ jump.insertAdjacentHTML('beforeend',`<a href="#v${v.k}"><b>${v.k}</b>${v.name}</a>`);
+ grid.insertAdjacentHTML('beforeend',`<section class="frame" id="v${v.k}"><div class="meta"><h3><b>${v.k}</b>${v.name}</h3><p class="ref"><span class="tag ${v.tag}">${TAG[v.tag]}</span>${v.ref?'借鏡：'+v.ref:''}</p><ul><li data-k="好">${v.good}</li><li data-k="弱">${v.bad}</li></ul></div><div class="panel"><div class="chrome"><i></i>DLens<span>⌖ ✕</span></div><div class="head"><span>收藏</span><span class="on">工作區</span><span class="more">⋯</span></div><div class="body" id="b${v.k}"></div></div></section>`);
+ v.f(document.getElementById('b'+v.k));
+}
+</script>
+</body>
+</html>

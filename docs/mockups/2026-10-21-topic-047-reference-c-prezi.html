@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C · 逐層展開</title>
+<!-- Standalone synthetic design reference. Containment means citation grouping,
+     never shared stance. Exact posts and points fixtures copied from V3.
+     Spatial overview → point → source quote; no external requests or post URLs. -->
+<style>
+:root{--ink:#1b1a17;--sub:#3d3b35;--soft:#6c695e;--hair:rgba(27,26,23,.12);--sage:#3f5a3b;--sage-w:#eff4ec;--line:#aeb8a9;--paper:#fbfbf9;--stage:#e9e7e1;--sans:-apple-system,BlinkMacSystemFont,'PingFang TC','Noto Sans TC',system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--stage);color:var(--ink);font:14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}a{color:var(--sage);text-underline-offset:3px}button:focus-visible,a:focus-visible,[tabindex="-1"]:focus-visible{outline:2px solid var(--sage);outline-offset:3px}[hidden]{display:none!important}.intro,.outer-foot{width:600px;max-width:100%;padding:0 20px;margin:26px auto 18px}.intro .eyebrow{font-size:11px;color:var(--soft)}.intro h1{font-size:25px;margin:5px 0;font-weight:600}.intro p,.outer-foot{font-size:12px;color:var(--soft)}.intro p{margin:5px 0}.surface{width:328px;max-width:100%;height:850px;overflow:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#d1d2c9 transparent;margin:0 auto;background:var(--paper);border:1px solid var(--hair);border-radius:12px;box-shadow:0 12px 32px -24px #1b1a1755;scroll-padding:12px}.chrome{height:35px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#f6f4f0;border-bottom:1px solid var(--hair);font-size:12px}.chrome small{font-size:10px;color:var(--soft)}.nav{height:42px;display:flex;align-items:center;gap:22px;padding:0 14px;border-bottom:1px solid var(--hair);font-size:12px;color:var(--soft)}.nav strong{font-weight:600;color:var(--sage);height:100%;display:flex;align-items:center;border-bottom:2px solid var(--sage)}.body{padding:13px 12px 18px}.topic-trail{margin:0;color:var(--soft);font-size:10px}h2{margin:2px 0 3px;font-weight:600;line-height:1.4;font-size:21px;letter-spacing:-.03em}.coverage{font-size:10px;line-height:1.7;color:var(--soft);margin:0 0 9px}.bread{min-height:34px;display:flex;align-items:center;gap:5px;margin-bottom:7px;font-size:10.5px;color:var(--soft);min-width:0}.bread button{padding:4px 0;min-height:30px;max-width:135px;text-align:left;color:var(--sage);font-size:10.5px;overflow-wrap:anywhere}.bread span[aria-current]{color:var(--sub);overflow-wrap:anywhere}.bread .step{font-size:10px}.guide{font-size:11px;color:var(--sub);margin:0 0 9px;min-height:18px}.atlas{position:relative;height:482px;isolation:isolate;background:#f1f2ec;border:1px solid #dce1d5;border-radius:13px;padding:7px;overflow:hidden}.islands{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:1fr 1fr .7fr;gap:7px}.island{position:relative;min-width:0;text-align:left;background:#fbfcf8;border:1px solid #c8d3c1;border-radius:15px 15px 21px 15px;padding:10px 9px;display:flex;flex-direction:column;overflow:hidden}.island:nth-child(2){border-radius:15px 15px 15px 24px;background:#f8faf5}.island:nth-child(3){border-radius:24px 15px 15px 15px}.island:nth-child(4){border-radius:15px 25px 15px 15px;background:#f8faf5}.island:last-child{grid-column:1/-1;border-radius:15px 23px 15px 15px}.island:hover{border-color:var(--sage);background:var(--sage-w)}.island h3{font-size:13px;line-height:1.5;margin:0 0 2px;font-weight:600;letter-spacing:-.02em}.island .count{font-size:11px;color:var(--soft);display:block;margin-bottom:6px}.source-names{display:flex;flex-direction:column;gap:4px}.source-name{font-size:11.5px;line-height:1.45;color:var(--sub);display:block;overflow-wrap:anywhere;padding-left:7px;border-left:1px solid #c8d3c1}.more-sources{display:block;font-size:11px;line-height:1.5;color:var(--soft);margin-top:5px}.island:last-child .source-names{display:grid;grid-template-columns:1fr 1fr;gap:10px}.island .go{margin-top:auto;padding-top:4px;align-self:flex-end;font-size:10px;line-height:1;color:var(--sage)}.focus-layer{position:absolute;inset:7px;background:#fbfcf8;border:1px solid #9baa91;border-radius:15px;z-index:2;padding:15px 12px;overflow:auto;scrollbar-width:thin;transform-origin:top left}.point-eyebrow{font-size:10px;color:var(--sage);margin:0 0 6px}.focus-title{font-size:17px;line-height:1.6;letter-spacing:-.03em;font-weight:600;margin:0 0 8px}.focus-scope{font-size:10.5px;color:var(--soft);margin:0 0 14px}.source-tiles{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.source-tile{text-align:left;min-width:0;background:#fff;border:1px solid var(--hair);border-radius:9px;min-height:137px;padding:11px 9px;display:flex;flex-direction:column}.source-tile:hover{border-color:var(--sage);background:var(--sage-w)}.source-tile h4{font-weight:500;font-size:12px;line-height:1.65;margin:0 0 10px;overflow-wrap:anywhere}.source-tile small{font-size:9px;color:var(--soft);overflow-wrap:anywhere;margin-top:auto;line-height:1.6}.source-tile .open-quote{font-size:10px;color:var(--sage);display:block;margin-top:7px}.location{border-top:1px solid var(--hair);margin-top:15px;padding-top:10px;display:flex;gap:11px;align-items:center}.mini-map{width:58px;height:43px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr .65fr;gap:3px;flex:none}.mini-map span{border:1px solid #c3cebc;border-radius:3px;background:#f2f5ee}.mini-map span:last-child{grid-column:1/-1}.mini-map span.current{background:#819374;border-color:var(--sage)}.location p{font-size:10px;line-height:1.7;color:var(--soft);margin:0}.source-header{font-size:10px;color:var(--soft);margin:3px 0 13px;line-height:1.7}.source-header time{display:block}.quote-wrap{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:14px 11px;margin-top:15px}.quote-label{font-size:10px;color:var(--soft);margin:0 0 10px}.quote-wrap blockquote{font-size:15px;line-height:1.9;margin:0;padding-left:11px;border-left:2px solid var(--sage);overflow-wrap:anywhere}.quote-note{font-size:10px;color:var(--soft);line-height:1.7;margin:12px 0 0}.back-in-canvas{display:block;margin-top:13px;padding:7px 0;color:var(--sage);font-size:11px;min-height:34px;text-align:left}.legend{font-size:10px;color:var(--soft);line-height:1.7;margin:10px 0 7px}.pending{font-size:10px;color:var(--soft);border-top:1px solid var(--hair);padding-top:7px;margin-top:7px}.pending p{margin:2px 0}.pending strong{font-weight:500;color:var(--sub)}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.outer-foot{margin-top:16px;margin-bottom:24px}.embedded body{background:var(--paper)}.embedded .intro,.embedded .outer-foot{display:none}.embedded .surface{width:100%;height:100dvh;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none}.embedded .body{padding-bottom:13px}
+@media(max-width:360px){.intro,.outer-foot{padding-left:12px;padding-right:12px}.surface{border-radius:0}.source-tile h4{font-size:11.5px}.focus-title{font-size:16px}}
+@media(prefers-reduced-motion:no-preference){.island,.source-tile{transition:background .15s ease,border-color .15s ease}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+<script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('embedded');</script>
+</head>
+<body>
+<header class="intro"><div class="eyebrow">DLENS · 跨帖閱讀參考</div><h1>C · 逐層展開</h1><p>先看各區的重點與來源，再放大到引用原句。返回時保留你所在的位置。</p><p>參考：<a href="https://support.prezi.com/hc/en-us/articles/360003478254-Prezi-Present-FAQ" target="_blank" rel="noopener noreferrer">Prezi · Overview → Zoom → Detail</a> · 點區域、再點帖題；Escape 返回一層。</p></header>
+<main class="surface" id="surface" aria-label="DLens 跨帖逐層閱讀">
+ <div class="chrome"><span>DLens</span><small>虛構資料 · 互動示意</small></div>
+ <div class="nav" aria-label="目前工作區"><span>收藏</span><strong>工作區</strong></div>
+ <div class="body">
+  <p class="topic-trail">觀眾反應 / 話題</p><h2>返工用 AI 工具</h2>
+  <p class="coverage" id="coverage"></p>
+  <nav class="bread" id="breadcrumb" aria-label="閱讀層級"></nav>
+  <p class="guide" id="guide"></p>
+  <section class="atlas" id="atlas" aria-label="引用重點畫布">
+   <div class="islands" id="overview"></div>
+   <section class="focus-layer" id="focus-layer" hidden aria-label="展開區域"></section>
+  </section>
+  <p class="legend">區域收納同一重點引用的帖子，不代表立場一致或相反。大小與位置不代表佔比。</p>
+  <div class="pending" id="pending"></div>
+ </div>
+ <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+</main>
+<footer class="outer-foot">範圍與引用數由示意資料計算。來源帳號是帖子作者；引用留言作者未提供。沒有真實帖文連結。</footer>
+<script>
+'use strict';
+const posts=[
+ {id:'A',handle:'office.mei',date:'2026-09-02',title:'公司話唔准用 ChatGPT，但個個都用緊',replies:412},
+ {id:'B',handle:'devlam',date:'2026-09-05',title:'寫 code 快咗一倍，但 review 辛苦咗',replies:230},
+ {id:'C',handle:'cs_kiki',date:'2026-09-11',title:'客服部已經裁咗一半人',replies:388},
+ {id:'D',handle:'hr.notes',date:'2026-09-12',title:'HR 角度：我哋點睇員工用 AI',replies:156},
+ {id:'E',handle:'design.wo',date:'2026-09-20',title:'設計師唔驚，驚嘅係唔識用嘅人',replies:274},
+ {id:'F',handle:'acct_sam',date:'2026-09-26',title:'會計部用 AI 對數，老闆唔知',replies:198},
+ {id:'G',handle:'law.pp',date:'2026-10-01',title:'律師行全面禁用，原因係保密',replies:142},
+ {id:'H',handle:'newgrad.j',date:'2026-10-03',title:'畢業生：見工被問識唔識 prompt',replies:351},
+ {id:'I',handle:'pm.yan',date:'2026-10-09',title:'會議紀錄全部交俾 AI',replies:120},
+ {id:'J',handle:'it.sec',date:'2026-10-12',title:'IT 部：偷偷用 AI 係資料外洩風險',replies:265},
+ {id:'K',handle:'teacher.c',date:'2026-10-16',title:'學校老師用 AI 出卷',replies:180,pending:true},
+ {id:'L',handle:'cs_lok',date:'2026-10-18',title:'客服仲有冇得做？',replies:230,pending:true}
+];
+const points=[
+ {id:'private',label:'員工私下用 AI，公司政策有鬆有緊',short:'私下使用與公司政策',hits:{A:'公司 IT 封咗網址，我哋用手機開。',F:'老闆唔知我用 AI 對數，快咗兩粒鐘。',I:'冇人講過可唔可以，大家就照用。',D:'我哋 HR 都未有政策，係最近先開始傾。'}},
+ {id:'privacy',label:'資料保密是禁用或收緊使用的原因',short:'資料保密的限制',hits:{G:'客戶資料一入 AI 就係違約，所以全面禁。',J:'上個月有同事將合約貼入去，即刻要報告。',A:'我哋公司都係因為呢個原因封網。'}},
+ {id:'writing',label:'AI 已用於電郵、會議紀錄與工作文件',short:'電郵、紀錄與文件',hits:{I:'每次開完會錄音丟入去，十分鐘有紀錄。',A:'寫 email 俾老闆用嚟潤色。',B:'寫 commit message 同文件。',F:'用嚟寫對數報告嘅說明。'}},
+ {id:'jobs',label:'職位取代的壓力，出現在裁員、求職與技能要求',short:'職位與技能壓力',hits:{C:'我哋組由 12 個減到 6 個。',H:'見工時人哋話「呢啲 AI 做得到」。',E:'驚嘅唔係設計師，係只識跟稿嗰啲。'}},
+ {id:'review',label:'程式與設計使用 AI 後，仍需人工檢查和修改',short:'初稿之後的人工工作',hits:{B:'快咗，但 review 時間多咗。',E:'我用 AI 出初稿，之後自己改。'}}
+];
+
+const byId=new Map(posts.map(post=>[post.id,post]));
+const pointById=new Map(points.map(point=>[point.id,point]));
+const shortTitle={A:'公司禁用，但人人照用',B:'寫 code 快，review 辛苦',C:'客服部已裁走一半人',D:'HR 怎樣看員工用 AI',E:'設計師怕不識用 AI',F:'會計私下用 AI 對數',G:'律師行因保密全面禁用',H:'畢業生見工被問 prompt',I:'會議紀錄全交給 AI',J:'IT 部擔心資料外洩',K:'老師用 AI 出卷',L:'客服仲有冇得做？'};
+const surface=document.getElementById('surface');
+const overview=document.getElementById('overview');
+const layer=document.getElementById('focus-layer');
+const breadcrumb=document.getElementById('breadcrumb');
+const guide=document.getElementById('guide');
+const announcement=document.getElementById('announcement');
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+const state={level:'overview',point:null,post:null,overviewScroll:0,pointScroll:0,animation:null};
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const quoteCount=points.reduce((sum,point)=>sum+Object.keys(point.hits).length,0);
+const included=posts.filter(post=>!post.pending);
+const pending=posts.filter(post=>post.pending);
+document.getElementById('coverage').textContent=`${posts.length} 篇收藏 · ${included.length} 篇已納入 · ${pending.length} 篇待預讀\n${points.length} 個重點 · ${quoteCount} 句引用`;
+document.getElementById('pending').innerHTML=`<p><strong>待預讀 ${pending.length} 篇</strong> · 暫未放入畫布</p><p>${pending.map(post=>escapeHtml(shortTitle[post.id])).join(' ／ ')}</p>`;
+overview.innerHTML=points.map(point=>`<button class="island" data-action="point" data-point="${point.id}" id="island-${point.id}" aria-label="展開${escapeHtml(point.short)}，${Object.keys(point.hits).length} 篇來源"><h3>${escapeHtml(point.short)}</h3><span class="count">${Object.keys(point.hits).length} 篇來源</span><span class="source-names">${Object.keys(point.hits).slice(0,2).map(id=>`<span class="source-name" title="${escapeHtml(byId.get(id).title)}">${escapeHtml(shortTitle[id])}</span>`).join('')}</span>${Object.keys(point.hits).length>2?`<span class="more-sources">另 ${Object.keys(point.hits).length-2} 篇</span>`:''}<span class="go" aria-hidden="true">展開 ↗</span></button>`).join('');
+function locationMap(point){return `<div class="location"><div class="mini-map" aria-hidden="true">${points.map(item=>`<span class="${item.id===point.id?'current':''}"></span>`).join('')}</div><p>你在「${escapeHtml(point.short)}」區<br>返回總覽，區域位置不變。</p></div>`;}
+function renderBreadcrumb(){
+ if(state.level==='overview'){breadcrumb.innerHTML='<span aria-current="page">全部重點</span>';guide.textContent='點一個區域，放大看它引用了哪些帖子。';return;}
+ const point=pointById.get(state.point);
+ breadcrumb.innerHTML=`<button data-action="overview">總覽</button><span class="step" aria-hidden="true">›</span>${state.level==='point'?`<span aria-current="page">${escapeHtml(point.short)}</span>`:`<button data-action="back-point">${escapeHtml(point.short)}</button><span class="step" aria-hidden="true">›</span><span aria-current="page">原句</span>`}`;
+ guide.textContent=state.level==='point'?'點來源帖題，讀它在這個重點中的引用。':'原句保留在來源帖內，可逐層返回。';
+}
+function renderPoint(){
+ const point=pointById.get(state.point);
+ layer.innerHTML=`<p class="point-eyebrow">重點區域</p><h3 class="focus-title" id="detail-heading" tabindex="-1">${escapeHtml(point.label)}</h3><p class="focus-scope">引用 ${Object.keys(point.hits).length} 篇帖子 · 下方顯示來源帖</p><div class="source-tiles">${Object.keys(point.hits).map(id=>{const post=byId.get(id);return `<button class="source-tile" data-action="post" data-post="${post.id}" id="source-${post.id}"><h4>${escapeHtml(post.title)}</h4><small>來源帖 @${escapeHtml(post.handle)}</small><span class="open-quote">讀引用原句 ↗</span></button>`;}).join('')}</div>${locationMap(point)}`;
+}
+function renderPost(){
+ const point=pointById.get(state.point),post=byId.get(state.post);
+ layer.innerHTML=`<p class="point-eyebrow">來源帖 / 引用原句</p><h3 class="focus-title" id="detail-heading" tabindex="-1">${escapeHtml(post.title)}</h3><p class="source-header">帖子作者 @${escapeHtml(post.handle)}<time datetime="${post.date}">${post.date}</time></p><div class="quote-wrap"><p class="quote-label">引用留言 · 留言作者未提供</p><blockquote>${escapeHtml(point.hits[post.id])}</blockquote><p class="quote-note">這句被「${escapeHtml(point.short)}」引用。<br>帖子作者不等同這段留言的作者。</p></div><button class="back-in-canvas" data-action="back-point">← 返回這個區域的來源</button>${locationMap(point)}`;
+}
+function stopAnimation(){if(state.animation){state.animation.cancel();state.animation=null;}}
+function animateFrom(rect){
+ stopAnimation();if(reducedMotion.matches||!rect)return;
+ const target=layer.getBoundingClientRect();
+ const transform=`translate(${rect.left-target.left}px,${rect.top-target.top}px) scale(${rect.width/target.width},${rect.height/target.height})`;
+ state.animation=layer.animate([{transform,opacity:.5},{transform:'translate(0,0) scale(1,1)',opacity:1}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
+ state.animation.onfinish=()=>{state.animation=null;};
+}
+function focusHeading(){layer.querySelector('#detail-heading')?.focus({preventScroll:true});}
+function openPoint(id){
+ const point=pointById.get(id);if(!point)return;
+ const from=document.getElementById(`island-${id}`).getBoundingClientRect();
+ state.overviewScroll=surface.scrollTop;state.pointScroll=0;state.level='point';state.point=id;state.post=null;
+ overview.inert=true;overview.setAttribute('aria-hidden','true');layer.hidden=false;
+ renderPoint();renderBreadcrumb();layer.scrollTop=0;animateFrom(from);focusHeading();
+ announcement.textContent=`已展開${point.short}，${Object.keys(point.hits).length} 篇來源。`;
+}
+function openPost(id){
+ const point=pointById.get(state.point);if(!point||!Object.hasOwn(point.hits,id))return;
+ const from=document.getElementById(`source-${id}`).getBoundingClientRect();
+ state.pointScroll=layer.scrollTop;state.post=id;state.level='post';
+ renderPost();renderBreadcrumb();layer.scrollTop=0;animateFrom(from);focusHeading();
+ announcement.textContent=`已開啟${byId.get(id).title}的引用原句。`;
+}
+function backPoint(){
+ if(state.level!=='post')return;stopAnimation();const id=state.post;
+ state.level='point';state.post=null;renderPoint();renderBreadcrumb();layer.scrollTop=state.pointScroll;
+ layer.querySelector(`#source-${id}`)?.focus({preventScroll:true});
+ announcement.textContent=`返回${pointById.get(state.point).short}的來源。`;
+}
+function backOverview(){
+ if(state.level==='overview')return;stopAnimation();const id=state.point;
+ state.level='overview';state.point=null;state.post=null;layer.hidden=true;layer.innerHTML='';
+ overview.inert=false;overview.removeAttribute('aria-hidden');renderBreadcrumb();surface.scrollTop=state.overviewScroll;
+ document.getElementById(`island-${id}`)?.focus({preventScroll:true});announcement.textContent='返回全部重點，已保留原區域的位置。';
+}
+surface.addEventListener('click',event=>{const button=event.target.closest('button[data-action]');if(!button)return;switch(button.dataset.action){case 'point':openPoint(button.dataset.point);break;case 'post':openPost(button.dataset.post);break;case 'back-point':backPoint();break;case 'overview':backOverview();break;}});
+document.addEventListener('keydown',event=>{if(event.key!=='Escape'||state.level==='overview')return;event.preventDefault();if(state.level==='post')backPoint();else backOverview();});
+reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches)stopAnimation();});
+renderBreadcrumb();
+</script>
+</body>
+</html>

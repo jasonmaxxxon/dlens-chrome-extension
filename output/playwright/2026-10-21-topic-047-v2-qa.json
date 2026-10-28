@@ -1,0 +1,42 @@
+{
+  "artifact": "/Users/tung/.config/superpowers/worktrees/dlens-product-latest/inline-collect-wheel/docs/mockups/2026-10-21-topic-047-v2.html",
+  "scope": "standalone synthetic mockup; no production UI changes",
+  "baseline_unchanged_sha256": "5e3f3338b8c86f69aa64a6e10dc48eaf2695109b3a300dc60bfaefebbce43fad",
+  "javascript_syntax": "pass",
+  "browser": "Codex IAB",
+  "viewports": [
+    1280,
+    390,
+    328
+  ],
+  "no_horizontal_overflow": true,
+  "interactions_verified": [
+    "point to source list",
+    "source to exact excerpt",
+    "shared source to another point",
+    "Escape collapses excerpt and restores focus",
+    "arrow-key tab navigation",
+    "pending filter shows two posts",
+    "dated post to its citing point",
+    "coverage remains expanded across point changes"
+  ],
+  "counts": {
+    "posts": 12,
+    "included_posts": 10,
+    "pending_posts": 2,
+    "all_replies": 2946,
+    "included_replies": 2536,
+    "cited_excerpts": 16
+  },
+  "console_errors": 0,
+  "repository_gate": {
+    "typecheck": "pass",
+    "boundary_guard": "pass",
+    "storage_seam_guard": "pass",
+    "test_pass": 1076,
+    "test_skipped": 5,
+    "test_fail": 0,
+    "build": "pass",
+    "diff_check": "pass"
+  }
+}
