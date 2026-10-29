@@ -17,7 +17,7 @@ export default defineConfig({
   entrypointsDir: "entrypoints",
   manifest: {
     name: isPrOnlyBuild ? "DLens PR Mode" : "DLens",
-    version: "0.4.7",
+    version: "0.4.8",
     description: isPrOnlyBuild
       ? "PR Evidence-only Threads capture client for DLens ingest-core."
       : "Thin Threads capture client for DLens ingest-core.",
@@ -30,6 +30,12 @@ export default defineConfig({
       "*://threads.com/*",
       "http://127.0.0.1/*",
       "http://localhost/*",
+      // User-configured ingest base URL (Tailscale CGNAT or another LAN host).
+      // Match patterns cannot name the 100.64.0.0/10 range, and the address must
+      // not be hardcoded. These two patterns let the service worker call whatever
+      // http(s) origin is saved in settings. Loopback above stays the default.
+      "http://*/*",
+      "https://*/*",
       "https://generativelanguage.googleapis.com/*",
       "https://api.openai.com/*",
       "https://api.anthropic.com/*"

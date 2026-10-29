@@ -17,6 +17,10 @@ import { tokens } from "./tokens";
 interface SettingsViewProps {
   sessionMode: FolderMode;
   draftBaseUrl: string;
+  draftIngestApiToken?: string;
+  hasIngestApiToken?: boolean;
+  onDraftIngestApiTokenChange?: (value: string) => void;
+  onClearIngestApiToken?: () => void;
   draftProvider: NonNullable<ExtensionSettings["oneLinerProvider"]> | "";
   draftOpenAiKey: string;
   draftClaudeKey: string;
@@ -200,6 +204,10 @@ function SavedKeyStatus({ provider, visible }: { provider: "openai" | "claude" |
 export function SettingsView({
   sessionMode,
   draftBaseUrl,
+  draftIngestApiToken = "",
+  hasIngestApiToken = false,
+  onDraftIngestApiTokenChange,
+  onClearIngestApiToken,
   draftProvider,
   draftOpenAiKey,
   draftClaudeKey,
@@ -308,7 +316,7 @@ export function SettingsView({
         mode="settings"
         kicker="Runtime settings"
         title={t("調整連線與模型入口", "Tune connections and model access")}
-        deck={t("連線設定與 API 金鑰存於本機，不會上傳。", "Connection settings and API keys stay on this device — never uploaded.")}
+        deck={t("AI 金鑰只存在這部電腦。Ingest token 只會送到你設定的後端。", "AI keys stay on this device. The ingest token is sent only to the backend you configure.")}
       />
 
       <div data-settings-surface="drawer" style={settingsDrawerStyle}>
@@ -401,8 +409,41 @@ export function SettingsView({
           <SettingsGroup name="connection" title="連線" caption="Connection">
             <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
               Ingest base URL
-              <input value={draftBaseUrl} onChange={(event) => onDraftBaseUrlChange(event.target.value)} style={inputStyle} />
+              <input
+                value={draftBaseUrl}
+                onChange={(event) => onDraftBaseUrlChange(event.target.value)}
+                placeholder="http://127.0.0.1:8000"
+                aria-label="Ingest base URL"
+                data-settings-ingest-url="true"
+                style={inputStyle}
+              />
             </label>
+            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                Ingest API token
+                {hasIngestApiToken && !draftIngestApiToken.trim() ? <Stamp tone="success">已設定</Stamp> : null}
+              </span>
+              <span style={{ display: "flex", gap: 8 }}>
+                <input
+                  value={draftIngestApiToken}
+                  onChange={(event) => onDraftIngestApiTokenChange?.(event.target.value)}
+                  type="password"
+                  placeholder={hasIngestApiToken && !draftIngestApiToken.trim() ? "已儲存 token · 輸入以覆寫" : "貼上 ingest API token"}
+                  aria-label="Ingest API token"
+                  data-settings-ingest-token="true"
+                  autoComplete="off"
+                  style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+                />
+                {hasIngestApiToken || draftIngestApiToken.trim() ? (
+                  <SecondaryButton onClick={() => onClearIngestApiToken?.()} disabled={isSavingSettings} dataAttrs={{ "data-settings-ingest-token-clear": "true" }}>
+                    清除
+                  </SecondaryButton>
+                ) : null}
+              </span>
+            </label>
+            <div data-settings-ingest-help="true" style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
+              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.115.102.41:8000，貼上那台機器的 ingest API token 再儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
+            </div>
 
             <div
               data-settings-storage-usage="true"

@@ -14,7 +14,8 @@ type RequestReconcileDecision,
 type RequestReconcileTarget,
 type RequestReconcileToken
 } from "../state/request-reconcile";
-import { mergeLayoutPreferences,mergeOneLinerSettings } from "../state/settings-storage";
+import { classifyIngestBaseUrl } from "../ingest/host-permission";
+import { mergeIngestApiToken,mergeLayoutPreferences,mergeOneLinerSettings } from "../state/settings-storage";
 import { createDefaultLayoutPreferences,createDefaultSettings,type ExtensionSettings,type ExtensionSnapshot,type FolderMode,type LayoutPreferences,type ProductContext,type ProductProfileContextFile } from "../state/types";
 import {
 buildPrEvidenceViewModel,
@@ -90,6 +91,8 @@ function hasDraftOrStoredKey(draftValue: string, storedPresence: boolean | undef
 export function buildLocalSettingsOverride({
   currentSettings,
   draftBaseUrl,
+  draftIngestApiToken = "",
+  clearIngestApiToken = false,
   draftProvider,
   draftOpenAiKey,
   draftClaudeKey,
@@ -106,9 +109,12 @@ export function buildLocalSettingsOverride({
     deepReadingModels: draftDeepReadingModels
   });
   const withLayout = mergeLayoutPreferences(withProvider, draftLayoutPreferences);
+  const ingestApiToken = mergeIngestApiToken(currentSettings.ingestApiToken, draftIngestApiToken, clearIngestApiToken === true);
   return {
     ...withLayout,
     ingestBaseUrl: draftBaseUrl,
+    ingestApiToken,
+    hasIngestApiToken: clearIngestApiToken === true ? Boolean(ingestApiToken) : Boolean(ingestApiToken || currentSettings.hasIngestApiToken),
     hasOpenAiKey: hasDraftOrStoredKey(draftOpenAiKey, currentSettings.hasOpenAiKey, currentSettings.openaiApiKey),
     hasClaudeKey: hasDraftOrStoredKey(draftClaudeKey, currentSettings.hasClaudeKey, currentSettings.claudeApiKey),
     hasGoogleKey: hasDraftOrStoredKey(draftGoogleKey, currentSettings.hasGoogleKey, currentSettings.googleApiKey),
@@ -366,6 +372,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const refreshedOnOpenFolderRef = useRef<string | null>(null);
   const popupOpen = true;
   const [draftBaseUrl, setDraftBaseUrl] = useState("http://127.0.0.1:8000");
+  const [draftIngestApiToken, setDraftIngestApiToken] = useState("");
+  const [clearIngestApiToken, setClearIngestApiToken] = useState(false);
   const [draftProvider, setDraftProvider] = useState<"openai" | "claude" | "google" | "">("google");
   const [draftOpenAiKey, setDraftOpenAiKey] = useState("");
   const [draftClaudeKey, setDraftClaudeKey] = useState("");
@@ -437,6 +445,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   const hasGoogleKey = Boolean(effectiveSettings?.hasGoogleKey ?? effectiveSettings?.googleApiKey.trim());
   const hasOpenAiKey = Boolean(effectiveSettings?.hasOpenAiKey ?? effectiveSettings?.openaiApiKey.trim());
   const hasClaudeKey = Boolean(effectiveSettings?.hasClaudeKey ?? effectiveSettings?.claudeApiKey.trim());
+  const hasIngestApiToken = clearIngestApiToken
+    ? Boolean(draftIngestApiToken.trim())
+    : Boolean(effectiveSettings?.hasIngestApiToken || effectiveSettings?.ingestApiToken?.trim() || draftIngestApiToken.trim());
 
   useEffect(() => {
     if (!popupOpen) {
@@ -642,6 +653,8 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (snapshot?.global.settings.ingestBaseUrl) {
       setDraftBaseUrl(snapshot.global.settings.ingestBaseUrl);
     }
+    setDraftIngestApiToken(snapshot?.global.settings.ingestApiToken || "");
+    setClearIngestApiToken(false);
     setDraftProvider(snapshot?.global.settings.oneLinerProvider || "");
     setDraftOpenAiKey(snapshot?.global.settings.openaiApiKey || "");
     setDraftClaudeKey(snapshot?.global.settings.claudeApiKey || "");
@@ -651,6 +664,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     setDraftProductProfile(snapshot?.global.settings.productProfile ?? createEmptyProductProfile());
   }, [
     snapshot?.global.settings.ingestBaseUrl,
+    snapshot?.global.settings.ingestApiToken,
     snapshot?.global.settings.oneLinerProvider,
     snapshot?.global.settings.openaiApiKey,
     snapshot?.global.settings.claudeApiKey,
@@ -753,9 +767,24 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     });
   }
 
+  function onDraftIngestApiTokenChange(value: string) {
+    setDraftIngestApiToken(value);
+    if (value.trim()) setClearIngestApiToken(false);
+  }
+
+  function onClearIngestApiToken() {
+    setDraftIngestApiToken("");
+    setClearIngestApiToken(true);
+  }
+
   /** Saves every draft setting; resolves true when all writes landed. */
   async function onSaveSettings(): Promise<boolean> {
     if (isSavingSettings) {
+      return false;
+    }
+    const classified = classifyIngestBaseUrl(draftBaseUrl);
+    if (!classified.ok) {
+      setSettingsSaveStatus({ kind: "error", message: classified.message });
       return false;
     }
     setIsSavingSettings(true);
@@ -764,7 +793,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
       let latestProductContext: ProductContext | null | undefined;
       let productContextError: string | null | undefined;
       for (const message of buildSettingsSaveMessages({
-        draftBaseUrl,
+        draftBaseUrl: classified.normalized,
+        draftIngestApiToken,
+        clearIngestApiToken,
         draftProvider,
         draftOpenAiKey,
         draftClaudeKey,
@@ -785,9 +816,12 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
           productContextError = response.productContextError ?? null;
         }
       }
+      setDraftBaseUrl(classified.normalized);
       setLocalSettingsOverride(buildLocalSettingsOverride({
         currentSettings: snapshot?.global.settings ?? createDefaultSettings(),
-        draftBaseUrl,
+        draftBaseUrl: classified.normalized,
+        draftIngestApiToken,
+        clearIngestApiToken,
         draftProvider,
         draftOpenAiKey,
         draftClaudeKey,
@@ -1344,6 +1378,10 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     createContextFileId,
     processingSummary,
     draftBaseUrl,
+    draftIngestApiToken,
+    hasIngestApiToken,
+    onDraftIngestApiTokenChange,
+    onClearIngestApiToken,
     draftProvider,
     draftOpenAiKey,
     draftClaudeKey,

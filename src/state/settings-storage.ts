@@ -40,12 +40,27 @@ export function normalizeLayoutPreferences(raw: LayoutPreferencesPatch | null | 
   };
 }
 
+export const INGEST_API_TOKEN_MAX_LENGTH = 512;
+
+export function normalizeIngestApiToken(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, INGEST_API_TOKEN_MAX_LENGTH);
+}
+
+/** A blank draft keeps the stored token. `clear` is the only way to remove it. */
+export function mergeIngestApiToken(current: string | null | undefined, draft: string | null | undefined, clear: boolean): string {
+  if (clear) return "";
+  const next = normalizeIngestApiToken(draft);
+  return next || normalizeIngestApiToken(current);
+}
+
 export function normalizeExtensionSettings(
   raw: (Partial<Omit<ExtensionSettings, "layoutPreferences">> & { layoutPreferences?: LayoutPreferencesPatch | null }) | null | undefined
 ): ExtensionSettings {
   return {
     ...createDefaultSettings(),
     ...(raw || {}),
+    ingestApiToken: normalizeIngestApiToken(raw?.ingestApiToken),
     layoutPreferences: normalizeLayoutPreferences(raw?.layoutPreferences)
   };
 }

@@ -1514,6 +1514,109 @@ test("session/refresh-all with no refreshable work and unchanged error performs 
   assert.deepEqual(harness.writes, []);
 });
 
+test("session/queue-item sends the saved ingest token as a bearer header and keeps it out of the URL", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; authorization: string | null }> = [];
+  try {
+    const topic = {
+      ...makeSession("topic-session", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("queue-remote")), id: "item-queue-remote" }]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      calls.push({ url, authorization: headers.get("authorization") });
+      const method = String(init?.method || "GET").toUpperCase();
+      if (url.endsWith("/capture-target") && method === "POST") {
+        return jsonResponse(makeCaptureTargetResponse("queue-remote"));
+      }
+      if (url.includes("/jobs/job-queue-remote")) {
+        throw new Error("job not ready");
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: "http://100.115.102.41:8000",
+          ingestApiToken: "test-token-not-real"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/queue-item",
+      requestId: "queue-remote",
+      sessionId: topic.id,
+      itemId: "item-queue-remote"
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.ok(calls.some((call) => call.url === "http://100.115.102.41:8000/capture-target"));
+    assert.ok(calls.every((call) => call.authorization === "Bearer test-token-not-real"));
+    assert.ok(calls.every((call) => !call.url.includes("test-token-not-real")));
+    const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(stored.settings.ingestApiToken, "test-token-not-real");
+    assert.equal(response.snapshot?.global.settings.ingestApiToken, "");
+    assert.equal(response.snapshot?.global.settings.hasIngestApiToken, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("settings/set-ingest-base-url stores a remote origin and token, and a blank draft keeps the token", async () => {
+  const topic = makeSession("topic-session", "topic");
+  const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+  const harness = await createHarness({
+    [backgroundTestables.GLOBAL_STORAGE_KEY]: makeGlobal([topic], topic.id),
+    [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+    [tabKey]: createEmptyTabState()
+  });
+
+  const saved = await harness.dispatch({
+    type: "settings/set-ingest-base-url",
+    value: "http://100.115.102.41:8000/",
+    apiToken: " test-token-not-real "
+  });
+  assert.equal(saved.ok, true);
+  const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(stored.settings.ingestBaseUrl, "http://100.115.102.41:8000");
+  assert.equal(stored.settings.ingestApiToken, "test-token-not-real");
+  assert.equal(saved.snapshot?.global.settings.ingestApiToken, "");
+
+  const kept = await harness.dispatch({
+    type: "settings/set-ingest-base-url",
+    value: "http://127.0.0.1:8000",
+    apiToken: ""
+  });
+  assert.equal(kept.ok, true);
+  const keptState = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(keptState.settings.ingestBaseUrl, "http://127.0.0.1:8000");
+  assert.equal(keptState.settings.ingestApiToken, "test-token-not-real");
+
+  const cleared = await harness.dispatch({
+    type: "settings/set-ingest-base-url",
+    value: "http://127.0.0.1:8000",
+    apiToken: "",
+    clearApiToken: true
+  });
+  assert.equal(cleared.ok, true);
+  const clearedState = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+  assert.equal(clearedState.settings.ingestApiToken, "");
+
+  const rejected = await harness.dispatch({
+    type: "settings/set-ingest-base-url",
+    value: "javascript:alert(1)"
+  });
+  assert.equal(rejected.ok, false);
+});
+
 test("session/queue-item writes broadcast state/updated exactly once per tab", async () => {
   const originalFetch = globalThis.fetch;
   try {

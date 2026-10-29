@@ -20,6 +20,54 @@ export function normalizeBaseUrl(baseUrl: string): string {
   return String(baseUrl || "").trim().replace(/\/+$/, "") || "http://127.0.0.1:8000";
 }
 
+/** Settings token is sent as a bearer credential when the ingest backend requires one. */
+export const INGEST_AUTHORIZATION_SCHEME = "Bearer";
+
+export interface IngestRequestTarget {
+  baseUrl: string;
+  apiToken?: string | null;
+}
+
+export function ingestTargetFromSettings(
+  settings: { ingestBaseUrl?: string | null; ingestApiToken?: string | null } | null | undefined
+): IngestRequestTarget {
+  return {
+    baseUrl: settings?.ingestBaseUrl || "",
+    apiToken: settings?.ingestApiToken || ""
+  };
+}
+
+function resolveIngestRequest(target: string | IngestRequestTarget): { baseUrl: string; apiToken: string } {
+  if (typeof target === "string") {
+    return { baseUrl: normalizeBaseUrl(target), apiToken: "" };
+  }
+  return {
+    baseUrl: normalizeBaseUrl(target.baseUrl),
+    apiToken: String(target.apiToken || "").trim()
+  };
+}
+
+function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  if (typeof Headers !== "undefined" && headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  return { ...(headers as Record<string, string>) };
+}
+
+/** Omits the header when no token is configured, so a local backend without auth still accepts the call. */
+export function withIngestAuth(apiToken: string, init?: RequestInit): RequestInit {
+  const headers = headerRecord(init?.headers);
+  if (apiToken) {
+    headers.Authorization = `${INGEST_AUTHORIZATION_SCHEME} ${apiToken}`;
+  } else {
+    delete headers.Authorization;
+    delete headers.authorization;
+  }
+  return { ...init, headers };
+}
+
 export function buildCaptureTargetRequest(descriptor: TargetDescriptor, folderName?: string): CaptureTargetRequest {
   const surface = inferSurfaceFromUrl(descriptor.page_url);
   const pageUrl = descriptor.page_url;
@@ -230,18 +278,19 @@ function captureTargetNotStored(error: unknown): boolean {
 }
 
 export async function submitCaptureTarget(
-  baseUrl: string,
+  target: string | IngestRequestTarget,
   descriptor: TargetDescriptor,
   folderName?: string,
   retryDelaysMs: readonly number[] = CAPTURE_TARGET_RETRY_DELAYS_MS
 ): Promise<CaptureTargetResponse> {
+  const endpoint = resolveIngestRequest(target);
   const requestBody = JSON.stringify(buildCaptureTargetRequest(descriptor, folderName));
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await fetchJson<CaptureTargetResponse>(`${normalizeBaseUrl(baseUrl)}/capture-target`, {
+      return await fetchJson<CaptureTargetResponse>(`${endpoint.baseUrl}/capture-target`, withIngestAuth(endpoint.apiToken, {
         method: "POST",
         body: requestBody
-      });
+      }));
     } catch (error) {
       if (attempt >= retryDelaysMs.length || !captureTargetNotStored(error)) throw error;
       await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelaysMs[attempt]));
@@ -249,8 +298,9 @@ export async function submitCaptureTarget(
   }
 }
 
-export async function fetchJob(baseUrl: string, jobId: string): Promise<JobSnapshot> {
-  return fetchJson<JobSnapshot>(`${normalizeBaseUrl(baseUrl)}/jobs/${jobId}`);
+export async function fetchJob(target: string | IngestRequestTarget, jobId: string): Promise<JobSnapshot> {
+  const endpoint = resolveIngestRequest(target);
+  return fetchJson<JobSnapshot>(`${endpoint.baseUrl}/jobs/${jobId}`, withIngestAuth(endpoint.apiToken));
 }
 
 // `raw_payload` is crawl provenance that only the backend reads; Postgres already holds it.
@@ -267,29 +317,34 @@ function dropRawPayload(capture: CaptureSnapshot): CaptureSnapshot {
   return next;
 }
 
-export async function fetchCapture(baseUrl: string, captureId: string): Promise<CaptureSnapshot> {
-  return dropRawPayload(await fetchJson<CaptureSnapshot>(`${normalizeBaseUrl(baseUrl)}/captures/${captureId}`));
+export async function fetchCapture(target: string | IngestRequestTarget, captureId: string): Promise<CaptureSnapshot> {
+  const endpoint = resolveIngestRequest(target);
+  return dropRawPayload(await fetchJson<CaptureSnapshot>(`${endpoint.baseUrl}/captures/${captureId}`, withIngestAuth(endpoint.apiToken)));
 }
 
-export async function triggerWorkerDrain(baseUrl: string): Promise<WorkerDrainResponse> {
-  return fetchJson<WorkerDrainResponse>(`${normalizeBaseUrl(baseUrl)}/worker/drain`, {
+export async function triggerWorkerDrain(target: string | IngestRequestTarget): Promise<WorkerDrainResponse> {
+  const endpoint = resolveIngestRequest(target);
+  return fetchJson<WorkerDrainResponse>(`${endpoint.baseUrl}/worker/drain`, withIngestAuth(endpoint.apiToken, {
     method: "POST"
-  });
+  }));
 }
 
-export async function fetchWorkerStatus(baseUrl: string): Promise<WorkerStatusResponse> {
-  return fetchJson<WorkerStatusResponse>(`${normalizeBaseUrl(baseUrl)}/worker/status`);
+export async function fetchWorkerStatus(target: string | IngestRequestTarget): Promise<WorkerStatusResponse> {
+  const endpoint = resolveIngestRequest(target);
+  return fetchJson<WorkerStatusResponse>(`${endpoint.baseUrl}/worker/status`, withIngestAuth(endpoint.apiToken));
 }
 
-export async function fetchBackendHealth(baseUrl: string, timeoutMs = 3000): Promise<BackendHealthResponse> {
-  return fetchJson<BackendHealthResponse>(`${normalizeBaseUrl(baseUrl)}/health`, undefined, timeoutMs);
+export async function fetchBackendHealth(target: string | IngestRequestTarget, timeoutMs = 3000): Promise<BackendHealthResponse> {
+  const endpoint = resolveIngestRequest(target);
+  return fetchJson<BackendHealthResponse>(`${endpoint.baseUrl}/health`, withIngestAuth(endpoint.apiToken), timeoutMs);
 }
 
-export async function fetchThreadsAdvancedMetrics(baseUrl: string, postUrl: string): Promise<ThreadsAdvancedMetricsResponse> {
-  return fetchJson<ThreadsAdvancedMetricsResponse>(`${normalizeBaseUrl(baseUrl)}/threads/advanced-metrics`, {
+export async function fetchThreadsAdvancedMetrics(target: string | IngestRequestTarget, postUrl: string): Promise<ThreadsAdvancedMetricsResponse> {
+  const endpoint = resolveIngestRequest(target);
+  return fetchJson<ThreadsAdvancedMetricsResponse>(`${endpoint.baseUrl}/threads/advanced-metrics`, withIngestAuth(endpoint.apiToken, {
     method: "POST",
     body: JSON.stringify({ post_url: postUrl })
-  }, ADVANCED_METRICS_REQUEST_TIMEOUT_MS);
+  }), ADVANCED_METRICS_REQUEST_TIMEOUT_MS);
 }
 
 export function toSidebarJobStatus(job: JobSnapshot): SidebarJobStatus {

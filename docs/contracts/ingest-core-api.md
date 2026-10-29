@@ -10,7 +10,19 @@ Local dev default:
 http://127.0.0.1:8000
 ```
 
-The extension stores the base URL in local extension state.
+The extension stores the base URL in local extension state (`settings.ingestBaseUrl`). The default is loopback. A remote origin, including a Tailscale CGNAT address such as `http://100.115.102.41:8000`, is set in 設定 → 連線. That address is an example for the lam machine, not a source default.
+
+## Authentication
+
+When `settings.ingestApiToken` is non-empty, every ingest request adds:
+
+```http
+Authorization: Bearer <token>
+```
+
+When the token is empty, the header is omitted so a local backend without auth keeps working. The token is the ingest-core API token, stored only in extension settings. User LLM keys are still never sent to the backend.
+
+This matches the ingest-core Tailscale bind + API token change: the backend accepts `Authorization: Bearer` when its API token is configured, and does not require the header when auth is off. The manifest grants `http://*/*` and `https://*/*` so a saved non-loopback origin is reachable. Match patterns cannot express the Tailscale CGNAT range, and the specific address is not a host permission or a default.
 
 For local full-pipeline dev:
 

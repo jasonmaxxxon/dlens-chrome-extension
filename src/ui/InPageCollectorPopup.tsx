@@ -485,6 +485,10 @@ function OpenInPageCollectorPopup({
               <SettingsView
                 sessionMode={IS_PR_ONLY_BUILD ? "pr-evidence" : activeFolder?.mode ?? "topic"}
                 draftBaseUrl={app.draftBaseUrl}
+                draftIngestApiToken={app.draftIngestApiToken}
+                hasIngestApiToken={app.hasIngestApiToken}
+                onDraftIngestApiTokenChange={app.onDraftIngestApiTokenChange}
+                onClearIngestApiToken={app.onClearIngestApiToken}
                 draftProvider={app.draftProvider}
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
