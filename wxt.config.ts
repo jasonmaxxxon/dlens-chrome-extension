@@ -30,15 +30,16 @@ export default defineConfig({
       "*://threads.com/*",
       "http://127.0.0.1/*",
       "http://localhost/*",
-      // User-configured ingest base URL (Tailscale CGNAT or another LAN host).
-      // Match patterns cannot name the 100.64.0.0/10 range, and the address must
-      // not be hardcoded. These two patterns let the service worker call whatever
-      // http(s) origin is saved in settings. Loopback above stays the default.
-      "http://*/*",
-      "https://*/*",
       "https://generativelanguage.googleapis.com/*",
       "https://api.openai.com/*",
       "https://api.anthropic.com/*"
+    ],
+    // Remote ingest (Tailscale or another LAN host) is granted per origin from
+    // the settings save click. The wildcard stays optional so the extension can
+    // request exactly the address the user typed, and not every http site.
+    optional_host_permissions: [
+      "http://*/*",
+      "https://*/*"
     ],
     action: {
       default_title: isPrOnlyBuild ? "DLens PR Mode" : "DLens",

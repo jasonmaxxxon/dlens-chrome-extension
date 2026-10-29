@@ -1,6 +1,7 @@
 import { DEEP_READING_MODELS } from "../compare/deep-reading";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
+import type { IngestPermissionDecision } from "../ingest/host-permission";
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
 import {
   ModeHeader,
@@ -42,7 +43,9 @@ interface SettingsViewProps {
   isSavingSettings?: boolean;
   /** Result of 儲存並測試 in the AI group. */
   aiKeyStatus?: { kind: "ok" | "error" | "testing"; message: string } | null;
-  onSaveAndTestAi?: () => void;
+  onSaveAndTestAi?: (pendingPermission?: Promise<IngestPermissionDecision>) => void;
+  /** Starts chrome.permissions.request synchronously. The save click must call this before any await. */
+  onBeginSettingsSave?: (baseUrl: string) => Promise<IngestPermissionDecision>;
   productProfileSeedText?: string;
   isInitializingProductProfile?: boolean;
   onDraftBaseUrlChange: (value: string) => void;
@@ -56,7 +59,7 @@ interface SettingsViewProps {
   onInitProductProfile?: () => void;
   onClearProductCache?: () => void;
   createContextFileId: (kind: ProductProfileContextFile["kind"], name: string) => string;
-  onSaveSettings: () => void;
+  onSaveSettings: (pendingPermission?: Promise<IngestPermissionDecision>) => void;
 }
 
 const inputStyle = {
@@ -225,6 +228,7 @@ export function SettingsView({
   isSavingSettings = false,
   aiKeyStatus = null,
   onSaveAndTestAi,
+  onBeginSettingsSave,
   productProfileSeedText = "",
   isInitializingProductProfile = false,
   onDraftBaseUrlChange,
@@ -254,7 +258,11 @@ export function SettingsView({
   const savedKeyPlaceholder = "已儲存金鑰 · 輸入以覆寫";
   // Each group saves itself (side panel A); the result shows in the group that asked.
   const [savedFrom, setSavedFrom] = useState<"ai" | "connection" | "language" | "product">("ai");
-  const saveFrom = (group: typeof savedFrom) => { setSavedFrom(group); onSaveSettings(); };
+  const saveFrom = (group: typeof savedFrom) => {
+    const pendingPermission = onBeginSettingsSave?.(draftBaseUrl);
+    setSavedFrom(group);
+    onSaveSettings(pendingPermission);
+  };
   const saveStatus = (group: typeof savedFrom) => settingsSaveStatus && savedFrom === group ? (
     <div
       data-settings-save-status={settingsSaveStatus.kind}
@@ -379,7 +387,12 @@ export function SettingsView({
                       data-settings-ai-key={chosen.id}
                       style={{ ...inputStyle, flex: 1, minWidth: 0 }}
                     />
-                    <PrimaryButton onClick={() => { setSavedFrom("ai"); (onSaveAndTestAi ?? onSaveSettings)(); }} disabled={isSavingSettings} dataAttrs={{ "data-settings-save": "ai" }}>
+                    <PrimaryButton onClick={() => {
+                      const pendingPermission = onBeginSettingsSave?.(draftBaseUrl);
+                      setSavedFrom("ai");
+                      if (onSaveAndTestAi) onSaveAndTestAi(pendingPermission);
+                      else onSaveSettings(pendingPermission);
+                    }} disabled={isSavingSettings} dataAttrs={{ "data-settings-save": "ai" }}>
                       {isSavingSettings ? "儲存中…" : "儲存並測試"}
                     </PrimaryButton>
                   </span>
@@ -442,7 +455,7 @@ export function SettingsView({
               </span>
             </label>
             <div data-settings-ingest-help="true" style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
-              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.115.102.41:8000，貼上那台機器的 ingest API token 再儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
+              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.115.102.41:8000，貼上那台機器的 ingest API token 再儲存。儲存會請 Chrome 允許這一個網址；拒絕就不會儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
             </div>
 
             <div

@@ -14,7 +14,7 @@ type RequestReconcileDecision,
 type RequestReconcileTarget,
 type RequestReconcileToken
 } from "../state/request-reconcile";
-import { classifyIngestBaseUrl } from "../ingest/host-permission";
+import { saveIngestSettingsIfPermitted, startIngestOriginPermissionRequest, type IngestPermissionDecision } from "../ingest/host-permission";
 import { mergeIngestApiToken,mergeLayoutPreferences,mergeOneLinerSettings } from "../state/settings-storage";
 import { createDefaultLayoutPreferences,createDefaultSettings,type ExtensionSettings,type ExtensionSnapshot,type FolderMode,type LayoutPreferences,type ProductContext,type ProductProfileContextFile } from "../state/types";
 import {
@@ -778,48 +778,57 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
   }
 
   /** Saves every draft setting; resolves true when all writes landed. */
-  async function onSaveSettings(): Promise<boolean> {
+  async function onSaveSettings(pendingPermission?: Promise<IngestPermissionDecision>): Promise<boolean> {
     if (isSavingSettings) {
       return false;
     }
-    const classified = classifyIngestBaseUrl(draftBaseUrl);
-    if (!classified.ok) {
-      setSettingsSaveStatus({ kind: "error", message: classified.message });
-      return false;
-    }
+    // The click handler should already have started this promise. Fall back to
+    // starting it here, still before any await, when a caller invokes save directly.
+    const permission = pendingPermission ?? startIngestOriginPermissionRequest(draftBaseUrl);
     setIsSavingSettings(true);
     setSettingsSaveStatus(null);
     try {
-      let latestProductContext: ProductContext | null | undefined;
-      let productContextError: string | null | undefined;
-      for (const message of buildSettingsSaveMessages({
-        draftBaseUrl: classified.normalized,
-        draftIngestApiToken,
-        clearIngestApiToken,
-        draftProvider,
-        draftOpenAiKey,
-        draftClaudeKey,
-        draftGoogleKey,
-        draftDeepReadingModels,
-        draftLayoutPreferences,
-        draftProductProfile
-      })) {
-        const response = await sendAndSync(message);
-        if (!response.ok) {
-          setSettingsSaveStatus({ kind: "error", message: response.error });
-          return false;
+      const guarded = await saveIngestSettingsIfPermitted(draftBaseUrl, permission, async (normalized) => {
+        let latestProductContext: ProductContext | null | undefined;
+        let productContextError: string | null | undefined;
+        for (const message of buildSettingsSaveMessages({
+          draftBaseUrl: normalized,
+          draftIngestApiToken,
+          clearIngestApiToken,
+          draftProvider,
+          draftOpenAiKey,
+          draftClaudeKey,
+          draftGoogleKey,
+          draftDeepReadingModels,
+          draftLayoutPreferences,
+          draftProductProfile
+        })) {
+          const response = await sendAndSync(message);
+          if (!response.ok) {
+            return { ok: false as const, message: response.error };
+          }
+          if ("productContext" in response) {
+            latestProductContext = response.productContext ?? null;
+          }
+          if ("productContextError" in response) {
+            productContextError = response.productContextError ?? null;
+          }
         }
-        if ("productContext" in response) {
-          latestProductContext = response.productContext ?? null;
-        }
-        if ("productContextError" in response) {
-          productContextError = response.productContextError ?? null;
-        }
+        return { ok: true as const, normalized, latestProductContext, productContextError };
+      });
+      if (!guarded.ok) {
+        setSettingsSaveStatus({ kind: "error", message: guarded.message });
+        return false;
       }
-      setDraftBaseUrl(classified.normalized);
+      if (!guarded.value.ok) {
+        setSettingsSaveStatus({ kind: "error", message: guarded.value.message });
+        return false;
+      }
+      const { normalized, latestProductContext, productContextError } = guarded.value;
+      setDraftBaseUrl(normalized);
       setLocalSettingsOverride(buildLocalSettingsOverride({
         currentSettings: snapshot?.global.settings ?? createDefaultSettings(),
-        draftBaseUrl: classified.normalized,
+        draftBaseUrl: normalized,
         draftIngestApiToken,
         clearIngestApiToken,
         draftProvider,
@@ -855,9 +864,9 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
 
   // Settings' AI group: save, then ask the chosen provider whether the key works.
   const [aiKeyStatus, setAiKeyStatus] = useState<{ kind: "ok" | "error" | "testing"; message: string } | null>(null);
-  async function onSaveAndTestAi() {
+  async function onSaveAndTestAi(pendingPermission?: Promise<IngestPermissionDecision>) {
     setAiKeyStatus(null);
-    if (!await onSaveSettings()) return;
+    if (!await onSaveSettings(pendingPermission)) return;
     setAiKeyStatus({ kind: "testing", message: "測試中…" });
     try {
       const response = await sendExtensionMessage<ExtensionResponse>({ type: "settings/test-ai-key" });
@@ -1432,6 +1441,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onSetActiveSession,
     onCreateWorkspace,
     onMoveAudienceItem,
+    beginIngestOriginPermissionRequest: startIngestOriginPermissionRequest,
     onSaveSettings,
     onSaveAndTestAi,
     aiKeyStatus,

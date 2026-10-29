@@ -1549,6 +1549,9 @@ test("session/queue-item sends the saved ingest token as a bearer header and kee
       [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
       [tabKey]: createEmptyTabState()
     });
+    (globalThis as { chrome: { permissions: { contains: (query: { origins?: string[] }) => Promise<boolean> } } }).chrome.permissions = {
+      contains: async (query) => query.origins?.length === 1 && query.origins[0] === "http://100.115.102.41:8000/*"
+    };
 
     const response = await harness.dispatch({
       type: "session/queue-item",
@@ -1565,6 +1568,53 @@ test("session/queue-item sends the saved ingest token as a bearer header and kee
     assert.equal(stored.settings.ingestApiToken, "test-token-not-real");
     assert.equal(response.snapshot?.global.settings.ingestApiToken, "");
     assert.equal(response.snapshot?.global.settings.hasIngestApiToken, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("session/queue-item refuses a remote backend Chrome has not allowed", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetches = 0;
+  try {
+    const topic = {
+      ...makeSession("topic-session", "topic"),
+      items: [{ ...createSessionItem(makeDescriptor("queue-denied")), id: "item-queue-denied" }]
+    };
+    const tabKey = backgroundTestables.tabStorageKey(TAB_ID);
+    globalThis.fetch = (async () => {
+      fetches += 1;
+      throw new Error("fetch should not run");
+    }) as typeof fetch;
+    const global = makeGlobal([topic], topic.id);
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: {
+        ...global,
+        settings: {
+          ...global.settings,
+          ingestBaseUrl: "http://100.115.102.41:8000",
+          ingestApiToken: "test-token-not-real"
+        }
+      },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: topic.id,
+      [tabKey]: createEmptyTabState()
+    });
+    (globalThis as { chrome: { permissions: { contains: (query: { origins?: string[] }) => Promise<boolean> } } }).chrome.permissions = {
+      contains: async () => false
+    };
+
+    const response = await harness.dispatch({
+      type: "session/queue-item",
+      requestId: "queue-denied",
+      sessionId: topic.id,
+      itemId: "item-queue-denied"
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, false);
+    assert.match(response.ok ? "" : response.error, /未授權連線到這個後端/);
+    assert.equal(fetches, 0);
+    const stored = harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState;
+    assert.equal(stored.sessions[0]?.items[0]?.status, "saved");
   } finally {
     globalThis.fetch = originalFetch;
   }

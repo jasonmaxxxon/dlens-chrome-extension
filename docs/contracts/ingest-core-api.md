@@ -22,7 +22,7 @@ Authorization: Bearer <token>
 
 When the token is empty, the header is omitted so a local backend without auth keeps working. The token is the ingest-core API token, stored only in extension settings. User LLM keys are still never sent to the backend.
 
-This matches the ingest-core Tailscale bind + API token change: the backend accepts `Authorization: Bearer` when its API token is configured, and does not require the header when auth is off. The manifest grants `http://*/*` and `https://*/*` so a saved non-loopback origin is reachable. Match patterns cannot express the Tailscale CGNAT range, and the specific address is not a host permission or a default.
+This matches the ingest-core Tailscale bind + API token change (ingest-core PR #11): the backend accepts `Authorization: Bearer` when its API token is configured, and does not require the header when auth is off. Loopback stays a required host permission. A remote origin is an optional host permission: saving 設定 → 連線 calls `chrome.permissions.request` for that one origin (`http://host:port/*`). If Chrome denies it, the setting is not saved. Later ingest calls check `chrome.permissions.contains` for the same origin and, when it is missing, fail with `未授權連線到這個後端` instead of a generic connection error. The Tailscale address is not a host permission or a default.
 
 For local full-pipeline dev:
 

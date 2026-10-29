@@ -517,8 +517,9 @@ function OpenInPageCollectorPopup({
                 onInitProductProfile={() => void app.onInitProductProfile()}
                 onClearProductCache={() => void app.onClearProductCache()}
                 createContextFileId={app.createContextFileId}
-                onSaveSettings={() => void app.onSaveSettings()}
-                onSaveAndTestAi={() => void app.onSaveAndTestAi()}
+                onBeginSettingsSave={app.beginIngestOriginPermissionRequest}
+                onSaveSettings={(pendingPermission) => void app.onSaveSettings(pendingPermission)}
+                onSaveAndTestAi={(pendingPermission) => void app.onSaveAndTestAi(pendingPermission)}
                 aiKeyStatus={app.aiKeyStatus}
               />
             </WorkspaceSurface>

@@ -11,6 +11,7 @@ import type {
   WorkerStatusResponse
 } from "../contracts/ingest.ts";
 import { inferRouteType, inferSurfaceFromUrl, type TargetDescriptor } from "../contracts/target-descriptor";
+import { assertRemoteIngestOriginGranted } from "./host-permission.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
 
 const DEFAULT_INGEST_REQUEST_TIMEOUT_MS = 30_000;
@@ -166,6 +167,7 @@ async function fetchJson<T>(
   init?: RequestInit,
   timeoutMs = DEFAULT_INGEST_REQUEST_TIMEOUT_MS
 ): Promise<T> {
+  await assertRemoteIngestOriginGranted(input);
   const method = String(init?.method || "GET").toUpperCase();
   const path = backendTracePath(input);
   const step = `backend.${backendTraceStep(input)}`;

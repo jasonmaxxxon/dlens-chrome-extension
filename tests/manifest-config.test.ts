@@ -35,12 +35,15 @@ test("release target is 0.4.8", () => {
   assert.equal(packageJson.version, "0.4.8");
 });
 
-test("manifest allows a configured remote ingest origin without hardcoding a Tailscale address", () => {
+test("manifest keeps loopback required and remote ingest optional, without a hardcoded Tailscale address", () => {
   const hostPermissions = config.manifest?.host_permissions ?? [];
+  const optionalHosts = config.manifest?.optional_host_permissions ?? [];
   assert.ok(hostPermissions.includes("http://127.0.0.1/*"));
   assert.ok(hostPermissions.includes("http://localhost/*"));
-  assert.ok(hostPermissions.includes("http://*/*"));
-  assert.ok(hostPermissions.includes("https://*/*"));
+  assert.equal(hostPermissions.includes("http://*/*"), false);
+  assert.equal(hostPermissions.includes("https://*/*"), false);
+  assert.ok(optionalHosts.includes("http://*/*"));
+  assert.ok(optionalHosts.includes("https://*/*"));
   assert.equal(JSON.stringify(config.manifest).includes("100.115.102.41"), false);
 });
 
