@@ -485,6 +485,10 @@ function OpenInPageCollectorPopup({
               <SettingsView
                 sessionMode={IS_PR_ONLY_BUILD ? "pr-evidence" : activeFolder?.mode ?? "topic"}
                 draftBaseUrl={app.draftBaseUrl}
+                draftIngestApiToken={app.draftIngestApiToken}
+                hasIngestApiToken={app.hasIngestApiToken}
+                onDraftIngestApiTokenChange={app.onDraftIngestApiTokenChange}
+                onClearIngestApiToken={app.onClearIngestApiToken}
                 draftProvider={app.draftProvider}
                 draftOpenAiKey={app.draftOpenAiKey}
                 draftClaudeKey={app.draftClaudeKey}
@@ -513,8 +517,9 @@ function OpenInPageCollectorPopup({
                 onInitProductProfile={() => void app.onInitProductProfile()}
                 onClearProductCache={() => void app.onClearProductCache()}
                 createContextFileId={app.createContextFileId}
-                onSaveSettings={() => void app.onSaveSettings()}
-                onSaveAndTestAi={() => void app.onSaveAndTestAi()}
+                onBeginSettingsSave={app.beginIngestOriginPermissionRequest}
+                onSaveSettings={(pendingPermission) => void app.onSaveSettings(pendingPermission)}
+                onSaveAndTestAi={(pendingPermission) => void app.onSaveAndTestAi(pendingPermission)}
                 aiKeyStatus={app.aiKeyStatus}
               />
             </WorkspaceSurface>

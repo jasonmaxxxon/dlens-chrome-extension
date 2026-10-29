@@ -3,6 +3,8 @@ import type { ExtensionSettings, LayoutPreferences, ProductProfile, ProductProfi
 
 export interface SettingsDraftValues {
   draftBaseUrl: string;
+  draftIngestApiToken?: string;
+  clearIngestApiToken?: boolean;
   draftProvider: NonNullable<ExtensionSettings["oneLinerProvider"]> | "";
   draftOpenAiKey: string;
   draftClaudeKey: string;
@@ -58,6 +60,8 @@ export function normalizeProductProfileDraft(productProfile: ProductProfile | nu
 
 export function buildSettingsSaveMessages({
   draftBaseUrl,
+  draftIngestApiToken = "",
+  clearIngestApiToken = false,
   draftProvider,
   draftOpenAiKey,
   draftClaudeKey,
@@ -69,7 +73,9 @@ export function buildSettingsSaveMessages({
   return [
     {
       type: "settings/set-ingest-base-url",
-      value: draftBaseUrl
+      value: draftBaseUrl,
+      apiToken: draftIngestApiToken,
+      clearApiToken: clearIngestApiToken && !draftIngestApiToken.trim()
     },
     {
       type: "settings/set-one-liner-config",

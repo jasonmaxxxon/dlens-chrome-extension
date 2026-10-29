@@ -17,7 +17,7 @@ export default defineConfig({
   entrypointsDir: "entrypoints",
   manifest: {
     name: isPrOnlyBuild ? "DLens PR Mode" : "DLens",
-    version: "0.4.7",
+    version: "0.4.8",
     description: isPrOnlyBuild
       ? "PR Evidence-only Threads capture client for DLens ingest-core."
       : "Thin Threads capture client for DLens ingest-core.",
@@ -33,6 +33,13 @@ export default defineConfig({
       "https://generativelanguage.googleapis.com/*",
       "https://api.openai.com/*",
       "https://api.anthropic.com/*"
+    ],
+    // Remote ingest (Tailscale or another LAN host) is granted per origin from
+    // the settings save click. The wildcard stays optional so the extension can
+    // request exactly the address the user typed, and not every http site.
+    optional_host_permissions: [
+      "http://*/*",
+      "https://*/*"
     ],
     action: {
       default_title: isPrOnlyBuild ? "DLens PR Mode" : "DLens",

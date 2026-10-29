@@ -31,8 +31,20 @@ test("manifest grants unlimited local storage for the long-lived collection libr
   );
 });
 
-test("release target is 0.4.7", () => {
-  assert.equal(packageJson.version, "0.4.7");
+test("release target is 0.4.8", () => {
+  assert.equal(packageJson.version, "0.4.8");
+});
+
+test("manifest keeps loopback required and remote ingest optional, without a hardcoded Tailscale address", () => {
+  const hostPermissions = config.manifest?.host_permissions ?? [];
+  const optionalHosts = config.manifest?.optional_host_permissions ?? [];
+  assert.ok(hostPermissions.includes("http://127.0.0.1/*"));
+  assert.ok(hostPermissions.includes("http://localhost/*"));
+  assert.equal(hostPermissions.includes("http://*/*"), false);
+  assert.equal(hostPermissions.includes("https://*/*"), false);
+  assert.ok(optionalHosts.includes("http://*/*"));
+  assert.ok(optionalHosts.includes("https://*/*"));
+  assert.equal(JSON.stringify(config.manifest).includes("100.115.102.41"), false);
 });
 
 test("extension version is synchronized across package lock, manifest, and UI", () => {
