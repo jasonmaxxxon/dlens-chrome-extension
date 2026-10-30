@@ -74,6 +74,8 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const repaintCard = (identity: string) => injection?.entries().filter((entry) => entry.identity === identity).forEach(renderCard);
   // A crawl request that never reached a job leaves the item 「saved」; the card says why instead of staying silent.
   const startErrors = new Map<string, string>();
+  // Backend post cooldown (429): 重試 stays hidden until this time, so the button cannot keep hitting the refusal.
+  const retryBlockedUntil = new Map<string, number>();
   const submitting = new Set<string>();
   let cancelSupported = true;
   const cancelling = new Set<string>();
@@ -93,21 +95,27 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   function crawl(destination: InlineCollectSavedPost) {
     if (submitting.has(destination.postKey)) return;
     submitting.add(destination.postKey);
-    const fail = (reason: string) => {
+    const fail = (reason: string, retryAfter: string | null = null) => {
       submitting.delete(destination.postKey);
       startErrors.set(destination.postKey, reason);
+      if (retryAfter) retryBlockedUntil.set(destination.postKey, Date.parse(retryAfter));
       repaintCard(destination.postKey);
-      wheel.showToast("未能開始抓取，請檢查 DLens 後端。");
+      wheel.showToast(retryAfter ? reason : "未能開始抓取，請檢查 DLens 後端。");
     };
     const issuedAt = storageRevision;
     startErrors.delete(destination.postKey);
+    retryBlockedUntil.delete(destination.postKey);
     repaintCard(destination.postKey);
     void (send({ type: "session/queue-items-and-start-processing", sessionId: destination.sessionId, itemIds: [destination.itemId] }) as Promise<QueueItemsAndStartProcessingResponse>)
       .then((response) => {
         submitting.delete(destination.postKey);
         if (response.ok && response.snapshot && issuedAt === storageRevision) global = response.snapshot.global;
         if (!response.ok) fail(response.error || "後端拒絕了抓取請求。");
-        else if (!response.queuedItemIds.length) fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
+        else if (!response.queuedItemIds.length) {
+          const refused = response.failureReasons?.[destination.itemId];
+          if (refused?.retryAfter) fail(refused.message, refused.retryAfter);
+          else fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
+        }
         // The job exists, so this is not a failed crawl; nothing here retries the worker start, so the copy promises nothing.
         else if (response.processingError) wheel.showToast("已排隊，但未能確認後端開始處理。請勿重複建單。");
         repaintCard(destination.postKey);
@@ -187,13 +195,14 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       queue: global?.sessions.flatMap((session) => session.items) ?? [],
       peek: peeks.get(post.identity),
       startError: startErrors.get(post.identity) ?? null,
+      retryBlocked: (retryBlockedUntil.get(post.identity) ?? 0) > Date.now(),
       submitting: submitting.has(post.identity), cancelSupported,
       ai: aiOf(item),
       now: Date.now()
     });
     // A read 觀眾反應 card asks the background for its AI pass once per capture (after the quant clusters land); the result arrives through storage.
     if (vm.phase === "done" && vm.mode === "topic" && vm.entries.length && !vm.ai && !vm.analysisPending) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
-    const line = destination.mode === "product" ? buildProductSaveLine(item,productAnalysis(destination.sessionId,item.id),Date.now(),savedClocks.get(post.identity) ?? null,peeks.get(post.identity),startErrors.get(post.identity), { submitting: submitting.has(post.identity), cancelSupported, queue: global?.sessions.flatMap(s => s.items) }) : buildInlineSaveLine(vm, Date.now(), savedClocks.get(post.identity) ?? null, topicNameOf(item.id));
+    const line = destination.mode === "product" ? buildProductSaveLine(item,productAnalysis(destination.sessionId,item.id),Date.now(),savedClocks.get(post.identity) ?? null,peeks.get(post.identity),startErrors.get(post.identity), { submitting: submitting.has(post.identity), cancelSupported, retryBlocked: (retryBlockedUntil.get(post.identity) ?? 0) > Date.now(), queue: global?.sessions.flatMap(s => s.items) }) : buildInlineSaveLine(vm, Date.now(), savedClocks.get(post.identity) ?? null, topicNameOf(item.id));
     const rect = slot.getBoundingClientRect();
     const returned = nextReturnGlow(returnGlows.get(post.identity), line.ready, rect.bottom > 0 && rect.top < window.innerHeight);
     returnGlows.set(post.identity, returned);

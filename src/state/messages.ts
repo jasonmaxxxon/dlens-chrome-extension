@@ -3,6 +3,7 @@ import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
 import type { ExtensionSettings, LayoutPreferences, ProductAgentTaskFeedback, ProductSignalAnalysis, ProductContext, ProductProfile, FolderMode, Signal, SignalInboxStatus, Topic, TriageAction } from "./types";
 import type { SignalReading } from "../compare/signal-reading-storage";
+import type { QueueFailureReason } from "./queue-items";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, PopupPage } from "./types";
 import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
@@ -185,6 +186,7 @@ export type QueueItemsAndStartProcessingResponse =
       processingError?: string;
       queuedItemIds: string[];
       failedItemIds: string[];
+      failureReasons?: Record<string, QueueFailureReason>;
     })
   | { ok: false; error: string; queuedItemIds?: string[]; failedItemIds?: string[] };
 

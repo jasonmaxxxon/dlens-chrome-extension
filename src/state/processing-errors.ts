@@ -27,10 +27,25 @@ export function getProcessingFailureMessage(error: string | null | undefined): s
   return message.length > 180 ? `${message.slice(0, 177)}...` : message;
 }
 
+/** Start of the card copy for a backend 429 post_cooldown; the card shows it as is. */
+export const POST_COOLDOWN_PREFIX = "此貼文 24 小時內已失敗 3 次";
+
+export function formatPostCooldown(retryAfter: string): string {
+  const at = new Date(retryAfter);
+  const time = Number.isFinite(at.getTime())
+    ? at.toLocaleString("zh-HK", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })
+    : retryAfter;
+  return `${POST_COOLDOWN_PREFIX}，${time} 後可再試。`;
+}
+
 export function getProcessingFailureUiMessage(error: string | null | undefined): string {
   const message = String(error || "").trim();
   if (!message) {
     return "處理失敗。請稍後再試。";
+  }
+
+  if (message.startsWith(POST_COOLDOWN_PREFIX)) {
+    return message;
   }
 
   if (/Worker status database unavailable/i.test(message)) {
@@ -62,6 +77,7 @@ export function getProcessingFailureUiMessage(error: string | null | undefined):
 }
 
 export type ProcessingErrorClass =
+  | "empty_crawl_result"
   | "crawler_setup_error"
   | "crawler_auth_error"
   | "invalid_target"
@@ -83,6 +99,8 @@ export interface ProcessingErrorView {
 interface ProcessingErrorInput {
   lastErrorKind?: string | null;
   lastError?: string | null;
+  /** The backend has already scheduled another attempt. */
+  pendingRetry?: boolean;
 }
 
 function isPlaywrightSetupError(message: string | null | undefined): boolean {
@@ -98,6 +116,9 @@ function normalizeErrorClass(input: ProcessingErrorInput): ProcessingErrorClass 
   const kind = input.lastErrorKind?.trim();
   if (kind === "crawler_setup_error" || isPlaywrightSetupError(input.lastError)) {
     return "crawler_setup_error";
+  }
+  if (kind === "empty_crawl_result") {
+    return "empty_crawl_result";
   }
   if (
     kind === "crawler_auth_error"
@@ -120,6 +141,16 @@ export function describeProcessingError(input: ProcessingErrorInput): Processing
   }
 
   switch (errorClass) {
+    case "empty_crawl_result":
+      // The page opened but no reply had rendered; the backend retries this once, then stops.
+      return {
+        errorClass,
+        isTerminal: !input.pendingRetry,
+        label: "讀不到留言",
+        detail: input.pendingRetry ? "讀不到留言，會自動再試一次。" : "讀不到留言，可稍後再按重試。",
+        aggregateTitle: (count) => `${count} 篇讀不到留言`,
+        aggregateDetail: "頁面未載入到留言。可稍後再按重試。"
+      };
     case "crawler_setup_error":
       return {
         errorClass,

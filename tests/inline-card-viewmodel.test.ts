@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
+import { buildInlineCardEvidence, buildInlineCardViewModel, buildInlineSaveLine, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
 import { formatEta, renderInlineCard } from "../src/content/inline-collect-card.ts";
 import { parseFirstReplies } from "../src/content/inline-collect-peek.ts";
 import type { SessionItem } from "../src/state/types.ts";
@@ -260,10 +260,11 @@ test("pending retry projects attempts, schedule and existing Chinese reason with
   const job = { status: "pending", attempt_count: 2, max_attempts: 4, scheduled_at: "2026-10-07T10:10:00Z", last_error_kind: "retryable_runtime_error", last_error: "socket timeout <raw>" } as SessionItem["latestJob"];
   const vm = buildInlineCardViewModel(item("queued", [], { jobId: "j", latestJob: job }), "topic", "返工");
   assert.equal(vm.retry?.attempts, 2);
-  assert.equal(vm.retry?.maxAttempts, 4);
   assert.equal(vm.retry?.at, job!.scheduled_at);
   const html = renderInlineCard(vm, null, Date.parse("2026-10-07T10:00:00Z"));
-  assert.match(html, /第 2\/4 次失敗/);
+  // No 「/4」: an empty result stops after 2 attempts whatever max_attempts says.
+  assert.match(html, /第 2 次失敗/);
+  assert.doesNotMatch(html, /第 2\/\d/);
   assert.ok(html.includes(new Date(job!.scheduled_at).toLocaleString("zh-HK", {hour12:false})));
   assert.match(html, /後端暫時回報抓取失敗，會依排程重試。/);
   assert.match(html, /title="socket timeout &lt;raw&gt;"/);
@@ -306,4 +307,30 @@ test("unknown submission failures never echo raw diagnostics in visible copy", (
     assert.doesNotMatch(html.replace(/title="[^"]*"/g,''), /Unauthorized|Failed to fetch|bad&lt;/);
     assert.equal(vm.error,'處理失敗。請稍後再試。');
   }
+});
+
+test("a 0-comment read says so, and only promises a retry while one is scheduled", () => {
+  const pending = { status: "pending", attempt_count: 1, max_attempts: 3, scheduled_at: "2026-10-07T10:00:00Z", last_error_kind: "empty_crawl_result", last_error: "no readable post text, evidence=/logs/x" } as SessionItem["latestJob"];
+  const retrying = buildInlineCardViewModel(item("queued", [], { jobId: "j", latestJob: pending }), "topic", "返工");
+  assert.equal(retrying.error, "讀不到留言，會自動再試一次。");
+  // Real case: @blackmambabean4ever went dead after two empty reads; the card must not say a retry is coming.
+  const dead = buildInlineCardViewModel(item("failed", [], { jobId: "j", lastErrorKind: "empty_crawl_result", lastError: "no readable post text",
+    latestJob: { ...pending!, status: "dead", attempt_count: 2 } as SessionItem["latestJob"] }), "topic", "返工");
+  assert.equal(dead.error, "讀不到留言，可稍後再按重試。");
+  assert.doesNotMatch(renderInlineCard(dead, null, Date.parse("2026-10-07T10:00:00Z")), /會依排程重試/);
+});
+
+test("a cooldown refusal of a retry shows its time and hides 重試 until it ends", () => {
+  const cooldown = "此貼文 24 小時內已失敗 3 次，10/31 14:05 後可再試。";
+  const failed = item("failed", [], { jobId: "j", lastErrorKind: "empty_crawl_result", lastError: "no readable post text" });
+  const blocked = buildInlineCardViewModel(failed, "topic", "返工", { startError: cooldown, retryBlocked: true });
+  assert.equal(blocked.error, cooldown, "the newer refusal replaces the old job's reason");
+  assert.equal(blocked.retryBlocked, true);
+  const html = renderInlineCard(blocked, null, Date.parse("2026-10-30T10:00:00Z"));
+  assert.ok(html.includes(cooldown));
+  assert.doesNotMatch(html, /data-dlens-act="crawl"/);
+  assert.equal(buildInlineSaveLine(blocked, Date.parse("2026-10-30T10:00:00Z"), null, null).retry, false);
+
+  const later = buildInlineCardViewModel(failed, "topic", "返工", { startError: cooldown, retryBlocked: false });
+  assert.match(renderInlineCard(later, null, Date.parse("2026-10-31T15:00:00Z")), /data-dlens-act="crawl"/);
 });

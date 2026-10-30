@@ -98,7 +98,7 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   let body = topicMarkup + peekHtml(vm.peek);
   if (vm.error) body += `<p class="note" title="${esc(vm.rawError ?? "")}">${esc(vm.error)}</p>`;
   if (vm.canCancel) body += `<div class="acts"><button class="btn" data-dlens-act="cancel">取消</button></div>`;
-  if (vm.phase === "failed") body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
+  if (vm.phase === "failed" && !vm.retryBlocked) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
   else if (vm.phase === "saved" && isRead) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
   else if (vm.phase === "done" && vm.few) body = topicMarkup + `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
   else if (vm.phase === "done" && vm.entries.length) {

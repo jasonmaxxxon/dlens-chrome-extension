@@ -349,6 +349,23 @@ test("saving into 收藏整理 does not crawl, and a failed crawl start says so"
   } finally { s.cleanup(); }
 });
 
+test("a crawl the backend refuses for cooldown says until when, and hides 重試", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.click(); await tick();
+    const archived: InlineCollectState = { ...base, changed: true, lastMode: "archive", saved: [{ ...savedState.saved[0], mode: "archive", sessionId: "archive", sessionName: "收藏整理" }] };
+    s.calls[0].resolve({ ok: true, inlineCollect: archived, snapshot: { global: readingGlobal("archive", "saved"), tab: createEmptyTabState() } }); await tick();
+    s.emitGlobal(readingGlobal("topic", "saved"));
+    s.dom.window.document.querySelector<HTMLButtonElement>('.dlens-save-line [data-dlens-act="crawl"]')!.click(); await tick();
+    const message = "此貼文 24 小時內已失敗 3 次，10/31 14:05 後可再試。";
+    s.calls[1].resolve({ ok: true, queuedItemIds: [], failedItemIds: ["item-a"],
+      failureReasons: { "item-a": { message, retryAfter: new Date(Date.now() + 3_600_000).toISOString() } } }); await tick();
+    assert.equal(s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent, message);
+    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /24 小時內已失敗 3 次/);
+    assert.equal(s.dom.window.document.querySelector('.dlens-save-line [data-dlens-act="crawl"]'), null, "retrying now would only be refused again");
+  } finally { s.cleanup(); }
+});
+
 test("the card shows the post page's top first reply while the crawl is pending", async () => {
   let release: (response: Response) => void = () => {};
   const html = `<script type="application/json">${JSON.stringify({ data: { thread_items: [

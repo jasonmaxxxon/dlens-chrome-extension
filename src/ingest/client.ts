@@ -13,6 +13,7 @@ import type {
 import { inferRouteType, inferSurfaceFromUrl, type TargetDescriptor } from "../contracts/target-descriptor";
 import { assertRemoteIngestOriginGranted } from "./host-permission.ts";
 import { createPipelineRequestId, emitPipelineEvent } from "../state/pipeline-trace.ts";
+import { formatPostCooldown } from "../state/processing-errors.ts";
 
 const DEFAULT_INGEST_REQUEST_TIMEOUT_MS = 30_000;
 const ADVANCED_METRICS_REQUEST_TIMEOUT_MS = 120_000;
@@ -211,7 +212,7 @@ async function fetchJson<T>(
         }
       });
       terminalEventEmitted = true;
-      throw Object.assign(new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`), { status: response.status });
+      throw Object.assign(new Error(`${response.status} ${response.statusText}: ${body || "request failed"}`), { status: response.status, body });
     }
     const body = await response.json() as T;
     emitPipelineEvent({
@@ -279,6 +280,27 @@ function captureTargetNotStored(error: unknown): boolean {
   return typeof status === "number" ? status >= 500 : error.message.startsWith("Optional ingest backend unavailable");
 }
 
+/** Backend 429 post_cooldown: this post failed 3 times in 24 h; carries when a new crawl is allowed. */
+export class PostCooldownError extends Error {
+  retryAfter: string;
+  constructor(retryAfter: string) {
+    super(formatPostCooldown(retryAfter));
+    this.name = "PostCooldownError";
+    this.retryAfter = retryAfter;
+  }
+}
+
+function postCooldownFrom(error: unknown): PostCooldownError | null {
+  const { status, body } = error as { status?: number; body?: string };
+  if (status !== 429 || !body) return null;
+  try {
+    const detail = (JSON.parse(body) as { detail?: { error_code?: unknown; retry_after?: unknown } }).detail;
+    return detail?.error_code === "post_cooldown" && typeof detail.retry_after === "string" ? new PostCooldownError(detail.retry_after) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function submitCaptureTarget(
   target: string | IngestRequestTarget,
   descriptor: TargetDescriptor,
@@ -294,6 +316,8 @@ export async function submitCaptureTarget(
         body: requestBody
       }));
     } catch (error) {
+      const cooldown = postCooldownFrom(error);
+      if (cooldown) throw cooldown;
       if (attempt >= retryDelaysMs.length || !captureTargetNotStored(error)) throw error;
       await new Promise((resolve) => globalThis.setTimeout(resolve, retryDelaysMs[attempt]));
     }

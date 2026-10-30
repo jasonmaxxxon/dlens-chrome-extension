@@ -29,7 +29,7 @@ import {
   type PipelinePhase,
   type PipelineTarget
 } from "../src/state/pipeline-trace";
-import { queueItemsSequential } from "../src/state/queue-items";
+import { queueItemsSequential, type QueueFailureReason } from "../src/state/queue-items";
 import { generateProductProfileSuggestion } from "../src/compare/product-profile-init";
 import {
   generateProductContext,
@@ -1782,7 +1782,7 @@ async function queueSessionItems(
   sessionId: string,
   itemIds: string[],
   options: { reconcileToken?: RequestReconcileToken | null } = {}
-): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[] }> {
+): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[]; failureReasons: Record<string, QueueFailureReason> }> {
   const snapshot = await loadSnapshot(tabId);
   return queueItemsSequential({
     initialSnapshot: snapshot,
@@ -1805,6 +1805,7 @@ async function queueSessionItemsAndStartProcessing(
   snapshot: ExtensionSnapshot;
   queuedItemIds: string[];
   failedItemIds: string[];
+  failureReasons: Record<string, QueueFailureReason>;
   processingStatus?: "started" | "already_running";
   processingError?: string;
 }> {
@@ -3151,6 +3152,7 @@ export default defineBackground(() => {
                 snapshot: result.snapshot,
                 queuedItemIds: result.queuedItemIds,
                 failedItemIds: result.failedItemIds,
+                failureReasons: result.failureReasons,
                 processingStatus: result.processingStatus,
                 processingError: result.processingError
               });

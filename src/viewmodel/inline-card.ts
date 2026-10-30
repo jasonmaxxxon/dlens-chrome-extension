@@ -36,8 +36,10 @@ export interface InlineCardContext {
   /** The side panel keeps its lens bar available for small / pending captures. */
   forReader?: boolean;
   peek?: InlineCardPeekInput;
-  /** The crawl request itself failed (backend down), so the item never left 「saved」. */
+  /** The latest crawl request itself failed (backend down, or refused), so no job came of it. */
   startError?: string | null;
+  /** The backend refused this post until a later time (cooldown); the caller compares against its clock. */
+  retryBlocked?: boolean;
   ai?: InlineCardAiInput | null;
   /** Wall clock from the caller; the viewmodel never reads time itself. */
   now?: number;
@@ -51,8 +53,10 @@ export interface InlineCardViewModel {
   peek: InlineCardPeek | null;
   error: string | null;
   rawError: string | null;
-  retry: { attempts: number; maxAttempts: number; at: string } | null;
+  retry: { attempts: number; at: string } | null;
   canCancel: boolean;
+  /** Hide 重試: the backend would refuse it until its cooldown ends. */
+  retryBlocked: boolean;
   countLabel: string | null;
   readingCounts: { frames: number; comments: number };
   /** Fewer than MIN_COMMENTS read: list them instead of grouping. */
@@ -155,17 +159,18 @@ function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined):
 }
 
 export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, sessionName: string, context: InlineCardContext = {}): InlineCardViewModel {
-  const startError = phaseOf(item) === "saved" ? context.startError ?? null : null;
+  // A failed item can be retried too; a refusal of that retry is newer than the old job's failure.
+  const startError = phaseOf(item) === "saved" || phaseOf(item) === "failed" ? context.startError ?? null : null;
   const phase = context.submitting ? "queued" : startError ? "failed" : phaseOf(item);
   const job = item.latestJob;
   const retry = !context.submitting && phase === "queued" && job?.status === "pending" && job.attempt_count > 0
-    ? { attempts: job.attempt_count, maxAttempts: job.max_attempts, at: job.scheduled_at } : null;
-  const rawError = phase === "failed" ? startError || item.lastError || item.lastErrorKind || null : retry ? job?.last_error ?? null : null;
+    ? { attempts: job.attempt_count, at: job.scheduled_at } : null;
+  const rawError = startError ?? (phase === "failed" ? item.lastError || item.lastErrorKind || null : retry ? job?.last_error ?? null : null);
   const mappedError = getProcessingFailureUiMessage(rawError);
-  const errorKind = job?.last_error_kind ?? item.lastErrorKind;
+  const errorKind = startError ? null : job?.last_error_kind ?? item.lastErrorKind;
   const error = rawError || retry || phase === "failed"
     ? errorKind || retry
-      ? describeProcessingError({ lastErrorKind: errorKind, lastError: rawError })?.detail ?? getProcessingFailureUiMessage(null)
+      ? describeProcessingError({ lastErrorKind: errorKind, lastError: rawError, pendingRetry: !!retry })?.detail ?? getProcessingFailureUiMessage(null)
       : mappedError.startsWith("處理失敗：") ? getProcessingFailureUiMessage(null) : mappedError
     : null;
   const reads = mode === "topic" || mode === "product";
@@ -175,6 +180,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     peek: reads && phase !== "done" ? peekOf(context.peek) : null,
     error, rawError, retry,
     canCancel: !context.submitting && phase === "queued" && !!item.jobId && job?.status === "pending" && context.cancelSupported !== false,
+    retryBlocked: phase === "failed" && !!context.retryBlocked,
     countLabel: null, readingCounts: { frames: 0, comments: 0 }, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
   };
   if (phase !== "done" || mode !== "topic") {
@@ -388,7 +394,7 @@ export function buildInlineSaveLine(vm: InlineCardViewModel, now: number, savedA
     const left = vm.eta ? vm.eta.seconds - Math.floor((now - Date.parse(vm.eta.from)) / 1000) : null;
     status = vm.analysisPending || vm.ai?.state === "running" ? "整理緊留言" : `讀緊留言${left === null ? "" : ` · ${!Number.isFinite(left) || left < 0 ? "比平常久" : `約 ${Math.max(1, Math.ceil(left / 60))} 分`}`}`;
   } else status = "未抓取留言";
-  return { rawError: vm.rawError, canCancel: vm.canCancel, destination: `已存入 觀眾反應${topicName ? `〈${topicName}〉` : " · 未分流"}`, status, busy, ready, retry: vm.phase === "failed" || vm.phase === "saved" };
+  return { rawError: vm.rawError, canCancel: vm.canCancel, destination: `已存入 觀眾反應${topicName ? `〈${topicName}〉` : " · 未分流"}`, status, busy, ready, retry: (vm.phase === "failed" || vm.phase === "saved") && !vm.retryBlocked };
 }
 export function nextInlineDisclosure(expanded: boolean, ready: boolean) {
   return { expanded: ready && !expanded, markOpened: ready && !expanded };
@@ -407,7 +413,8 @@ export function retryStatus(vm: InlineCardViewModel): string {
   if (!vm.retry) return "";
   const at = new Date(vm.retry.at);
   const time = Number.isFinite(at.getTime()) ? at.toLocaleString("zh-HK", { hour12: false }) : vm.retry.at;
-  return `第 ${vm.retry.attempts}/${vm.retry.maxAttempts} 次失敗 · 下次重試 ${time}`;
+  // No 「/M」: max_attempts is the job's ceiling, but an empty result stops after 2.
+  return `第 ${vm.retry.attempts} 次失敗 · 下次重試 ${time}`;
 }
 function etaMinutes(vm: InlineCardViewModel, now: number): string {
   if (!vm.eta) return "";
