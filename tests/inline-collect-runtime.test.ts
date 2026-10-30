@@ -344,7 +344,25 @@ test("saving into 收藏整理 does not crawl, and a failed crawl start says so"
     assert.match(s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent!, /未能開始抓取/);
     const head = s.dom.window.document.querySelector(".dlens-save-line")!.textContent!;
     assert.match(head, /抓取失敗/, "a crawl that never became a job must not look untouched");
-    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /資料庫/);
+    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /處理失敗/);
+    assert.match(s.dom.window.document.querySelector(".save-text")!.getAttribute("title")!, /資料庫/);
+  } finally { s.cleanup(); }
+});
+
+test("a crawl the backend refuses for cooldown says until when, and hides 重試", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.click(); await tick();
+    const archived: InlineCollectState = { ...base, changed: true, lastMode: "archive", saved: [{ ...savedState.saved[0], mode: "archive", sessionId: "archive", sessionName: "收藏整理" }] };
+    s.calls[0].resolve({ ok: true, inlineCollect: archived, snapshot: { global: readingGlobal("archive", "saved"), tab: createEmptyTabState() } }); await tick();
+    s.emitGlobal(readingGlobal("topic", "saved"));
+    s.dom.window.document.querySelector<HTMLButtonElement>('.dlens-save-line [data-dlens-act="crawl"]')!.click(); await tick();
+    const message = "此貼文 24 小時內已失敗 3 次，10/31 14:05 後可再試。";
+    s.calls[1].resolve({ ok: true, queuedItemIds: [], failedItemIds: ["item-a"],
+      failureReasons: { "item-a": { message, retryAfter: new Date(Date.now() + 3_600_000).toISOString() } } }); await tick();
+    assert.equal(s.dom.window.document.querySelector(".dlens-collect-toast")!.textContent, message);
+    assert.match(s.dom.window.document.querySelector(".dlens-save-line .save-text")!.textContent!, /24 小時內已失敗 3 次/);
+    assert.equal(s.dom.window.document.querySelector('.dlens-save-line [data-dlens-act="crawl"]'), null, "retrying now would only be refused again");
   } finally { s.cleanup(); }
 });
 
@@ -391,7 +409,8 @@ test("a read 觀眾反應 card asks once and hands the current lens to its side 
     assert.ok(s.stored[OPENED_READING_PREFIX + "item-a"], "opening the full card persists opened-at");
     assert.match(doc.querySelector(".dlens-card .head")!.textContent!, /未接 AI/);
     doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="ai-key"]')!.click();
-    assert.match(doc.querySelector(".dlens-collect-toast")!.textContent!, /設定未填 Google API key/);
+    const settings = s.calls.find(c => c.message.type === "sidepanel/open" && c.message.settingsSection === "ai")!;
+    assert.deepEqual(settings.message, {type:"sidepanel/open",sessionId:"topic",settingsSection:"ai"});
     const keyed = { ...global, settings: { ...global.settings, oneLinerProvider: "google" as const, googleApiKey: "test-key" } };
     s.emitGlobal(keyed); await tick();
     assert.equal(ensures().length, 1, "saving a key starts the reading without a reload");
@@ -402,7 +421,7 @@ test("a read 觀眾反應 card asks once and hands the current lens to its side 
     doc.querySelector<HTMLButtonElement>('[data-dlens-lens="ask"]')!.click();
     const foot=doc.querySelector<HTMLButtonElement>('[data-dlens-act="reader"]')!;
     assert.equal(foot.textContent,'側欄睇全部 →');foot.click();await tick();
-    const open=s.calls.find(c=>c.message.type==='sidepanel/open')!.message;
+    const open=s.calls.find(c=>c.message.type==='sidepanel/open' && c.message.itemId)!.message;
     assert.deepEqual(open,{type:'sidepanel/open',sessionId:'topic',itemId:'item-a',lens:'ask'});
     assert.equal(doc.querySelector('.dlens-xp-window'),null);assert.equal(doc.querySelector('.dlens-card-slot .xp'),null);
     assert.equal(doc.querySelector('[data-dlens-act="evidence"]'),null);
@@ -476,7 +495,7 @@ test("a 觀眾反應 card sorts its post into a 話題 by hand and names where a
     doc.querySelector<HTMLButtonElement>('.dlens-card [data-dlens-act="topic-side"]')!.click(); await tick();
     const sent = s.calls.map(({ message }) => message.type);
     assert.ok(sent.includes("inline/in-view") && sent.includes("sidepanel/open"));
-    const open=s.calls.find(c=>c.message.type==='sidepanel/open')!.message;
+    const open=s.calls.find(c=>c.message.type==='sidepanel/open' && c.message.itemId)!.message;
     assert.ok(open.type==='sidepanel/open');assert.equal(open.itemId,'item-a');
   } finally { s.cleanup(); }
 });
@@ -614,7 +633,7 @@ test('reader live and fresh-load requests stay pending until item hydration',()=
 test('product content card is one line and opens its post, without an expansion',async()=>{
  const s=fixture();try{await tick();const global=readingGlobal('product','succeeded');global.sessions[0].items[0].completedAt='2026-10-13T00:00:00Z';global.sessions[0].items[0].latestCapture={id:'p-cap',result:{comments:[{text:'留言'}]}} as any;s.emitGlobal(global);await tick();
  const doc=s.dom.window.document;assert.match(doc.querySelector('.dlens-save-line')!.textContent!.replace(/\s+/g,' '),/已存入 個人應用.*讀完 · 1 則留言/);assert.equal(doc.querySelector('.dlens-card'),null);assert.equal(doc.querySelector('[data-dlens-act="toggle-card"]'),null);
- doc.querySelector<HTMLButtonElement>('[data-dlens-act="reader"]')!.click();await tick();const msg=s.calls.find(c=>c.message.type==='sidepanel/open')!.message;assert.ok(msg.type==='sidepanel/open');assert.equal(msg.itemId,'item-a');
+ doc.querySelector<HTMLButtonElement>('[data-dlens-act="reader"]')!.click();await tick();const msg=s.calls.find(c=>c.message.type==='sidepanel/open' && c.message.itemId)!.message;assert.ok(msg.type==='sidepanel/open');assert.equal(msg.itemId,'item-a');
  }finally{s.cleanup();}
 });
 
@@ -625,6 +644,51 @@ test('product one-line verdict follows analysis storage updates and failure keep
  s.emitKey(PRODUCT_SIGNAL_ANALYSES_STORAGE_KEY,{s1:{signalId:'s1',signalType:'learning',signalSubtype:'tool',contentType:'content',contentSummary:'summary',relevance:3,relevantTo:[],whyRelevant:'why',verdict:'try',reason:'reason',evidenceRefs:[],productContextHash:'hash',promptVersion:'v20',analyzedAt:'2026-10-13T00:00:00Z',status:'complete'}});await tick();
  assert.match(s.dom.window.document.querySelector('.dlens-save-line')!.textContent!,/讀完 · 值得試/);assert.equal(s.dom.window.document.querySelector('.dlens-card'),null);
  global.sessions[0].items[0].status='failed';global.sessions[0].items[0].lastError='backend';s.emitGlobal(global);await tick();
- assert.match(s.dom.window.document.querySelector('.dlens-save-line')!.textContent!,/抓取失敗.*backend/);assert.ok(s.dom.window.document.querySelector('.dlens-save-line [data-dlens-act="crawl"]'));
+ assert.match(s.dom.window.document.querySelector('.dlens-save-line')!.textContent!,/抓取失敗.*處理失敗/);assert.ok(s.dom.window.document.querySelector('.dlens-save-line [data-dlens-act="crawl"]'));
  }finally{s.cleanup();}
+});
+
+test("save waits for job ack as 排隊中 without offering duplicate retry", async () => {
+  const s = fixture();
+  try {
+    await tick(); s.click(); await tick();
+    s.calls[0].resolve({ ok: true, inlineCollect: savedState, snapshot: { global: readingGlobal("topic", "saved"), tab: createEmptyTabState() } }); await tick();
+    assert.match(s.dom.window.document.querySelector('.save-text')!.textContent!, /排隊中/);
+    assert.equal(s.dom.window.document.querySelector('[data-dlens-act="crawl"]'), null);
+    assert.equal(s.dom.window.document.querySelector('[data-dlens-act="cancel"]'), null);
+    s.calls[1].resolve({ok:false,error:'500 raw ack failure'}); await tick();
+    const line = s.dom.window.document.querySelector('.save-text')!;
+    assert.match(line.textContent!, /Backend 回傳錯誤/);
+    assert.equal(line.getAttribute('title'), '500 raw ack failure');
+    s.dom.window.document.querySelector<HTMLButtonElement>('[data-dlens-act="reader"]')!.click(); await tick();
+    assert.deepEqual(s.calls.at(-1)!.message, {type:'sidepanel/open',sessionId:'topic',itemId:'item-a'});
+  } finally { s.cleanup(); }
+});
+
+test("queued cancel calls background and unsupported hides buttons through later repaints", async () => {
+  const s = fixture();
+  try {
+    await tick();
+    const global = readingGlobal('topic','queued');
+    Object.assign(global.sessions[0].items[0], {jobId:'j',latestJob:{status:'pending',attempt_count:0}});
+    s.emitGlobal(global); await tick();
+    s.dom.window.document.querySelector<HTMLButtonElement>('[data-dlens-act="cancel"]')!.click(); await tick();
+    assert.deepEqual(s.calls.at(-1)!.message, {type:'session/cancel-job',sessionId:'topic',itemId:'item-a'});
+    s.calls.at(-1)!.resolve({ok:true,cancelStatus:'unsupported'}); await tick();
+    s.emitGlobal(global); await tick();
+    assert.equal(s.dom.window.document.querySelector('[data-dlens-act="cancel"]'),null);
+    assert.equal(s.dom.window.document.querySelector('.dlens-collect-toast.on'),null);
+  } finally { s.cleanup(); }
+});
+
+test("a delayed queue acknowledgement cannot overwrite a newer storage status", async () => {
+  const s=fixture();
+  try {
+    await tick();s.click();await tick();
+    s.calls[0].resolve({ok:true,inlineCollect:savedState,snapshot:{global:readingGlobal('topic','saved'),tab:createEmptyTabState()}});await tick();
+    s.emitGlobal(readingGlobal('topic','running'));await tick();
+    s.calls[1].resolve({ok:true,queuedItemIds:['item-a'],failedItemIds:[],snapshot:{global:readingGlobal('topic','queued'),tab:createEmptyTabState()}});await tick();
+    assert.match(s.dom.window.document.querySelector('.save-text')!.textContent!, /讀緊留言|睇緊第一批留言/);
+    assert.doesNotMatch(s.dom.window.document.querySelector('.save-text')!.textContent!, /排隊中/);
+  }finally{s.cleanup();}
 });

@@ -19,7 +19,7 @@ test('save line projects peek, ETA, long wait, done and retry', () => {
   assert.equal(line.status, '讀完 · 0 種講法 · 1 則留言');
   assert.match(renderInlineSaveLine(line, false, false), /打開 ▾/);
   const failed = buildInlineCardViewModel(item('i', { status: 'failed', lastError: '離線' }), 'topic', '', { now });
-  assert.equal(buildInlineSaveLine(failed, now, null, null).status, '抓取失敗 · 離線');
+  assert.equal(buildInlineSaveLine(failed, now, null, null).status, '抓取失敗 · 處理失敗。請稍後再試。');
   assert.match(renderInlineSaveLine(buildInlineSaveLine(failed, now, null, null), false, false), /重試/);
 });
 test('disclosure expands only ready readings and requests opened write', () => {

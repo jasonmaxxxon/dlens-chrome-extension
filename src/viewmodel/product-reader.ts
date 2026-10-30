@@ -1,7 +1,7 @@
 import type { ExtensionSettings, ProductSignalAnalysis, SessionItem } from '../state/types';
 import { providerKeyFromSettings } from '../state/ai-key';
 import { buildProductSignalEvidenceCatalogFromCapture, PRODUCT_SIGNAL_ROOT_REF } from '../compare/product-signal-analysis';
-import { readInlineCardThread, inlineReplyRow, estimateCrawlSeconds, type InlineSaveLine, type InlineCardPeekInput } from './inline-card';
+import { readInlineCardThread, inlineReplyRow, buildInlineCardViewModel, buildInlineSaveLine, type InlineCardContext, type InlineSaveLine, type InlineCardPeekInput } from './inline-card';
 import { projectCapturedPost } from '../state/captured-post';
 import { buildAgentBrief } from './agent-brief';
 export const PRODUCT_VERDICT_LABELS = {try:'值得試',watch:'觀察',park:'暫放',insufficient_data:'資料不足'} as const;
@@ -41,18 +41,9 @@ export function buildProductReaderModel(item: SessionItem, sessionId: string, si
  return {sessionId,itemId:item.id,signalId,tabs,selected,analysis,refs,replies,agentBrief,stateLine,action,tryNote,tryReason,error:error ?? stored?.error};
 }
 export type ProductReaderModel=ReturnType<typeof buildProductReaderModel>;
-export function buildProductSaveLine(item:SessionItem, analysis:ProductSignalAnalysis|undefined, now:number, savedAt:number|null, peek?:InlineCardPeekInput, startError?:string|null):InlineSaveLine {
- const failed=item.status==='failed' || (item.status==='saved' && !!startError);
- const busy=item.status==='queued' || item.status==='running';
- let status=failed ? `抓取失敗 · ${startError ?? item.lastError ?? '原因不明'}` : '未抓取留言';
- if (busy) {
-  const from=item.lastStatusAt ?? item.queuedAt;
-  const left=from ? estimateCrawlSeconds(item)-Math.floor((now-Date.parse(from))/1000) : null;
-  status=`讀緊留言${left===null ? '' : left<0 ? ' · 比平常久' : ` · 約 ${Math.max(1,Math.ceil(left/60))} 分`}`;
-  if (savedAt!==null && now-savedAt<1000) {
-   const top=peek?.state==='ready' ? [...peek.replies].sort((a,b)=>(b.likes??0)-(a.likes??0))[0] : null;
-   status=top ? `「${top.text}」 ♡ ${top.likes??0}` : '睇緊第一批留言';
-  }
- } else if (item.status==='succeeded') status=`讀完 · ${analysis?.status==='complete' ? PRODUCT_VERDICT_LABELS[analysis.verdict] : `${readInlineCardThread(item).comments.length} 則留言`}`;
- return {destination:'已存入 個人應用',status,busy,ready:item.status==='succeeded',retry:failed || item.status==='saved'};
+export function buildProductSaveLine(item:SessionItem, analysis:ProductSignalAnalysis|undefined, now:number, savedAt:number|null, peek?:InlineCardPeekInput, startError?:string|null, context:InlineCardContext={}):InlineSaveLine {
+ const vm = buildInlineCardViewModel(item, 'product', '', { ...context, peek, startError });
+ const line = buildInlineSaveLine(vm, now, savedAt, null);
+ if (item.status==='succeeded') line.status=`讀完 · ${analysis?.status==='complete' ? PRODUCT_VERDICT_LABELS[analysis.verdict] : `${readInlineCardThread(item).comments.length} 則留言`}`;
+ return {...line, destination:'已存入 個人應用', ready:item.status==='succeeded'};
 }

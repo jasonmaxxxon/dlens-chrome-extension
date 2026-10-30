@@ -3896,3 +3896,62 @@ test('deep-reading/run finds a product item and single-flights its stored captur
     assert.equal(records[saved.id].status,'complete');assert.equal(records[saved.id].captureId,'deep-capture');
   } finally {globalThis.fetch=previousFetch;}
 });
+
+test("cancel job persists cancellation through snapshot seam and refuses running jobs", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (url, init) => {
+    if (!String(url).endsWith("/cancel")) return jsonResponse({status:"ok"});
+    calls++;
+    assert.match(String(url), /\/jobs\/job-cancel\/cancel$/);
+    assert.equal(init?.method, 'POST');
+    return jsonResponse({ status: 'cancelled' });
+  }) as typeof fetch;
+  try {
+    const source = makeSucceededItem('cancel','cancel');
+    Object.assign(source,{status:'queued',jobId:'job-cancel',latestJob:{...makeJob('cancel'),status:'pending'}});
+    const session = {...makeSession('cancel-session','archive'),items:[source]};
+    const harness = await createHarness({[backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([session],session.id)});
+    const response = await harness.dispatch({type:'session/cancel-job',sessionId:session.id,itemId:source.id});
+    assert.ok(response.ok);
+    assert.equal(response.cancelStatus,'cancelled');
+    const saved = (harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0].items[0];
+    assert.equal(saved.status,'saved'); assert.equal(saved.jobId,null);
+    assert.equal(saved.latestJob?.status,'cancelled');
+    assert.equal(calls,1);
+    assert.ok(harness.writesFor(backgroundTestables.GLOBAL_STORAGE_KEY).length);
+  } finally {globalThis.fetch=originalFetch;}
+});
+
+test("AI settings sidepanel handoff survives cold start and is consumed once", async () => {
+  const harness = await createHarness({[backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([makeSession('t','topic')],'t')});
+  await harness.dispatch({type:'sidepanel/open',sessionId:'t',settingsSection:'ai'});
+  const response = await harness.dispatch({type:'sidepanel/take-workspace-open'});
+  assert.ok(response.ok); assert.equal(response.settingsSection,'ai');
+  const next = await harness.dispatch({type:'sidepanel/take-workspace-open'});
+  assert.ok(next.ok); assert.equal(next.settingsSection,undefined);
+});
+
+test("cancel 409 refreshes running status, while a known running job never posts cancel", async () => {
+  const originalFetch=globalThis.fetch;
+  let cancelCalls=0;
+  globalThis.fetch=(async (url,init)=>{
+    const path=new URL(String(url)).pathname;
+    if(path.endsWith('/cancel')) {cancelCalls++;assert.equal(init?.method,'POST');return new Response('{}',{status:409});}
+    if(path.startsWith('/jobs/'))return jsonResponse({...makeJob('race'),status:'running'});
+    if(path.startsWith('/captures/'))return jsonResponse({...makeCapture('race'),ingestion_status:'running'});
+    return jsonResponse({status:'ok'});
+  }) as typeof fetch;
+  try {
+    const source=makeSucceededItem('race','race');
+    Object.assign(source,{status:'queued',jobId:'job-race',captureId:'cap-race',latestJob:{...makeJob('race'),status:'pending'}});
+    const session={...makeSession('race-session','archive'),items:[source]};
+    const harness=await createHarness({[backgroundTestables.GLOBAL_STORAGE_KEY]:makeGlobal([session],session.id)});
+    const response=await harness.dispatch({type:'session/cancel-job',sessionId:session.id,itemId:source.id});
+    assert.ok(response.ok);assert.equal(response.cancelStatus,'running');
+    const saved=(harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0].items[0];
+    assert.equal(saved.status,'running');
+    await harness.dispatch({type:'session/cancel-job',sessionId:session.id,itemId:source.id});
+    assert.equal(cancelCalls,1);
+  }finally{globalThis.fetch=originalFetch;}
+});

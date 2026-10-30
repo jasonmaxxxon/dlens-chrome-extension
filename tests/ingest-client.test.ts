@@ -8,9 +8,11 @@ import {
   fetchThreadsAdvancedMetrics,
   fetchWorkerStatus,
   submitCaptureTarget,
+  PostCooldownError,
   triggerWorkerDrain
 } from "../src/ingest/client.ts";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor.ts";
+import { POST_COOLDOWN_PREFIX } from "../src/state/processing-errors.ts";
 
 type FetchJsonForTest = <T>(input: string, init?: RequestInit, timeoutMs?: number) => Promise<T>;
 
@@ -398,6 +400,66 @@ test("fetchCapture drops backend-only raw_payload from the capture and its crawl
     assert.equal("raw_payload" in (capture.result as object), false);
     assert.equal(capture.id, "cap-1");
     assert.deepEqual(capture.result?.comments, [{ text: "kept" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("cancel job posts once, maps 409 and disables unsupported endpoints for session", async () => {
+  const original = globalThis.fetch;
+  const calls: string[] = [];
+  let status = 200;
+  globalThis.fetch = (async (url, init) => {
+    calls.push(String(url));
+    assert.equal(init?.method, "POST");
+    return new Response(JSON.stringify({ status: "cancelled" }), { status });
+  }) as typeof fetch;
+  try {
+    assert.equal(await ingestClient.cancelJob("http://127.0.0.1:8000", "j"), "cancelled");
+    status = 409;
+    assert.equal(await ingestClient.cancelJob("http://127.0.0.1:8000", "j"), "running");
+    for (const unsupported of [404, 405]) {
+      status = unsupported;
+      const base = `http://127.0.0.1:${unsupported}`;
+      assert.equal(await ingestClient.cancelJob(base, "j"), "unsupported");
+      const count = calls.length;
+      assert.equal(await ingestClient.cancelJob(base, "j"), "unsupported");
+      assert.equal(calls.length, count);
+    }
+  } finally { globalThis.fetch = original; }
+});
+
+test("submitCaptureTarget turns a post_cooldown 429 into a cooldown error and does not retry it", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ detail: { error_code: "post_cooldown", message: "此貼文在 24 小時內已爬取失敗 3 次，請稍後再試。", retry_after: "2026-10-31T06:05:00+00:00" } }),
+      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "3600" } });
+  }) as typeof fetch;
+  try {
+    await assert.rejects(submitCaptureTarget("http://127.0.0.1:8000", makeDescriptor(), "Signals", [0, 0, 0]), (error: unknown) => {
+      assert.ok(error instanceof PostCooldownError);
+      assert.equal(error.retryAfter, "2026-10-31T06:05:00+00:00");
+      assert.ok(error.message.startsWith(POST_COOLDOWN_PREFIX));
+      assert.doesNotMatch(error.message, /429|detail/);
+      return true;
+    });
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("submitCaptureTarget leaves other 429s as ordinary errors", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response("rate limited", { status: 429 })) as typeof fetch;
+  try {
+    await assert.rejects(submitCaptureTarget("http://127.0.0.1:8000", makeDescriptor(), "Signals", [0]), (error: unknown) => {
+      assert.ok(!(error instanceof PostCooldownError));
+      assert.match((error as Error).message, /^429/);
+      return true;
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

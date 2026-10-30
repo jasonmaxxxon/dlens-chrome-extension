@@ -31,8 +31,8 @@ test("manifest grants unlimited local storage for the long-lived collection libr
   );
 });
 
-test("release target is 0.4.8", () => {
-  assert.equal(packageJson.version, "0.4.8");
+test("release target is 0.4.9", () => {
+  assert.equal(packageJson.version, "0.4.9");
 });
 
 test("manifest keeps loopback required and remote ingest optional, without a hardcoded Tailscale address", () => {

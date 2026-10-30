@@ -1721,7 +1721,7 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.match(html, /data-mode-header="settings"/);
   assert.match(html, /AI 金鑰只存在這部電腦。Ingest token 只會送到你設定的後端。/);
   assert.match(html, /data-settings-ingest-help="true"/);
-  assert.match(html, /http:\/\/100\.115\.102\.41:8000/);
+  assert.match(html, /http:\/\/100\.x\.y\.z:8000/);
   assert.match(html, /Authorization: Bearer/);
   assert.match(html, /http:\/\/127\.0\.0\.1:8000/);
   assert.doesNotMatch(html, /field drawer/);
@@ -2238,4 +2238,38 @@ test("Signal Packet row appears only under the product collection filter", async
       assert.equal(host.querySelector('[data-collection-signal-packet-export]'), null, `${filter} keeps the product export action out of its collection`);
     }
   });
+});
+
+test("AI settings requests open the AI group on cold mount and live navigation", async () => {
+  const { JSDOM } = await import('jsdom');
+  const { act } = await import('react');
+  const { requestAiSettingsOpen } = await import('../src/ui/inpage-helpers.tsx');
+  const dom = new JSDOM('<div id="root"></div>', {url:'https://dlens.test'});
+  const prior={window:globalThis.window,document:globalThis.document,HTMLElement:globalThis.HTMLElement};
+  const flags=globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT?:boolean};
+  const oldFlag=flags.IS_REACT_ACT_ENVIRONMENT;
+  Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement});
+  flags.IS_REACT_ACT_ENVIRONMENT=true;
+  const {createRoot}=await import('react-dom/client');
+  const host=dom.window.document.getElementById('root')!;
+  const root=createRoot(host);
+  const pages:string[]=[];
+  const app=buildPopupAppFixture({onNavigate:async page=>{pages.push(page);}});
+  try {
+    requestAiSettingsOpen(dom.window as any);
+    await act(async()=>root.render(<InPageCollectorPopup app={app as any}/>));
+    assert.ok(host.querySelector('[data-settings-group="ai"]'));
+    assert.equal(host.querySelector('[data-settings-group]')?.getAttribute('data-settings-group'),'ai');
+    const viewport=host.querySelector<HTMLElement>('[data-workspace-popup-scroll="viewport"]')!;
+    scrollPopup(viewport,300);
+    await act(async()=>requestAiSettingsOpen(dom.window as any));
+    assert.equal(viewport.scrollTop,0,'AI request returns to the first AI section even after scrolling');
+    assert.deepEqual(pages,['settings','settings']);
+    assert.doesNotMatch(host.textContent!, /100\.115\.102\.41/);
+    assert.match(host.textContent!, /100\.x\.y\.z/);
+  } finally {
+    await act(async()=>root.unmount());Object.assign(globalThis,prior);
+    if(oldFlag===undefined)delete flags.IS_REACT_ACT_ENVIRONMENT;else flags.IS_REACT_ACT_ENVIRONMENT=oldFlag;
+    dom.window.close();
+  }
 });

@@ -7,6 +7,7 @@ import { getInlineCollectDestination, getInlineCollectLastMode, inlineCollectPos
 import { recordInlineCollectRemoval } from "../src/state/inline-collect-storage";
 import { IS_PR_ONLY_BUILD } from "../src/build-variant";
 import {
+  cancelJob,
   fetchBackendHealth,
   fetchCapture,
   fetchJob,
@@ -28,7 +29,7 @@ import {
   type PipelinePhase,
   type PipelineTarget
 } from "../src/state/pipeline-trace";
-import { queueItemsSequential } from "../src/state/queue-items";
+import { queueItemsSequential, type QueueFailureReason } from "../src/state/queue-items";
 import { generateProductProfileSuggestion } from "../src/compare/product-profile-init";
 import {
   generateProductContext,
@@ -1781,7 +1782,7 @@ async function queueSessionItems(
   sessionId: string,
   itemIds: string[],
   options: { reconcileToken?: RequestReconcileToken | null } = {}
-): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[] }> {
+): Promise<{ snapshot: ExtensionSnapshot; queuedItemIds: string[]; failedItemIds: string[]; failureReasons: Record<string, QueueFailureReason> }> {
   const snapshot = await loadSnapshot(tabId);
   return queueItemsSequential({
     initialSnapshot: snapshot,
@@ -1804,6 +1805,7 @@ async function queueSessionItemsAndStartProcessing(
   snapshot: ExtensionSnapshot;
   queuedItemIds: string[];
   failedItemIds: string[];
+  failureReasons: Record<string, QueueFailureReason>;
   processingStatus?: "started" | "already_running";
   processingError?: string;
 }> {
@@ -1995,7 +1997,7 @@ async function ensureInlineReading(tabId: number, sessionId: string, itemId: str
 const inViewPostByTab = new Map<number, string | null>();
 
 // The card's 開啟工作區 names a workspace before the side panel has loaded; the panel takes it once.
-let pendingSidePanelWorkspace: { sessionId: string; itemId?:string; lens?:string; at: number } | null = null;
+let pendingSidePanelWorkspace: { sessionId: string; itemId?:string; lens?:string; settingsSection?: "ai"; at: number } | null = null;
 
 function configureActionSidePanel(): void {
   void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => undefined);
@@ -2129,14 +2131,14 @@ export default defineBackground(() => {
           case "sidepanel/open": {
             // Before any await: Chrome only opens the side panel inside the click's user gesture.
             if (sender.tab) openSidePanelFromAction(sender.tab);
-            pendingSidePanelWorkspace = { sessionId: message.sessionId, itemId:message.itemId, lens:message.lens, at: Date.now() };
+            pendingSidePanelWorkspace = { sessionId: message.sessionId, itemId:message.itemId, lens:message.lens, settingsSection:message.settingsSection, at: Date.now() };
             sendResponse({ ok: true } satisfies ExtensionResponse);
             return;
           }
           case "sidepanel/take-workspace-open": {
             const pending = pendingSidePanelWorkspace;
             pendingSidePanelWorkspace = null;
-            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null, ...(pending && Date.now()-pending.at < 15_000 ? {readerItemId:pending.itemId,readerLens:pending.lens} : {}) } satisfies ExtensionResponse);
+            sendResponse({ ok: true, workspaceSessionId: pending && Date.now() - pending.at < 15_000 ? pending.sessionId : null, ...(pending && Date.now()-pending.at < 15_000 ? {readerItemId:pending.itemId,readerLens:pending.lens,settingsSection:pending.settingsSection} : {}) } satisfies ExtensionResponse);
             return;
           }
           case "settings/test-ai-key": {
@@ -3150,6 +3152,7 @@ export default defineBackground(() => {
                 snapshot: result.snapshot,
                 queuedItemIds: result.queuedItemIds,
                 failedItemIds: result.failedItemIds,
+                failureReasons: result.failureReasons,
                 processingStatus: result.processingStatus,
                 processingError: result.processingError
               });
@@ -3160,6 +3163,23 @@ export default defineBackground(() => {
                 error: message
               });
             }
+            return;
+          }
+          case "session/cancel-job": {
+            const tabId = await resolveTabId(sender);
+            let cancelStatus: "cancelled" | "running" | "unsupported" = "running";
+            let snapshot = await mutateSnapshot(tabId, async current => {
+              const item = current.global.sessions.find(s => s.id === message.sessionId)?.items.find(i => i.id === message.itemId);
+              if (!item?.jobId || item.status !== "queued" || item.latestJob?.status !== "pending") return current;
+              cancelStatus = await cancelJob(ingestTargetFromSettings(current.global.settings), item.jobId);
+              if (cancelStatus !== "cancelled") return current;
+              return { ...current, global: updateSessionItem(current.global, message.sessionId, message.itemId, existing => ({
+                ...existing, status: "saved", jobId: null, queuedAt: null, lastError: null, lastErrorKind: null,
+                latestJob: existing.latestJob ? { ...existing.latestJob, status: "cancelled" } : null
+              })) };
+            });
+            if (cancelStatus === "running") snapshot = (await refreshItem(tabId, message.sessionId, message.itemId)).snapshot;
+            sendResponse({ ok: true, snapshot, cancelStatus } satisfies ExtensionResponse);
             return;
           }
           case "session/refresh-item": {

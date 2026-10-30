@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
+import { buildInlineCardEvidence, buildInlineCardViewModel, buildInlineSaveLine, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
 import { formatEta, renderInlineCard } from "../src/content/inline-collect-card.ts";
 import { parseFirstReplies } from "../src/content/inline-collect-peek.ts";
 import type { SessionItem } from "../src/state/types.ts";
@@ -30,7 +30,7 @@ test("inline card phases follow the saved item status without crawl data", () =>
   assert.equal(buildInlineCardViewModel(item("saved"), "topic", "返工").phase, "saved");
   assert.deepEqual(buildInlineCardViewModel(item("queued"), "topic", "返工").eta, { from: "2026-10-07T10:00:00Z", seconds: 59, ahead: 0 });
   assert.deepEqual(buildInlineCardViewModel(item("running"), "topic", "返工").eta, { from: "2026-10-07T10:00:10Z", seconds: 59, ahead: 0 });
-  assert.equal(buildInlineCardViewModel(item("failed", [], { lastError: "頁面載入異常" }), "topic", "返工").error, "頁面載入異常");
+  assert.equal(buildInlineCardViewModel(item("failed", [], { lastError: "頁面載入異常" }), "topic", "返工").rawError, "頁面載入異常");
   assert.equal(buildInlineCardViewModel(item("succeeded", many), "archive", "收藏").entries.length, 0);
 });
 
@@ -79,7 +79,7 @@ test("a queued crawl waits behind the running one and every earlier queued one",
   const eta = buildInlineCardViewModel(mine, "topic", "返工", { queue }).eta;
   assert.deepEqual(eta, { from: "2026-10-07T10:05:00Z", seconds: 59 * 3, ahead: 2 });
   const text = renderInlineCard(buildInlineCardViewModel(mine, "topic", "返工", { queue }), null, Date.parse("2026-10-07T10:05:00Z")).replace(/<[^>]+>/g, "");
-  assert.match(text, /排隊 · 前面 2 篇 · 約 2 分 57 秒/);
+  assert.match(text, /排隊中 · 前面 2 篇 · 約 2 分 57 秒/);
 });
 
 test("the estimate counts down and admits a long wait instead of going negative", () => {
@@ -90,7 +90,7 @@ test("the estimate counts down and admits a long wait instead of going negative"
 test("a crawl request that never became a job reads as failed with its reason", () => {
   const vm = buildInlineCardViewModel(item("saved"), "topic", "返工", { startError: "後端未能建立抓取工作" });
   assert.equal(vm.phase, "failed");
-  assert.equal(vm.error, "後端未能建立抓取工作");
+  assert.equal(vm.rawError, "後端未能建立抓取工作");
   assert.equal(buildInlineCardViewModel(item("running"), "topic", "返工", { startError: "old" }).phase, "running");
 });
 
@@ -151,7 +151,7 @@ test("an AI reading for an older capture, a missing key and a failure all fall b
   const failed = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "failed", itemId: "i1", captureId: "cap-1", error: "quota <exceeded>", at: "" } });
   assert.deepEqual(failed.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
   const html = renderInlineCard(failed, null, 0);
-  assert.match(html, /AI 整理失敗：quota &lt;exceeded&gt;/);
+  assert.match(html, /title="quota &lt;exceeded&gt;">AI 整理失敗/);
   assert.match(html, /data-dlens-act="ai-retry"/);
   const running = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "running", itemId: "i1", captureId: "cap-1", startedAt: "" } });
   assert.match(renderInlineCard(running, null, 0), /AI 整理中/);
@@ -254,4 +254,83 @@ test('question evidence counts paired reply rows, and expands by at most ten mor
  const before=buildInlineCardEvidence(mine,vm,'ask')!.groups.find(g=>g.tone==='author')!;
  const after=buildInlineCardEvidence(mine,vm,'ask',null,{'author:1':13})!.groups.find(g=>g.tone==='author')!;
  assert.ok(count(before)<=3);assert.ok(count(after)-count(before)<=10);assert.equal(after.expanded,true);assert.equal(after.more,8);
+});
+
+test("pending retry projects attempts, schedule and existing Chinese reason with raw tooltip", () => {
+  const job = { status: "pending", attempt_count: 2, max_attempts: 4, scheduled_at: "2026-10-07T10:10:00Z", last_error_kind: "retryable_runtime_error", last_error: "socket timeout <raw>" } as SessionItem["latestJob"];
+  const vm = buildInlineCardViewModel(item("queued", [], { jobId: "j", latestJob: job }), "topic", "返工");
+  assert.equal(vm.retry?.attempts, 2);
+  assert.equal(vm.retry?.at, job!.scheduled_at);
+  const html = renderInlineCard(vm, null, Date.parse("2026-10-07T10:00:00Z"));
+  // No 「/4」: an empty result stops after 2 attempts whatever max_attempts says.
+  assert.match(html, /第 2 次失敗/);
+  assert.doesNotMatch(html, /第 2\/\d/);
+  assert.ok(html.includes(new Date(job!.scheduled_at).toLocaleString("zh-HK", {hour12:false})));
+  assert.match(html, /後端暫時回報抓取失敗，會依排程重試。/);
+  assert.match(html, /title="socket timeout &lt;raw&gt;"/);
+  assert.doesNotMatch(html.replace(/title="[^"]*"/g, ""), /socket timeout/);
+});
+
+test("backend jobs_ahead or one-based queue_position replaces local-only queue ETA", () => {
+  for (const fields of [{ jobs_ahead: 3 }, { queue_position: 4 }]) {
+    const mine = item("queued", [], { latestJob: { status: "pending", updated_at: "2026-10-07T10:01:00Z", ...fields } as SessionItem["latestJob"] });
+    assert.deepEqual(buildInlineCardViewModel(mine, "topic", "返工").eta, { from: "2026-10-07T10:01:00Z", seconds: 59 * 4, ahead: 3 });
+  }
+});
+
+test("submission before ack is queued without retry or cancel; queued jobs alone offer cancel", () => {
+  const pending = buildInlineCardViewModel(item("saved"), "topic", "返工", { submitting: true });
+  assert.equal(pending.phase, "queued");
+  assert.equal(pending.canCancel, false);
+  const queued = item("queued", [], { jobId: "j", latestJob: { status: "pending" } as SessionItem["latestJob"] });
+  assert.equal(buildInlineCardViewModel(queued, "topic", "返工").canCancel, true);
+  assert.equal(buildInlineCardViewModel(queued, "topic", "返工", { cancelSupported: false }).canCancel, false);
+  assert.equal(buildInlineCardViewModel(item("running", [], { jobId: "j" }), "topic", "返工").canCancel, false);
+});
+
+test("all incomplete modes have an item reader entry and raw failure stays in title only", () => {
+  for (const mode of ["topic", "product", "archive", "pr-evidence"] as const) {
+    for (const phase of ["saved", "queued", "running", "failed"] as const) {
+      const vm = buildInlineCardViewModel(item(phase, [], { lastError: "raw failure <trace>" }), mode, "folder");
+      const html = renderInlineCard(vm, null, 0);
+      assert.match(html, /data-dlens-act="reader"[^>]*>側欄 →/);
+      assert.doesNotMatch(html.replace(/title="[^"]*"/g, ""), /raw failure/);
+    }
+  }
+});
+
+test("unknown submission failures never echo raw diagnostics in visible copy", () => {
+  for (const error of ['401 Unauthorized: raw server trace', 'Failed to fetch', '<script>bad</script>']) {
+    const vm=buildInlineCardViewModel(item('saved'),'topic','folder',{startError:error});
+    const html=renderInlineCard(vm,null,0);
+    assert.equal(vm.rawError,error);
+    assert.doesNotMatch(html.replace(/title="[^"]*"/g,''), /Unauthorized|Failed to fetch|bad&lt;/);
+    assert.equal(vm.error,'處理失敗。請稍後再試。');
+  }
+});
+
+test("a 0-comment read says so, and only promises a retry while one is scheduled", () => {
+  const pending = { status: "pending", attempt_count: 1, max_attempts: 3, scheduled_at: "2026-10-07T10:00:00Z", last_error_kind: "empty_crawl_result", last_error: "no readable post text, evidence=/logs/x" } as SessionItem["latestJob"];
+  const retrying = buildInlineCardViewModel(item("queued", [], { jobId: "j", latestJob: pending }), "topic", "返工");
+  assert.equal(retrying.error, "讀不到留言，會自動再試一次。");
+  // Real case: @blackmambabean4ever went dead after two empty reads; the card must not say a retry is coming.
+  const dead = buildInlineCardViewModel(item("failed", [], { jobId: "j", lastErrorKind: "empty_crawl_result", lastError: "no readable post text",
+    latestJob: { ...pending!, status: "dead", attempt_count: 2 } as SessionItem["latestJob"] }), "topic", "返工");
+  assert.equal(dead.error, "讀不到留言，可稍後再按重試。");
+  assert.doesNotMatch(renderInlineCard(dead, null, Date.parse("2026-10-07T10:00:00Z")), /會依排程重試/);
+});
+
+test("a cooldown refusal of a retry shows its time and hides 重試 until it ends", () => {
+  const cooldown = "此貼文 24 小時內已失敗 3 次，10/31 14:05 後可再試。";
+  const failed = item("failed", [], { jobId: "j", lastErrorKind: "empty_crawl_result", lastError: "no readable post text" });
+  const blocked = buildInlineCardViewModel(failed, "topic", "返工", { startError: cooldown, retryBlocked: true });
+  assert.equal(blocked.error, cooldown, "the newer refusal replaces the old job's reason");
+  assert.equal(blocked.retryBlocked, true);
+  const html = renderInlineCard(blocked, null, Date.parse("2026-10-30T10:00:00Z"));
+  assert.ok(html.includes(cooldown));
+  assert.doesNotMatch(html, /data-dlens-act="crawl"/);
+  assert.equal(buildInlineSaveLine(blocked, Date.parse("2026-10-30T10:00:00Z"), null, null).retry, false);
+
+  const later = buildInlineCardViewModel(failed, "topic", "返工", { startError: cooldown, retryBlocked: false });
+  assert.match(renderInlineCard(later, null, Date.parse("2026-10-31T15:00:00Z")), /data-dlens-act="crawl"/);
 });

@@ -26,7 +26,7 @@ test("reader state uses the crawl estimate and actual failure reason; other mode
   assert.equal(model.stateLine, "抓取中 · 比平常久");
   queued.status = "failed"; queued.lastError = "頁面載入異常";
   model = buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], {}, 0)!;
-  assert.equal(model.stateLine, "抓取失敗：頁面載入異常");
+  assert.equal(model.stateLine, "抓取失敗：處理失敗。請稍後再試。");
   sessions[0].mode = "product";
   assert.equal(buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], {}, 0), null);
 });

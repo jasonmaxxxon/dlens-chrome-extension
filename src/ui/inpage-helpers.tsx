@@ -24,6 +24,18 @@ export function consumeReaderOpen(availableItemIds:readonly string[],targetWindo
  if (!pending || typeof pending!=='object' || !availableItemIds.includes(pending.itemId)) return null;
  delete store[PENDING_WORKSPACE_KEY]; return pending;
 }
+export function requestAiSettingsOpen(targetWindow: Window = window): void {
+  (targetWindow as unknown as Record<string, unknown>)[PENDING_WORKSPACE_KEY] = { settingsSection: "ai" };
+  const event = targetWindow.document.createEvent("CustomEvent");
+  event.initCustomEvent(OPEN_WORKSPACE_EVENT, false, false, { settingsSection: "ai" });
+  targetWindow.dispatchEvent(event);
+}
+export function consumeAiSettingsOpen(targetWindow: Window = window): boolean {
+  const store = targetWindow as unknown as Record<string, unknown>;
+  if ((store[PENDING_WORKSPACE_KEY] as { settingsSection?: string } | null)?.settingsSection !== "ai") return false;
+  delete store[PENDING_WORKSPACE_KEY];
+  return true;
+}
 export const PAGE_LOCATION_EVENT = "dlens:page-location";
 export const OPTIMISTIC_SAVE_EVENT = "dlens:optimistic-save";
 export const OPTIMISTIC_SAVE_CONFIRMED_EVENT = "dlens:optimistic-save-confirmed";
