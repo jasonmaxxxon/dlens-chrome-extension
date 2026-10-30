@@ -402,3 +402,27 @@ test("fetchCapture drops backend-only raw_payload from the capture and its crawl
     globalThis.fetch = originalFetch;
   }
 });
+
+test("cancel job posts once, maps 409 and disables unsupported endpoints for session", async () => {
+  const original = globalThis.fetch;
+  const calls: string[] = [];
+  let status = 200;
+  globalThis.fetch = (async (url, init) => {
+    calls.push(String(url));
+    assert.equal(init?.method, "POST");
+    return new Response(JSON.stringify({ status: "cancelled" }), { status });
+  }) as typeof fetch;
+  try {
+    assert.equal(await ingestClient.cancelJob("http://127.0.0.1:8000", "j"), "cancelled");
+    status = 409;
+    assert.equal(await ingestClient.cancelJob("http://127.0.0.1:8000", "j"), "running");
+    for (const unsupported of [404, 405]) {
+      status = unsupported;
+      const base = `http://127.0.0.1:${unsupported}`;
+      assert.equal(await ingestClient.cancelJob(base, "j"), "unsupported");
+      const count = calls.length;
+      assert.equal(await ingestClient.cancelJob(base, "j"), "unsupported");
+      assert.equal(calls.length, count);
+    }
+  } finally { globalThis.fetch = original; }
+});

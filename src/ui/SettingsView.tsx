@@ -455,7 +455,7 @@ export function SettingsView({
               </span>
             </label>
             <div data-settings-ingest-help="true" style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
-              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.115.102.41:8000，貼上那台機器的 ingest API token 再儲存。儲存會請 Chrome 允許這一個網址；拒絕就不會儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
+              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.x.y.z:8000，貼上那台機器的 ingest API token 再儲存。儲存會請 Chrome 允許這一個網址；拒絕就不會儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
             </div>
 
             <div

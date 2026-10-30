@@ -1,3 +1,4 @@
+import { describeProcessingError, getProcessingFailureUiMessage } from "../state/processing-errors";
 import { clipReadingCopy, cleanReadingCopy } from "../compare/reading-copy";
 import { buildReplyThreads, isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
@@ -30,6 +31,8 @@ export type InlineCardPeek = { state: "loading" } | { state: "ready"; total: num
 export interface InlineCardContext {
   /** Every saved item, to count crawls ahead of this one on the single backend worker. */
   queue?: SessionItem[];
+  submitting?: boolean;
+  cancelSupported?: boolean;
   /** The side panel keeps its lens bar available for small / pending captures. */
   forReader?: boolean;
   peek?: InlineCardPeekInput;
@@ -43,10 +46,13 @@ export interface InlineCardViewModel {
   mode: FolderMode;
   sessionName: string;
   phase: InlineCardPhase;
-  /** Estimate only: the backend has no ETA. The view counts down from `from` and says 「比平常久」 past it. */
+  /** Estimate only: backend queue counts, or a local queue fallback. The view counts down from `from` and says 「比平常久」 past it. */
   eta: { from: string; seconds: number; ahead: number } | null;
   peek: InlineCardPeek | null;
   error: string | null;
+  rawError: string | null;
+  retry: { attempts: number; maxAttempts: number; at: string } | null;
+  canCancel: boolean;
   countLabel: string | null;
   readingCounts: { frames: number; comments: number };
   /** Fewer than MIN_COMMENTS read: list them instead of grouping. */
@@ -94,6 +100,11 @@ function etaOf(item: SessionItem, phase: InlineCardPhase, queue: SessionItem[]):
     return from ? { from, seconds: own, ahead: 0 } : null;
   }
   if (phase !== "queued" || !item.queuedAt) return null;
+  const job = item.latestJob;
+  const count = num(job?.jobs_ahead) ?? (num(job?.queue_position) !== null ? job!.queue_position! - 1 : null);
+  if (count !== null && Number.isInteger(count) && count >= 0) {
+    return { from: job?.updated_at || item.queuedAt, seconds: own * (count + 1), ahead: count };
+  }
   const ahead = queue.filter((other) => other.id !== item.id
     && (other.status === "running" || (other.status === "queued" && !!other.queuedAt && other.queuedAt < item.queuedAt!)));
   return { from: item.queuedAt, seconds: own + ahead.reduce((sum, other) => sum + estimateCrawlSeconds(other), 0), ahead: ahead.length };
@@ -145,13 +156,25 @@ function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined):
 
 export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, sessionName: string, context: InlineCardContext = {}): InlineCardViewModel {
   const startError = phaseOf(item) === "saved" ? context.startError ?? null : null;
-  const phase = startError ? "failed" : phaseOf(item);
+  const phase = context.submitting ? "queued" : startError ? "failed" : phaseOf(item);
+  const job = item.latestJob;
+  const retry = !context.submitting && phase === "queued" && job?.status === "pending" && job.attempt_count > 0
+    ? { attempts: job.attempt_count, maxAttempts: job.max_attempts, at: job.scheduled_at } : null;
+  const rawError = phase === "failed" ? startError || item.lastError || item.lastErrorKind || null : retry ? job?.last_error ?? null : null;
+  const mappedError = getProcessingFailureUiMessage(rawError);
+  const errorKind = job?.last_error_kind ?? item.lastErrorKind;
+  const error = rawError || retry || phase === "failed"
+    ? errorKind || retry
+      ? describeProcessingError({ lastErrorKind: errorKind, lastError: rawError })?.detail ?? getProcessingFailureUiMessage(null)
+      : mappedError.startsWith("處理失敗：") ? getProcessingFailureUiMessage(null) : mappedError
+    : null;
   const reads = mode === "topic" || mode === "product";
   const base: InlineCardViewModel = {
     mode, sessionName, phase,
     eta: etaOf(item, phase, context.queue ?? []),
     peek: reads && phase !== "done" ? peekOf(context.peek) : null,
-    error: phase === "failed" ? startError || item.lastError || item.lastErrorKind || "原因不明" : null,
+    error, rawError, retry,
+    canCancel: !context.submitting && phase === "queued" && !!item.jobId && job?.status === "pending" && context.cancelSupported !== false,
     countLabel: null, readingCounts: { frames: 0, comments: 0 }, few: null, entries: [], answers: {}, ai: null, hasEvidence: false, analysisPending: false
   };
   if (phase !== "done" || mode !== "topic") {
@@ -347,12 +370,15 @@ export function inlineReadingFinishedAt(item: SessionItem, ai: InlineCardAiInput
 }
 export interface InlineSaveLine {
   destination: string; status: string; busy: boolean; ready: boolean; retry: boolean;
+  rawError?: string | null; canCancel?: boolean;
 }
 export function buildInlineSaveLine(vm: InlineCardViewModel, now: number, savedAt: number | null, topicName: string | null): InlineSaveLine {
   const ready = vm.phase === "done" && !vm.analysisPending && vm.ai?.state !== "running";
   const busy = vm.phase === "queued" || vm.phase === "running" || vm.analysisPending || vm.ai?.state === "running";
   let status: string;
   if (vm.phase === "failed") status = `抓取失敗 · ${vm.error ?? "原因不明"}`;
+  else if (vm.retry) status = `${retryStatus(vm)} · ${vm.error ?? ""}`;
+  else if (vm.phase === "queued") status = `排隊中${vm.eta?.ahead ? ` · 前面 ${vm.eta.ahead} 篇` : ""}${etaMinutes(vm, now)}`;
   else if (busy && savedAt !== null && now - savedAt < 1000) {
     const top = vm.peek?.state === "ready" ? vm.peek.top : null;
     status = top ? `「${top.text}」 ♡ ${top.likes ?? 0}` : "睇緊第一批留言";
@@ -362,7 +388,7 @@ export function buildInlineSaveLine(vm: InlineCardViewModel, now: number, savedA
     const left = vm.eta ? vm.eta.seconds - Math.floor((now - Date.parse(vm.eta.from)) / 1000) : null;
     status = vm.analysisPending || vm.ai?.state === "running" ? "整理緊留言" : `讀緊留言${left === null ? "" : ` · ${!Number.isFinite(left) || left < 0 ? "比平常久" : `約 ${Math.max(1, Math.ceil(left / 60))} 分`}`}`;
   } else status = "未抓取留言";
-  return { destination: `已存入 觀眾反應${topicName ? `〈${topicName}〉` : " · 未分流"}`, status, busy, ready, retry: vm.phase === "failed" || vm.phase === "saved" };
+  return { rawError: vm.rawError, canCancel: vm.canCancel, destination: `已存入 觀眾反應${topicName ? `〈${topicName}〉` : " · 未分流"}`, status, busy, ready, retry: vm.phase === "failed" || vm.phase === "saved" };
 }
 export function nextInlineDisclosure(expanded: boolean, ready: boolean) {
   return { expanded: ready && !expanded, markOpened: ready && !expanded };
@@ -375,4 +401,16 @@ export function nextReturnGlow(previous: InlineReturnGlow | undefined, ready: bo
 
 export function inlineReplyRow(c: CrawlComment, op: string): InlineEvidenceRow {
  return {author:c.author,text:c.text,likes:c.likes,replies:c.replies,time:c.time,isAuthor:!!op && handle(c.author)===op};
+}
+
+export function retryStatus(vm: InlineCardViewModel): string {
+  if (!vm.retry) return "";
+  const at = new Date(vm.retry.at);
+  const time = Number.isFinite(at.getTime()) ? at.toLocaleString("zh-HK", { hour12: false }) : vm.retry.at;
+  return `第 ${vm.retry.attempts}/${vm.retry.maxAttempts} 次失敗 · 下次重試 ${time}`;
+}
+function etaMinutes(vm: InlineCardViewModel, now: number): string {
+  if (!vm.eta) return "";
+  const left = vm.eta.seconds - Math.floor((now - Date.parse(vm.eta.from)) / 1000);
+  return ` · ${!Number.isFinite(left) || left < 0 ? "比平常久" : `約 ${Math.max(1, Math.ceil(left / 60))} 分`}`;
 }

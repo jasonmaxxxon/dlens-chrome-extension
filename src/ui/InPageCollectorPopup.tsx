@@ -29,7 +29,7 @@ import { TopicDiscourseView,type TopicDiscourseCommand } from "./TopicDiscourseV
 import { WorkspaceHomeView } from "./WorkspaceHomeView";
 import { DLENS_BUTTON_CSS,StatusRail,WorkspaceSurface } from "./components";
 import { LanguageProvider } from "./i18n";
-import { OPEN_WORKSPACE_EVENT,consumeReaderOpen,consumeWorkspaceOpen } from "./inpage-helpers";
+import { OPEN_WORKSPACE_EVENT,consumeAiSettingsOpen,consumeReaderOpen,consumeWorkspaceOpen } from "./inpage-helpers";
 import {
 buildPrEvidenceUiReadyEvent,
 usePipelineUiReadyTrace
@@ -316,6 +316,13 @@ function OpenInPageCollectorPopup({
   useEffect(() => {
     const listener = () => {
       if (navigationPending.current) return;
+      if (consumeAiSettingsOpen()) {
+        scrollPositions.set("settings", 0);
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
+        setReadingNavigation(current => ({...current, settingsOpen:true}));
+        void app.onNavigate("settings");
+        return;
+      }
       const reader=consumeReaderOpen(snapshot?.global.sessions.flatMap(s=>s.items.map(i=>i.id)) ?? []);
       if (reader) {
         const target=resolveCollectionReaderOpen(collectionPosts,reader.itemId,reader.lens);

@@ -30,7 +30,7 @@ test("inline card phases follow the saved item status without crawl data", () =>
   assert.equal(buildInlineCardViewModel(item("saved"), "topic", "返工").phase, "saved");
   assert.deepEqual(buildInlineCardViewModel(item("queued"), "topic", "返工").eta, { from: "2026-10-07T10:00:00Z", seconds: 59, ahead: 0 });
   assert.deepEqual(buildInlineCardViewModel(item("running"), "topic", "返工").eta, { from: "2026-10-07T10:00:10Z", seconds: 59, ahead: 0 });
-  assert.equal(buildInlineCardViewModel(item("failed", [], { lastError: "頁面載入異常" }), "topic", "返工").error, "頁面載入異常");
+  assert.equal(buildInlineCardViewModel(item("failed", [], { lastError: "頁面載入異常" }), "topic", "返工").rawError, "頁面載入異常");
   assert.equal(buildInlineCardViewModel(item("succeeded", many), "archive", "收藏").entries.length, 0);
 });
 
@@ -79,7 +79,7 @@ test("a queued crawl waits behind the running one and every earlier queued one",
   const eta = buildInlineCardViewModel(mine, "topic", "返工", { queue }).eta;
   assert.deepEqual(eta, { from: "2026-10-07T10:05:00Z", seconds: 59 * 3, ahead: 2 });
   const text = renderInlineCard(buildInlineCardViewModel(mine, "topic", "返工", { queue }), null, Date.parse("2026-10-07T10:05:00Z")).replace(/<[^>]+>/g, "");
-  assert.match(text, /排隊 · 前面 2 篇 · 約 2 分 57 秒/);
+  assert.match(text, /排隊中 · 前面 2 篇 · 約 2 分 57 秒/);
 });
 
 test("the estimate counts down and admits a long wait instead of going negative", () => {
@@ -90,7 +90,7 @@ test("the estimate counts down and admits a long wait instead of going negative"
 test("a crawl request that never became a job reads as failed with its reason", () => {
   const vm = buildInlineCardViewModel(item("saved"), "topic", "返工", { startError: "後端未能建立抓取工作" });
   assert.equal(vm.phase, "failed");
-  assert.equal(vm.error, "後端未能建立抓取工作");
+  assert.equal(vm.rawError, "後端未能建立抓取工作");
   assert.equal(buildInlineCardViewModel(item("running"), "topic", "返工", { startError: "old" }).phase, "running");
 });
 
@@ -151,7 +151,7 @@ test("an AI reading for an older capture, a missing key and a failure all fall b
   const failed = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "failed", itemId: "i1", captureId: "cap-1", error: "quota <exceeded>", at: "" } });
   assert.deepEqual(failed.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
   const html = renderInlineCard(failed, null, 0);
-  assert.match(html, /AI 整理失敗：quota &lt;exceeded&gt;/);
+  assert.match(html, /title="quota &lt;exceeded&gt;">AI 整理失敗/);
   assert.match(html, /data-dlens-act="ai-retry"/);
   const running = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "running", itemId: "i1", captureId: "cap-1", startedAt: "" } });
   assert.match(renderInlineCard(running, null, 0), /AI 整理中/);
@@ -254,4 +254,56 @@ test('question evidence counts paired reply rows, and expands by at most ten mor
  const before=buildInlineCardEvidence(mine,vm,'ask')!.groups.find(g=>g.tone==='author')!;
  const after=buildInlineCardEvidence(mine,vm,'ask',null,{'author:1':13})!.groups.find(g=>g.tone==='author')!;
  assert.ok(count(before)<=3);assert.ok(count(after)-count(before)<=10);assert.equal(after.expanded,true);assert.equal(after.more,8);
+});
+
+test("pending retry projects attempts, schedule and existing Chinese reason with raw tooltip", () => {
+  const job = { status: "pending", attempt_count: 2, max_attempts: 4, scheduled_at: "2026-10-07T10:10:00Z", last_error_kind: "retryable_runtime_error", last_error: "socket timeout <raw>" } as SessionItem["latestJob"];
+  const vm = buildInlineCardViewModel(item("queued", [], { jobId: "j", latestJob: job }), "topic", "返工");
+  assert.equal(vm.retry?.attempts, 2);
+  assert.equal(vm.retry?.maxAttempts, 4);
+  assert.equal(vm.retry?.at, job!.scheduled_at);
+  const html = renderInlineCard(vm, null, Date.parse("2026-10-07T10:00:00Z"));
+  assert.match(html, /第 2\/4 次失敗/);
+  assert.ok(html.includes(new Date(job!.scheduled_at).toLocaleString("zh-HK", {hour12:false})));
+  assert.match(html, /後端暫時回報抓取失敗，會依排程重試。/);
+  assert.match(html, /title="socket timeout &lt;raw&gt;"/);
+  assert.doesNotMatch(html.replace(/title="[^"]*"/g, ""), /socket timeout/);
+});
+
+test("backend jobs_ahead or one-based queue_position replaces local-only queue ETA", () => {
+  for (const fields of [{ jobs_ahead: 3 }, { queue_position: 4 }]) {
+    const mine = item("queued", [], { latestJob: { status: "pending", updated_at: "2026-10-07T10:01:00Z", ...fields } as SessionItem["latestJob"] });
+    assert.deepEqual(buildInlineCardViewModel(mine, "topic", "返工").eta, { from: "2026-10-07T10:01:00Z", seconds: 59 * 4, ahead: 3 });
+  }
+});
+
+test("submission before ack is queued without retry or cancel; queued jobs alone offer cancel", () => {
+  const pending = buildInlineCardViewModel(item("saved"), "topic", "返工", { submitting: true });
+  assert.equal(pending.phase, "queued");
+  assert.equal(pending.canCancel, false);
+  const queued = item("queued", [], { jobId: "j", latestJob: { status: "pending" } as SessionItem["latestJob"] });
+  assert.equal(buildInlineCardViewModel(queued, "topic", "返工").canCancel, true);
+  assert.equal(buildInlineCardViewModel(queued, "topic", "返工", { cancelSupported: false }).canCancel, false);
+  assert.equal(buildInlineCardViewModel(item("running", [], { jobId: "j" }), "topic", "返工").canCancel, false);
+});
+
+test("all incomplete modes have an item reader entry and raw failure stays in title only", () => {
+  for (const mode of ["topic", "product", "archive", "pr-evidence"] as const) {
+    for (const phase of ["saved", "queued", "running", "failed"] as const) {
+      const vm = buildInlineCardViewModel(item(phase, [], { lastError: "raw failure <trace>" }), mode, "folder");
+      const html = renderInlineCard(vm, null, 0);
+      assert.match(html, /data-dlens-act="reader"[^>]*>側欄 →/);
+      assert.doesNotMatch(html.replace(/title="[^"]*"/g, ""), /raw failure/);
+    }
+  }
+});
+
+test("unknown submission failures never echo raw diagnostics in visible copy", () => {
+  for (const error of ['401 Unauthorized: raw server trace', 'Failed to fetch', '<script>bad</script>']) {
+    const vm=buildInlineCardViewModel(item('saved'),'topic','folder',{startError:error});
+    const html=renderInlineCard(vm,null,0);
+    assert.equal(vm.rawError,error);
+    assert.doesNotMatch(html.replace(/title="[^"]*"/g,''), /Unauthorized|Failed to fetch|bad&lt;/);
+    assert.equal(vm.error,'處理失敗。請稍後再試。');
+  }
 });

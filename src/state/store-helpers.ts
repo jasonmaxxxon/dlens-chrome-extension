@@ -313,6 +313,7 @@ export function saveDescriptorToSession(
 
 function mapLifecycleStatus(job: JobSnapshot | null, capture: CaptureSnapshot | null, fallback: SessionItemStatus): SessionItemStatus {
   if (job) {
+    if (job.status === "cancelled") return "saved";
     switch (toLocalJobStatus(job)) {
       case "queued":
         return "queued";

@@ -300,6 +300,21 @@ export async function submitCaptureTarget(
   }
 }
 
+const cancelUnsupported = new Set<string>();
+export async function cancelJob(target: string | IngestRequestTarget, jobId: string): Promise<"cancelled" | "running" | "unsupported"> {
+  const endpoint = resolveIngestRequest(target);
+  if (cancelUnsupported.has(endpoint.baseUrl)) return "unsupported";
+  try {
+    await fetchJson(`${endpoint.baseUrl}/jobs/${encodeURIComponent(jobId)}/cancel`, withIngestAuth(endpoint.apiToken, { method: "POST" }));
+    return "cancelled";
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    if (status === 404 || status === 405) { cancelUnsupported.add(endpoint.baseUrl); return "unsupported"; }
+    if (status === 409) return "running";
+    throw error;
+  }
+}
+
 export async function fetchJob(target: string | IngestRequestTarget, jobId: string): Promise<JobSnapshot> {
   const endpoint = resolveIngestRequest(target);
   return fetchJson<JobSnapshot>(`${endpoint.baseUrl}/jobs/${jobId}`, withIngestAuth(endpoint.apiToken));
@@ -357,6 +372,7 @@ export function toSidebarJobStatus(job: JobSnapshot): SidebarJobStatus {
       return "running";
     case "succeeded":
       return "succeeded";
+    case "cancelled":
     case "dead":
       return "dead";
     default:

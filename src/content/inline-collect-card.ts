@@ -1,3 +1,4 @@
+import { retryStatus } from "../viewmodel/inline-card";
 import { modeThemes, tokens } from "../ui/tokens";
 import type { FolderMode } from "../state/types";
 import type { CardTopicLine } from "../viewmodel/topic-discourse";
@@ -81,7 +82,7 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
   if (vm.phase === "failed") { status = `<span class="bad">抓取失敗</span>`; dot = "fail"; }
   else if (vm.phase === "running" || vm.phase === "queued") {
     const eta = vm.eta ? ` · <span data-dlens-eta="${esc(vm.eta.from)}" data-dlens-eta-sec="${vm.eta.seconds}">${formatEta(vm.eta.from, vm.eta.seconds, now)}</span>` : "";
-    status = vm.phase === "running" ? `抓取中${eta}` : `排隊${vm.eta?.ahead ? ` · 前面 ${vm.eta.ahead} 篇` : ""}${eta}`;
+    status = vm.phase === "running" ? `抓取中${eta}` : `排隊中${vm.eta?.ahead ? ` · 前面 ${vm.eta.ahead} 篇` : ""}${eta}`;
     dot = vm.phase === "running" ? "live" : "idle";
   }
   else if (vm.phase === "saved") status = isRead ? "未抓取留言" : vm.mode === "archive" ? "已放好" : "已加入";
@@ -90,11 +91,14 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
     if (vm.analysisPending) { status += " · 分群整理中"; dot = "live"; }
     else if (vm.ai?.state === "running") { status += " · AI 整理中"; dot = "live"; }
   }
+  if (vm.retry) status = esc(retryStatus(vm));
   const tag = vm.ai?.state === "no-key" ? `<button class="tag" data-dlens-act="ai-key" title="${esc(vm.ai.error ?? "")}">未接 AI</button>` : "";
   const head = `<div class="head"><span class="dt ${dot}"></span><span class="nm">${esc(vm.sessionName)}</span><span>· ${status}</span>${tag}<button class="x" data-dlens-act="close" aria-label="收起">×</button></div>`;
   const topicMarkup = topicLineHtml(motion.topicLine, !!motion.naming);
   let body = topicMarkup + peekHtml(vm.peek);
-  if (vm.phase === "failed") body += `<p class="note">${esc(vm.error ?? "")}</p><div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
+  if (vm.error) body += `<p class="note" title="${esc(vm.rawError ?? "")}">${esc(vm.error)}</p>`;
+  if (vm.canCancel) body += `<div class="acts"><button class="btn" data-dlens-act="cancel">取消</button></div>`;
+  if (vm.phase === "failed") body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">重試</button></div>`;
   else if (vm.phase === "saved" && isRead) body += `<div class="acts"><button class="btn primary" data-dlens-act="crawl">抓取留言</button></div>`;
   else if (vm.phase === "done" && vm.few) body = topicMarkup + `<p class="note">只有 ${vm.few.length} 則留言，未夠歸納，全部列出：</p>${vm.few.map((q) => `<div class="reply">${esc(q.text)}<cite>${cite(q)}</cite></div>`).join("")}`;
   else if (vm.phase === "done" && vm.entries.length) {
@@ -102,9 +106,9 @@ export function renderInlineCard(vm: InlineCardViewModel, open: InlineCardEntryK
       const color = c.entryColors[e.key];
       return `<button class="entry${e.key === open ? " on" : ""}" style="--ec:${color}" role="tab" aria-selected="${e.key === open}" aria-expanded="${e.key === open}" data-dlens-lens="${e.key}"><span class="q"><span class="ei">${ICON[e.key]}</span>${esc(e.label)}</span><span class="f">${e.mark ? `<em>${esc(e.mark)}</em>` : ""}${esc(e.finding)}</span></button>`;
     }).join("")}</div>${open && vm.answers[open] ? `<div class="answer" style="--acc:${c.entryColors[open]}">${answerHtml(vm.answers[open]!)}</div>` : ""}`;
-    if (vm.ai?.state === "failed") body += `<p class="note">AI 整理失敗：${esc(vm.ai.error ?? "原因不明")}</p><div class="acts"><button class="btn" data-dlens-act="ai-retry">再整理</button></div>`;
+    if (vm.ai?.state === "failed") body += `<p class="note" title="${esc(vm.ai.error ?? "")}">AI 整理失敗</p><div class="acts"><button class="btn" data-dlens-act="ai-retry">再整理</button></div>`;
   }
-  const foot = vm.mode === "topic"
+  const foot = vm.phase !== "done" ? `<div class="foot"><button class="ln" data-dlens-act="reader">側欄 →</button></div>` : vm.mode === "topic"
     ? `<div class="foot"><button class="btn primary" data-dlens-act="reader"${open ? ` data-reader-lens="${open}"` : ""}>側欄睇全部 →</button></div>`
     : `<div class="foot">${vm.mode === "archive" || vm.mode === "pr-evidence" ? `<button class="ln" data-dlens-act="move">移動</button>` : ""}<button class="ln open" data-dlens-act="open">開啟${vm.mode === "pr-evidence" ? "活動" : "工作區"} ↗</button></div>`;
   return `<div class="dlens-card${motion.enter ? " enter" : ""}${motion.fresh ? " fresh" : ""}${motion.swap ? " swap" : ""}" style="--acc:${accent(vm.mode)}">${head}${body}${foot}</div>`;
@@ -115,8 +119,8 @@ export function renderInlineSaveLine(line: InlineSaveLine, expanded: boolean, gl
   const compass = svg('<circle cx="12" cy="12" r="9"/><path d="m16 8-3 5-5 3 3-5z"/>');
   return `<div class="dlens-save-line${glow ? " return-glow" : ""}" style="--acc:${accent(mode)}">
     ${mode === "product" ? svg('<path d="m12 3 9 9-9 9-9-9z"/>') : compass}<span class="save-dest" title="${esc(line.destination)}">${esc(line.destination)}</span>
-    <span class="save-status">${line.busy ? '<i class="crawl-arc" aria-label="讀緊留言"></i>' : ""}<span class="save-text" title="${esc(line.status)}">${esc(line.status)}</span>
-    ${mode === "product" ? `<button data-dlens-act="reader">側欄 →</button>${line.retry ? '<button data-dlens-act="crawl">重試</button>' : ""}` : line.ready ? `<button data-dlens-act="toggle-card" aria-expanded="${expanded}">${expanded ? "收起 ▴" : "打開 ▾"}</button>` : line.retry ? '<button data-dlens-act="crawl">重試</button>' : ""}</span></div>`;
+    <span class="save-status">${line.busy ? '<i class="crawl-arc" aria-label="讀緊留言"></i>' : ""}<span class="save-text" title="${esc(line.rawError ?? line.status)}">${esc(line.status)}</span>
+    ${line.canCancel ? '<button data-dlens-act="cancel">取消</button>' : ""}${mode === "product" || !line.ready ? `<button data-dlens-act="reader">側欄 →</button>${line.retry ? '<button data-dlens-act="crawl">重試</button>' : ""}` : line.ready ? `<button data-dlens-act="toggle-card" aria-expanded="${expanded}">${expanded ? "收起 ▴" : "打開 ▾"}</button>` : line.retry ? '<button data-dlens-act="crawl">重試</button>' : ""}</span></div>`;
 }
 
 export const DLENS_INLINE_CARD_CSS = `

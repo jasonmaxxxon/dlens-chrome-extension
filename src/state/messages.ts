@@ -25,7 +25,7 @@ export type ExtensionMessagePayload =
   | { type: "settings/init-product-profile"; description: string }
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
-  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string }
+  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string; settingsSection?: "ai" }
   | { type: "sidepanel/take-workspace-open" }
   | { type: "deep-reading/run"; itemId: string }
   | { type: "topic-reading/run"; topicId: string }
@@ -52,6 +52,7 @@ export type ExtensionMessagePayload =
   | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-selected"; target: SessionItemActionTarget }
   | { type: "session/queue-all-pending"; target: SessionActionTarget }
+  | { type: "session/cancel-job"; sessionId: string; itemId: string }
   | { type: "session/refresh-item"; sessionId: string; itemId: string }
   | { type: "session/refresh-selected"; target: SessionItemActionTarget }
   | { type: "session/refresh-all"; target: SessionActionTarget }
@@ -115,6 +116,8 @@ export type ExtensionSuccessResponse = {
   capture?: CaptureSnapshot;
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
+  settingsSection?: "ai";
+  cancelStatus?: "cancelled" | "running" | "unsupported";
   readerItemId?: string;
   readerLens?: string;
   deepReading?: DeepReadingRecord;

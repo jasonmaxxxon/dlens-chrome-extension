@@ -74,20 +74,43 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const repaintCard = (identity: string) => injection?.entries().filter((entry) => entry.identity === identity).forEach(renderCard);
   // A crawl request that never reached a job leaves the item 「saved」; the card says why instead of staying silent.
   const startErrors = new Map<string, string>();
+  const submitting = new Set<string>();
+  let cancelSupported = true;
+  const cancelling = new Set<string>();
+  async function cancel(destination: InlineCollectSavedPost) {
+    if (cancelling.has(destination.itemId)) return;
+    cancelling.add(destination.itemId);
+    try {
+      const response = await send({ type: "session/cancel-job", sessionId: destination.sessionId, itemId: destination.itemId });
+      if (!response.ok) wheel.showToast("處理失敗。請稍後再試。");
+      else if (response.cancelStatus === "unsupported") cancelSupported = false;
+    } catch { wheel.showToast("處理失敗。請稍後再試。"); }
+    finally {
+      cancelling.delete(destination.itemId);
+      injection?.entries().forEach(renderCard);
+    }
+  }
   function crawl(destination: InlineCollectSavedPost) {
+    if (submitting.has(destination.postKey)) return;
+    submitting.add(destination.postKey);
     const fail = (reason: string) => {
+      submitting.delete(destination.postKey);
       startErrors.set(destination.postKey, reason);
       repaintCard(destination.postKey);
       wheel.showToast("未能開始抓取，請檢查 DLens 後端。");
     };
+    const issuedAt = storageRevision;
     startErrors.delete(destination.postKey);
     repaintCard(destination.postKey);
     void (send({ type: "session/queue-items-and-start-processing", sessionId: destination.sessionId, itemIds: [destination.itemId] }) as Promise<QueueItemsAndStartProcessingResponse>)
       .then((response) => {
+        submitting.delete(destination.postKey);
+        if (response.ok && response.snapshot && issuedAt === storageRevision) global = response.snapshot.global;
         if (!response.ok) fail(response.error || "後端拒絕了抓取請求。");
         else if (!response.queuedItemIds.length) fail("後端未能建立抓取工作，請確認後端和資料庫已連上。");
         // The job exists, so this is not a failed crawl; nothing here retries the worker start, so the copy promises nothing.
         else if (response.processingError) wheel.showToast("已排隊，但未能確認後端開始處理。請勿重複建單。");
+        repaintCard(destination.postKey);
       }, () => fail("未能連上 DLens 背景程式。"));
   }
   // 1-second peek: the post page's own first replies, fetched once per post while its crawl is pending.
@@ -164,12 +187,13 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       queue: global?.sessions.flatMap((session) => session.items) ?? [],
       peek: peeks.get(post.identity),
       startError: startErrors.get(post.identity) ?? null,
+      submitting: submitting.has(post.identity), cancelSupported,
       ai: aiOf(item),
       now: Date.now()
     });
     // A read 觀眾反應 card asks the background for its AI pass once per capture (after the quant clusters land); the result arrives through storage.
     if (vm.phase === "done" && vm.mode === "topic" && vm.entries.length && !vm.ai && !vm.analysisPending) ensureReading(destination, item.id, item.latestCapture?.id ?? "", false);
-    const line = destination.mode === "product" ? buildProductSaveLine(item,productAnalysis(destination.sessionId,item.id),Date.now(),savedClocks.get(post.identity) ?? null,peeks.get(post.identity),startErrors.get(post.identity)) : buildInlineSaveLine(vm, Date.now(), savedClocks.get(post.identity) ?? null, topicNameOf(item.id));
+    const line = destination.mode === "product" ? buildProductSaveLine(item,productAnalysis(destination.sessionId,item.id),Date.now(),savedClocks.get(post.identity) ?? null,peeks.get(post.identity),startErrors.get(post.identity), { submitting: submitting.has(post.identity), cancelSupported, queue: global?.sessions.flatMap(s => s.items) }) : buildInlineSaveLine(vm, Date.now(), savedClocks.get(post.identity) ?? null, topicNameOf(item.id));
     const rect = slot.getBoundingClientRect();
     const returned = nextReturnGlow(returnGlows.get(post.identity), line.ready, rect.bottom > 0 && rect.top < window.innerHeight);
     returnGlows.set(post.identity, returned);
@@ -287,6 +311,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     else if (act === "reader") openReader(post.identity);
     else if (act === "move") wheel.openSticky(post);
     else if (act === "crawl" && destination) crawl(destination);
+    else if (act === "cancel" && destination) void cancel(destination);
     else if (act === "topic-pick") {
       const button = target!.closest<HTMLElement>("[data-dlens-act]")!;
       if (button.dataset.signalId && button.dataset.topicId) {
@@ -302,7 +327,9 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
       void send({ type: "inline/in-view", postKey: post.identity }).catch(() => undefined);
       openReader(post.identity);
     }
-    else if (act === "ai-key") wheel.showToast(`${keyGap() ?? "背景判斷未有可用的 AI key"}。到 DLens 側欄 ⋯ → 設定 填好並儲存後，這張卡會自動整理。`);
+    else if (act === "ai-key" && destination) {
+      void send({ type: "sidepanel/open", sessionId: destination.sessionId, settingsSection: "ai" }).catch(() => wheel.showToast("未能開啟工作區，請再試。"));
+    }
     else if (act === "ai-retry" && destination) {
       const item = itemOf(destination);
       if (item) ensureReading(destination, item.id, item.latestCapture?.id ?? "", true);
