@@ -7,7 +7,7 @@ import { TopicDiscourseView, type TopicDiscourseCommand } from '../src/ui/TopicD
 import { buildTopicDiscourseViewModel, EMPTY_DISCOURSE_UI, topicSheetCommand, questionEditCommand, toggleDiscourseFrame, discourseReaderTarget } from '../src/viewmodel/topic-discourse.ts';
 import type { SessionItem, Signal, Topic } from '../src/state/types.ts';
 const topics=[{id:'t',sessionId:'s',name:'Codex',updatedAt:'2026-10-14',context:{researchQuestion:'點用？'}}] as Topic[];
-const item=(id:string)=>({id,status:'succeeded',savedAt:'2026-10-14',descriptor:{author_hint:id,post_url:`https://threads.net/@${id}/post/${id}`,text_snippet:'Codex 好用',captured_at:'2026-10-14'},latestCapture:{id:`c-${id}`,analysis:{status:'succeeded',clusters:[{cluster_key:0,keywords:[id],size_share:1}]},result:{comments:[]}}}) as unknown as SessionItem;
+const item=(id:string)=>({id,status:'succeeded',savedAt:'2026-10-14',descriptor:{author_hint:id,post_url:`https://threads.net/@${id}/post/${id}`,text_snippet:'Codex 好用',captured_at:'2026-10-14'},latestCapture:{id:`c-${id}`,analysis:{status:'succeeded',source_comment_count:1,clusters:[{cluster_key:0,keywords:[id],size_share:1,comment_count:1,member_comment_ids:[`reply-${id}`]}]},result:{canonical_post:{author:id,post_id:id},comments:[{comment_id:`reply-${id}`,author:`fan-${id}`,text:`觀眾對 ${id} 的原句`,like_count:1,parent_comment_id:id}]}}}) as unknown as SessionItem;
 const items=[item('a'),item('b'),item('inbox')];
 const signals=items.map(i=>({id:`s-${i.id}`,sessionId:'s',itemId:i.id,topicId:i.id==='inbox'?undefined:'t',inboxStatus:i.id==='inbox'?'unprocessed':'assigned',capturedAt:'2026-10-14'})) as Signal[];
 const model=(selectedTopicId:string|null)=>buildTopicDiscourseViewModel({topics,signals,items,selectedTopicId,inViewPostKey:'threads-post:a',now:Date.parse('2026-10-14T10:00:00Z')});
@@ -48,10 +48,10 @@ test('home row body opens reader, menu owns move/delete and chips assign; topic 
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-suggestion]')!.click());assert.deepEqual(commands.at(-1),{kind:'assign',signalId:'s-inbox',topicId:'t'});
   await act(async()=>root.render(<TopicDiscourseView viewModel={model('t')} onCommand={c=>commands.push(c)}/>));
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-post]')!.click());assert.deepEqual(commands.at(-1),discourseReaderTarget('a',{id:'t',name:'Codex'}));
-  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="a"] button')!.click());
-  assert.equal(host.querySelector('[data-discourse-frame="a"] button')!.getAttribute('aria-expanded'),'true');
-  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="b"] button')!.click());
-  assert.equal(host.querySelector('[data-discourse-frame="a"] button')!.getAttribute('aria-expanded'),'false');
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="觀眾對 a 的原句"] button')!.click());
+  assert.equal(host.querySelector('[data-discourse-frame="觀眾對 a 的原句"] button')!.getAttribute('aria-expanded'),'true');
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="觀眾對 b 的原句"] button')!.click());
+  assert.equal(host.querySelector('[data-discourse-frame="觀眾對 a 的原句"] button')!.getAttribute('aria-expanded'),'false');
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-question-edit]')!.click());
   assert.ok(host.querySelector('input[data-discourse-question-input]'));
   const input=host.querySelector<HTMLInputElement>('[data-discourse-question-input]')!;
@@ -77,12 +77,12 @@ test('controlled topic disclosures survive replacing the page with a reader',asy
  function Harness(){const [state,setState]=React.useState(EMPTY_DISCOURSE_UI),[reader,setReader]=React.useState(false);return reader?<button data-reader-return onClick={()=>setReader(false)}>‹ Codex</button>:<TopicDiscourseView viewModel={model('t')} uiState={state} onUiStateChange={setState} onCommand={c=>{if(c.kind==='open-reader')setReader(true);}}/>;}
  try{
   await act(async()=>root.render(<Harness/>));
-  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="a"] button')!.click());
+  await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-frame="觀眾對 a 的原句"] button')!.click());
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-more]')!.click());
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-discourse-post]')!.click());
   assert.ok(host.querySelector('[data-reader-return]'));
   await act(async()=>host.querySelector<HTMLButtonElement>('[data-reader-return]')!.click());
-  assert.equal(host.querySelector('[data-discourse-frame="a"] button')!.getAttribute('aria-expanded'),'true');
+  assert.equal(host.querySelector('[data-discourse-frame="觀眾對 a 的原句"] button')!.getAttribute('aria-expanded'),'true');
   assert.equal(host.querySelector('[data-discourse-more]')!.getAttribute('aria-expanded'),'true');
  }finally{await act(async()=>root.unmount());Object.assign(globalThis,prior);dom.window.close();}
 });

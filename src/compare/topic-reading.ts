@@ -4,8 +4,10 @@ import type { SessionItem, Topic } from '../state/types.ts';
 import type { InlineReadingRecord } from './inline-reading-storage.ts';
 import type { DeepReadingRecord } from './deep-reading-storage.ts';
 import { DEEP_READING_PROMPT_VERSION } from './deep-reading.ts';
-import { INLINE_READING_PROMPT_VERSION, readCrawlComments, readOpHandle } from './inline-reading.ts';
-export const TOPIC_READING_PROMPT_VERSION = 'v3';
+import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility } from './comment-eligibility.ts';
+import { readClusterReadings } from './cluster-reading.ts';
+import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash, readOpHandle } from './inline-reading.ts';
+export const TOPIC_READING_PROMPT_VERSION = 'v4';
 export const TOPIC_READING_BUDGET_VERSION = 'bounded-packet-v1';
 /** Whole serialized input, including the ref catalog, is bounded to 48,000 UTF-16 chars.
  * Excludes local post-set signature and topic id. Replies/summaries shrink fairly across all posts
@@ -24,16 +26,39 @@ export function buildTopicReadingInput(topic:Topic,items:SessionItem[],inline:Re
  for(const item of [...items].sort((a,b)=>a.id.localeCompare(b.id))) {
   if(!item.latestCapture?.id)continue;
   const captureId=item.latestCapture.id,ref=`p${input.posts.length+1}`,author=clean(readOpHandle(item),80);
-  const ir=inline[item.id];const reading=ir?.status==='complete' && ir.captureId===captureId && ir.reading.promptVersion===INLINE_READING_PROMPT_VERSION ? ir.reading : null;
-  const dr=deep[item.id];const takeaway=dr?.status==='complete' && dr.captureId===captureId && dr.promptVersion===DEEP_READING_PROMPT_VERSION ? clean(dr.reading.takeaway,240) : '';
-  const audience=reading ? {gist:clean(reading.gist,240),clusters:(item.latestCapture.analysis?.clusters ?? []).slice(0,12).map(c=>({name:clean(reading.clusterNames[String(c.cluster_key)] || c.keywords?.join('、'),80),pct:Math.round(c.size_share*100)})),methods:reading.methods.slice(0,6).map(m=>({name:clean(m.name,100),fit:clean(m.fit,160)})),split:reading.split.sides.slice(0,2).map(s=>({claim:clean(s.claim,160),why:clean(s.why,160)})),asks:clean(reading.find.ask,240)} : null;
-  const replies=readCrawlComments(item).sort((a,b)=>(b.likes ?? 0)-(a.likes ?? 0) || a.id.localeCompare(b.id)).slice(0,5).map((r,i)=>({ref:`${ref}.r${i+1}`,commentId:r.id,author:clean(r.author,80),text:clean(r.text,600),likes:r.likes}));
-  const post:TopicReadingPost={ref,author,text:clean(item.latestCapture.result?.canonical_post?.text,280) || clean(item.descriptor.text_snippet,280),audience,takeaway,replies};
-  input.coverage.bodyCharacters.captured+=(typeof item.latestCapture.result?.canonical_post?.text==='string' && item.latestCapture.result.canonical_post.text.trim() ? item.latestCapture.result.canonical_post.text : item.descriptor.text_snippet || '').length;
-  input.coverage.replyQuotes.captured+=readCrawlComments(item).length;
-  input.coverage.summaries.available+=Number(!!audience)+Number(!!takeaway);
-  const refs:TopicReadingRef[]=[{ref,itemId:item.id,captureId,author},...replies.map(r=>({ref:r.ref,itemId:item.id,captureId,author:r.author,commentId:r.commentId}))];
+  const eligibility=readCommentEligibility(item);
+  const currentInline=buildInlineReadingInput(item);
+  const ir=inline[item.id];
+  const reading=ir?.status==='complete' && ir.captureId===captureId &&
+   ir.reading.promptVersion===INLINE_READING_PROMPT_VERSION &&
+   ir.reading.eligibilityVersion===COMMENT_ELIGIBILITY_VERSION && currentInline &&
+   ir.reading.inputHash===inlineReadingInputHash(currentInline) ? ir.reading : null;
+  const dirty=Object.values(eligibility.excluded).some(count=>count>0);
+  const dr=deep[item.id];
+  const takeaway=!dirty && dr?.status==='complete' && dr.captureId===captureId &&
+   dr.promptVersion===DEEP_READING_PROMPT_VERSION ? clean(dr.reading.takeaway,240) : '';
+  const clusters=readClusterReadings(item,reading?.clusterNames ?? {}).filter(cluster=>cluster.membership==='complete');
+  const audience=reading ? {
+   gist:clean(reading.gist,240),
+   clusters:clusters.map(cluster=>({name:clean(cluster.label,80),
+    ...(cluster.count!==null ? {count:cluster.count} : {}),
+    ...(cluster.count!==null && cluster.count>=15 && cluster.measurementLabel.endsWith('%') ? {pct:cluster.pct} : {})})),
+   methods:reading.methods.slice(0,6).map(method=>({name:clean(method.name,100),fit:clean(method.fit,160)})),
+   split:reading.split.sides.slice(0,2).map(side=>({claim:clean(side.claim,160),why:clean(side.why,160)})),
+   asks:clean(reading.find.ask,240)
+  } : null;
+  const replies=[...eligibility.audience].sort((a,b)=>(b.likes ?? 0)-(a.likes ?? 0) || a.id.localeCompare(b.id))
+   .slice(0,5).map((reply,index)=>({ref:ref+'.r'+(index+1),commentId:reply.id,
+    author:clean(reply.author,80),text:clean(reply.text,600),likes:reply.likes}));
+  const post:TopicReadingPost={ref,author,text:clean(item.latestCapture.result?.canonical_post?.text,280) ||
+   clean(item.descriptor.text_snippet,280),audience,takeaway,replies};
   if(!post.text){input.omittedPostCount++;continue;}
+  input.coverage.bodyCharacters.captured+=(typeof item.latestCapture.result?.canonical_post?.text==='string' &&
+   item.latestCapture.result.canonical_post.text.trim() ? item.latestCapture.result.canonical_post.text : item.descriptor.text_snippet || '').length;
+  input.coverage.replyQuotes.captured+=eligibility.audience.length;
+  input.coverage.summaries.available+=Number(!!audience)+Number(!!takeaway);
+  const refs:TopicReadingRef[]=[{ref,itemId:item.id,captureId,author},
+   ...replies.map(reply=>({ref:reply.ref,itemId:item.id,captureId,author:reply.author,commentId:reply.commentId}))];
   input.posts.push(post);input.refs.push(...refs);
  }
  const packetSize=()=>JSON.stringify(topicReadingPacket(input)).length;
@@ -60,7 +85,7 @@ export function buildTopicReadingInput(topic:Topic,items:SessionItem[],inline:Re
 }
 /** Stable content identity of the actual reduced packet, independent of run timestamps/cost. */
 export function topicReadingInputHash(input:TopicReadingInput):string {
- const serialized=JSON.stringify({packet:topicReadingPacket(input),promptVersion:TOPIC_READING_PROMPT_VERSION,budgetVersion:input.budgetVersion});
+ const serialized=JSON.stringify({packet:topicReadingPacket(input),promptVersion:TOPIC_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,budgetVersion:input.budgetVersion});
  let hash=14695981039346656037n;
  for(let i=0;i<serialized.length;i++)hash=BigInt.asUintN(64,(hash ^ BigInt(serialized.charCodeAt(i)))*1099511628211n);
  return hash.toString(16).padStart(16,'0');

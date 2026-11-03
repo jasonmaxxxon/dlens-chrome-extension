@@ -2,6 +2,9 @@ import { clipReadingCopy, readingLabel } from "./reading-copy.ts";
 import type { ReadingCoverage } from './reading-coverage.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, classifyPostKind, renderReplyThreads, type ThreadReply, type ThreadTerm, type PostKind } from "./reply-thread.ts";
 import type { SessionItem } from "../state/types.ts";
+import { COMMENT_ELIGIBILITY_VERSION, cleanEligibilityText, normalizeEligibilityHandle, readCommentEligibility, readEligibilityOp } from "./comment-eligibility.ts";
+import { readClusterReadings } from "./cluster-reading.ts";
+import type { CommentQualityAssessment } from "./comment-quality.ts";
 
 /**
  * The AI pass behind the 觀眾反應 card: one typed answer per question (大家點睇 / 有咩做法 /
@@ -9,7 +12,7 @@ import type { SessionItem } from "../state/types.ts";
  * the model only names clusters, words methods and disagreements, and points at real replies.
  */
 // v3: author context, reply links, character-budget selection and deterministic technical terms.
-export const INLINE_READING_PROMPT_VERSION = "v4";
+export const INLINE_READING_PROMPT_VERSION = "v5";
 
 export interface CrawlComment {
   id: string;
@@ -21,9 +24,14 @@ export interface CrawlComment {
   likes: number | null;
   time: string | null;
   replies: number | null;
+  aliases?: string[];
+  parentConflict?: boolean;
+  quality?: CommentQualityAssessment;
 }
 export interface InlineReadingQuote { commentId: string; text: string; author: string; likes: number | null; isAuthor?: boolean }
 export interface InlineReading {
+  inputHash?: string;
+  eligibilityVersion?: string;
   coverage?:ReadingCoverage;
   itemId: string;
   captureId: string;
@@ -40,6 +48,8 @@ export interface InlineReading {
   split: { agree: string; sides: { claim: string; why: string; quote: InlineReadingQuote }[] };
 }
 export interface InlineReadingInput {
+  inputHash?: string;
+  eligibilityVersion?: string;
   coverage?:ReadingCoverage;
   itemId: string;
   captureId: string;
@@ -47,33 +57,21 @@ export interface InlineReadingInput {
   catalog: ThreadReply[];
   terms: ThreadTerm[];
   postKind: PostKind;
-  clusters: { key: number; pct: number; keywords: string[]; quotes: string[] }[];
+  clusters: { key: number; pct?: number; count?: number; membership?: "complete" | "limited"; keywords: string[]; quotes: string[] }[];
 }
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-export const normalizeHandle = (value: unknown) => str(value).replace(/^@/, "").trim().toLowerCase();
+export const normalizeHandle = normalizeEligibilityHandle;
 /** The crawl sometimes keeps Threads' own reply box text ("Reply to someone...") as a line of the reply. */
-const THREADS_CHROME_LINE = /^(?:reply to|回覆|回复)\s+@?[\p{L}\p{N}._]+\s*(?:…|\.{3})?$/iu;
-export const cleanCrawlText = (value: unknown): string =>
-  str(value).split("\n").filter((line) => !THREADS_CHROME_LINE.test(line.trim())).join("\n").trim();
+export const cleanCrawlText = cleanEligibilityText;
 
 export function readCrawlComments(item: SessionItem): CrawlComment[] {
-  return (item.latestCapture?.result?.comments ?? []).map((c) => ({
-    id: str(c.comment_id) || str(c.source_comment_id),
-    parent: str(c.parent_comment_id) || null,
-    sourceId: str(c.source_comment_id) || undefined,
-    parentSourceId: str(c.parent_source_comment_id) || null,
-    author: str(c.author),
-    text: cleanCrawlText(c.text),
-    likes: num(c.like_count),
-    time: str(c.time_token) || null,
-    replies: num(c.reply_count)
-  })).filter((c) => c.text.length > 0);
+  return readCommentEligibility(item).all;
 }
 
 export function readOpHandle(item: SessionItem): string {
-  return normalizeHandle(item.latestCapture?.result?.canonical_post?.author ?? item.descriptor.author_hint);
+  return readEligibilityOp(item);
 }
 
 export function buildInlineReadingInput(item: SessionItem): InlineReadingInput | null {
@@ -81,32 +79,64 @@ export function buildInlineReadingInput(item: SessionItem): InlineReadingInput |
   if (!capture?.id) return null;
   const op = readOpHandle(item);
   const postText = str(capture.result?.canonical_post?.text).trim() || str(item.descriptor.text_snippet);
-  const replies = buildReplyThreads(readCrawlComments(item), op);
+  const eligibility = readCommentEligibility(item);
+  const contextIds = new Set([...eligibility.audience, ...eligibility.authorReplies].map(row => row.id));
+  const replies = buildReplyThreads(eligibility.all.filter(row => contextIds.has(row.id)), op);
   const terms = scanThreadTerms(postText, replies);
   const catalog = selectReplyThreads(replies, terms);
   if (!catalog.length) return null;
   const evidence = capture.analysis?.evidence ?? [];
+  const audienceIds = new Set(eligibility.audience.map(row => row.id));
+  const clusterReadings = new Map(readClusterReadings(item).map(cluster => [cluster.clusterKey, cluster]));
+  const clusterQuotedIds = new Set<string>();
   const input:InlineReadingInput = {
     itemId: item.id,
     captureId: capture.id,
+    eligibilityVersion: COMMENT_ELIGIBILITY_VERSION,
     postText,
     coverage:{posts:{included:1,omitted:0,captured:1},bodyCharacters:{sent:postText.length,captured:postText.length},replyQuotes:{sent:catalog.length,captured:replies.length},summaries:{sent:0,available:0},reductions:replies.length>catalog.length?[{kind:'replies-selected'}]:[]},
     terms,
     postKind: classifyPostKind(terms),
     catalog,
-    clusters: [...(capture.analysis?.clusters ?? [])].sort((a, b) => b.size_share - a.size_share).slice(0, 4).map((c) => ({
-      key: c.cluster_key,
-      pct: Math.round(c.size_share * 100),
-      keywords: (c.keywords ?? []).slice(0, 5),
-      quotes: [...new Set((evidence.find((e) => e.cluster_key === c.cluster_key)?.comments ?? []).map((e) => str(e.text).replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 5)
-    }))
+    clusters: [...(capture.analysis?.clusters ?? [])].sort((a, b) => b.size_share - a.size_share).slice(0, 4).flatMap(c => {
+      const projection = clusterReadings.get(c.cluster_key);
+      const samples = projection?.membership === "complete" ? projection.members :
+        (evidence.find(row => row.cluster_key === c.cluster_key)?.comments ?? []).flatMap(row => {
+          const comment = eligibility.byId.get(row.comment_id);
+          return comment && audienceIds.has(comment.id) ? [comment] : [];
+        });
+      const uniqueSamples = new Map<string, typeof samples[number]>();
+      for (const sample of samples) {
+        const quote = sample.text.replace(/\s+/g, " ").trim();
+        if (quote && !uniqueSamples.has(quote)) uniqueSamples.set(quote, sample);
+      }
+      const selectedSamples = [...uniqueSamples.entries()].slice(0, 5);
+      const quotes = selectedSamples.map(([quote]) => quote);
+      if (!quotes.length) return [];
+      for (const [, sample] of selectedSamples) clusterQuotedIds.add(sample.id);
+      return [{ key: c.cluster_key, membership: projection?.membership ?? "limited",
+        ...(projection?.membership === "complete" && projection.count !== null ? { count: projection.count } : {}),
+        ...(projection?.count !== null && (projection?.count ?? 0) >= 15 && projection?.measurementLabel.endsWith("%") ? { pct: projection.pct } : {}),
+        keywords: projection?.membership === "complete" ? (c.keywords ?? []).slice(0, 5) : [], quotes }];
+    })
   };
   // Cluster samples are also sent verbatim; count their additional source rows, not just the main catalog.
   const quoted=new Set(catalog.map(c=>c.id));
-  for(const c of replies)if(input.clusters.some(cluster=>cluster.quotes.some(q=>q===c.text.replace(/\s+/g,' ').trim())))quoted.add(c.id);
+  for(const id of clusterQuotedIds)quoted.add(id);
   input.coverage!.replyQuotes.sent=quoted.size;
   if(quoted.size===replies.length)input.coverage!.reductions=[];
+  input.inputHash = inlineReadingInputHash(input);
   return input;
+}
+
+export function inlineReadingInputHash(input: InlineReadingInput): string {
+  const serialized = JSON.stringify({ promptVersion: INLINE_READING_PROMPT_VERSION,
+    eligibilityVersion: input.eligibilityVersion ?? COMMENT_ELIGIBILITY_VERSION,
+    itemId: input.itemId, captureId: input.captureId, postText: input.postText,
+    catalog: input.catalog, clusters: input.clusters, terms: input.terms, postKind: input.postKind, coverage: input.coverage });
+  let hash = 14695981039346656037n;
+  for (let index = 0; index < serialized.length; index++) hash = BigInt.asUintN(64, (hash ^ BigInt(serialized.charCodeAt(index))) * 1099511628211n);
+  return hash.toString(16).padStart(16, "0");
 }
 
 export const INLINE_READING_SYSTEM_PROMPT =
@@ -153,15 +183,15 @@ export function buildInlineReadingPrompt(input: InlineReadingInput): string {
     "",
     "[留言分群（由字詞統計得出，同一群未必同一意思；百分比是已讀留言的比例，不要改動）]",
     input.clusters.length
-      ? input.clusters.map((c) => `群 ${c.key}（${c.pct}%）關鍵詞：${c.keywords.join("、") || "無"}\n${c.quotes.map((q) => `  - ${q}`).join("\n") || "  （沒有樣本留言）"}`).join("\n")
+      ? input.clusters.map((c) => `群 ${c.key}（${c.pct !== undefined ? c.pct + "%" : c.count !== undefined ? "約 " + c.count + " 則" : "僅有部分樣本"}）關鍵詞：${c.keywords.join("、") || "無"}\n${c.quotes.map((q) => `  - ${q}`).join("\n") || "  （沒有樣本留言）"}`).join("\n")
       : "（未有分群）",
     "",
-    ...(input.postKind === "technical" ? ["[術語（帖子及全部留言的出現次數；不是人數或共識）]", input.terms.map(t => `${t.term} ×${t.count}`).join("、"), "技術帖的 gist 用淺白說話解釋觀眾反應，避免堆砌術語。", ""] : []),
+    ...(input.postKind === "technical" ? ["[術語（帖子及已納入留言的出現次數；不是人數或共識）]", input.terms.map(t => `${t.term} ×${t.count}`).join("、"), "技術帖的 gist 用淺白說話解釋觀眾反應，避免堆砌術語。", ""] : []),
     "[留言（保留討論次序；↳ 為回覆，ref 可能不連續）]",
     renderReplyThreads(input.catalog),
     "",
     "要求：",
-    "- [作者] 回覆用來解釋帖子、辨認哪些問題有人回覆，不是觀眾意見；不得主導 gist、find.split、split.agree 或 split.sides 的觀眾立場摘要。分群樣本也可能含作者，不能把作者當觀眾共識。相鄰推定不是確定回覆關係；有人回覆也不代表問題已解決。",
+    "- [作者] 回覆用來解釋帖子、辨認哪些問題有人回覆，不是觀眾意見；不得主導 gist、find.split、split.agree 或 split.sides 的觀眾立場摘要。分群樣本已排除作者；沒有完整成員的群組只供原句參考，不能推算比例或共識。相鄰推定不是確定回覆關係；有人回覆也不代表問題已解決。",
     `- gist：一句（${input.postKind === "technical" ? 60 : 40} 字內）說出觀眾整體反應，要具體，不要空話；如果大量留言是廣告或洗版，要直接講出來。`,
     "- find.method：14 字內，最常被提的做法；沒有就寫「未見可照做的方法」。",
     "- find.split：14 字內，主要分歧；沒有明顯分歧就寫「暫未見明顯分歧」。find.ask：16 字內，最值得注意的提問，優先選未獲回覆的問題；如選已有人回答的問題，明說已回答（相鄰推定只能說可能有人回覆）；沒有就寫「未見提問」。",
@@ -184,7 +214,7 @@ export function guardInlineAudienceReading(reading: InlineReading, catalog: Pick
   const sides = reading.split.sides.filter(side => roles.get(side.quote.commentId) === "reply");
   const insufficient = sides.length !== reading.split.sides.length && sides.length < 2;
   return { ...reading,
-    methods: reading.methods.map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" } })),
+    methods: reading.methods.filter(method => roles.get(method.quote.commentId) === "op" || roles.get(method.quote.commentId) === "reply").map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" } })),
     gist: insufficient && /一致|共識|全都|所有觀眾/.test(reading.gist) ? "未見足夠觀眾分歧" : reading.gist,
     find: insufficient ? { ...reading.find, split: "未見足夠觀眾分歧" } : reading.find,
     split: { agree: insufficient ? "未見足夠觀眾分歧" : reading.split.agree, sides: sides.length === 2 ? sides : [] }
@@ -236,6 +266,8 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
     itemId: input.itemId,
     captureId: input.captureId,
     coverage:input.coverage,
+    inputHash: input.inputHash ?? inlineReadingInputHash(input),
+    eligibilityVersion: input.eligibilityVersion ?? COMMENT_ELIGIBILITY_VERSION,
     promptVersion: INLINE_READING_PROMPT_VERSION,
     model,
     generatedAt,

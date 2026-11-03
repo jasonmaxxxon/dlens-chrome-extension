@@ -6,6 +6,8 @@ import { CollectionBrowser, type CollectionBrowserProps } from "../src/ui/Collec
 import { buildCollectionPosts } from "../src/viewmodel/collection-browser.ts";
 import { tokens } from "../src/ui/tokens.ts";
 import { capture, descriptor, item, session } from "./collection-browser.fixtures.ts";
+import { buildInlineReadingInput, inlineReadingInputHash, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
+import { COMMENT_ELIGIBILITY_VERSION } from "../src/compare/comment-eligibility.ts";
 
 async function mount(props: Partial<CollectionBrowserProps> = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: "https://dlens.test" });
@@ -189,14 +191,17 @@ test("collection search folds removed rows in place, survives rapid changes and 
 test("audience reader reuses four entries, horizontal evidence headers and topic chips", async () => {
   const comments = Array.from({ length: 12 }, (_, i) => ({ comment_id: `c${i}`, author: `fan${i}`, text: i === 3 ? "點樣用？" : `留言 ${i}`, like_count: i }));
   const saved = item("audience", { status: "succeeded", latestCapture: capture({}, {
-    analysis: { status: "succeeded", clusters: [{ cluster_key: 0, size_share: 1, like_share: 1, keywords: ["Codex"] }],
+    analysis: { status: "succeeded", source_comment_count: 12, clusters: [{ cluster_key: 0, size_share: 1, like_share: 1, keywords: ["Codex"],
+      member_comment_ids: comments.map(comment=>comment.comment_id), comment_count: 12, top_comment_id: "c11" }],
       evidence: [{ cluster_key: 0, comments: comments.slice(0, 3).map(c => ({ ...c, comment_id: c.comment_id })) }] },
     result: { ...capture().result!, comments }
   }) });
   const sessions = [session("topic-workspace", [saved], "topic")];
   const assign: Array<[string, string | null]> = [];
+  const inputHash = inlineReadingInputHash(buildInlineReadingInput(saved)!);
   const reading: import("../src/compare/inline-reading-storage.ts").InlineReadingRecord = { status: "complete", itemId: saved.id, captureId: "capture-1", reading: {
-    itemId: saved.id, captureId: "capture-1", promptVersion: "v2", model: "test", generatedAt: "", gist: "支持工具", find: { method: "試下", split: "未見分歧", ask: "用法" },
+    itemId: saved.id, captureId: "capture-1", promptVersion: INLINE_READING_PROMPT_VERSION, inputHash, eligibilityVersion: COMMENT_ELIGIBILITY_VERSION,
+    model: "test", generatedAt: "", gist: "支持工具", find: { method: "試下", split: "未見分歧", ask: "用法" },
     clusterNames: { "0": "支持" }, noiseClusters: [], methods: [], split: { agree: "同意", sides: [] }
   } };
   const h = await mount({ sessions, selectedKey: buildCollectionPosts(sessions)[0].key,
@@ -205,13 +210,13 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
     readings: { [saved.id]: reading }, onAssignTopic: (id, topicId) => assign.push([id, topicId]) });
   try {
     assert.deepEqual([...h.container.querySelectorAll("[data-reader-entry]")].map(e => e.getAttribute("data-reader-entry")), ["stance", "method", "split", "ask"]);
-    assert.match(h.container.querySelector("[data-reader-answer]")!.textContent!, /支持工具/);
+    assert.match(h.container.querySelector("[data-reader-answer]")!.textContent!, /支持.*約 12 則/);
     assert.equal(h.container.querySelector<HTMLDivElement>("[data-reader-entries]")!.style.gridTemplateColumns, "repeat(4,minmax(0,1fr))");
     assert.equal(h.container.querySelector("[data-reader-evidence-toggle]"),null);
     const header = h.container.querySelector<HTMLDivElement>("[data-reader-evidence-header]")!;
     assert.equal(header.style.display, "grid");
     assert.equal(header.children.length, 3);
-    assert.equal(header.textContent, "支持100%");
+    assert.equal(header.textContent, "支持約 12 則");
     assert.ok(h.container.querySelector("[data-reader-reply]"));
     await h.click('[data-reader-topic="t1"]');
     await h.click('[data-reader-topic=""]');
@@ -257,7 +262,7 @@ test('product reader uses four lens tabs, reply fallback and folded source',asyn
 });
 test('reader evidence is present initially and 再睇 expands just one group',async()=>{
  const comments=Array.from({length:30},(_,i)=>({comment_id:`r${i}`,author:'fan',text:`回覆${i}`,like_count:i}));
- const saved=item('audience',{status:'succeeded',latestCapture:capture({}, {result:{...capture().result!,comments},analysis:{status:'succeeded',clusters:[{cluster_key:0,size_share:.6,like_share:.6,keywords:['a']},{cluster_key:1,size_share:.4,like_share:.4,keywords:['b']}],evidence:[0,1].map(k=>({cluster_key:k,comments:comments.slice(k*15,k*15+15).map(c=>({...c,text:c.text}))}))}})});
+ const saved=item('audience',{status:'succeeded',latestCapture:capture({}, {result:{...capture().result!,comments},analysis:{status:'succeeded',source_comment_count:30,clusters:[0,1].map(k=>({cluster_key:k,size_share:.5,like_share:.5,keywords:[k===0?'a':'b'],comment_count:15,member_comment_ids:comments.slice(k*15,k*15+15).map(c=>c.comment_id)})),evidence:[0,1].map(k=>({cluster_key:k,comments:comments.slice(k*15,k*15+15).map(c=>({...c,text:c.text}))}))}})});
  const sessions=[session('topic',[saved],'topic')];const h=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key});
  try{
   const count=()=>[...h.container.querySelectorAll('[data-reader-evidence] section')].map(g=>g.querySelectorAll('[data-reader-reply]').length);

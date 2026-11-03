@@ -10,12 +10,13 @@ import { TopicReadingView } from '../src/ui/TopicReadingView.tsx';
 import { DeepReadingView } from '../src/ui/DeepReadingView.tsx';
 import { buildDeepReadingModel } from '../src/viewmodel/deep-reading.ts';
 import { createDefaultSettings } from '../src/state/types.ts';
-import { INLINE_READING_PROMPT_VERSION } from '../src/compare/inline-reading.ts';
+import { INLINE_READING_PROMPT_VERSION,buildInlineReadingInput,inlineReadingInputHash } from '../src/compare/inline-reading.ts';
+import {COMMENT_ELIGIBILITY_VERSION} from '../src/compare/comment-eligibility.ts';
 import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 const item:any={id:'i',status:'succeeded',descriptor:{text_snippet:'合成正文',author_hint:'op'},latestCapture:{id:'new',analysis:{status:'succeeded',clusters:[]},result:{canonical_post:{text:'合成正文',author:'op'},comments:[{comment_id:'r',author:'fan',text:'點樣測試？',like_count:1}]}}};
 const topic:any={id:'t',name:'合成話題',context:{researchQuestion:'點做？'}};
 const settings=createDefaultSettings();
-const quick=(gist:string,generatedAt='today'):any=>({i:{status:'complete',itemId:'i',captureId:'new',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,model:'quick',generatedAt,gist,clusterNames:{},methods:[],split:{sides:[]},find:{ask:'點測試？'}}}});
+const quick=(gist:string,generatedAt='today'):any=>({i:{status:'complete',itemId:'i',captureId:'new',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash:inlineReadingInputHash(buildInlineReadingInput(item)!),model:'quick',generatedAt,gist,clusterNames:{},methods:[],split:{sides:[]},find:{ask:'點測試？'}}}});
 function oldRecord():any {return {topicId:'t',signature:buildTopicReadingInput(topic,[item]).signature,question:'點做？',promptVersion:TOPIC_READING_PROMPT_VERSION,model:'gemini-3.8-flash',inputPostCount:1,estimatedCost:null,status:'complete',generatedAt:'today',reading:{answer:'合成答案。',points:[{text:'有方法。',refs:['p1']},{text:'仍未驗證。',refs:['p1.r1']}],gaps:[]},refs:buildTopicReadingInput(topic,[item]).refs};}
 test('same-prompt stored reading for previous capture requires new reading in the standalone reader',()=>{
  for(const status of ['complete','running','failed']) assert.equal(readerNeedsReading(item,{status,itemId:'i',captureId:'old',reading:{promptVersion:INLINE_READING_PROMPT_VERSION}} as any),true);
@@ -53,11 +54,13 @@ test('standalone panel ensures one reading per item/capture with no Threads card
  Object.assign(g,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement,IS_REACT_ACT_ENVIRONMENT:true,chrome:{runtime:{sendMessage:async(m:any)=>{calls.push(m);return {ok:true};}}}});
  const {createRoot}=await import('react-dom/client');const root=createRoot(document.getElementById('root')!);
  const old:any={status:'complete',itemId:'i',captureId:'old',reading:{promptVersion:INLINE_READING_PROMPT_VERSION}};
- function Harness({capture}:{capture:string}){useCollectionReaderLive({session:{id:'s',mode:'topic'},item:{...item,latestCapture:{...item.latestCapture,id:capture}}} as any,old);return null;}
+ function Harness({capture,text='點樣測試？'}:{capture:string;text?:string}){useCollectionReaderLive({session:{id:'s',mode:'topic'},item:{...item,latestCapture:{...item.latestCapture,id:capture,result:{...item.latestCapture.result,comments:[{...item.latestCapture.result.comments[0],text}]}}}} as any,old);return null;}
  try{
   await act(async()=>root.render(<Harness capture="new"/>));await act(async()=>root.render(<Harness capture="new"/>));
   assert.equal(calls.filter(c=>c.type==='inline-reading/ensure').length,1);
   await act(async()=>root.render(<Harness capture="newer"/>));assert.equal(calls.filter(c=>c.type==='inline-reading/ensure').length,2);
+  await act(async()=>root.render(<Harness capture="newer" text="有冇新做法？"/>));assert.equal(calls.filter(c=>c.type==='inline-reading/ensure').length,3);
+  await act(async()=>root.render(<Harness capture="newer" text="有冇新做法？"/>));assert.equal(calls.filter(c=>c.type==='inline-reading/ensure').length,3);
   assert.ok(calls.every(c=>c.itemId==='i' && c.sessionId==='s'));
  }finally{await act(async()=>root.unmount());keys.forEach((k,i)=>previous[i]?Object.defineProperty(g,k,previous[i]!):delete g[k]);dom.window.close();}
 });

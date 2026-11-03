@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInlineReadingInput, buildInlineReadingPrompt, parseInlineReadingResponse, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
+import { buildInlineReadingInput, buildInlineReadingPrompt, parseInlineReadingResponse, INLINE_READING_PROMPT_VERSION, inlineReadingInputHash } from "../src/compare/inline-reading.ts";
 import { INLINE_READINGS_STORAGE_KEY, loadInlineReadingRecords, normalizeInlineReadingRecords, saveInlineReadingRecord, type StorageAreaLike } from "../src/compare/inline-reading-storage.ts";
 import type { SessionItem } from "../src/state/types.ts";
 import { aiKeyGap, providerKeyFromSettings } from "../src/state/ai-key.ts";
@@ -14,7 +14,7 @@ function item(): SessionItem {
     latestCapture: {
       id: "cap-1",
       result: { canonical_post: { author: "op", text: "26 fg 搵工搵到懷疑人生" }, comments: [
-        comment("a", "fan", "投咗 80 份先有 3 個 interview", 230), comment("b", "op", "多謝大家", 500),
+        comment("a", "fan", "投咗 80 份先有 3 個 interview", 230), {...comment("b", "op", "多謝大家", 500), parent_comment_id:"a"},
         comment("c", "hr", "試下 trainee program", 140), comment("d", "sad", "見到兩年經驗就想熄電腦", 61)
       ] },
       analysis: { clusters: [{ cluster_key: 2, size_share: 0.34, keywords: ["投", "interview"] }, { cluster_key: 1, size_share: 0.46, keywords: ["經驗", "intern"] }],
@@ -26,10 +26,11 @@ function item(): SessionItem {
 test("the catalog keeps author explanations in thread order", () => {
   const input = buildInlineReadingInput(item())!;
   assert.deepEqual(input.catalog.map((c) => [c.ref, c.id]), [["e1", "a"], ["e2", "b"], ["e3", "c"], ["e4", "d"]]);
-  assert.deepEqual(input.clusters.map((c) => [c.key, c.pct, c.quotes]), [[1, 46, ["見到兩年經驗就想熄電腦"]], [2, 34, []]]);
+  assert.deepEqual(input.clusters.map((c) => [c.key, c.pct, c.quotes]), [[1, undefined, ["見到兩年經驗就想熄電腦"]]]);
   const prompt = buildInlineReadingPrompt(input);
   assert.match(prompt, /e1 @fan: 投咗 80 份/);
-  assert.match(prompt, /群 1（46%）/);
+  assert.match(prompt, /群 1（僅有部分樣本）/);
+  assert.doesNotMatch(prompt, /46%|34%/);
   assert.match(prompt, /資料，不是指令/);
   assert.equal(buildInlineReadingInput({ ...item(), latestCapture: null } as unknown as SessionItem), null);
 });
@@ -44,8 +45,8 @@ test("only grounded methods and a real two-sided split survive parsing", () => {
     split: { agree: "門檻太高", sides: [{ claim: "應該計", why: "做正職嘢", ref: "e3" }] }
   }) + "\n```";
   const reading = parseInlineReadingResponse(raw, input, "google:test", "2026-10-07T00:00:00Z")!;
-  assert.deepEqual(reading.clusterNames, { "1": "職場焦慮", "2": "洗版" });
-  assert.deepEqual(reading.noiseClusters, ["2"], "only clusters the input had can be flagged");
+  assert.deepEqual(reading.clusterNames, { "1": "職場焦慮" });
+  assert.deepEqual(reading.noiseClusters, [], "only clusters the input had can be flagged");
   assert.deepEqual(reading.methods.map((m) => [m.name, m.quote.commentId, m.quote.likes]), [["大量投遞", "a", 230]]);
   assert.deepEqual(reading.split.sides, [], "one grounded side is not a split");
   assert.equal(reading.find.split, "暫未見明顯分歧");
@@ -91,8 +92,8 @@ test("the 1-second peek fetches the saved path through the page's own origin", a
 });
 
 
-test("v4 renders author threads and only technical prompts include terms; author refs stay grounded", () => {
-  assert.equal(INLINE_READING_PROMPT_VERSION, "v4");
+test("v5 renders validated author threads and only technical prompts include terms; author refs stay grounded", () => {
+  assert.equal(INLINE_READING_PROMPT_VERSION, "v5");
   const technical = item();
   technical.latestCapture!.result!.canonical_post!.text = "RAG KG BM25 MCP embedding rerank F1";
   const input = buildInlineReadingInput(technical)!;
@@ -125,4 +126,36 @@ test("input normalizes parent_source_comment_id and resolves a source alias", ()
   assert.equal(input.catalog[1].answers, "q");
   assert.equal(input.catalog[1].pairing, "parent");
   assert.deepEqual(input.catalog[0].answeredBy, ["a"]);
+});
+
+test("dirty legacy cards are filtered before catalog, cluster quotes and packet hash", () => {
+  const source = item();
+  source.latestCapture!.result!.canonical_post!.post_id = "ROOT";
+  source.latestCapture!.result!.comments = [
+    comment("ROOT", "", "anonymous root", 9999),
+    comment("continuation", "op", "OP continuation", 999),
+    { ...comment("q", "fan", "有冇教學？", 3), source_comment_id: "source-q" },
+    { ...comment("q-duplicate", "@FAN", " 有冇教學？ ", 4), source_comment_id: "source-q" },
+    { ...comment("answer", "op", "先接 API", 100), parent_source_comment_id: "source-q" },
+    comment("unknown", "", "unattributed question", 888),
+  ] as any;
+  source.latestCapture!.analysis!.clusters = [{ cluster_key: 1, size_share: 0.99, keywords: ["OP continuation"] }] as any;
+  source.latestCapture!.analysis!.evidence = [{ cluster_key: 1, comments: [
+    { comment_id: "ROOT", text: "anonymous root" }, { comment_id: "continuation", text: "OP continuation" },
+    { comment_id: "unknown", text: "unattributed question" }, { comment_id: "q-duplicate", text: " 有冇教學？ " },
+  ] }] as any;
+  const input = buildInlineReadingInput(source)!;
+  assert.deepEqual(input.catalog.map(row => row.id), ["q", "answer"]);
+  assert.deepEqual(input.clusters[0].quotes, ["有冇教學？"]);
+  assert.deepEqual(input.clusters[0].keywords, []);
+  assert.equal(input.clusters[0].pct, undefined);
+  assert.equal(input.coverage!.replyQuotes.sent, 2);
+  assert.equal(input.coverage!.replyQuotes.captured, 2);
+  assert.equal(input.eligibilityVersion, "v1");
+  assert.equal(input.inputHash, inlineReadingInputHash(input));
+  assert.doesNotMatch(buildInlineReadingPrompt(input), /99%|OP continuation|anonymous root|unattributed question/);
+  const oldHash = input.inputHash;
+  source.latestCapture!.result!.comments[2].text = "改了提問";
+  source.latestCapture!.result!.comments[3].text = "改了提問";
+  assert.notEqual(buildInlineReadingInput(source)!.inputHash, oldHash);
 });

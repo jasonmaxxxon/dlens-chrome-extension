@@ -3,9 +3,12 @@ import test from "node:test";
 import { buildInlineCardEvidence, buildInlineCardViewModel, type InlineCardAiInput } from "../src/viewmodel/inline-card.ts";
 import { formatEta, renderInlineCard } from "../src/content/inline-collect-card.ts";
 import { parseFirstReplies } from "../src/content/inline-collect-peek.ts";
+import { COMMENT_ELIGIBILITY_VERSION } from "../src/compare/comment-eligibility.ts";
+import { buildInlineReadingInput, inlineReadingInputHash, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
 import type { SessionItem } from "../src/state/types.ts";
 
 function item(status: SessionItem["status"], comments: Array<Record<string, unknown>> = [], extra: Partial<SessionItem> = {}): SessionItem {
+  comments = comments.map(comment => ({ ...comment }));
   return {
     id: "i1", status, selectedAt: "", savedAt: "", queuedAt: "2026-10-07T10:00:00Z", completedAt: null, captureId: null, jobId: null,
     canonicalTargetUrl: null, latestJob: null, commentsPreview: [], lastStatusAt: "2026-10-07T10:00:10Z", lastErrorKind: null, lastError: null,
@@ -13,7 +16,13 @@ function item(status: SessionItem["status"], comments: Array<Record<string, unkn
     latestCapture: {
       id: "cap-1",
       result: { canonical_post: { author: "op" }, comments },
-      analysis: { clusters: [{ cluster_key: 1, size_share: 0.3, like_share: 0.2, keywords: ["通勤", "時間"] }, { cluster_key: 0, size_share: 0.6, like_share: 0.7, keywords: ["生產力", "交付", "坐"] }],
+      analysis: { source_comment_count: comments.filter(comment => comment.author !== "op").length,
+        clusters: [{ cluster_key: 1, size_share: 0.4, like_share: 0.2, keywords: ["通勤", "時間"],
+          member_comment_ids: comments.filter(comment => ["c8","c9","c10","c11"].includes(String(comment.comment_id))).map(comment => String(comment.comment_id)),
+          comment_count: comments.filter(comment => ["c8","c9","c10","c11"].includes(String(comment.comment_id))).length },
+        { cluster_key: 0, size_share: 0.6, like_share: 0.7, keywords: ["生產力", "交付", "坐"],
+          member_comment_ids: comments.filter(comment => comment.author !== "op" && !["c8","c9","c10","c11"].includes(String(comment.comment_id))).map(comment => String(comment.comment_id)),
+          comment_count: comments.filter(comment => comment.author !== "op" && !["c8","c9","c10","c11"].includes(String(comment.comment_id))).length }],
         evidence: [{ cluster_key: 0, comments: [{ comment_id: "c1", text: "返 office 唔等於有生產力", author: "a", like_count: 90 }] }] }
     } as unknown as SessionItem["latestCapture"],
     ...extra
@@ -36,17 +45,18 @@ test("inline card phases follow the saved item status without crawl data", () =>
 
 test("fewer than ten readable comments are listed, not grouped", () => {
   const vm = buildInlineCardViewModel(item("succeeded", many.slice(0, 3)), "topic", "返工");
-  assert.equal(vm.few?.length, 3);
+  assert.equal(vm.few?.length, 2, "OP answers stay in their dedicated view");
   assert.equal(vm.entries.length, 0);
 });
 
 test("the four no-AI entries come from clusters, likes and the reply chain", () => {
   const vm = buildInlineCardViewModel(item("succeeded", many), "topic", "返工");
   assert.deepEqual(vm.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
-  assert.equal(vm.countLabel, "11 / 20 則");
+  assert.equal(vm.countLabel, "10 / 20 則");
   const stance = vm.answers.stance;
   assert.ok(stance && stance.kind === "clusters");
-  assert.equal(stance.segments[0].label, "生產力 / 交付 / 坐");
+  assert.equal(stance.segments[0].label, "返 office 唔等於有生產力");
+  assert.equal(stance.segments[0].measurementLabel, "約 6 則");
   assert.equal(stance.segments[0].pct, 60);
   const top = vm.answers.top;
   assert.ok(top && top.kind === "quotes");
@@ -57,13 +67,13 @@ test("the four no-AI entries come from clusters, likes and the reply chain", () 
   const ask = vm.answers.ask;
   assert.ok(ask && ask.kind === "ask");
   // Unanswered first; an author reply and someone else's reply are kept apart.
-  assert.equal(ask.rows[0].status, "none");
-  assert.deepEqual(new Set(ask.rows.map((r) => r.status)), new Set(["none", "author", "other"]));
-  assert.equal(vm.entries.find((e) => e.key === "ask")?.mark, "1 未回");
+  assert.equal(ask.rows[0].status, "unknown");
+  assert.deepEqual(new Set(ask.rows.map((r) => r.status)), new Set(["unknown", "author", "other"]));
+  assert.equal(vm.entries.find((e) => e.key === "ask")?.mark, "未能確認");
 });
 
 test("card markup escapes comment text and only opens the selected answer", () => {
-  const evil = [...many, c("c12", "x", "<img src=x onerror=alert(1)>？", 1)];
+  const evil = [...many, c("c12", "x", "點樣避免 <img src=x onerror=alert(1)>？", 1)];
   const vm = buildInlineCardViewModel(item("succeeded", evil), "topic", "返工");
   const closed = renderInlineCard(vm, null, Date.parse("2026-10-07T10:01:00Z"));
   assert.ok(!closed.includes('class="answer"'));
@@ -111,9 +121,9 @@ test("first replies come from thread_items, skipping the post and the author's o
 });
 
 const quoteOf = (id: string, text: string, author: string, likes: number) => ({ commentId: id, text, author, likes });
-function aiReading(extra: Record<string, unknown> = {}): InlineCardAiInput {
+function aiReading(extra: Record<string, unknown> = {}, source = item("succeeded", many)): InlineCardAiInput {
   return { status: "complete", itemId: "i1", captureId: "cap-1", reading: {
-    itemId: "i1", captureId: "cap-1", promptVersion: "v2", model: "google:test", generatedAt: "2026-10-07T10:00:00Z",
+    itemId: "i1", captureId: "cap-1", promptVersion: INLINE_READING_PROMPT_VERSION, eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash: inlineReadingInputHash(buildInlineReadingInput(source)!), model: "google:test", generatedAt: "2026-10-07T10:00:00Z",
     gist: "多數人質疑返 office 帶來的生產力", find: { method: "用數據爭取 hybrid", split: "新人學習有爭議", ask: "可唔可以拒絕 WFO" },
     clusterNames: { "0": "生產力質疑" }, noiseClusters: [],
     methods: [
@@ -130,15 +140,15 @@ test("a finished AI reading swaps in 有咩做法 / 有咩分歧 and names the q
   assert.deepEqual(vm.entries.map((e) => e.key), ["stance", "method", "split", "ask"]);
   assert.equal(vm.ai?.state, "complete");
   assert.equal(vm.entries[0].finding, "生產力質疑", "the entry's words name the same cluster as its number");
-  assert.equal(vm.entries[0].mark, "60%", "the share stays the backend's percentage");
+  assert.equal(vm.entries[0].mark, "約 6 則", "small clusters use a count even when geometry has a compatible share");
   assert.equal(vm.entries[1].mark, "2 種");
   assert.equal(vm.entries[3].finding, "可唔可以拒絕 WFO");
   const stance = vm.answers.stance;
   assert.ok(stance && stance.kind === "clusters");
-  assert.equal(stance.headline, "多數人質疑返 office 帶來的生產力");
-  assert.deepEqual(stance.segments.map((s) => s.label), ["生產力質疑", "通勤 / 時間"], "an unnamed cluster keeps its keywords");
+  assert.match(stance.headline, /生產力質疑.*約 6 則/);
+  assert.deepEqual(stance.segments.map((s) => s.label), ["生產力質疑", "通勤好辛苦"], "an unnamed cluster uses its verified most-liked member");
   const split = vm.answers.split;
-  assert.ok(split && split.kind === "split" && split.sides.length === 0 && split.note?.includes("11"));
+  assert.ok(split && split.kind === "split" && split.sides.length === 0 && split.note?.includes("10"));
 });
 
 test("an AI reading for an older capture, a missing key and a failure all fall back to the no-AI entries", () => {
@@ -148,12 +158,12 @@ test("an AI reading for an older capture, a missing key and a failure all fall b
   const noKey = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "no-key" } });
   assert.equal(noKey.ai?.state, "no-key");
   assert.match(renderInlineCard(noKey, null, 0), /未接 AI/);
-  const failed = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "failed", itemId: "i1", captureId: "cap-1", error: "quota <exceeded>", at: "" } });
+  const failed = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "failed", itemId: "i1", captureId: "cap-1", inputHash:inlineReadingInputHash(buildInlineReadingInput(item("succeeded",many))!),promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,error: "quota <exceeded>", at: "" } });
   assert.deepEqual(failed.entries.map((e) => e.key), ["stance", "top", "op", "ask"]);
   const html = renderInlineCard(failed, null, 0);
   assert.match(html, /AI 整理失敗：quota &lt;exceeded&gt;/);
   assert.match(html, /data-dlens-act="ai-retry"/);
-  const running = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "running", itemId: "i1", captureId: "cap-1", startedAt: "" } });
+  const running = buildInlineCardViewModel(item("succeeded", many), "topic", "返工", { ai: { status: "running", itemId: "i1", captureId: "cap-1", inputHash:inlineReadingInputHash(buildInlineReadingInput(item("succeeded",many))!),promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,startedAt: "" } });
   assert.match(renderInlineCard(running, null, 0), /AI 整理中/);
 });
 
@@ -162,16 +172,16 @@ test("展開證據 groups the replies behind the open answer and never repeats w
   const vm = buildInlineCardViewModel(plain, "topic", "返工");
   assert.equal(vm.hasEvidence, true);
   const all = buildInlineCardEvidence(plain, vm, null)!;
-  assert.equal(all.section, "按關鍵詞分群的原句");
+  assert.equal(all.section, "按回應類別的原句");
   assert.equal(all.heading, "@op 的留言證據");
   assert.equal(all.groups[0].chains[0].row.text, "返 office 唔等於有生產力");
   const stance = buildInlineCardEvidence(plain, vm, "stance")!;
-  assert.equal(stance.groups.length, 0, "the stance answer already quotes that reply");
+  assert.ok(stance.groups.every(group => group.chains.every(chain => chain.row.text !== "返 office 唔等於有生產力")), "already quoted leader never repeats among full member evidence");
 
   const asks = buildInlineCardEvidence(plain, vm, "ask")!;
-  assert.deepEqual(asks.groups.map((g) => g.tone), ["none", "author", "other"]);
-  assert.equal(asks.groups[0].chains[0].unanswered, true);
-  const authorChain = asks.groups[1].chains[0];
+  assert.deepEqual(asks.groups.map((g) => g.tone), ["author", "other", "unknown"]);
+  assert.equal(asks.groups.find(group => group.tone === "unknown")!.chains[0].unanswered, false);
+  const authorChain = asks.groups.find(group => group.tone === "author")!.chains[0];
   assert.equal(authorChain.row.text, "可唔可以拒絕 WFO？");
   assert.equal(authorChain.reply?.text, "可以同 HR 傾");
   assert.equal(authorChain.reply?.isAuthor, true);
@@ -198,7 +208,7 @@ test("a finished crawl waits for its quant clusters before reading, for at most 
   const vm = buildInlineCardViewModel(crawled, "topic", "返工", { now: soon, ai: aiReading() });
   assert.equal(vm.analysisPending, true);
   assert.equal(vm.ai, null, "no AI state while the clusters are still coming");
-  assert.match(renderInlineCard(vm, null, soon).replace(/<[^>]+>/g, ""), /11 \/ 20 則 · 分群整理中/);
+  assert.match(renderInlineCard(vm, null, soon).replace(/<[^>]+>/g, ""), /10 \/ 20 則 · 分群整理中/);
   assert.equal(buildInlineCardViewModel(crawled, "topic", "返工", { now: Date.parse("2026-10-07T10:06:00Z") }).analysisPending, false);
   crawled.latestCapture!.analysis!.status = "succeeded";
   assert.equal(buildInlineCardViewModel(crawled, "topic", "返工", { now: soon }).analysisPending, false);
@@ -216,13 +226,19 @@ test("spam or off-topic clusters never lead 大家點睇 and stay grey and short
     { cluster_key: 0, comments: [{ comment_id: "s1", text: "加我 TG 有驚喜", author: "bot" }, { comment_id: "s2", text: "加我  TG 有驚喜", author: "bot" }, { comment_id: "s3", text: "另一個廣告", author: "bot2" }] },
     { cluster_key: 1, comments: [{ comment_id: "c9", text: "通勤好辛苦", author: "i", like_count: 25 }] }
   ] as never;
-  const ai = aiReading({ clusterNames: { "0": "廣告洗版", "1": "通勤之苦" }, noiseClusters: ["0"] });
+  plain.latestCapture!.result!.comments.push(
+    c("s1", "bot", "加我 TG 有驚喜", 3), c("s2", "bot", "加我  TG 有驚喜", 3), c("s3", "bot2", "另一個廣告", 2));
+  plain.latestCapture!.analysis!.clusters = [
+    {cluster_key:0,size_share:0.6,like_share:0,keywords:["the"],member_comment_ids:["s1","s2","s3"],comment_count:3},
+    {cluster_key:1,size_share:0.3,like_share:0,keywords:["one"],member_comment_ids:["c9"],comment_count:1},
+  ];
+  const ai = aiReading({ clusterNames: { "0": "廣告洗版", "1": "通勤之苦" }, noiseClusters: ["0"] }, plain);
   const vm = buildInlineCardViewModel(plain, "topic", "返工", { ai });
-  assert.equal(vm.entries[0].mark, "30%");
+  assert.equal(vm.entries[0].mark, "約 1 則");
   assert.equal(vm.entries[0].finding, "通勤之苦");
   const stance = vm.answers.stance;
   assert.ok(stance && stance.kind === "clusters");
-  assert.deepEqual(stance.segments.map((s) => [s.label, s.pct, s.noise]), [["通勤之苦", 30, false], ["廣告洗版", 60, true]]);
+  assert.deepEqual(stance.segments.map((s) => [s.label, s.pct, s.noise]), [["通勤之苦", undefined, false], ["廣告洗版", undefined, true]]);
   assert.equal(stance.quote?.text, "通勤好辛苦");
   const evidence = buildInlineCardEvidence(plain, vm, null, ai)!;
   const noise = evidence.groups.at(-1)!;
@@ -239,7 +255,9 @@ test("card foot hands off current lens and no evidence control survives",()=>{
  assert.doesNotMatch(html,/展開證據|開啟工作區|data-dlens-act="evidence"/);
 });
 test('evidence expands only the named group and caps at ten additional chains',()=>{
- const mine=item('succeeded',many);mine.latestCapture!.analysis!.evidence=[0,1].map(key=>({cluster_key:key,comments:Array.from({length:20},(_,i)=>({comment_id:`extra${key}-${i}`,author:'fan',text:`群${key} 留言${i}`}))})) as never;
+ const rows=[0,1].flatMap(key=>Array.from({length:20},(_,index)=>c(`extra${key}-${index}`,`fan${key}-${index}`,`群${key} 留言${index}`,20-index)));
+ const mine=item('succeeded',rows);
+ mine.latestCapture!.analysis!.clusters=[0,1].map(key=>({cluster_key:key,size_share:0.5,like_share:0.5,keywords:['old'],comment_count:20,member_comment_ids:rows.filter(row=>row.comment_id.startsWith(`extra${key}-`)).map(row=>row.comment_id)}));
  const vm=buildInlineCardViewModel(mine,'topic','返工');
  const before=buildInlineCardEvidence(mine,vm,null)!;
  assert.deepEqual(before.groups.map(g=>g.chains.length),[3,3]);
@@ -254,4 +272,97 @@ test('question evidence counts paired reply rows, and expands by at most ten mor
  const before=buildInlineCardEvidence(mine,vm,'ask')!.groups.find(g=>g.tone==='author')!;
  const after=buildInlineCardEvidence(mine,vm,'ask',null,{'author:1':13})!.groups.find(g=>g.tone==='author')!;
  assert.ok(count(before)<=3);assert.ok(count(after)-count(before)<=10);assert.equal(after.expanded,true);assert.equal(after.more,8);
+});
+
+test("dirty roots, OP continuations and duplicate aliases cannot dominate audience slots", () => {
+  const comments: Array<Record<string, unknown>> = [
+    c("A", "op", "原帖最高讚", 999999), c("continuation", "op", "作者續寫", 888888, "A"),
+    ...many.map(row => row.comment_id === "c2" ? { ...row, source_comment_id: "source-question" } : row),
+    { ...c("duplicate-audience", "a", " 返 office 唔等於有生產力 ", 90), source_comment_id: "source-c1" },
+    { ...c("duplicate-op-answer", "op", "可以同 HR 傾", 5), parent_source_comment_id: "source-question" },
+  ];
+  const mine = item("succeeded", comments), vm = buildInlineCardViewModel(mine, "topic", "測試", { forReader: true });
+  const top = vm.answers.top, op = vm.answers.op;
+  assert.ok(top?.kind === "quotes" && op?.kind === "op");
+  assert.equal(top.rows[0].text, "返 office 唔等於有生產力");
+  assert.ok(top.rows.every(row => !row.isAuthor));
+  assert.equal(op.rows.length, 1);
+  assert.equal(op.rows[0].text, "可以同 HR 傾");
+  assert.equal(op.rows[0].inReplyTo, "可唔可以拒絕 WFO？");
+  assert.equal(vm.readingCounts.comments, 10);
+  const evidence = buildInlineCardEvidence(mine, vm, null)!;
+  assert.ok(evidence.groups.every(group => group.chains.every(chain => !chain.row.isAuthor)));
+});
+
+test("missing parent structure reads 未能確認 instead of claiming the OP never replied", () => {
+  const mine = item("succeeded", [c("question", "fan", "有冇教學？", 3), c("op-unlinked", "op", "有，教學如下", 2)]);
+  const vm = buildInlineCardViewModel(mine, "topic", "測試", { forReader: true });
+  assert.ok(vm.answers.op?.kind === "empty" && vm.answers.op.text.includes("未能確認"));
+  assert.ok(vm.answers.ask?.kind === "ask" && vm.answers.ask.rows[0].status === "unknown");
+  assert.doesNotMatch(JSON.stringify(vm.answers), /作者未有回覆|未有回覆任何/);
+});
+
+for (const size of [1, 14, 15, 30]) test(`cluster label and measurement are consistent in every model slot at N=${size}`, () => {
+  const rows = Array.from({ length: size }, (_, index) => c(`member-${index}`, `fan${index}`, `觀眾完整原句 ${index}。`, size - index));
+  const mine = item("succeeded", rows);
+  mine.latestCapture!.analysis!.clusters = [{ cluster_key: 0, size_share: 1, like_share: 1, keywords: ["the"],
+    comment_count: size, member_comment_ids: rows.map(row => row.comment_id), top_comment_id: rows[0].comment_id }];
+  const vm = buildInlineCardViewModel(mine, "topic", "測試", { forReader: true });
+  const answer = vm.answers.stance;
+  assert.ok(answer?.kind === "clusters");
+  const entry = vm.entries.find(entry => entry.key === "stance")!;
+  const expected = size < 15 ? `約 ${size} 則` : "100%";
+  assert.equal(entry.finding, "觀眾完整原句 0。");
+  assert.equal(entry.mark, expected);
+  assert.equal(answer.segments[0].label, entry.finding);
+  assert.equal(answer.segments[0].measurementLabel, expected);
+  assert.equal(answer.quote?.text, entry.finding);
+  assert.ok(answer.headline.includes(entry.finding) && answer.headline.includes(expected));
+  const evidence = buildInlineCardEvidence(mine, vm, null)!;
+  assert.equal(evidence.groups[0].title, entry.finding);
+  assert.equal(evidence.groups[0].meta, expected);
+  if (size < 15) assert.doesNotMatch([entry.mark, answer.headline, evidence.groups[0].meta].join(" "), /%|％/);
+});
+
+test("legacy partial evidence cannot become a cluster leader, label or invented global quote", () => {
+  const mine = item("succeeded", many);
+  for (const cluster of mine.latestCapture!.analysis!.clusters) delete cluster.member_comment_ids;
+  mine.latestCapture!.analysis!.evidence = [{ cluster_key: 0, comments: [{ comment_id: "c1", text: "wrong partial leader", author: "a", like_count: 90 }] }];
+  const vm = buildInlineCardViewModel(mine, "topic", "測試");
+  const answer = vm.answers.stance;
+  assert.ok(answer?.kind === "clusters");
+  assert.equal(answer.quote, null);
+  assert.ok(answer.segments.every(segment => segment.label === "分群資料未完整" && segment.measurementLabel === "未能確認則數" && segment.pct === undefined));
+});
+
+test("a stale input hash or eligibility marker cannot surface cached cluster names", () => {
+  const mine = item("succeeded", many);
+  for (const extra of [{ inputHash: "stale" }, { eligibilityVersion: "old" }, { promptVersion: "v4" }]) {
+    const ai = aiReading(extra, mine);
+    const vm = buildInlineCardViewModel(mine, "topic", "測試", { ai });
+    assert.equal(vm.ai, null);
+    assert.equal(vm.entries.find(entry => entry.key === "stance")?.finding, "返 office 唔等於有生產力");
+  }
+});
+
+test("running and failed records also require current prompt, eligibility and input identity", () => {
+  const mine = item("succeeded", many);
+  for (const status of ["running", "failed"] as const) {
+    const record = { status, itemId: mine.id, captureId: mine.latestCapture!.id, startedAt: "now", error: "old failure", at: "now",
+      inputHash: "old", promptVersion: INLINE_READING_PROMPT_VERSION, eligibilityVersion: COMMENT_ELIGIBILITY_VERSION } as InlineCardAiInput;
+    assert.equal(buildInlineCardViewModel(mine, "topic", "測試", { ai: record }).ai, null);
+  }
+});
+
+test("quality flags survive raw and AI-referenced quote projections without deleting the original", () => {
+  const mine = item("succeeded", many);
+  mine.latestCapture!.result!.comments.find(row => row.comment_id === "c8")!.text = "留個位";
+  const ai = aiReading({ methods: [{ name: "原句", fit: "", quote: quoteOf("c8", "留個位", "h", 1) }] }, mine);
+  const vm = buildInlineCardViewModel(mine, "topic", "測試", { ai });
+  assert.ok(vm.answers.method?.kind === "methods");
+  assert.equal(vm.answers.method.quote.text, "留個位");
+  assert.equal(vm.answers.method.quote.quality?.flag, "bookmark");
+  const evidence = buildInlineCardEvidence(mine, vm, null, ai)!;
+  const row = evidence.groups.flatMap(group => group.chains.map(chain => chain.row)).find(row => row.text === "留個位");
+  assert.equal(row?.quality?.flag, "bookmark");
 });

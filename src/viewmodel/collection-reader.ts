@@ -1,7 +1,8 @@
 import {readingCoverageLabel} from '../compare/reading-coverage';
 import type { SessionRecord, Signal, Topic } from "../state/types";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
-import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } from "../compare/inline-reading";
+import { COMMENT_ELIGIBILITY_VERSION } from "../compare/comment-eligibility";
 import type { CollectionPost } from "./collection-browser";
 import { buildInlineCardViewModel, buildInlineCardEvidence, type InlineCardEntryKey } from "./inline-card";
 
@@ -16,7 +17,13 @@ export function collectionAudienceSource(post: CollectionPost | undefined, sessi
  * A stored error is left alone; the reader shows it with its own retry. */
 export function readerNeedsReading(item: SessionRecord["items"][number], stored: InlineReadingRecord | undefined): boolean {
   if (item.status !== "succeeded" || item.latestCapture?.analysis?.status !== "succeeded") return false;
-  return !stored || stored.captureId !== item.latestCapture?.id || (stored.status === "complete" && stored.reading.promptVersion !== INLINE_READING_PROMPT_VERSION);
+  const input=buildInlineReadingInput(item);
+  if(!input)return false;
+  const hash=inlineReadingInputHash(input);
+  const storedHash=stored?.inputHash ?? (stored?.status==='complete' ? stored.reading.inputHash : undefined);
+  const version=stored?.status==='complete' ? stored.reading.promptVersion : stored?.promptVersion;
+  const eligibility=stored?.status==='complete' ? stored.reading.eligibilityVersion : stored?.eligibilityVersion;
+  return !stored || stored.captureId !== item.latestCapture?.id || storedHash!==hash || version!==INLINE_READING_PROMPT_VERSION || eligibility!==COMMENT_ELIGIBILITY_VERSION;
 }
 
 /** Projection only: the reading and evidence remain owned by inline-card. */
@@ -25,8 +32,8 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   if (!source) return null;
   const { session, item } = source;
   const stored = readings[item.id];
-  // An older prompt's reading stays on screen while the reader asks for a fresh one (readerNeedsReading).
-  const ai = stored ?? null;
+  // Stale readings remain in storage as history, outside the current reading.
+  const ai = stored && !readerNeedsReading(item,stored) ? stored : null;
   const card = buildInlineCardViewModel(item, "topic", session.name, { ai, now, forReader:true, queue: sessions.flatMap(s => s.items) });
   const selected = card.entries.find(e => e.key === lens)?.key ?? card.entries[0]?.key ?? null;
   const ownTopics = topics.filter(t => t.sessionId === session.id);
@@ -46,8 +53,8 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   // A finished reading's count already sits in the source meta (讀咗 N); repeating it here was noise.
   else if (card.phase === "done") stateLine = "";
   const aiNote = card.ai?.state === "failed" ? `AI 整理失敗：${card.ai.error}`
-    : card.entries.length && !card.ai && !card.analysisPending ? "尚未有已存 AI 閱讀 · 字詞同回覆" : null;
-  return { coverageLabel:readingCoverageLabel(stored?.status==='complete'?stored.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
+    : card.entries.length && !card.ai && !card.analysisPending ? "尚未有已存 AI 閱讀 · 觀眾原句同回覆" : null;
+  return { coverageLabel:readingCoverageLabel(card.ai?.state==='complete' && ai?.status==='complete'?ai.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
     answer: selected ? card.answers[selected] : undefined, stateLine, aiNote,
     evidence: buildInlineCardEvidence(item, card, selected, ai, groupLimits) };
 }

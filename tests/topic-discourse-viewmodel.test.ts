@@ -1,19 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { suggestTopic, buildCardTopicLine, buildTopicDiscourseViewModel, frameOf, postedAt } from "../src/viewmodel/topic-discourse.ts";
+import { COMMENT_ELIGIBILITY_VERSION } from "../src/compare/comment-eligibility.ts";
+import { buildInlineReadingInput, inlineReadingInputHash, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
 import type { SessionItem, Signal, Topic } from "../src/state/types.ts";
 
 const NOW = Date.parse("2026-10-08T12:00:00+08:00");
 const day = 86_400_000;
 function item(id: string, opts: { author: string; text: string; daysAgo: number; likes: number; keywords?: string[][]; comments?: Array<Record<string, unknown>> }): SessionItem {
   const captured = new Date(NOW - opts.daysAgo * day).toISOString();
+  const phrases: Record<string,string> = {reset:"重置後額度回來了。",grok:"Grok Agent 更好用。",cindy2387:"加我 TG 有驚喜。",南丫:"南丫島好適合。",codex:"Codex 值得試。",地方:"有好地方可以推薦。"};
+  const members=(opts.keywords ?? []).map((keywords,index)=>({comment_id:`${id}-cluster-${index}`,author:`fan-${id}-${index}`,text:phrases[keywords[0].toLowerCase()] || `觀眾原句 ${keywords[0]}。`,like_count:100-index,parent_comment_id:id}));
+  const comments=[...(opts.comments ?? []),...members];
   return {
     id, status: "succeeded", savedAt: captured, lastStatusAt: captured,
     descriptor: { post_url: `https://www.threads.net/@${opts.author}/post/${id}`, author_hint: opts.author, text_snippet: opts.text, time_token_hint: "1h", captured_at: captured, engagement: { likes: opts.likes, comments: 10 } },
     latestCapture: {
       id: `cap-${id}`,
-      result: { canonical_post: { author: opts.author }, comments: opts.comments ?? [] },
-      analysis: opts.keywords ? { status: "succeeded", clusters: opts.keywords.map((keywords, i) => ({ cluster_key: i, size_share: 0.6 - i * 0.2, like_share: 0, keywords })), evidence: [] } : null
+      result: { canonical_post: { author: opts.author }, comments },
+      analysis: opts.keywords ? { status: "succeeded", source_comment_count:comments.length, clusters: opts.keywords.map((keywords, i) => ({ cluster_key: i, size_share: 0.6 - i * 0.2, like_share: 0, keywords,comment_count:1,member_comment_ids:[members[i].comment_id] })), evidence: [] } : null
     }
   } as unknown as SessionItem;
 }
@@ -42,9 +47,9 @@ test("a post's date comes from Threads' relative time at capture", () => {
 
 test("a post joins the 講法 of its largest comment cluster that the AI did not flag as noise", () => {
   const spam = item("s", { author: "x", text: "", daysAgo: 0, likes: 0, keywords: [["cindy2387", "ends"], ["南丫", "丫島"]] });
-  assert.equal(frameOf(spam)?.name, "cindy2387 / ends");
-  const reading = { status: "complete", itemId: "s", captureId: "cap-s", reading: { noiseClusters: ["0"] } } as never;
-  assert.equal(frameOf(spam, reading)?.name, "南丫 / 丫島");
+  assert.equal(frameOf(spam)?.name, "加我 TG 有驚喜。");
+  const reading = { status: "complete", itemId: "s", captureId: "cap-s", reading: { promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash:inlineReadingInputHash(buildInlineReadingInput(spam)!),clusterNames:{"1":"南丫島推介"},noiseClusters: ["0"] } } as never;
+  assert.equal(frameOf(spam, reading)?.name, "南丫島推介");
 });
 
 test("home does not auto-follow; list is newest first with question and today's additions", () => {
@@ -53,9 +58,9 @@ test("home does not auto-follow; list is newest first with question and today's 
   assert.equal(vm.emptyLine, null);
   assert.deepEqual(vm.topicRows.map(c => [c.name, c.count, c.todayAdded, c.secondLine]), [["AI 工具額度", 5, 1, "未寫研究問題"], ["香港拍拖", 0, 0, "未寫研究問題"]]);
   const selected = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: "threads-post:f", now: NOW }).topic!;
-  assert.deepEqual(selected.frames!.map(f => [f.name, f.posts.length]), [["grok / agent", 2], ["reset / 額度", 2]]);
+  assert.deepEqual(selected.frames!.map(f => [f.name, f.posts.length]), [["Grok Agent 更好用。", 2], ["重置後額度回來了。", 2]]);
   assert.equal(selected.posts.length, 5);
-  assert.match(selected.coverage, /^5 篇 · 3 則留言 · 今日 \+1/);
+  assert.match(selected.coverage, /^5 篇 · 7 則留言 · 今日 \+1/);
   const empty = buildTopicDiscourseViewModel({ topics: [], signals: [], items: [], selectedTopicId: null, inViewPostKey: null, now: NOW });
   assert.equal(empty.emptyLine, "話題＝你想答嘅問題。建一個，之後轉盤外圈可以直接放。");
   const q = buildTopicDiscourseViewModel({ topics: [{...topics[0],context:{researchQuestion:'點用？'}}], signals,items,selectedTopicId:null,inViewPostKey:null,now:NOW });
@@ -65,15 +70,15 @@ test("home does not auto-follow; list is newest first with question and today's 
 test("發現 fill fixed templates with counts: a new 講法, likes per post and a question asked under two posts", () => {
   const t = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: null, now: NOW }).topic!;
   const [trend, like, asked] = t.findings;
-  assert.ok(trend.kind === "trend" && trend.text.startsWith("〈reset / 額度〉係新講法") && trend.weeks[3].hot);
-  assert.ok(like.kind === "like" && like.text.startsWith("〈grok / agent〉平均每篇 186 讚") && like.rows[0].hot);
+  assert.ok(trend.kind === "trend" && trend.text.startsWith("〈重置後額度回來了。〉係新講法") && trend.weeks[3].hot);
+  assert.ok(like.kind === "like" && like.text.startsWith("〈Grok Agent 更好用。〉平均每篇 186 讚") && like.rows[0].hot);
   assert.ok(asked.kind === "ask");
-  assert.equal(asked.text, "「積分點樣計？」喺 2 篇貼文都有人問，只有 1 篇有人回覆。");
+  assert.equal(asked.text, "「積分點樣計？」喺 2 篇貼文都有人問，1 篇樣本內見到回覆，其餘未能確認。");
 });
 
 test("the card line offers recent topics for an unsorted post and names the 講法 of a sorted one", () => {
   assert.deepEqual(buildCardTopicLine("f", topics, signals, items), { kind: "unassigned", signalId: "sf", picks: [{ id: "t1", name: "AI 工具額度" }, { id: "t2", name: "香港拍拖" }] });
-  assert.deepEqual(buildCardTopicLine("a", topics, signals, items), { kind: "assigned", topicId: "t1", topicName: "AI 工具額度", frameName: "reset / 額度", count: 5 });
+  assert.deepEqual(buildCardTopicLine("a", topics, signals, items), { kind: "assigned", topicId: "t1", topicName: "AI 工具額度", frameName: "重置後額度回來了。", count: 5 });
   assert.equal(buildCardTopicLine("zzz", topics, signals, items), null);
 });
 
@@ -94,4 +99,15 @@ test('inbox suggestions precede other topic picks', () => {
  const candidate = item('new',{author:'x',text:'Codex 額度',daysAgo:0,likes:0});
  const vm=buildTopicDiscourseViewModel({topics:[topic('a','香港'),topic('b','Codex')],signals:[signal('new','new')],items:[candidate],selectedTopicId:null,inViewPostKey:null,now:NOW});
  assert.deepEqual(vm.inbox[0].picks.map(p=>[p.id,p.suggested]),[['b',true],['a',false]]);
+});
+
+test("legacy keywords cannot invent a no-AI topic frame or repeated phrase", () => {
+  const legacy = item("legacy", { author: "op", text: "原帖", daysAgo: 0, likes: 1, keywords: [["the", "one", "drop"]] });
+  delete legacy.latestCapture!.analysis!.clusters[0].member_comment_ids;
+  assert.equal(frameOf(legacy), null);
+  const vm = buildTopicDiscourseViewModel({ topics, signals: [signal("legacy", "legacy", "t1")], items: [legacy],
+    selectedTopicId: "t1", inViewPostKey: null, now: NOW });
+  assert.equal(vm.topic?.frames, null);
+  assert.equal(vm.topic?.meme, null);
+  assert.equal(vm.topic?.loose.length, 1);
 });

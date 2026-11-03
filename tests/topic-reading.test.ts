@@ -1,4 +1,4 @@
-import { INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
+import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } from "../src/compare/inline-reading.ts";
 import { DEEP_READING_PROMPT_VERSION } from '../src/compare/deep-reading.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ const deepItem = () => ({id:'post',status:'succeeded',descriptor:{author_hint:'o
 import type { Topic } from '../src/state/types.ts';
 const topic={id:'t',name:'檢索',context:{researchQuestion:'點樣做？'}} as Topic;
 test('topic input preserves parseable budget and top five reply refs',()=>{
- const item=deepItem();item.latestCapture!.result!.comments=Array.from({length:9},(_,i)=>({comment_id:String(i),text:'字'.repeat(5000),author:'fan',like_count:i})) as any;
+ const item=deepItem();item.latestCapture!.result!.comments=Array.from({length:9},(_,i)=>({comment_id:String(i),text:'字'.repeat(5000)+i,author:'fan',like_count:i})) as any;
  const input=buildTopicReadingInput(topic,Array.from({length:5},(_,i)=>({...item,id:String(i)})));
  assert.ok(JSON.stringify(topicReadingPacket(input)).length<=TOPIC_READING_CHARACTER_BUDGET);
  assert.equal(input.posts[0].replies.length,5);assert.equal(input.posts[0].replies[0].commentId,'8');
@@ -65,9 +65,10 @@ test('topic malformed repair fails after exactly two calls',async()=>{
 });
 test('topic packet contains only matching current capture quick/deep readings',()=>{
  const item=deepItem();item.latestCapture!.analysis!.clusters=[{cluster_key:1,size_share:0.25,keywords:['方法']}] as any;
- const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
+ const currentInput=buildInlineReadingInput(item)!;
+ const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,inputHash:inlineReadingInputHash(currentInput),eligibilityVersion:'v1',gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
  const deep:any={post:{status:'complete',captureId:'c1',promptVersion:DEEP_READING_PROMPT_VERSION,reading:{takeaway:'先測試'}}};
- const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.match(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'先測試');
+ const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.doesNotMatch(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'','legacy deep summary with excluded OP context is suppressed');
  inline.post.captureId='old';deep.post.promptVersion='old';const stale=buildTopicReadingInput(topic,[item],inline,deep);assert.equal(stale.posts[0].audience,null);assert.equal(stale.posts[0].takeaway,'');
 });
 import { selectTopicReadingItems } from '../src/state/topic-reading-run.ts';
@@ -116,4 +117,23 @@ test('initial storage write failure releases topic flight for a succeeding run',
 test('blank root content is omitted without granting an evidence ref',()=>{
  const item=deepItem();item.latestCapture!.result!.canonical_post!.text='   ';item.descriptor.text_snippet='';
  const input=buildTopicReadingInput(topic,[item]);assert.equal(input.posts.length,0);assert.equal(input.refs.length,0);assert.equal(input.omittedPostCount,1);
+});
+
+test('topic audience refs exclude root, OP continuation, OP answers, duplicates and unknown authors',()=>{
+ const item=deepItem();
+ item.latestCapture!.result!.canonical_post!.post_id='ROOT';
+ item.latestCapture!.result!.comments=[
+  {comment_id:'ROOT',author:'',text:'root row',like_count:9999},
+  {comment_id:'op-continuation',author:'op',text:'continuation',like_count:9000},
+  {comment_id:'fan',source_comment_id:'source-fan',author:'fan',text:'有冇教學？',like_count:2},
+  {comment_id:'fan-duplicate',source_comment_id:'source-fan',author:'FAN',text:' 有冇教學？ ',like_count:3},
+  {comment_id:'op-answer',parent_source_comment_id:'source-fan',author:'op',text:'真實回答',like_count:8000},
+  {comment_id:'unknown',author:'',text:'unattributed',like_count:7000}
+ ] as any;
+ const input=buildTopicReadingInput(topic,[item]);
+ assert.deepEqual(input.posts[0].replies.map(reply=>reply.commentId),['fan']);
+ assert.deepEqual(input.refs.filter(ref=>ref.commentId).map(ref=>ref.commentId),['fan']);
+ assert.equal(input.coverage.replyQuotes.sent,1);
+ assert.equal(input.coverage.replyQuotes.captured,1);
+ assert.doesNotMatch(JSON.stringify(input.posts),/root row|continuation|真實回答|unattributed/);
 });

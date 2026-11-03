@@ -161,6 +161,10 @@ export interface AnalysisClusterSnapshot {
   size_share: number;
   like_share: number;
   keywords: string[];
+  /** B3: complete source membership; absent on legacy analyses. */
+  comment_count?: number;
+  member_comment_ids?: string[];
+  top_comment_id?: string;
 }
 
 export interface AnalysisEvidenceCommentSnapshot {

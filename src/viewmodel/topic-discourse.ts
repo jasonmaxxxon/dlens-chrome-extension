@@ -1,16 +1,18 @@
 import type { SessionItem, Signal, Topic } from "../state/types";
 import { inlineCollectPostKey } from "../state/inline-collect";
-import { INLINE_READING_PROMPT_VERSION, readCrawlComments, readOpHandle, normalizeHandle } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } from "../compare/inline-reading";
+import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility } from "../compare/comment-eligibility";
+import { readClusterReadings } from "../compare/cluster-reading";
+import { isReplyQuestion } from "../compare/reply-thread";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 
 /**
  * The 觀眾反應 workspace as a discourse layer (side panel A, 2026-10-08): 話題 the user filled by hand, their 講法
- * (posts grouped by the keyword of their largest comment cluster, as TopicSynthesis groups them), and 發現 that only
+ * (posts grouped by their largest verified audience cluster's original leader text or valid AI name), and 發現 that only
  * show across posts. Every sentence is a template filled with counts; no AI writes here.
  */
 export const DISCOURSE_MIN_POSTS = 3;
 const WEEK_MS = 7 * 24 * 3600_000;
-const QUESTION = /[？?]|點解|點樣|點算|有冇|係咪|會唔會|可唔可以|幾時|邊度|邊個|幾多/;
 
 export interface TopicSuggestion { topicId: string; name: string; reason: string }
 const suggestionWords = (text: string): string[] => [...new Set((text.match(/[a-z][a-z0-9_+-]{2,}|[\u3400-\u9fff]{2,}/gi) ?? []).flatMap(word =>
@@ -21,7 +23,7 @@ export function suggestTopic(item: SessionItem, topics: Topic[], signals: Signal
   const source = new Set(suggestionWords([item.descriptor.text_snippet ?? "", typeof rootText === "string" ? rootText : ""].join(" ")).map(w => w.toLowerCase()));
   const candidates = topics.map(topic => {
     const ids = new Set(signals.filter(s => s.sessionId === topic.sessionId && s.topicId === topic.id).map(s => s.itemId));
-    const keywords = items.filter(i => i.id !== item.id && ids.has(i.id)).flatMap(i => (i.latestCapture?.analysis?.clusters ?? []).flatMap(c => c.keywords));
+    const keywords = items.filter(i => i.id !== item.id && ids.has(i.id)).flatMap(i => readClusterReadings(i).flatMap(cluster => cluster.members.map(comment => comment.text)));
     const words = suggestionWords([topic.name, topic.context?.researchQuestion ?? "", ...keywords].join(" "));
     const hits = [...new Map(words.filter(w => source.has(w.toLowerCase())).map(w => [w.toLowerCase(), w])).values()];
     const score = hits.reduce((n, w) => n + (/^[a-z]/i.test(w) && w.length >= 4 ? 2 : 1), 0);
@@ -56,7 +58,7 @@ export interface DiscourseFrame {
 export type DiscourseFinding =
   | { kind: "trend"; text: string; frameKey: string | null; weeks: { label: string; count: number; hot: boolean }[] }
   | { kind: "like"; text: string; frameKey: string | null; rows: { name: string; avg: number; hot: boolean }[] }
-  | { kind: "ask"; text: string; question: string; where: { author: string; replied: boolean; postKey: string }[] };
+  | { kind: "ask"; text: string; question: string; where: { author: string; replied: boolean | null; postKey: string }[] };
 export interface DiscourseInboxRow { itemId: string; picks: { id: string; name: string; suggested: boolean }[]; signalId: string; author: string; text: string; meta: string; inView: boolean; suggestion?: TopicSuggestion | null }
 export interface TopicDiscourseViewModel {
   postCount: number;
@@ -100,19 +102,21 @@ export function postedAt(item: SessionItem): number | null {
   return Number.isFinite(captured) ? captured : null;
 }
 
-/** The 講法 a post joins: the keywords of its largest comment cluster that the AI pass did not flag as spam/off-topic. */
+/** Share the reader's actual eligible leader text; legacy keywords never invent a frame. */
 export function frameOf(item: SessionItem, reading?: InlineReadingRecord | null): { key: string; name: string } | null {
   const analysis = item.latestCapture?.analysis;
   if (!analysis || analysis.status !== "succeeded") return null;
-  const noise = new Set(reading?.status === "complete" && reading.captureId === item.latestCapture?.id ? reading.reading.noiseClusters : []);
-  const lead = [...(analysis.clusters ?? [])]
-    .filter((cluster) => (cluster.keywords ?? []).some((k) => k.trim()) && !noise.has(String(cluster.cluster_key)))
-    .sort((a, b) => b.size_share - a.size_share)[0];
-  if (!lead) return null;
-  const words = lead.keywords.map((k) => k.trim()).filter(Boolean);
-  return { key: words[0].toLowerCase(), name: words.slice(0, 2).join(" / ") };
+  const input = reading?.status === "complete" ? buildInlineReadingInput(item) : null;
+  const valid = reading?.status === "complete" && reading.captureId === item.latestCapture?.id
+    && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION
+    && reading.reading.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION && !!input
+    && reading.reading.inputHash === inlineReadingInputHash(input);
+  const names = valid ? reading.reading.clusterNames : {};
+  const noise = new Set(valid ? reading.reading.noiseClusters : []);
+  const lead = readClusterReadings(item, names).find(cluster => cluster.count !== 0 && !noise.has(String(cluster.clusterKey))
+    && (cluster.membership === "complete" || !!names[String(cluster.clusterKey)]));
+  return lead ? { key: lead.label.normalize("NFKC").toLowerCase(), name: lead.label } : null;
 }
-
 export interface TopicDiscourseInput {
   topics: Topic[];
   signals: Signal[];
@@ -150,10 +154,13 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   const postFor = (signal: Signal, item: SessionItem): DiscoursePost => {
     const post = toPost(signal, item, null);
     const reading = input.readings?.[item.id];
-    const complete = reading?.status === "complete" && reading.captureId === item.latestCapture?.id && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION;
+    const source = reading?.status === "complete" ? buildInlineReadingInput(item) : null;
+    const complete = reading?.status === "complete" && reading.captureId === item.latestCapture?.id
+      && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION && reading.reading.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION
+      && !!source && reading.reading.inputHash === inlineReadingInputHash(source);
     const newReading = complete && (!input.opened?.[item.id] || Date.parse(input.opened[item.id]) < Date.parse(reading.reading.generatedAt));
     const noise = new Set(complete ? reading.reading.noiseClusters : []);
-    const count = item.latestCapture?.analysis?.clusters?.filter(cluster => !noise.has(String(cluster.cluster_key))).length ?? 0;
+    const count = readClusterReadings(item).filter(cluster => cluster.membership === "complete" && cluster.count !== 0 && !noise.has(String(cluster.clusterKey))).length;
     const state = item.status === "queued" || item.status === "running" ? "crawling" : item.status === "failed" ? "failed" : newReading ? "new" : item.latestCapture ? "ready" : "saved";
     return {...post, state, stateLabel: state === "crawling" ? "讀緊" : state === "failed" ? "抓取失敗" : state === "new" ? "新" : state === "saved" ? "未讀" : count ? `${count} 種講法` : "已讀"};
   };
@@ -182,9 +189,9 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   const members = inTopic(topic.id).map((signal) => ({ signal, item: itemById.get(signal.itemId!)! }));
   const posts = members.map(({ signal, item }) => ({ post: postFor(signal, item), item, frame: frameOf(item, input.readings?.[item.id]) }))
     .sort((a, b) => (postedAt(b.item) ?? 0) - (postedAt(a.item) ?? 0));
-  const comments = members.reduce((sum, { item }) => sum + readCrawlComments(item).length, 0);
+  const comments = members.reduce((sum, { item }) => sum + readCommentEligibility(item).audience.length, 0);
 
-  // 講法: posts sharing the keyword of their largest real comment cluster.
+  // 講法: posts sharing a verified original-text label or valid AI name.
   const groups = new Map<string, { name: string; rows: typeof posts }>();
   for (const row of posts) {
     if (!row.frame) continue;
@@ -258,50 +265,49 @@ function buildFindings(frames: DiscourseFrame[], rows: { item: SessionItem; post
   });
 
   // 重複問題: the same question (after trimming punctuation) asked under 2+ posts; a reply is not proof of an answer.
-  const asked = new Map<string, { question: string; where: Map<string, { author: string; replied: boolean; postKey: string }> }>();
+  const asked = new Map<string, { question: string; where: Map<string, { author: string; replied: boolean | null; postKey: string }> }>();
   for (const { item, post } of rows) {
-    const comments = readCrawlComments(item);
-    const op = readOpHandle(item);
-    for (const c of comments) {
-      if (normalizeHandle(c.author) === op || !QUESTION.test(c.text)) continue;
+    const eligibility = readCommentEligibility(item);
+    for (const c of eligibility.audience) {
+      if (!isReplyQuestion(c.text)) continue;
       const key = c.text.replace(/[\s？?！!。，,~～…]+/g, "").toLowerCase();
       if (key.length < 4) continue;
       const entry = asked.get(key) ?? { question: c.text.trim(), where: new Map() };
-      const replied = comments.some((k) => k.parent === c.id);
+      const replied = eligibility.all.some(k => k.parent === c.id) ? true : eligibility.structureKnown ? false : null;
       const prev = entry.where.get(post.postKey);
-      entry.where.set(post.postKey, { author: post.author, replied: replied || !!prev?.replied, postKey: post.postKey });
+      entry.where.set(post.postKey, { author: post.author, replied: replied === true || prev?.replied === true ? true : replied === null || prev?.replied === null ? null : false, postKey: post.postKey });
       asked.set(key, entry);
     }
   }
   const repeated = [...asked.values()].filter((entry) => entry.where.size >= 2).sort((a, b) => b.where.size - a.where.size)[0];
   if (repeated) {
     const where = [...repeated.where.values()];
-    const replied = where.filter((w) => w.replied).length;
+    const replied = where.filter(w => w.replied === true).length;
+    const unknown = where.some(w => w.replied === null);
     out.push({ kind: "ask", question: repeated.question, where,
-      text: `「${repeated.question}」喺 ${where.length} 篇貼文都有人問，${replied ? `只有 ${replied} 篇有人回覆` : "樣本內都未見回覆"}。` });
+      text: `「${repeated.question}」喺 ${where.length} 篇貼文都有人問，${unknown ? `${replied} 篇樣本內見到回覆，其餘未能確認` : replied ? `只有 ${replied} 篇有人回覆` : "樣本內都未見回覆"}。` });
   }
   return out;
 }
 
-/** 重複用語: a comment-cluster keyword that recurs under 2+ posts (TopicSynthesis.memes' rule). */
+/** A repeated eligible original sentence, not an analysis keyword guessed from samples. */
 function buildMeme(items: SessionItem[]): { phrase: string; posts: number } | null {
   const counts = new Map<string, { phrase: string; posts: number }>();
   for (const item of items) {
     const seen = new Set<string>();
-    for (const cluster of item.latestCapture?.analysis?.clusters ?? []) {
-      for (const keyword of cluster.keywords ?? []) {
-        const key = keyword.trim().toLowerCase();
-        if (key.length < 2 || seen.has(key)) continue;
-        seen.add(key);
-        const entry = counts.get(key) ?? { phrase: keyword.trim(), posts: 0 };
-        entry.posts += 1;
-        counts.set(key, entry);
-      }
+    for (const cluster of readClusterReadings(item)) {
+      if (cluster.membership !== "complete" || !cluster.leader) continue;
+      const phrase = cluster.label, key = phrase.normalize("NFKC").toLowerCase();
+      if (key.length < 2 || seen.has(key)) continue;
+      seen.add(key);
+      const entry = counts.get(key) ?? { phrase, posts: 0 };
+      entry.posts++;
+      counts.set(key, entry);
     }
   }
-  return [...counts.values()].filter((entry) => entry.posts >= 2).sort((a, b) => b.posts - a.posts || a.phrase.localeCompare(b.phrase))[0] ?? null;
+  return [...counts.values()].filter(entry => entry.posts >= 2)
+    .sort((a, b) => b.posts - a.posts || a.phrase.localeCompare(b.phrase))[0] ?? null;
 }
-
 /** The line on a 觀眾反應 card: pick a 話題, or where the post sits. */
 export type CardTopicLine =
   | { kind: "unassigned"; signalId: string; picks: { id: string; name: string }[] }

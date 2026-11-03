@@ -525,11 +525,16 @@ test("unfinished saved posts keep polling after Threads removes their card DOM",
     const done = readingGlobal("topic", "succeeded");
     done.settings = { ...done.settings, oneLinerProvider: "google", googleApiKey: "test-key" };
     done.sessions[0].items[0].latestCapture = {
-      id: "cap-a", result: { comments: Array.from({ length: 10 }, (_, i) => ({ comment_id: `c${i}`, text: `留言 ${i}` })) },
+      id: "cap-a", result: { comments: Array.from({ length: 10 }, (_, i) => ({ comment_id: `c${i}`, author:`fan${i}`, text: `留言 ${i}` })) },
       analysis: { status: "succeeded", clusters: [], evidence: [] }
     } as unknown as SessionItem["latestCapture"];
     s.emitGlobal(done); await tick();
     assert.equal(s.calls.filter(c => c.message.type === "inline-reading/ensure").length, 1, "the AI reading starts even without a feed card");
+    done.sessions[0].items[0].latestCapture!.result!.comments[0].text='更新後觀眾留言';
+    s.emitGlobal(done); await tick();
+    assert.equal(s.calls.filter(c => c.message.type === "inline-reading/ensure").length, 2, "changed eligible input starts a new reading within the same capture");
+    s.emitGlobal(done); await tick();
+    assert.equal(s.calls.filter(c => c.message.type === "inline-reading/ensure").length, 2, "identical input remains deduplicated");
   } finally { s.cleanup(); }
 });
 

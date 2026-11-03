@@ -7,7 +7,7 @@ import { buildCollectionPosts, buildCollectionArrivalModel } from '../src/viewmo
 import { loadOpenedReadings, markReadingOpened, OPENED_READING_PREFIX } from '../src/state/opened-readings-storage';
 const now = Date.parse('2026-10-13T12:00:00Z');
 const iso = (delta = 0) => new Date(now + delta).toISOString();
-const done = (id = 'i', delta = 0) => item(id, { status: 'succeeded', completedAt: iso(delta), latestCapture: capture({}, { captured_at: iso(delta), analysis: { status: 'succeeded', generated_at: iso(delta), clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>['analysis']> }), descriptor: descriptor({ post_url: `https://www.threads.com/@a/post/${id}` }) });
+const done = (id = 'i', delta = 0) => item(id, { status: 'succeeded', completedAt: iso(delta), latestCapture: capture({}, { captured_at: iso(delta), result: {...capture().result!,comments:[{comment_id:'fan-reply',author:'fan',text:'其他人的討論回覆'}]}, analysis: { status: 'succeeded', generated_at: iso(delta), clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>['analysis']> }), descriptor: descriptor({ post_url: `https://www.threads.com/@a/post/${id}` }) });
 test('save line projects peek, ETA, long wait, done and retry', () => {
   const running = item('i', { status: 'running', lastStatusAt: iso() });
   const vm = buildInlineCardViewModel(running, 'topic', '觀眾反應', { now, peek: { state: 'ready', replies: [{ text: '好用', author: 'a', likes: 9 }] } });

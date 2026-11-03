@@ -8,7 +8,7 @@ import { buildDeepReadingInput, parseDeepReadingResponse } from '../src/compare/
 import { buildInlineCardViewModel } from '../src/viewmodel/inline-card.ts';
 import { CollectionAudienceReading } from '../src/ui/CollectionAudienceReading.tsx';
 import type { SessionItem } from '../src/state/types.ts';
-const item = () => ({ id:'i',status:'succeeded',descriptor:{author_hint:'op',text_snippet:'合成測試正文'},latestCapture:{id:'c',result:{canonical_post:{author:'op',text:'合成測試正文'},comments:Array.from({length:11},(_,i)=>({comment_id:`c${i}`,author:i===0?'@OP':`reader${i}`,text:i===0?'作者解釋用法。':`合成留言${i}。`,like_count:1}))},analysis:{status:'succeeded',clusters:[]}}}) as unknown as SessionItem;
+const item = () => ({ id:'i',status:'succeeded',descriptor:{author_hint:'op',text_snippet:'合成測試正文'},latestCapture:{id:'c',result:{canonical_post:{author:'op',text:'合成測試正文'},comments:Array.from({length:11},(_,i)=>({comment_id:`c${i}`,author:i===0?'@OP':`reader${i}`,text:i===0?'作者解釋用法。':`合成留言${i}。`,like_count:1,parent_comment_id:i===0?'c1':null}))},analysis:{status:'succeeded',clusters:[]}}}) as unknown as SessionItem;
 const payload = () => ({gist:'大家一致反對',find:{split:'大家一致反對'},methods:[{name:'作者做法',ref:'e1'}],split:{agree:'大家一致反對',sides:[{claim:'支持',why:'作者補充',ref:'e1'},{claim:'反對',why:'觀眾意見',ref:'e2'}]}});
 test('author-only side cannot support an audience split or its consensus headline; genuine audience sides survive',()=>{
  const input=buildInlineReadingInput(item())!;
@@ -16,7 +16,7 @@ test('author-only side cannot support an audience split or its consensus headlin
  assert.deepEqual(reading.split.sides,[]);
  assert.match(reading.find.split,/未見.*觀眾分歧/);
  assert.doesNotMatch([reading.gist,reading.find.split,reading.split.agree].join(' '),/一致/);
- assert.equal(reading.methods[0].quote.author,'@OP');
+ assert.equal(reading.methods[0].quote.author,'op');
  const authorOnly=payload();authorOnly.split.sides=authorOnly.split.sides.slice(0,1);
  assert.doesNotMatch(parseInlineReadingResponse(JSON.stringify(authorOnly),input,'test','now')!.gist,/一致/);
  const valid=payload();valid.gist='觀眾意見分成兩邊';valid.find.split='用法有分歧';valid.split.agree='兩邊都關心用法';valid.split.sides[0].ref='e3';
@@ -63,6 +63,10 @@ test('persisted inline author split is guarded after storage normalization for o
   const reading={...parseInlineReadingResponse(JSON.stringify(payload()),input,'test','now')!,promptVersion,gist:'大家一致反對',find:{method:'作者做法',split:'大家一致反對',ask:'未見提問'},split:{agree:'大家一致反對',sides:payload().split.sides.map((s,i)=>({claim:s.claim,why:s.why,quote:{commentId:`c${i}`,author:i===0?'@OP':'reader1',text:'合成原句。',likes:1}}))}};
   const normalized=normalizeInlineReadingRecords({i:{status:'complete',itemId:'i',captureId:'c',reading}});
   const card=buildInlineCardViewModel(source,'topic','合成',{forReader:true,ai:normalized.i});
+  if(promptVersion!==INLINE_READING_PROMPT_VERSION){
+   assert.equal(card.answers.split,undefined);assert.equal(card.answers.method,undefined);
+   assert.doesNotMatch(JSON.stringify(card.entries)+JSON.stringify(card.answers),/一致/);continue;
+  }
   assert.ok(card.answers.split?.kind==='split');assert.deepEqual(card.answers.split.sides,[]);
   assert.doesNotMatch(JSON.stringify(card.entries)+JSON.stringify(card.answers),/一致/);
   assert.ok(card.answers.method?.kind==='methods');assert.equal(card.answers.method.quote.isAuthor,true);

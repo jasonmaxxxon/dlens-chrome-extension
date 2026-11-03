@@ -31,15 +31,24 @@ test("reader state uses the crawl estimate and actual failure reason; other mode
   assert.equal(buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], {}, 0), null);
 });
 
-test("a reader asks for a reading when a finished crawl has none or an older prompt's, never after a stored error", async () => {
+test("a reader regenerates missing or obsolete input identity and leaves a current failure for manual retry", async () => {
   const { readerNeedsReading } = await import("../src/viewmodel/collection-reader.ts");
-  const { INLINE_READING_PROMPT_VERSION } = await import("../src/compare/inline-reading.ts");
+  const { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } = await import("../src/compare/inline-reading.ts");
+  const { COMMENT_ELIGIBILITY_VERSION } = await import("../src/compare/comment-eligibility.ts");
   const { item, capture } = await import("./collection-browser.fixtures.ts");
   const done = item("d", { status: "succeeded", latestCapture: capture({}, { analysis: { status: "succeeded", clusters: [], evidence: [] } as never }) });
-  const reading = (promptVersion: string) => ({ status: "complete", itemId: "d", captureId: "capture-1", reading: { promptVersion } }) as never;
+  done.latestCapture!.result!.comments = [{ comment_id: "q", author: "fan", text: "有冇教學？" }];
+  const inputHash = inlineReadingInputHash(buildInlineReadingInput(done)!);
+  const identity = { itemId: "d", captureId: "capture-1", inputHash, promptVersion: INLINE_READING_PROMPT_VERSION, eligibilityVersion: COMMENT_ELIGIBILITY_VERSION };
+  const reading = (promptVersion: string) => ({ ...identity, status: "complete", reading: { ...identity, promptVersion } }) as never;
   assert.equal(readerNeedsReading(done, undefined), true);
   assert.equal(readerNeedsReading(done, reading("v2")), true);
   assert.equal(readerNeedsReading(done, reading(INLINE_READING_PROMPT_VERSION)), false);
-  assert.equal(readerNeedsReading(done, { status: "error", itemId: "d", captureId: "capture-1", error: "x" } as never), false);
+  assert.equal(readerNeedsReading(done, { status: "complete", itemId: "d", captureId: "capture-1", reading: { promptVersion: INLINE_READING_PROMPT_VERSION } } as never), true);
+  assert.equal(readerNeedsReading(done, { ...identity, status: "failed", error: "x", at: "now" } as never), false);
+  assert.equal(readerNeedsReading(done, { status: "failed", itemId: "d", captureId: "capture-1", error: "x", at: "old" } as never), true);
+  assert.equal(readerNeedsReading(done, { ...identity, status: "failed", eligibilityVersion: "old", error: "x", at: "old" } as never), true);
+  done.latestCapture!.result!.comments[0].text = "已改提問";
+  assert.equal(readerNeedsReading(done, reading(INLINE_READING_PROMPT_VERSION)), true);
   assert.equal(readerNeedsReading(item("q", { status: "queued" }), undefined), false);
 });
