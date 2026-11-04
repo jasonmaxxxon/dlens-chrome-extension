@@ -1,7 +1,7 @@
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import { IS_PR_ONLY_BUILD } from "../build-variant";
 import type { SignalPacketExportFormat,SignalPacketExportResult } from "../compare/signal-packet-export";
-import type { ExtensionMessage,ExtensionResponse } from "../state/messages";
+import type { ExtensionMessage,ExtensionResponse,QueueItemsAndStartProcessingResponse } from "../state/messages";
 import { isKnownPage,shouldBypassModeGuard } from "../state/page-registry";
 import { createPipelineRequestId,emitPipelineEvent,type PipelineEventInput } from "../state/pipeline-trace";
 import type { PrCampaign,PrCampaignDraft,PrCriterionId,PrEvidenceRow,PrNarrativeSettings } from "../state/pr-evidence-storage";
@@ -742,6 +742,15 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     if (!response.ok) throw new Error(response.error);
   }
 
+  // 重新抓取留言 in the reader; only this click queues it. A finished capture gets a new crawl because the backend joins
+  // only a pending or running job for the post. Resolves with a note when the job exists but the worker start is unconfirmed.
+  async function onRecrawlItem(sessionId: string, itemId: string): Promise<string | null> {
+    const response = await sendAndSync<QueueItemsAndStartProcessingResponse>({ type: "session/queue-items-and-start-processing", sessionId, itemIds: [itemId] });
+    if (!response.ok) throw new Error(response.error || "後端拒絕了抓取請求。");
+    if (!response.queuedItemIds.length) throw new Error("後端未能建立抓取工作，請確認後端和資料庫已連上。");
+    return response.processingError ? "已排隊，但未能確認後端開始處理。請勿重複建單。" : null;
+  }
+
   async function onCreateWorkspace(name: string, mode: FolderMode) {
     return sendAndSync({ type: "session/create", name: name.trim(), mode });
   }
@@ -1393,6 +1402,7 @@ export function useInPageCollectorAppState({ snapshot, tabId, sendAndSync }: Use
     onDeleteWorkspace,
     onSetActiveSession,
     onCreateWorkspace,
+    onRecrawlItem,
     onMoveAudienceItem,
     onSaveSettings,
     onSaveAndTestAi,

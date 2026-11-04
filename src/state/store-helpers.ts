@@ -442,7 +442,8 @@ export function markSessionItemQueued(
   return {
     ...item,
     status: mapLifecycleStatus(job, null, "queued"),
-    queuedAt: item.queuedAt || now,
+    // A new job (a retry, or a re-crawl of a finished capture) restarts the clock the card's queue ETA counts from.
+    queuedAt: submit.job_id === item.jobId ? item.queuedAt || now : now,
     captureId: submit.capture_id,
     jobId: submit.job_id,
     canonicalTargetUrl: submit.canonical_target_url,

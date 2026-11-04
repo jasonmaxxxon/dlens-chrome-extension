@@ -2124,6 +2124,53 @@ test("overlapping queue messages for one item create one backend job", async () 
   }
 });
 
+test("queueing a finished capture again submits a new crawl instead of keeping the finished job", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturePosts = 0;
+  let drains = 0;
+  try {
+    const finished: SessionItem = {
+      ...createSessionItem(makeDescriptor("again")), id: "item-again", status: "succeeded",
+      queuedAt: "2026-05-27T00:00:00.000Z", completedAt: "2026-05-27T00:00:02.000Z",
+      captureId: "cap-old", jobId: "job-old", canonicalTargetUrl: "https://www.threads.net/@dlens/post/again",
+      latestJob: makeJob("old"), latestCapture: makeReadyCapture("old")
+    };
+    const session = { ...makeSession("s", "topic"), items: [finished] };
+    const global = makeGlobal([session], session.id);
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = String(init?.method || "GET").toUpperCase();
+      if (url.endsWith("/capture-target") && method === "POST") { capturePosts += 1; return jsonResponse(makeCaptureTargetResponse("new")); }
+      if (url.endsWith("/jobs/job-new")) return jsonResponse({ ...makeJob("new"), status: "pending", finished_at: null });
+      if (url.endsWith("/captures/cap-new")) return jsonResponse({ ...makeCapture("new"), ingestion_status: "queued", job: null, analysis: null });
+      if (url.endsWith("/worker/drain") && method === "POST") { drains += 1; return jsonResponse({ status: "started" }); }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+    const harness = await createHarness({
+      [backgroundTestables.GLOBAL_STORAGE_KEY]: { ...global, settings: { ...global.settings, ingestBaseUrl: "" } },
+      [backgroundTestables.ACTIVE_SESSION_ID_STORAGE_KEY]: session.id,
+      [backgroundTestables.tabStorageKey(TAB_ID)]: createEmptyTabState()
+    });
+
+    const response = await harness.dispatch({
+      type: "session/queue-items-and-start-processing", requestId: "again", sessionId: session.id, itemIds: ["item-again"]
+    } as ExtensionMessage);
+
+    assert.equal(response.ok, true);
+    assert.deepEqual(response.ok ? response.queuedItemIds : null, ["item-again"]);
+    assert.equal(capturePosts, 1, "a succeeded job does not short-circuit the request the way a queued or running one does");
+    assert.equal(drains, 1);
+    const stored = (harness.state[backgroundTestables.GLOBAL_STORAGE_KEY] as ExtensionGlobalState).sessions[0]!.items[0]!;
+    assert.equal(stored.status, "queued");
+    assert.equal(stored.captureId, "cap-new");
+    assert.equal(stored.jobId, "job-new");
+    assert.equal(stored.latestCapture?.id, "cap-new", "the post now follows the new crawl");
+    assert.notEqual(stored.queuedAt, finished.queuedAt, "its ETA counts from this queueing");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 
 test("session/refresh-item ignores stale request writes before storage and broadcast", async () => {
   enablePipelineTraceForTest();
