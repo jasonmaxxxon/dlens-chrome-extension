@@ -26,6 +26,16 @@ export function normalizeTopicReadingRecords(value:unknown):Record<string,TopicR
 }
 export async function loadTopicReadingRecords(storage:StorageAreaLike):Promise<Record<string,TopicReadingRecord>> {return normalizeTopicReadingRecords((await storage.get(TOPIC_READINGS_STORAGE_KEY))[TOPIC_READINGS_STORAGE_KEY]);}
 let writes:Promise<unknown>=Promise.resolve();
-export function saveTopicReadingRecord(storage:StorageAreaLike,record:TopicReadingRecord):Promise<void>{
- const run=writes.then(async()=>{const records=await loadTopicReadingRecords(storage);await storage.set({[TOPIC_READINGS_STORAGE_KEY]:{...records,[record.topicId]:record}});});writes=run.catch(()=>undefined);return run;
+export function saveTopicReadingRecord(storage:StorageAreaLike,record:TopicReadingRecord,isCurrent?:()=>boolean):Promise<void>{
+ const run=writes.then(async()=>{const records=await loadTopicReadingRecords(storage);if(isCurrent && !isCurrent())return;await storage.set({[TOPIC_READINGS_STORAGE_KEY]:{...records,[record.topicId]:record}});});writes=run.catch(()=>undefined);return run;
+}
+
+/** An older packet/model may finish after a newer run for the same topic. */
+export function saveTopicReadingRecordIfInput(storage:StorageAreaLike,record:TopicReadingRecord,expectedInputHash:string,isCurrent?:()=>boolean):Promise<boolean>{
+ const run=writes.then(async()=>{
+  const records=await loadTopicReadingRecords(storage);const current=records[record.topicId];
+  if(isCurrent && !isCurrent() || current?.inputHash!==expectedInputHash || current.promptVersion!==record.promptVersion || current.model!==record.model)return false;
+  await storage.set({[TOPIC_READINGS_STORAGE_KEY]:{...records,[record.topicId]:record}});return true;
+ });
+ writes=run.catch(()=>undefined);return run;
 }

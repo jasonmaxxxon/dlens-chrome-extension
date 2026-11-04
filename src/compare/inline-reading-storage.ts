@@ -4,10 +4,11 @@ import type { InlineReading, InlineReadingQuote } from "./inline-reading.ts";
 export const INLINE_READINGS_STORAGE_KEY = "dlens:v1:inline-readings";
 
 /** One record per saved item; a new capture (re-crawl) makes the old record stale by captureId. */
-export type InlineReadingRecord =
+interface InlineReadingIdentity { inputHash?: string; promptVersion?: string; eligibilityVersion?: string }
+export type InlineReadingRecord = InlineReadingIdentity & (
   | { status: "running"; itemId: string; captureId: string; startedAt: string }
   | { status: "failed"; itemId: string; captureId: string; error: string; at: string }
-  | { status: "complete"; itemId: string; captureId: string; reading: InlineReading };
+  | { status: "complete"; itemId: string; captureId: string; reading: InlineReading });
 
 export interface StorageAreaLike {
   get(key: string): Promise<Record<string, unknown>>;
@@ -32,6 +33,8 @@ function normalizeReading(value: unknown): InlineReading | null {
   return {
     itemId: str(raw.itemId), captureId: str(raw.captureId), promptVersion: str(raw.promptVersion), model: str(raw.model), generatedAt: str(raw.generatedAt),
     coverage:normalizeReadingCoverage(raw.coverage),
+    ...(str(raw.inputHash) ? { inputHash: str(raw.inputHash) } : {}),
+    ...(str(raw.eligibilityVersion) ? { eligibilityVersion: str(raw.eligibilityVersion) } : {}),
     gist: str(raw.gist),
     find: { method: str(find.method), split: str(find.split), ask: str(find.ask) },
     clusterNames: Object.fromEntries(Object.entries(names).filter(([, name]) => typeof name === "string" && name)) as Record<string, string>,
@@ -53,7 +56,10 @@ function normalizeReading(value: unknown): InlineReading | null {
 function normalizeRecord(value: unknown): InlineReadingRecord | null {
   const raw = obj(value);
   if (!raw || !str(raw.itemId) || !str(raw.captureId)) return null;
-  const base = { itemId: str(raw.itemId), captureId: str(raw.captureId) };
+  const base = { itemId: str(raw.itemId), captureId: str(raw.captureId),
+    ...(str(raw.inputHash) ? { inputHash: str(raw.inputHash) } : {}),
+    ...(str(raw.promptVersion) ? { promptVersion: str(raw.promptVersion) } : {}),
+    ...(str(raw.eligibilityVersion) ? { eligibilityVersion: str(raw.eligibilityVersion) } : {}) };
   if (raw.status === "running" && str(raw.startedAt)) return { ...base, status: "running", startedAt: str(raw.startedAt) };
   if (raw.status === "failed") return { ...base, status: "failed", error: str(raw.error) || "原因不明", at: str(raw.at) };
   const reading = raw.status === "complete" ? normalizeReading(raw.reading) : null;
@@ -74,9 +80,10 @@ export async function loadInlineReadingRecords(storageArea: StorageAreaLike): Pr
 
 // Readings for different posts finish in any order; serialise read-modify-write so none is lost.
 let writes: Promise<unknown> = Promise.resolve();
-export function saveInlineReadingRecord(storageArea: StorageAreaLike, record: InlineReadingRecord): Promise<void> {
+export function saveInlineReadingRecord(storageArea: StorageAreaLike, record: InlineReadingRecord, isCurrent?:()=>boolean): Promise<void> {
   const run = writes.then(async () => {
     const records = await loadInlineReadingRecords(storageArea);
+    if(isCurrent && !isCurrent())return;
     await storageArea.set({ [INLINE_READINGS_STORAGE_KEY]: { ...records, [record.itemId]: record } });
   });
   writes = run.catch(() => undefined);
@@ -84,10 +91,14 @@ export function saveInlineReadingRecord(storageArea: StorageAreaLike, record: In
 }
 
 /** Check and publish in the same writer queue: an older capture cannot replace a newer run. */
-export function saveInlineReadingRecordIfCapture(storageArea:StorageAreaLike,record:InlineReadingRecord,expectedCaptureId:string):Promise<boolean> {
+export function saveInlineReadingRecordIfCapture(storageArea:StorageAreaLike,record:InlineReadingRecord,expectedCaptureId:string,expectedInputHash?:string,isCurrent?:()=>boolean):Promise<boolean> {
  const run=writes.then(async()=>{
   const records=await loadInlineReadingRecords(storageArea);
+  if(isCurrent && !isCurrent())return false;
   if(records[record.itemId]?.captureId!==expectedCaptureId)return false;
+  const current=records[record.itemId];
+  const hash=current?.inputHash ?? (current?.status==='complete' ? current.reading.inputHash : undefined);
+  if(expectedInputHash!==undefined && hash!==expectedInputHash)return false;
   await storageArea.set({[INLINE_READINGS_STORAGE_KEY]:{...records,[record.itemId]:record}});
   return true;
  });

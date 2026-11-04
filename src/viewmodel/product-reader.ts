@@ -15,7 +15,7 @@ export function productReadingFinishedAt(item: SessionItem, analysis: ProductSig
 export function buildProductReaderModel(item: SessionItem, sessionId: string, signalId: string | null, stored: ProductSignalAnalysis | undefined, settings: ExtensionSettings, hasContext: boolean, lens: string | null = null, pending=false, error: string | null=null) {
  const analysis=stored?.status==='complete' ? stored : null;
  const thread=readInlineCardThread(item);
- const authors=thread.comments.filter(c=>inlineReplyRow(c,thread.op).isAuthor);
+ const authors=thread.eligibility.all.filter(c=>inlineReplyRow(c,thread.op).isAuthor);
  const seen=new Set(authors.map(c=>c.text));
  const top=thread.ranked.filter(c=>!seen.has(c.text)).slice(0,3);
  const replies=[...authors,...top].map(c=>inlineReplyRow(c,thread.op));
@@ -53,6 +53,6 @@ export function buildProductSaveLine(item:SessionItem, analysis:ProductSignalAna
    const top=peek?.state==='ready' ? [...peek.replies].sort((a,b)=>(b.likes??0)-(a.likes??0))[0] : null;
    status=top ? `「${top.text}」 ♡ ${top.likes??0}` : '睇緊第一批留言';
   }
- } else if (item.status==='succeeded') status=`讀完 · ${analysis?.status==='complete' ? PRODUCT_VERDICT_LABELS[analysis.verdict] : `${readInlineCardThread(item).comments.length} 則留言`}`;
+ } else if (item.status==='succeeded') status=`讀完 · ${analysis?.status==='complete' ? PRODUCT_VERDICT_LABELS[analysis.verdict] : `${readInlineCardThread(item).eligibility.all.length} 則留言`}`;
  return {destination:'已存入 個人應用',status,busy,ready:item.status==='succeeded',retry:failed || item.status==='saved'};
 }

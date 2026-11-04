@@ -5,7 +5,7 @@ import { DeepReadingView } from "./DeepReadingView";
 import type { DeepReadingModel, DeepCommand } from "../viewmodel/deep-reading";
 import { type CSSProperties, type ReactNode } from "react";
 import type { CollectionReaderModel } from "../viewmodel/collection-reader";
-import type { InlineCardAnswer, InlineCardEntryKey } from "../viewmodel/inline-card";
+import type { InlineCardAnswer, InlineCardEntryKey, InlineCardQuote } from "../viewmodel/inline-card";
 import { getModeTheme, tokens, textStyles } from "./tokens";
 
 const c = tokens.collectCard;
@@ -17,30 +17,30 @@ const lead = (title: string, note?: string | null, dot?: string) => <div data-re
   <b style={{ fontSize: tokens.reader.body, color: tokens.color.ink }}>{title}</b>
   {note ? <span style={{ gridColumn: dot ? 2 : 1, fontSize: tokens.reader.secondary, color: c.soft }}>{note}</span> : null}
 </div>;
-const quote = (text: string, author: string, likes: number | null = null, footer?: ReactNode, isAuthor = false) => <ReaderReply row={{ author, text, likes, replies: null, time: null, isAuthor }} footer={footer} />;
+const quote = (text: string, author: string, likes: number | null = null, footer?: ReactNode, isAuthor = false, quality?: InlineCardQuote["quality"]) => <ReaderReply row={{ author, text, likes, replies: null, time: null, isAuthor, quality }} footer={footer} />;
 /** The card's stacked share bar and legend, in the same colours as the evidence groups below. */
-function ShareBar({ segments }: { segments: { label: string; pct: number; noise: boolean }[] }) {
+function ShareBar({ segments }: { segments: { label: string; measurementLabel: string; pct?: number; noise: boolean }[] }) {
   const colour = (s: { noise: boolean }, i: number) => s.noise ? c.noise : c.clusterColors[i % c.clusterColors.length];
   return <div data-reader-share="">
-    <div style={{ display: "flex", gap: c.barGap, height: c.barHeight }}>{segments.map((s, i) => <i key={s.label} style={{ flex: Math.max(s.pct, 1), borderRadius: c.barHeight / 2, background: colour(s, i) }} />)}</div>
+    <div aria-hidden="true" style={{ display: "flex", gap: c.barGap, height: c.barHeight }}>{segments.map((s, i) => <i key={i} style={{ flex: Math.max(s.pct ?? 1, 1), borderRadius: c.barHeight / 2, background: colour(s, i) }} />)}</div>
     <div style={{ display: "flex", flexWrap: "wrap", gap: `${tokens.spacing.xs}px ${tokens.spacing.md}px`, marginTop: tokens.spacing.sm, fontSize: tokens.reader.meta, color: c.soft }}>
-      {segments.map((s, i) => <span key={s.label} style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.xs }}><i aria-hidden="true" style={{ width: c.dot, height: c.dot, borderRadius: tokens.radius.xs, background: colour(s, i) }} />{s.label} {s.pct}%</span>)}
+      {segments.map((s, i) => <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.xs }}><i aria-hidden="true" style={{ width: c.dot, height: c.dot, borderRadius: tokens.radius.xs, background: colour(s, i) }} />{s.label} {s.measurementLabel}</span>)}
     </div>
   </div>;
 }
 function Answer({ answer }: { answer: InlineCardAnswer }) {
   if (answer.kind === "empty") return <h3 style={h3}>{answer.text}</h3>;
-  if (answer.kind === "clusters") return <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} />{answer.quote ? quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor) : null}</>;
-  if (answer.kind === "methods") return <><h3 style={h3}>有咩做法</h3>{answer.rows.map(r => <div key={r.name}>{lead(r.name, r.fit, c.entryColors.method)}</div>)}{quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor)}</>;
-  if (answer.kind === "split") return <><h3 style={h3}>{answer.agree}</h3>{answer.sides.map((s, i) => <div key={s.claim}>{lead(s.claim, s.why, c.sideColors[i % c.sideColors.length])}{quote(s.quote.text, s.quote.author, s.quote.likes, undefined, s.quote.isAuthor)}</div>)}{answer.note ? <p style={{ color: c.soft }}>{answer.note}</p> : null}</>;
+  if (answer.kind === "clusters") return <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} />{answer.quote ? quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor, answer.quote.quality) : null}</>;
+  if (answer.kind === "methods") return <><h3 style={h3}>有咩做法</h3>{answer.rows.map(r => <div key={r.name}>{lead(r.name, r.fit, c.entryColors.method)}</div>)}{quote(answer.quote.text, answer.quote.author, answer.quote.likes, undefined, answer.quote.isAuthor, answer.quote.quality)}</>;
+  if (answer.kind === "split") return <><h3 style={h3}>{answer.agree}</h3>{answer.sides.map((s, i) => <div key={s.claim}>{lead(s.claim, s.why, c.sideColors[i % c.sideColors.length])}{quote(s.quote.text, s.quote.author, s.quote.likes, undefined, s.quote.isAuthor, s.quote.quality)}</div>)}{answer.note ? <p style={{ color: c.soft }}>{answer.note}</p> : null}</>;
   // The questions themselves appear once, below, grouped by who answered them and with the answers attached.
   if (answer.kind === "ask") return <h3 style={h3}>{answer.headline}</h3>;
-  if (answer.kind === "op") return <><h3 style={h3}>作者回應</h3>{answer.rows.map((r, i) => <div key={i}><p style={{ fontSize: tokens.reader.secondary, color: c.soft, margin: `${tokens.spacing.md}px 0 0` }}>回應「{r.inReplyTo}」</p>{quote(r.text, r.author ?? "", r.likes ?? null, undefined, true)}</div>)}</>;
-  return <><h3 style={h3}>樣本內最高讚</h3>{answer.rows.map((r, i) => <div key={i}>{quote(r.text, r.author, r.likes, undefined, r.isAuthor)}</div>)}</>;
+  if (answer.kind === "op") return <><h3 style={h3}>作者回應</h3>{answer.rows.map((r, i) => <div key={i}><p style={{ fontSize: tokens.reader.secondary, color: c.soft, margin: `${tokens.spacing.md}px 0 0` }}>回應「{r.inReplyTo}」</p>{quote(r.text, r.author ?? "", r.likes ?? null, undefined, true, r.quality)}</div>)}</>;
+  return <><h3 style={h3}>樣本內最高讚</h3>{answer.rows.map((r, i) => <div key={i}>{quote(r.text, r.author, r.likes, undefined, r.isAuthor, r.quality)}</div>)}</>;
 }
-function AskStatus({ status }: { status: "none" | "author" | "other" }) {
-  const label = status === "none" ? "樣本內未見回覆" : status === "author" ? "作者回覆咗" : "有人回覆咗";
-  return <span style={{ fontSize: tokens.reader.meta, fontWeight: 600, color: c.askColors[status] }}>{label}</span>;
+function AskStatus({ status }: { status: "none" | "author" | "other" | "unknown" }) {
+  const label = status === "unknown" ? "未能確認回覆" : status === "none" ? "樣本內未見回覆" : status === "author" ? "作者回覆咗" : "有人回覆咗";
+  return <span style={{ fontSize: tokens.reader.meta, fontWeight: 600, color: status === "unknown" ? c.soft : c.askColors[status] }}>{label}</span>;
 }
 export function CollectionAudienceReading({ model, onMore, onLens, onAssign, assignmentPending, deepReading, onDeepCommand }: {
   deepReading?: DeepReadingModel | null; onDeepCommand?: (command: DeepCommand) => void;
@@ -58,7 +58,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
 
     <ReaderLensBar tabs={model.card.entries} selected={model.selected} onSelect={onLens} accent={key=>c.entryColors[key]} />
     <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{color:tokens.color.subInk}}>{model.answer ? <Answer answer={model.answer}/> : null}</div>
-    {model.evidence ? <div data-reader-evidence="" style={{ marginTop: tokens.spacing.lg }}><b style={{fontSize:tokens.reader.secondary}}>證據</b><p style={{fontSize:tokens.reader.meta, color: c.soft }}>{model.evidence.sub}</p>{model.evidence.groups.filter(group => group.chains.length || group.more).map((group, i) => {
+    {model.evidence ? <div data-reader-evidence="" style={{ marginTop: tokens.spacing.lg }}><b style={{fontSize:tokens.reader.secondary}}>證據</b><p style={{fontSize:tokens.reader.meta, color: c.soft }}>{model.evidence.sub}</p>{model.evidence.groups.filter(group => group.chains.length || group.more || group.context).map((group, i) => {
       const color = group.tone === "noise" ? c.noise : group.tone === "method" ? c.entryColors.method : group.tone === "side" ? c.sideColors[group.index % c.sideColors.length] : c.clusterColors[group.index % c.clusterColors.length];
       return <section key={i} data-reader-evidence-group="" style={{ marginTop: tokens.reader.group.gap, padding: tokens.reader.group.padding, borderRadius: tokens.reader.group.radius, background: tokens.reader.group.background }}>
         <div data-reader-evidence-header="" style={{ display: "grid", gridTemplateColumns: `${c.dot}px minmax(0,1fr) auto`, alignItems: "center", gap: tokens.spacing.sm }}><i aria-hidden="true" style={{ width: c.dot, height: c.dot, borderRadius: tokens.radius.round, background: color }} /><b>{group.title}</b><span style={{ whiteSpace: "nowrap", color: c.soft }}>{group.meta}</span></div>
@@ -66,7 +66,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
         {group.chains.map((chain, index) => <div key={index}><ReaderReply row={chain.row} footer={chain.unanswered ? <AskStatus status="none" /> : undefined} />{chain.reply ? <ReaderReply row={chain.reply} threaded /> : null}</div>)}
         {group.more && !group.expanded ? <button type="button" data-reader-more={`${group.tone}:${group.index}`} onClick={()=>onMore(`${group.tone}:${group.index}`)} style={{...button,background:"transparent",color:c.soft}}>再睇 {group.more} 則</button> : null}
       </section>;
-    })}{!model.evidence.groups.some(group => group.chains.length || group.more) ? <p style={{ fontSize: tokens.reader.secondary, color: c.soft }}>支持原句已喺上面顯示，呢度唔重複。</p> : null}</div> : null}
+    })}{!model.evidence.groups.some(group => group.chains.length || group.more || group.context) ? <p style={{ fontSize: tokens.reader.secondary, color: c.soft }}>支持原句已喺上面顯示，呢度唔重複。</p> : null}</div> : null}
     {deepReading && onDeepCommand ? <DeepReadingView model={deepReading} onCommand={onDeepCommand} /> : null}
   </section>;
 }

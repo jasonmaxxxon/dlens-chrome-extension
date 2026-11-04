@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {buildTopicReadingInput} from '../src/compare/topic-reading.ts';
-import {buildInlineReadingInput,parseInlineReadingResponse,INLINE_READING_PROMPT_VERSION} from '../src/compare/inline-reading.ts';
+import {buildInlineReadingInput,inlineReadingInputHash,parseInlineReadingResponse,INLINE_READING_PROMPT_VERSION} from '../src/compare/inline-reading.ts';
+import {COMMENT_ELIGIBILITY_VERSION} from '../src/compare/comment-eligibility.ts';
 import {buildDeepReadingInput} from '../src/compare/deep-reading.ts';
 import {buildTopicReadingModel} from '../src/viewmodel/topic-reading.ts';
 import {TopicReadingView} from '../src/ui/TopicReadingView.tsx';
@@ -12,7 +13,7 @@ const topic:any={id:'t',name:'合成話題'};
 const one:any={id:'i',status:'succeeded',descriptor:{author_hint:'op',text_snippet:'合成'},latestCapture:{id:'c',result:{canonical_post:{author:'op',text:'合成正文。'.repeat(200)},comments:Array.from({length:300},(_,i)=>({comment_id:'r'+i,author:'fan'+i,text:'合成測試留言。'.repeat(100)+i,like_count:i}))},analysis:{clusters:[]}}};
 const quick:any={status:'complete',captureId:'c',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,gist:'合成概述。',clusterNames:{},methods:[{name:'先測試',fit:'合成場景'}],split:{sides:[]},find:{ask:'怎樣驗證？'}}};
 test('oversized topic persists exact loss of replies and summaries and displays it even with zero omitted posts',()=>{
- const items=Array.from({length:100},(_,i)=>({...one,id:'i'+i}));const inline=Object.fromEntries(items.map(i=>[i.id,quick]));
+ const items=Array.from({length:100},(_,i)=>({...one,id:'i'+i}));const inline=Object.fromEntries(items.map(i=>[i.id,{...quick,reading:{...quick.reading,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash:inlineReadingInputHash(buildInlineReadingInput(i)!)}}]));
  const input:any=buildTopicReadingInput(topic,items,inline);assert.equal(input.omittedPostCount,0);assert.equal(input.posts[0].replies.length,0);
  assert.ok(input.coverage,'coverage must be captured at input construction');
  assert.deepEqual(input.coverage.replyQuotes,{sent:0,captured:30000});assert.deepEqual(input.coverage.summaries,{sent:0,available:100});
