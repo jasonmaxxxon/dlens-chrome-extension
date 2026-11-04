@@ -59,3 +59,24 @@ test("inFlightSubmit reuses the job of a queued or running item and nothing else
   }
   assert.equal(inFlightSubmit({ ...base, status: "queued", jobId: null } as never), null);
 });
+
+test("queueItemsSequential reports why an item failed, including a refusal time", async () => {
+  const originalError = console.error;
+  console.error = () => undefined;
+  try {
+    const result = await queueItemsSequential({
+      initialSnapshot: [] as string[],
+      itemIds: ["a", "b"],
+      queueOne: async (itemId) => {
+        if (itemId === "a") throw Object.assign(new Error("此貼文 24 小時內已失敗 3 次"), { retryAfter: "2026-10-31T06:05:00+00:00" });
+        throw new Error("boom");
+      }
+    });
+    assert.deepEqual(result.failureReasons, {
+      a: { message: "此貼文 24 小時內已失敗 3 次", retryAfter: "2026-10-31T06:05:00+00:00" },
+      b: { message: "boom", retryAfter: null }
+    });
+  } finally {
+    console.error = originalError;
+  }
+});

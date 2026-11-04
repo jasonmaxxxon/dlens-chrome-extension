@@ -60,7 +60,7 @@ export interface ThreadsAdvancedMetricsResponse {
   fetched_at: string;
 }
 
-export type BackendJobStatus = "pending" | "running" | "succeeded" | "dead";
+export type BackendJobStatus = "pending" | "running" | "succeeded" | "dead" | "cancelled";
 export type SidebarJobStatus = "queued" | "running" | "succeeded" | "dead";
 
 export interface JobSnapshot {
@@ -68,6 +68,8 @@ export interface JobSnapshot {
   capture_id: string;
   job_type: string;
   status: BackendJobStatus;
+  queue_position?: number | null;
+  jobs_ahead?: number | null;
   priority: number;
   attempt_count: number;
   max_attempts: number;

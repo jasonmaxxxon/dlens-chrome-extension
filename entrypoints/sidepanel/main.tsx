@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { InPageCollectorApp } from "../../src/ui/InPageCollectorApp";
-import { requestWorkspaceOpen } from "../../src/ui/inpage-helpers";
+import { requestWorkspaceOpen, requestAiSettingsOpen } from "../../src/ui/inpage-helpers";
 import { DLENS_MOTION_CSS, ensureDlensKeyframes } from "../../src/ui/motion";
 import type { ExtensionMessage, ExtensionResponse } from "../../src/state/messages";
 
@@ -19,11 +19,12 @@ ensureDlensKeyframes(document);
 
 // A card's 開啟工作區 names the workspace: live while this panel is open, or handed over once it has loaded.
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-  if (message.type === "sidepanel/open") requestWorkspaceOpen(message.sessionId, window, message.itemId ? {itemId:message.itemId,lens:message.lens} : undefined);
+  if (message.type === "sidepanel/open" && message.settingsSection === "ai") requestAiSettingsOpen();
+  else if (message.type === "sidepanel/open") requestWorkspaceOpen(message.sessionId, window, message.itemId ? {itemId:message.itemId,lens:message.lens} : undefined);
   return false;
 });
 void (chrome.runtime.sendMessage({ type: "sidepanel/take-workspace-open" } satisfies ExtensionMessage) as Promise<ExtensionResponse>)
-  .then((response) => { if (response.ok && response.workspaceSessionId) requestWorkspaceOpen(response.workspaceSessionId, window, response.readerItemId ? {itemId:response.readerItemId,lens:response.readerLens} : undefined); })
+  .then((response) => { if (response.ok && response.settingsSection === "ai") requestAiSettingsOpen(); else if (response.ok && response.workspaceSessionId) requestWorkspaceOpen(response.workspaceSessionId, window, response.readerItemId ? {itemId:response.readerItemId,lens:response.readerLens} : undefined); })
   .catch(() => undefined);
 
 ReactDOM.createRoot(root).render(

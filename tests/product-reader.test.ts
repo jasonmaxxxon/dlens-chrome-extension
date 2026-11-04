@@ -42,7 +42,7 @@ test('product one-line completion, no-analysis completion and failed retry',()=>
  assert.equal(buildProductSaveLine(source,analysis,0,null).status,'讀完 · 值得試');
  assert.match(buildProductSaveLine(source,undefined,0,null).status,/讀完 · \d+ 則留言/);
  const failed=buildProductSaveLine({...source,status:'failed',lastError:'backend'},undefined,0,null);
- assert.equal(failed.retry,true);assert.equal(failed.status,'抓取失敗 · backend');
+ assert.equal(failed.retry,true);assert.equal(failed.rawError,'backend');assert.match(failed.status,/抓取失敗.*處理失敗/);
  assert.equal(productReadingFinishedAt({...source,completedAt:savedAt},undefined,true),null);
  assert.equal(productReadingFinishedAt({...source,completedAt:savedAt},undefined,false),savedAt);
 });

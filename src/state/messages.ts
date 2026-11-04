@@ -3,6 +3,7 @@ import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../contracts/ingest";
 import type { ExtensionSettings, LayoutPreferences, ProductAgentTaskFeedback, ProductSignalAnalysis, ProductContext, ProductProfile, FolderMode, Signal, SignalInboxStatus, Topic, TriageAction } from "./types";
 import type { SignalReading } from "../compare/signal-reading-storage";
+import type { QueueFailureReason } from "./queue-items";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ExtensionSnapshot, PopupPage } from "./types";
 import type { BackendWorkUiState, WorkerStatus } from "./processing-state";
@@ -25,7 +26,7 @@ export type ExtensionMessagePayload =
   | { type: "settings/init-product-profile"; description: string }
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }
   | { type: "settings/set-layout-preferences"; layoutPreferences: Partial<LayoutPreferences> }
-  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string }
+  | { type: "sidepanel/open"; sessionId: string; itemId?: string; lens?: string; settingsSection?: "ai" }
   | { type: "sidepanel/take-workspace-open" }
   | { type: "deep-reading/run"; itemId: string }
   | { type: "topic-reading/run"; topicId: string }
@@ -52,6 +53,7 @@ export type ExtensionMessagePayload =
   | { type: "session/queue-items-and-start-processing"; sessionId: string; itemIds: string[] }
   | { type: "session/queue-selected"; target: SessionItemActionTarget }
   | { type: "session/queue-all-pending"; target: SessionActionTarget }
+  | { type: "session/cancel-job"; sessionId: string; itemId: string }
   | { type: "session/refresh-item"; sessionId: string; itemId: string }
   | { type: "session/refresh-selected"; target: SessionItemActionTarget }
   | { type: "session/refresh-all"; target: SessionActionTarget }
@@ -115,6 +117,8 @@ export type ExtensionSuccessResponse = {
   capture?: CaptureSnapshot;
   /** The workspace a card asked the side panel to open, handed over once. */
   workspaceSessionId?: string | null;
+  settingsSection?: "ai";
+  cancelStatus?: "cancelled" | "running" | "unsupported";
   readerItemId?: string;
   readerLens?: string;
   deepReading?: DeepReadingRecord;
@@ -182,6 +186,7 @@ export type QueueItemsAndStartProcessingResponse =
       processingError?: string;
       queuedItemIds: string[];
       failedItemIds: string[];
+      failureReasons?: Record<string, QueueFailureReason>;
     })
   | { ok: false; error: string; queuedItemIds?: string[]; failedItemIds?: string[] };
 
