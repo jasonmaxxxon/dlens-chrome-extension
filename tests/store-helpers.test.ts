@@ -671,3 +671,30 @@ test("reconcileSessionItem clears error when analysis succeeded and no job error
   assert.equal(reconciled.lastErrorKind, null);
   assert.equal(reconciled.lastError, null);
 });
+
+test("markSessionItemQueued restarts the queue clock for a new job and keeps it when rejoining the same job", () => {
+  const finished = {
+    ...createSessionItem(buildDescriptor(), "2026-03-24T07:22:21.000Z"),
+    status: "succeeded" as const,
+    queuedAt: "2026-03-24T07:22:22.000Z",
+    captureId: "cap-1",
+    jobId: "job-1"
+  };
+  const submit = (id: string) => ({
+    capture_id: `cap-${id}`,
+    job_id: `job-${id}`,
+    status: "queued" as const,
+    job_type: "threads_post_comments_crawl" as const,
+    canonical_target_url: "https://www.threads.net/@alpha/post/abc"
+  });
+  const before = Date.now();
+
+  const recrawled = markSessionItemQueued(finished, submit("2"), buildJob({ id: "job-2", capture_id: "cap-2", status: "pending" }));
+  assert.equal(recrawled.status, "queued");
+  assert.equal(recrawled.captureId, "cap-2");
+  assert.equal(recrawled.jobId, "job-2");
+  assert.ok(Date.parse(recrawled.queuedAt!) >= before, "a re-crawl's ETA counts from its own queueing, not the first crawl's");
+
+  const rejoined = markSessionItemQueued(finished, submit("1"), buildJob({ status: "pending" }));
+  assert.equal(rejoined.queuedAt, finished.queuedAt);
+});

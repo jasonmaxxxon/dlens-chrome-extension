@@ -26,7 +26,7 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
     const [selectedKey, setSelectedKey] = useState<string | null>(props.selectedKey ?? null);
-    return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
+    return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} onRecrawl={props.onRecrawl} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
       onOpenWorkspace={(id) => opened.push(id)} />;
@@ -277,4 +277,64 @@ test('reader back label and action use the discourse origin while collection kee
  try{assert.equal(h.container.querySelector('[data-collection-action="back"]')!.textContent?.trim(),'‹ Codex');await h.click('[data-collection-action="back"]');assert.equal(returned,1);assert.deepEqual(h.selected,[]);}finally{await h.close();}
  const collection=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key});
  try{assert.equal(collection.container.querySelector('[data-collection-action="back"]')!.textContent?.trim(),'‹ 收藏');}finally{await collection.close();}
+});
+
+test("reader 詳情 crawls a finished 觀眾反應 post again only on click and offers no second crawl meanwhile", async () => {
+  const now = Date.parse("2026-11-04T12:00:00Z");
+  const analysis = { status: "succeeded", generated_at: "2026-10-25T00:00:00Z", clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>["analysis"]>;
+  const finished = item("legacy", { status: "succeeded", captureId: "capture-1", completedAt: "2026-10-25T00:00:00Z", latestCapture: capture({}, { analysis }) });
+  const sessions = [session("audience", [finished], "topic")];
+  const calls: Array<[string, string]> = [];
+  let settle: (note: string | null) => void = () => undefined;
+  const h = await mount({ sessions, nowMs: now, selectedKey: buildCollectionPosts(sessions)[0].key,
+    onRecrawl: (sessionId, itemId) => { calls.push([sessionId, itemId]); return new Promise(resolve => { settle = resolve; }); } });
+  const button = () => h.container.querySelector<HTMLButtonElement>('[data-collection-action="recrawl"]');
+  try {
+    assert.ok(button()?.closest("details"), "the control sits in the post's 詳情, not on the reading");
+    assert.equal(calls.length, 0, "opening the reader never crawls");
+    assert.equal(button()!.textContent, "重新抓取留言");
+    assert.match(button()!.title, /AI/, "the cost is named before the click");
+    assert.doesNotMatch(h.container.querySelector("details")!.textContent!, /原帖時間/, "the post time renders once, in the header");
+    await h.click("summary");
+    await h.click('[data-collection-action="recrawl"]');
+    assert.deepEqual(calls, [["audience", "legacy"]]);
+    assert.equal(button()!.disabled, true);
+    assert.equal(button()!.textContent, "排緊隊…");
+    await h.click('[data-collection-action="recrawl"]');
+    await act(async () => settle("已排隊，但未能確認後端開始處理。請勿重複建單。"));
+    // The panel can hold the old capture until its next sync; that capture must not offer a second crawl.
+    assert.equal(button()!.textContent, "已排隊");
+    assert.equal(button()!.disabled, true);
+    assert.equal(h.container.querySelector('details [role="status"]')?.textContent, "已排隊，但未能確認後端開始處理。請勿重複建單。");
+    await h.click('[data-collection-action="recrawl"]');
+    assert.equal(calls.length, 1);
+  } finally { await h.close(); }
+});
+
+test("a refused re-crawl says why and stays retryable; unfinished, settling and non-audience posts offer none", async () => {
+  const now = Date.parse("2026-11-04T12:00:00Z");
+  const analysis = { status: "succeeded", generated_at: "2026-10-25T00:00:00Z", clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>["analysis"]>;
+  const finished = (id: string, overrides: Parameters<typeof item>[1] = {}) => item(id, { status: "succeeded", captureId: "capture-1", completedAt: "2026-10-25T00:00:00Z", latestCapture: capture({}, { analysis }), ...overrides });
+  const refusedSessions = [session("audience", [finished("refused")], "topic")];
+  const refused = await mount({ sessions: refusedSessions, nowMs: now, selectedKey: buildCollectionPosts(refusedSessions)[0].key,
+    onRecrawl: async () => { throw new Error("後端未能建立抓取工作，請確認後端和資料庫已連上。"); } });
+  try {
+    await refused.click('[data-collection-action="recrawl"]');
+    assert.equal(refused.container.querySelector('details [role="alert"]')?.textContent, "後端未能建立抓取工作，請確認後端和資料庫已連上。");
+    const button = refused.container.querySelector<HTMLButtonElement>('[data-collection-action="recrawl"]')!;
+    assert.equal(button.disabled, false);
+    assert.equal(button.textContent, "重新抓取留言");
+  } finally { await refused.close(); }
+  const cases: Array<[string, ReturnType<typeof session>]> = [
+    ["queued", session("audience", [finished("queued", { status: "queued" })], "topic")],
+    ["failed", session("audience", [finished("failed", { status: "failed" })], "topic")],
+    ["analysis still settling", session("audience", [finished("settling", { completedAt: new Date(now - 60_000).toISOString(), latestCapture: capture({}, { analysis: null }) })], "topic")],
+    ["個人應用 only", session("product", [finished("product")], "product")],
+    ["收藏整理 only", session("archive", [finished("archive")], "archive")]
+  ];
+  for (const [label, saved] of cases) {
+    const view = await mount({ sessions: [saved], nowMs: now, selectedKey: buildCollectionPosts([saved])[0].key, onRecrawl: async () => null });
+    try { assert.equal(view.container.querySelector('[data-collection-action="recrawl"]'), null, label); }
+    finally { await view.close(); }
+  }
 });
