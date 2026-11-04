@@ -1,14 +1,14 @@
 import type { SessionItem, Signal, Topic } from "../state/types";
 import { inlineCollectPostKey } from "../state/inline-collect";
-import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } from "../compare/inline-reading";
-import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility } from "../compare/comment-eligibility";
+import { INLINE_READING_PROMPT_VERSION, readInlineReadingHash } from "../compare/inline-reading";
+import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility, unansweredVerified } from "../compare/comment-eligibility";
 import { readClusterReadings } from "../compare/cluster-reading";
 import { isReplyQuestion } from "../compare/reply-thread";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 
 /**
  * The 觀眾反應 workspace as a discourse layer (side panel A, 2026-10-08): 話題 the user filled by hand, their 講法
- * (posts grouped by their largest verified audience cluster's original leader text or valid AI name), and 發現 that only
+ * (posts grouped by a strong keyword of their largest verified audience cluster), and 發現 that only
  * show across posts. Every sentence is a template filled with counts; no AI writes here.
  */
 export const DISCOURSE_MIN_POSTS = 3;
@@ -102,20 +102,23 @@ export function postedAt(item: SessionItem): number | null {
   return Number.isFinite(captured) ? captured : null;
 }
 
-/** Share the reader's actual eligible leader text; legacy keywords never invent a frame. */
+/** A strong keyword of the largest verified audience cluster joins posts into one 講法. Without one, the
+ * cluster's leader text or valid AI name stands alone. Legacy keywords never invent a frame. */
 export function frameOf(item: SessionItem, reading?: InlineReadingRecord | null): { key: string; name: string } | null {
   const analysis = item.latestCapture?.analysis;
   if (!analysis || analysis.status !== "succeeded") return null;
-  const input = reading?.status === "complete" ? buildInlineReadingInput(item) : null;
   const valid = reading?.status === "complete" && reading.captureId === item.latestCapture?.id
     && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION
-    && reading.reading.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION && !!input
-    && reading.reading.inputHash === inlineReadingInputHash(input);
+    && reading.reading.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION
+    && reading.reading.inputHash === readInlineReadingHash(item);
   const names = valid ? reading.reading.clusterNames : {};
   const noise = new Set(valid ? reading.reading.noiseClusters : []);
   const lead = readClusterReadings(item, names).find(cluster => cluster.count !== 0 && !noise.has(String(cluster.clusterKey))
     && (cluster.membership === "complete" || !!names[String(cluster.clusterKey)]));
-  return lead ? { key: lead.label.normalize("NFKC").toLowerCase(), name: lead.label } : null;
+  if (!lead) return null;
+  const [first, second] = lead.keywords;
+  if (first) return { key: first, name: second ? `${first} / ${second}` : first };
+  return lead.named ? { key: lead.label.normalize("NFKC").toLowerCase(), name: lead.label } : null;
 }
 export interface TopicDiscourseInput {
   topics: Topic[];
@@ -154,10 +157,9 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
   const postFor = (signal: Signal, item: SessionItem): DiscoursePost => {
     const post = toPost(signal, item, null);
     const reading = input.readings?.[item.id];
-    const source = reading?.status === "complete" ? buildInlineReadingInput(item) : null;
     const complete = reading?.status === "complete" && reading.captureId === item.latestCapture?.id
       && reading.reading.promptVersion === INLINE_READING_PROMPT_VERSION && reading.reading.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION
-      && !!source && reading.reading.inputHash === inlineReadingInputHash(source);
+      && reading.reading.inputHash === readInlineReadingHash(item);
     const newReading = complete && (!input.opened?.[item.id] || Date.parse(input.opened[item.id]) < Date.parse(reading.reading.generatedAt));
     const noise = new Set(complete ? reading.reading.noiseClusters : []);
     const count = readClusterReadings(item).filter(cluster => cluster.membership === "complete" && cluster.count !== 0 && !noise.has(String(cluster.clusterKey))).length;
@@ -191,7 +193,7 @@ export function buildTopicDiscourseViewModel(input: TopicDiscourseInput): TopicD
     .sort((a, b) => (postedAt(b.item) ?? 0) - (postedAt(a.item) ?? 0));
   const comments = members.reduce((sum, { item }) => sum + readCommentEligibility(item).audience.length, 0);
 
-  // 講法: posts sharing a verified original-text label or valid AI name.
+  // 講法: posts sharing a strong keyword of their largest verified audience cluster.
   const groups = new Map<string, { name: string; rows: typeof posts }>();
   for (const row of posts) {
     if (!row.frame) continue;
@@ -273,7 +275,7 @@ function buildFindings(frames: DiscourseFrame[], rows: { item: SessionItem; post
       const key = c.text.replace(/[\s？?！!。，,~～…]+/g, "").toLowerCase();
       if (key.length < 4) continue;
       const entry = asked.get(key) ?? { question: c.text.trim(), where: new Map() };
-      const replied = eligibility.all.some(k => k.parent === c.id) ? true : eligibility.structureKnown ? false : null;
+      const replied = eligibility.all.some(k => k.parent === c.id) ? true : unansweredVerified(eligibility, c) ? false : null;
       const prev = entry.where.get(post.postKey);
       entry.where.set(post.postKey, { author: post.author, replied: replied === true || prev?.replied === true ? true : replied === null || prev?.replied === null ? null : false, postKey: post.postKey });
       asked.set(key, entry);
@@ -290,22 +292,13 @@ function buildFindings(frames: DiscourseFrame[], rows: { item: SessionItem; post
   return out;
 }
 
-/** A repeated eligible original sentence, not an analysis keyword guessed from samples. */
+/** 重複用語: a strong keyword of verified audience clusters that recurs under 2+ posts. */
 function buildMeme(items: SessionItem[]): { phrase: string; posts: number } | null {
-  const counts = new Map<string, { phrase: string; posts: number }>();
+  const counts = new Map<string, number>();
   for (const item of items) {
-    const seen = new Set<string>();
-    for (const cluster of readClusterReadings(item)) {
-      if (cluster.membership !== "complete" || !cluster.leader) continue;
-      const phrase = cluster.label, key = phrase.normalize("NFKC").toLowerCase();
-      if (key.length < 2 || seen.has(key)) continue;
-      seen.add(key);
-      const entry = counts.get(key) ?? { phrase, posts: 0 };
-      entry.posts++;
-      counts.set(key, entry);
-    }
+    for (const keyword of new Set(readClusterReadings(item).flatMap(cluster => cluster.keywords))) counts.set(keyword, (counts.get(keyword) ?? 0) + 1);
   }
-  return [...counts.values()].filter(entry => entry.posts >= 2)
+  return [...counts].filter(([, posts]) => posts >= 2).map(([phrase, posts]) => ({ phrase, posts }))
     .sort((a, b) => b.posts - a.posts || a.phrase.localeCompare(b.phrase))[0] ?? null;
 }
 /** The line on a 觀眾反應 card: pick a 話題, or where the post sits. */

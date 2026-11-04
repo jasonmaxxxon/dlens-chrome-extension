@@ -48,7 +48,8 @@ test("a reader regenerates missing or obsolete input identity and leaves a curre
   assert.equal(readerNeedsReading(done, { ...identity, status: "failed", error: "x", at: "now" } as never), false);
   assert.equal(readerNeedsReading(done, { status: "failed", itemId: "d", captureId: "capture-1", error: "x", at: "old" } as never), true);
   assert.equal(readerNeedsReading(done, { ...identity, status: "failed", eligibilityVersion: "old", error: "x", at: "old" } as never), true);
-  done.latestCapture!.result!.comments[0].text = "已改提問";
-  assert.equal(readerNeedsReading(done, reading(INLINE_READING_PROMPT_VERSION)), true);
+  const edited = structuredClone(done);
+  edited.latestCapture!.result!.comments[0].text = "已改提問";
+  assert.equal(readerNeedsReading(edited, reading(INLINE_READING_PROMPT_VERSION)), true);
   assert.equal(readerNeedsReading(item("q", { status: "queued" }), undefined), false);
 });

@@ -6,7 +6,7 @@ import type { DeepReadingRecord } from './deep-reading-storage.ts';
 import { DEEP_READING_PROMPT_VERSION } from './deep-reading.ts';
 import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility } from './comment-eligibility.ts';
 import { readClusterReadings } from './cluster-reading.ts';
-import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash, readOpHandle } from './inline-reading.ts';
+import { INLINE_READING_PROMPT_VERSION, readInlineReadingHash, readOpHandle } from './inline-reading.ts';
 export const TOPIC_READING_PROMPT_VERSION = 'v4';
 export const TOPIC_READING_BUDGET_VERSION = 'bounded-packet-v1';
 /** Whole serialized input, including the ref catalog, is bounded to 48,000 UTF-16 chars.
@@ -27,15 +27,13 @@ export function buildTopicReadingInput(topic:Topic,items:SessionItem[],inline:Re
   if(!item.latestCapture?.id)continue;
   const captureId=item.latestCapture.id,ref=`p${input.posts.length+1}`,author=clean(readOpHandle(item),80);
   const eligibility=readCommentEligibility(item);
-  const currentInline=buildInlineReadingInput(item);
   const ir=inline[item.id];
   const reading=ir?.status==='complete' && ir.captureId===captureId &&
    ir.reading.promptVersion===INLINE_READING_PROMPT_VERSION &&
-   ir.reading.eligibilityVersion===COMMENT_ELIGIBILITY_VERSION && currentInline &&
-   ir.reading.inputHash===inlineReadingInputHash(currentInline) ? ir.reading : null;
-  const dirty=Object.values(eligibility.excluded).some(count=>count>0);
+   ir.reading.eligibilityVersion===COMMENT_ELIGIBILITY_VERSION &&
+   ir.reading.inputHash===readInlineReadingHash(item) ? ir.reading : null;
   const dr=deep[item.id];
-  const takeaway=!dirty && dr?.status==='complete' && dr.captureId===captureId &&
+  const takeaway=dr?.status==='complete' && dr.captureId===captureId &&
    dr.promptVersion===DEEP_READING_PROMPT_VERSION ? clean(dr.reading.takeaway,240) : '';
   const clusters=readClusterReadings(item,reading?.clusterNames ?? {}).filter(cluster=>cluster.membership==='complete');
   const audience=reading ? {

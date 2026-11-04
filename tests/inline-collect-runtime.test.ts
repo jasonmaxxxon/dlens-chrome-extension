@@ -45,7 +45,8 @@ function fixture(options: { deferSnapshot?: boolean; intervals?: (() => void)[];
   const click = () => button.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, detail: 0 }));
   return { dom, runtime, calls, button, chip, click, stored,
     intersect(element: Element) { observer([{ target: element, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver); },
-    emitGlobal(global: ExtensionGlobalState) { storageListeners.forEach(listener => listener({ [GLOBAL_STATE_STORAGE_KEY]: { newValue: global } }, "local")); },
+    // chrome.storage.onChanged delivers a fresh copy, never the writer's object.
+    emitGlobal(global: ExtensionGlobalState) { storageListeners.forEach(listener => listener({ [GLOBAL_STATE_STORAGE_KEY]: { newValue: structuredClone(global) } }, "local")); },
     emitKey(key: string, value: unknown) { storageListeners.forEach(listener => listener({ [key]: { newValue: value } }, "local")); },
     releaseSnapshot() { releaseSnapshot?.({ ok: true, inlineCollect: base }); },
     storageListenerCount: () => storageListeners.size,

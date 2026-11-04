@@ -1,7 +1,7 @@
 import {readingCoverageLabel} from '../compare/reading-coverage';
 import type { SessionRecord, Signal, Topic } from "../state/types";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
-import { INLINE_READING_PROMPT_VERSION, buildInlineReadingInput, inlineReadingInputHash } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION, readInlineReadingHash } from "../compare/inline-reading";
 import { COMMENT_ELIGIBILITY_VERSION } from "../compare/comment-eligibility";
 import type { CollectionPost } from "./collection-browser";
 import { buildInlineCardViewModel, buildInlineCardEvidence, type InlineCardEntryKey } from "./inline-card";
@@ -17,9 +17,8 @@ export function collectionAudienceSource(post: CollectionPost | undefined, sessi
  * A stored error is left alone; the reader shows it with its own retry. */
 export function readerNeedsReading(item: SessionRecord["items"][number], stored: InlineReadingRecord | undefined): boolean {
   if (item.status !== "succeeded" || item.latestCapture?.analysis?.status !== "succeeded") return false;
-  const input=buildInlineReadingInput(item);
-  if(!input)return false;
-  const hash=inlineReadingInputHash(input);
+  const hash=readInlineReadingHash(item);
+  if(!hash)return false;
   const storedHash=stored?.inputHash ?? (stored?.status==='complete' ? stored.reading.inputHash : undefined);
   const version=stored?.status==='complete' ? stored.reading.promptVersion : stored?.promptVersion;
   const eligibility=stored?.status==='complete' ? stored.reading.eligibilityVersion : stored?.eligibilityVersion;

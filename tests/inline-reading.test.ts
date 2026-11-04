@@ -155,7 +155,8 @@ test("dirty legacy cards are filtered before catalog, cluster quotes and packet 
   assert.equal(input.inputHash, inlineReadingInputHash(input));
   assert.doesNotMatch(buildInlineReadingPrompt(input), /99%|OP continuation|anonymous root|unattributed question/);
   const oldHash = input.inputHash;
-  source.latestCapture!.result!.comments[2].text = "改了提問";
-  source.latestCapture!.result!.comments[3].text = "改了提問";
-  assert.notEqual(buildInlineReadingInput(source)!.inputHash, oldHash);
+  const edited = structuredClone(source);
+  edited.latestCapture!.result!.comments[2].text = "改了提問";
+  edited.latestCapture!.result!.comments[3].text = "改了提問";
+  assert.notEqual(buildInlineReadingInput(edited)!.inputHash, oldHash);
 });

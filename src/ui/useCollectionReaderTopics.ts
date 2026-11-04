@@ -1,7 +1,7 @@
 import { awaitingAnalysis } from "../viewmodel/inline-card";
 import { readerNeedsReading } from "../viewmodel/collection-reader";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
-import {buildInlineReadingInput,inlineReadingInputHash} from "../compare/inline-reading";
+import {readInlineReadingHash} from "../compare/inline-reading";
 import { useEffect, useRef, useState } from "react";
 import type { Signal, Topic } from "../state/types";
 import type { ExtensionResponse } from "../state/messages";
@@ -59,8 +59,8 @@ export function useCollectionReaderLive(source: ReturnType<typeof import("../vie
   // Opening a reader is enough to (re)generate its reading; the card under the post is no longer the only trigger.
   const asked = useRef(new Set<string>());
   const needsReading = source?.session.mode === "topic" && item ? readerNeedsReading(item, reading) : false;
-  const input=needsReading && item ? buildInlineReadingInput(item) : null;
-  const sourceKey=input ? JSON.stringify([input.itemId,input.captureId,inlineReadingInputHash(input)]) : null;
+  const inputHash=needsReading && item ? readInlineReadingHash(item) : null;
+  const sourceKey=item && inputHash ? JSON.stringify([item.id,item.latestCapture?.id,inputHash]) : null;
   useEffect(() => {
     if (!item || !sessionId || !sourceKey) return;
     const key = sourceKey;

@@ -68,7 +68,8 @@ test('topic packet contains only matching current capture quick/deep readings',(
  const currentInput=buildInlineReadingInput(item)!;
  const inline:any={post:{status:'complete',captureId:'c1',reading:{promptVersion:INLINE_READING_PROMPT_VERSION,inputHash:inlineReadingInputHash(currentInput),eligibilityVersion:'v1',gist:'方法',clusterNames:{'1':'方法'},methods:[{name:'檢索',fit:'需求'}],split:{sides:[{claim:'有用',why:'自述'}]},find:{ask:'點樣做？'}}}};
  const deep:any={post:{status:'complete',captureId:'c1',promptVersion:DEEP_READING_PROMPT_VERSION,reading:{takeaway:'先測試'}}};
- const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.doesNotMatch(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'','legacy deep summary with excluded OP context is suppressed');
+ const input=buildTopicReadingInput(topic,[item],inline,deep);assert.match(JSON.stringify(input.posts),/方法/);assert.doesNotMatch(JSON.stringify(input.posts),/"pct":25/);assert.equal(input.posts[0].takeaway,'先測試','a current deep reading counts even though the OP commented');
+ assert.equal(buildTopicReadingInput(topic,[item],inline,{post:{...deep.post,promptVersion:'v3'}}).posts[0].takeaway,'','a v3 deep reading of raw crawl rows stays out');
  inline.post.captureId='old';deep.post.promptVersion='old';const stale=buildTopicReadingInput(topic,[item],inline,deep);assert.equal(stale.posts[0].audience,null);assert.equal(stale.posts[0].takeaway,'');
 });
 import { selectTopicReadingItems } from '../src/state/topic-reading-run.ts';

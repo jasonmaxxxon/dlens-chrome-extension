@@ -3,7 +3,8 @@ import type { ReadingCoverage } from './reading-coverage.ts';
 import type { SessionItem } from '../state/types.ts';
 import { readCrawlComments, readOpHandle } from './inline-reading.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, renderReplyThreads, type ThreadReply, type ThreadTerm } from './reply-thread.ts';
-export const DEEP_READING_PROMPT_VERSION = 'v3';
+// v4: the catalog is eligible comments (root and duplicates merged, unknown authors marked), not raw crawl rows.
+export const DEEP_READING_PROMPT_VERSION = 'v4';
 export const DEEP_REPLY_CHARACTER_BUDGET = 96_000;
 export const DEEP_OUTPUT_TOKENS = 4000;
 export const DEEP_READING_MODELS = { google: 'gemini-3.8-flash', claude: 'claude-sonnet-5-5', openai: 'gpt-4.1-mini' } as const;

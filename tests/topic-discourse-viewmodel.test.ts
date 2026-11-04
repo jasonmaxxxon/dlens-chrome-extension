@@ -9,7 +9,7 @@ const NOW = Date.parse("2026-10-08T12:00:00+08:00");
 const day = 86_400_000;
 function item(id: string, opts: { author: string; text: string; daysAgo: number; likes: number; keywords?: string[][]; comments?: Array<Record<string, unknown>> }): SessionItem {
   const captured = new Date(NOW - opts.daysAgo * day).toISOString();
-  const phrases: Record<string,string> = {reset:"重置後額度回來了。",grok:"Grok Agent 更好用。",cindy2387:"加我 TG 有驚喜。",南丫:"南丫島好適合。",codex:"Codex 值得試。",地方:"有好地方可以推薦。"};
+  const phrases: Record<string,string> = {reset:"reset 之後額度回來了。",grok:"Grok Agent 更好用。",cindy2387:"加我 cindy2387 有驚喜，ends today。",南丫:"南丫島好適合。",codex:"Codex 值得試。",地方:"有好地方可以推薦。"};
   const members=(opts.keywords ?? []).map((keywords,index)=>({comment_id:`${id}-cluster-${index}`,author:`fan-${id}-${index}`,text:phrases[keywords[0].toLowerCase()] || `觀眾原句 ${keywords[0]}。`,like_count:100-index,parent_comment_id:id}));
   const comments=[...(opts.comments ?? []),...members];
   return {
@@ -47,9 +47,16 @@ test("a post's date comes from Threads' relative time at capture", () => {
 
 test("a post joins the 講法 of its largest comment cluster that the AI did not flag as noise", () => {
   const spam = item("s", { author: "x", text: "", daysAgo: 0, likes: 0, keywords: [["cindy2387", "ends"], ["南丫", "丫島"]] });
-  assert.equal(frameOf(spam)?.name, "加我 TG 有驚喜。");
+  assert.equal(frameOf(spam)?.name, "cindy2387 / ends");
   const reading = { status: "complete", itemId: "s", captureId: "cap-s", reading: { promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash:inlineReadingInputHash(buildInlineReadingInput(spam)!),clusterNames:{"1":"南丫島推介"},noiseClusters: ["0"] } } as never;
-  assert.equal(frameOf(spam, reading)?.name, "南丫島推介");
+  assert.equal(frameOf(spam, reading)?.name, "南丫 / 丫島");
+});
+
+test("short, function or ungrounded keywords never key a 講法; the leader text or AI name stands alone", () => {
+  const weak = item("w", { author: "x", text: "", daysAgo: 0, likes: 0, keywords: [["the", "with", "覺得"]] });
+  assert.deepEqual(frameOf(weak), { key: "觀眾原句 the。", name: "觀眾原句 the。" });
+  const reading = { status: "complete", itemId: "w", captureId: "cap-w", reading: { promptVersion:INLINE_READING_PROMPT_VERSION,eligibilityVersion:COMMENT_ELIGIBILITY_VERSION,inputHash:inlineReadingInputHash(buildInlineReadingInput(weak)!),clusterNames:{"0":"觀眾推介"},noiseClusters: [] } } as never;
+  assert.equal(frameOf(weak, reading)?.name, "觀眾推介");
 });
 
 test("home does not auto-follow; list is newest first with question and today's additions", () => {
@@ -58,7 +65,8 @@ test("home does not auto-follow; list is newest first with question and today's 
   assert.equal(vm.emptyLine, null);
   assert.deepEqual(vm.topicRows.map(c => [c.name, c.count, c.todayAdded, c.secondLine]), [["AI 工具額度", 5, 1, "未寫研究問題"], ["香港拍拖", 0, 0, "未寫研究問題"]]);
   const selected = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: "threads-post:f", now: NOW }).topic!;
-  assert.deepEqual(selected.frames!.map(f => [f.name, f.posts.length]), [["Grok Agent 更好用。", 2], ["重置後額度回來了。", 2]]);
+  assert.deepEqual(selected.frames!.map(f => [f.name, f.posts.length]), [["grok / agent", 2], ["reset / 額度", 2]]);
+  assert.deepEqual(selected.meme, { phrase: "grok", posts: 2 });
   assert.equal(selected.posts.length, 5);
   assert.match(selected.coverage, /^5 篇 · 7 則留言 · 今日 \+1/);
   const empty = buildTopicDiscourseViewModel({ topics: [], signals: [], items: [], selectedTopicId: null, inViewPostKey: null, now: NOW });
@@ -70,15 +78,15 @@ test("home does not auto-follow; list is newest first with question and today's 
 test("發現 fill fixed templates with counts: a new 講法, likes per post and a question asked under two posts", () => {
   const t = buildTopicDiscourseViewModel({ topics, signals, items, selectedTopicId: "t1", inViewPostKey: null, now: NOW }).topic!;
   const [trend, like, asked] = t.findings;
-  assert.ok(trend.kind === "trend" && trend.text.startsWith("〈重置後額度回來了。〉係新講法") && trend.weeks[3].hot);
-  assert.ok(like.kind === "like" && like.text.startsWith("〈Grok Agent 更好用。〉平均每篇 186 讚") && like.rows[0].hot);
+  assert.ok(trend.kind === "trend" && trend.text.startsWith("〈reset / 額度〉係新講法") && trend.weeks[3].hot);
+  assert.ok(like.kind === "like" && like.text.startsWith("〈grok / agent〉平均每篇 186 讚") && like.rows[0].hot);
   assert.ok(asked.kind === "ask");
   assert.equal(asked.text, "「積分點樣計？」喺 2 篇貼文都有人問，1 篇樣本內見到回覆，其餘未能確認。");
 });
 
 test("the card line offers recent topics for an unsorted post and names the 講法 of a sorted one", () => {
   assert.deepEqual(buildCardTopicLine("f", topics, signals, items), { kind: "unassigned", signalId: "sf", picks: [{ id: "t1", name: "AI 工具額度" }, { id: "t2", name: "香港拍拖" }] });
-  assert.deepEqual(buildCardTopicLine("a", topics, signals, items), { kind: "assigned", topicId: "t1", topicName: "AI 工具額度", frameName: "重置後額度回來了。", count: 5 });
+  assert.deepEqual(buildCardTopicLine("a", topics, signals, items), { kind: "assigned", topicId: "t1", topicName: "AI 工具額度", frameName: "reset / 額度", count: 5 });
   assert.equal(buildCardTopicLine("zzz", topics, signals, items), null);
 });
 

@@ -1,10 +1,10 @@
 import { readClusterReadings, rankClusterMembers } from "../compare/cluster-reading";
-import { COMMENT_ELIGIBILITY_VERSION, readCommentEligibility } from "../compare/comment-eligibility";
+import { COMMENT_ELIGIBILITY_VERSION, memoizeItemProjection, readCommentEligibility, unansweredVerified } from "../compare/comment-eligibility";
 import type { CommentQualityAssessment } from "../compare/comment-quality";
 import { clipReadingCopy, cleanReadingCopy } from "../compare/reading-copy";
 import { buildReplyThreads, isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
-import { guardInlineAudienceReading, buildInlineReadingInput, inlineReadingInputHash, INLINE_READING_PROMPT_VERSION, normalizeHandle as handle, type CrawlComment, type InlineReadingInput } from "../compare/inline-reading";
+import { guardInlineAudienceReading, readInlineReadingHash, INLINE_READING_PROMPT_VERSION, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { InlineReading } from "../compare/inline-reading";
 
@@ -110,7 +110,7 @@ function peekOf(input: InlineCardPeekInput | undefined): InlineCardPeek | null {
 }
 
 /** Everything the card and 展開證據 read from one crawl, derived the same way for both. */
-export function readInlineCardThread(item: SessionItem) {
+export const readInlineCardThread = memoizeItemProjection((item: SessionItem) => {
   const eligibility = readCommentEligibility(item);
   const comments = eligibility.audience;
   const op = eligibility.op;
@@ -123,20 +123,20 @@ export function readInlineCardThread(item: SessionItem) {
   const asks = comments.filter(c => isReplyQuestion(c.text)).map(c => {
     const kids = children.get(c.id) ?? [];
     const status: "author" | "other" | "none" | "unknown" = kids.some(k => op && handle(k.author) === op)
-      ? "author" : kids.length ? "other" : eligibility.structureKnown ? "none" : "unknown";
+      ? "author" : kids.length ? "other" : unansweredVerified(eligibility, c) ? "none" : "unknown";
     return { c, status, reply: kids.find(k => op && handle(k.author) === op) ?? kids[0] ?? null };
   }).sort((a, b) => (a.status === "none" || a.status === "unknown" ? 0 : 1)
     - (b.status === "none" || b.status === "unknown" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0) || a.c.id.localeCompare(b.c.id));
   return { comments, op, byId, clusters, ranked, opReplies, asks, eligibility };
-}
+});
 const isNoise = (cluster: { clusterKey: number }, reading: InlineReading | null) => !!reading?.noiseClusters.includes(String(cluster.clusterKey));
 /** Largest first, but noise (spam, ads, off-topic) after every real reaction. */
 const orderClusters = <C extends { clusterKey: number }>(clusters: C[], reading: InlineReading | null) =>
   [...clusters.filter((c) => !isNoise(c, reading)), ...clusters.filter((c) => isNoise(c, reading))];
-function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined, suppliedInput?: InlineReadingInput | null) {
+function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined, suppliedHash?: string | null) {
   if (ai?.status !== "complete" || ai.captureId !== item.latestCapture?.id || ai.reading.promptVersion !== INLINE_READING_PROMPT_VERSION || ai.reading.eligibilityVersion !== COMMENT_ELIGIBILITY_VERSION) return null;
-  const input = suppliedInput === undefined ? buildInlineReadingInput(item) : suppliedInput;
-  if (!input || !ai.reading.inputHash || ai.reading.inputHash !== inlineReadingInputHash(input)) return null;
+  const inputHash = suppliedHash === undefined ? readInlineReadingHash(item) : suppliedHash;
+  if (!inputHash || ai.reading.inputHash !== inputHash) return null;
   const eligibility = readCommentEligibility(item);
   return guardInlineAudienceReading(ai.reading, buildReplyThreads(eligibility.all, eligibility.op));
 }
@@ -176,9 +176,8 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   };
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
-  const readingInput = context.ai && context.ai.status !== "no-key" ? buildInlineReadingInput(item) : null;
-  const currentInputHash = readingInput ? inlineReadingInputHash(readingInput) : null;
-  const currentReading = readingOf(item, context.ai, readingInput);
+  const currentInputHash = context.ai && context.ai.status !== "no-key" ? readInlineReadingHash(item) : null;
+  const currentReading = readingOf(item, context.ai, currentInputHash);
   base.readingCounts = { comments: t.comments.length, frames: t.comments.length < INLINE_CARD_MIN_COMMENTS ? 0
     : t.clusters.filter(cluster => cluster.membership === "complete" && !isNoise(cluster, currentReading)).length };
   if (t.comments.length < INLINE_CARD_MIN_COMMENTS) {
@@ -195,7 +194,7 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
     base.entries.push({ key: "stance", label: "大家點睇", mark: lead.measurementLabel, finding: lead.label });
     base.answers.stance = {
       kind: "clusters",
-      headline: `一群留言講「${lead.label}」 · ${lead.measurementLabel}。`,
+      headline: lead.named ? `一群留言講「${lead.label}」 · ${lead.measurementLabel}。` : `${lead.label} · ${lead.measurementLabel}。`,
       segments: ordered.map(cluster => ({ label: cluster.label, measurementLabel: cluster.measurementLabel,
         ...(cluster.pct === undefined ? {} : {pct:cluster.pct}), noise: isNoise(cluster, reading) })),
       quote: lead.leader ? quote(lead.leader) : null,
@@ -349,9 +348,9 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
 /** Completion belongs to the captured reading, never a newly invented backend clock. */
 export function inlineReadingFinishedAt(item: SessionItem, ai: InlineCardAiInput | null | undefined, now: number): string | null {
   if (item.status !== "succeeded") return null;
-  const input = buildInlineReadingInput(item);
-  const reading = readingOf(item, ai, input);
-  const current = aiStateOf(item, ai, reading, input ? inlineReadingInputHash(input) : null);
+  const inputHash = readInlineReadingHash(item);
+  const reading = readingOf(item, ai, inputHash);
+  const current = aiStateOf(item, ai, reading, inputHash);
   if (current?.state === "running" || awaitingAnalysis(item, now)) return null;
   if (current?.state === "complete" && reading) return reading.generatedAt;
   return item.latestCapture?.analysis?.generated_at ?? item.completedAt ?? item.latestCapture?.result?.fetched_at ?? item.latestCapture?.captured_at ?? null;

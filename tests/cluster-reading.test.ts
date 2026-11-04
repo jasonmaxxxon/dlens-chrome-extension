@@ -24,6 +24,22 @@ for (const size of [1, 14, 15, 30]) test(`complete membership size ${size} uses 
   assert.equal(cluster.pct, 100, "the original compatible share remains geometry, not small-N copy");
 });
 
+test("frame keywords keep only strong backend words that verified members actually wrote", () => {
+  const item = fixture(3);
+  item.latestCapture!.result!.comments[1].text = "Hybrid 返工比較好";
+  item.latestCapture!.analysis!.clusters[0].keywords = ["the", "hybrid", "覺得", "general", "返工"];
+  assert.deepEqual(readClusterReadings(item)[0].keywords, ["hybrid", "返工"]);
+});
+
+test("legacy clusters without membership rank by backend size share and carry no name or keywords", () => {
+  const item = fixture(4);
+  item.latestCapture!.analysis!.clusters = [
+    { cluster_key: 0, size_share: 0.3, like_share: 0.3, keywords: ["hybrid"] },
+    { cluster_key: 1, size_share: 0.7, like_share: 0.7, keywords: ["office"] },
+  ] as never;
+  assert.deepEqual(readClusterReadings(item).map(cluster => [cluster.clusterKey, cluster.named, cluster.keywords]), [[1, false, []], [0, false, []]]);
+});
+
 test("rank full eligible membership, ignoring a root/OP hint and three partial evidence samples", () => {
   const item = fixture(15), analysis = item.latestCapture!.analysis!;
   item.latestCapture!.result!.comments.push(

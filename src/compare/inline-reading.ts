@@ -2,7 +2,7 @@ import { clipReadingCopy, readingLabel } from "./reading-copy.ts";
 import type { ReadingCoverage } from './reading-coverage.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, classifyPostKind, renderReplyThreads, type ThreadReply, type ThreadTerm, type PostKind } from "./reply-thread.ts";
 import type { SessionItem } from "../state/types.ts";
-import { COMMENT_ELIGIBILITY_VERSION, cleanEligibilityText, normalizeEligibilityHandle, readCommentEligibility, readEligibilityOp } from "./comment-eligibility.ts";
+import { COMMENT_ELIGIBILITY_VERSION, cleanEligibilityText, memoizeItemProjection, normalizeEligibilityHandle, readCommentEligibility, readEligibilityOp } from "./comment-eligibility.ts";
 import { readClusterReadings } from "./cluster-reading.ts";
 import type { CommentQualityAssessment } from "./comment-quality.ts";
 
@@ -74,7 +74,11 @@ export function readOpHandle(item: SessionItem): string {
   return readEligibilityOp(item);
 }
 
-export function buildInlineReadingInput(item: SessionItem): InlineReadingInput | null {
+/** The input hash a reading of this item's current capture must carry; null when there is nothing to read.
+ * Card, reader and topic staleness checks use this instead of rebuilding the input. */
+export const readInlineReadingHash = memoizeItemProjection(item => buildInlineReadingInput(item)?.inputHash ?? null);
+
+export function buildInlineReadingInput(item: SessionItem): (InlineReadingInput & { inputHash: string }) | null {
   const capture = item.latestCapture;
   if (!capture?.id) return null;
   const op = readOpHandle(item);
@@ -125,8 +129,7 @@ export function buildInlineReadingInput(item: SessionItem): InlineReadingInput |
   for(const id of clusterQuotedIds)quoted.add(id);
   input.coverage!.replyQuotes.sent=quoted.size;
   if(quoted.size===replies.length)input.coverage!.reductions=[];
-  input.inputHash = inlineReadingInputHash(input);
-  return input;
+  return { ...input, inputHash: inlineReadingInputHash(input) };
 }
 
 export function inlineReadingInputHash(input: InlineReadingInput): string {

@@ -17,7 +17,7 @@ import { normalizeSignal, normalizeTopic, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KE
 import { buildCardTopicLine } from "../viewmodel/topic-discourse";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
 import { renderInlineTopicPicker, renderInlineSaveLine, renderInlineCard, formatEta } from "./inline-collect-card";
-import { INLINE_READING_PROMPT_VERSION,buildInlineReadingInput,inlineReadingInputHash } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION,readInlineReadingHash } from "../compare/inline-reading";
 import {COMMENT_ELIGIBILITY_VERSION} from "../compare/comment-eligibility";
 import { tokens } from "../ui/tokens";
 import { fetchFirstReplies } from "./inline-collect-peek";
@@ -247,12 +247,12 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const keyGap = () => (global ? aiKeyGap(global.settings ?? {}) : null);
   function aiOf(item: SessionItem): InlineCardAiInput | null {
     const record = readings[item.id];
-    const input=record ? buildInlineReadingInput(item) : null;
     const identity=record?.status==='complete' ? record.reading : record;
-    const current = record && record.captureId === item.latestCapture?.id && input
+    // Cheap identity first; only a current-version record needs this capture's input hash.
+    const current = record && record.captureId === item.latestCapture?.id
       && identity?.promptVersion === INLINE_READING_PROMPT_VERSION
       && identity.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION
-      && identity.inputHash === inlineReadingInputHash(input);
+      && identity.inputHash === readInlineReadingHash(item);
     if (record && current) return record;
     const gap = keyGap();
     if (gap) return { status: "no-key", reason: gap };
@@ -261,8 +261,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   }
   function ensureReading(destination: InlineCollectSavedPost, itemId: string, captureId: string, retry: boolean) {
     const item=itemOf(destination);
-    const input=item ? buildInlineReadingInput(item) : null;
-    const key = JSON.stringify([itemId,captureId,input ? inlineReadingInputHash(input) : '']);
+    const key = JSON.stringify([itemId,captureId,(item && readInlineReadingHash(item)) ?? '']);
     if (!retry && ensured.has(key)) return;
     ensured.add(key);
     void send({ type: "inline-reading/ensure", sessionId: destination.sessionId, itemId, retry }).then((response) => {

@@ -17,8 +17,15 @@ export interface CommentEligibility {
   op: string;
   byId: Map<string, EligibleComment>;
   structureKnown: boolean;
+  /** The #14 crawler (it writes crawl_meta.quality) reads each card's own Threads reply count. */
+  ownedReplyCounts: boolean;
   excluded: { root: number; duplicates: number; op: number; unknown: number };
 }
+/** No captured child proves "unanswered" only when every parent is known, or when Threads' own
+ * reply count on that card is zero. #14 stores replies to the post with a null parent, which
+ * stays indistinguishable from an unresolved parent once raw_payload is dropped at transport. */
+export const unansweredVerified = (eligibility: CommentEligibility, comment: EligibleComment): boolean =>
+  eligibility.structureKnown || (eligibility.ownedReplyCounts && comment.replies === 0);
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
 const object = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -57,7 +64,46 @@ export function readEligibilityOp(item: SessionItem): string {
   return locators[0]?.handle ?? "";
 }
 
-export function readCommentEligibility(item: SessionItem): CommentEligibility {
+// cyrb53: a cheap 53-bit fingerprint for memo keys, never shown or stored.
+function fingerprint(value: string): string {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let index = 0; index < value.length; index++) {
+    const code = value.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 2654435761);
+    h2 = Math.imul(h2 ^ code, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+const snapshotKeys = new WeakMap<SessionItem, string>();
+/** Everything the item projections read: the capture and the descriptor's locator, author and text. */
+function snapshotKey(item: SessionItem): string {
+  let key = snapshotKeys.get(item);
+  if (key === undefined) {
+    const descriptor = item.descriptor;
+    snapshotKeys.set(item, key = fingerprint(JSON.stringify([descriptor?.post_url, descriptor?.page_url,
+      descriptor?.author_hint, descriptor?.text_snippet, item.latestCapture ?? null])));
+  }
+  return key;
+}
+/** Memoise a pure projection of an item. Storage hands every listener a fresh copy on each change and the
+ * card repaint asks every second, so a snapshot matches by object, then by content. Callers never edit results. */
+export function memoizeItemProjection<T>(project: (item: SessionItem) => T): (item: SessionItem) => T {
+  const byObject = new WeakMap<SessionItem, T>(), byItem = new Map<string, { key: string; value: T }>();
+  return item => {
+    if (byObject.has(item)) return byObject.get(item) as T;
+    const key = snapshotKey(item), hit = byItem.get(item.id);
+    const value = hit && hit.key === key ? hit.value : project(item);
+    if (!hit || hit.key !== key) byItem.set(item.id, { key, value });
+    byObject.set(item, value);
+    return value;
+  };
+}
+
+export const readCommentEligibility = memoizeItemProjection(computeCommentEligibility);
+
+function computeCommentEligibility(item: SessionItem): CommentEligibility {
   const result = item.latestCapture?.result;
   const op = readEligibilityOp(item);
   const post = object(result?.canonical_post), descriptor = object(item.descriptor);
@@ -168,5 +214,6 @@ export function readCommentEligibility(item: SessionItem): CommentEligibility {
   return { all, audience, authorReplies, authorContinuations, unknown, op, byId,
     structureKnown: all.length > 0 && all.every(row => !!row.parent && !row.parentConflict &&
       (!!byId.get(row.parent) || rootIds.has(row.parent))),
+    ownedReplyCounts: typeof object(object(object(result).crawl_meta).quality).status === "string",
     excluded: { root: roots, duplicates, op: authorContinuations.length + authorReplies.length, unknown: unknown.length } };
 }

@@ -302,6 +302,20 @@ test("missing parent structure reads 未能確認 instead of claiming the OP nev
   assert.doesNotMatch(JSON.stringify(vm.answers), /作者未有回覆|未有回覆任何/);
 });
 
+test("Threads' own zero reply count proves an unanswered question; a positive count without a captured reply stays 未能確認", () => {
+  const rows = [c("quiet", "fan", "有冇教學？", 3), c("busy", "fan2", "點樣申請？", 2), c("plain", "fan3", "支持", 1)]
+    .map((row, index) => ({ ...row, reply_count: index === 1 ? 2 : 0 }));
+  const legacy = item("succeeded", rows);
+  // #14 crawls store replies to the post with a null parent and write crawl_meta.quality.
+  const crawled = { ...legacy, latestCapture: { ...legacy.latestCapture!, result: { ...legacy.latestCapture!.result!, crawl_meta: { quality: { status: "ok" } } } } } as SessionItem;
+  const vm = buildInlineCardViewModel(crawled, "topic", "測試", { forReader: true });
+  assert.ok(vm.answers.ask?.kind === "ask");
+  assert.deepEqual(vm.answers.ask.rows.map(row => [row.text, row.status]), [["有冇教學？", "none"], ["點樣申請？", "unknown"]]);
+  assert.equal(vm.entries.find(entry => entry.key === "ask")?.mark, "1 未回");
+  const before = buildInlineCardViewModel(legacy, "topic", "測試", { forReader: true }).answers.ask;
+  assert.ok(before?.kind === "ask" && before.rows.every(row => row.status === "unknown"), "a pre-#14 zero may be a missing count");
+});
+
 for (const size of [1, 14, 15, 30]) test(`cluster label and measurement are consistent in every model slot at N=${size}`, () => {
   const rows = Array.from({ length: size }, (_, index) => c(`member-${index}`, `fan${index}`, `觀眾完整原句 ${index}。`, size - index));
   const mine = item("succeeded", rows);
@@ -333,6 +347,7 @@ test("legacy partial evidence cannot become a cluster leader, label or invented 
   assert.ok(answer?.kind === "clusters");
   assert.equal(answer.quote, null);
   assert.ok(answer.segments.every(segment => segment.label === "分群資料未完整" && segment.measurementLabel === "未能確認則數" && segment.pct === undefined));
+  assert.equal(answer.headline, "分群資料未完整 · 未能確認則數。", "a status placeholder is never quoted as what the group says");
 });
 
 test("a stale input hash or eligibility marker cannot surface cached cluster names", () => {
