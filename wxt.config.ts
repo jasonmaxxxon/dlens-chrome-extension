@@ -34,6 +34,13 @@ export default defineConfig({
       "https://api.openai.com/*",
       "https://api.anthropic.com/*"
     ],
+    // Remote ingest (Tailscale or another LAN host) is granted per origin from
+    // the settings save click. The wildcard stays optional so the extension can
+    // request exactly the address the user typed, and not every http site.
+    optional_host_permissions: [
+      "http://*/*",
+      "https://*/*"
+    ],
     action: {
       default_title: isPrOnlyBuild ? "DLens PR Mode" : "DLens",
       default_icon: ICONS

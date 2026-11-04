@@ -33,7 +33,7 @@ test("buildSettingsSaveMessages persists product profile after runtime settings"
   });
 
   assert.deepEqual(messages, [
-    { type: "settings/set-ingest-base-url", value: "http://127.0.0.1:8000" },
+    { type: "settings/set-ingest-base-url", value: "http://127.0.0.1:8000", apiToken: "", clearApiToken: false },
     {
       type: "settings/set-one-liner-config",
       provider: "google",
@@ -206,4 +206,47 @@ test("buildSettingsSaveMessages persists layout preferences separately from prov
       compareResultLayout: "chapters"
     }
   });
+});
+
+test("buildSettingsSaveMessages clears the ingest token only when asked and the draft is blank", () => {
+  const cleared = buildSettingsSaveMessages({
+    draftBaseUrl: "http://127.0.0.1:8000",
+    draftIngestApiToken: "  ",
+    clearIngestApiToken: true,
+    draftProvider: "",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftLayoutPreferences: {
+      topicSynthesisLayout: "console",
+      compareResultLayout: "parallel"
+    },
+    draftProductProfile: { name: "", category: "", audience: "" }
+  });
+  assert.deepEqual(cleared[0], {
+    type: "settings/set-ingest-base-url",
+    value: "http://127.0.0.1:8000",
+    apiToken: "  ",
+    clearApiToken: true
+  });
+
+  const replaced = buildSettingsSaveMessages({
+    draftBaseUrl: "http://100.115.102.41:8000",
+    draftIngestApiToken: "next-token",
+    clearIngestApiToken: true,
+    draftProvider: "",
+    draftOpenAiKey: "",
+    draftClaudeKey: "",
+    draftGoogleKey: "",
+    draftLayoutPreferences: {
+      topicSynthesisLayout: "console",
+      compareResultLayout: "parallel"
+    },
+    draftProductProfile: { name: "", category: "", audience: "" }
+  });
+  assert.equal(replaced[0]?.type, "settings/set-ingest-base-url");
+  if (replaced[0]?.type === "settings/set-ingest-base-url") {
+    assert.equal(replaced[0].clearApiToken, false);
+    assert.equal(replaced[0].apiToken, "next-token");
+  }
 });

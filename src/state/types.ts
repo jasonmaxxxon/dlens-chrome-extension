@@ -60,6 +60,8 @@ export interface InlineToast {
 export interface ExtensionSettings {
   deepReadingModels?: Partial<Record<"google" | "claude" | "openai", string>>;
   ingestBaseUrl: string;
+  /** Ingest-core API token. Empty means the backend is not asked for auth. Never a default secret. */
+  ingestApiToken?: string;
   oneLinerProvider: "openai" | "claude" | "google" | null;
   openaiApiKey: string;
   claudeApiKey: string;
@@ -68,6 +70,7 @@ export interface ExtensionSettings {
   hasOpenAiKey?: boolean;
   hasClaudeKey?: boolean;
   hasGoogleKey?: boolean;
+  hasIngestApiToken?: boolean;
   productProfile?: ProductProfile | null;
   layoutPreferences: LayoutPreferences;
 }
@@ -558,6 +561,7 @@ export interface ExtensionSnapshot {
 export function createDefaultSettings(): ExtensionSettings {
   return {
     ingestBaseUrl: "http://127.0.0.1:8000",
+    ingestApiToken: "",
     oneLinerProvider: "google",
     openaiApiKey: "",
     claudeApiKey: "",

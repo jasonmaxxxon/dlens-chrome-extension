@@ -35,6 +35,18 @@ test("release target is 0.5.90", () => {
   assert.equal(packageJson.version, "0.5.90");
 });
 
+test("manifest keeps loopback required and remote ingest optional, without a hardcoded Tailscale address", () => {
+  const hostPermissions = config.manifest?.host_permissions ?? [];
+  const optionalHosts = config.manifest?.optional_host_permissions ?? [];
+  assert.ok(hostPermissions.includes("http://127.0.0.1/*"));
+  assert.ok(hostPermissions.includes("http://localhost/*"));
+  assert.equal(hostPermissions.includes("http://*/*"), false);
+  assert.equal(hostPermissions.includes("https://*/*"), false);
+  assert.ok(optionalHosts.includes("http://*/*"));
+  assert.ok(optionalHosts.includes("https://*/*"));
+  assert.equal(JSON.stringify(config.manifest).includes("100.115.102.41"), false);
+});
+
 test("extension version is synchronized across package lock, manifest, and UI", () => {
   assert.equal(packageLockJson.version, packageJson.version);
   assert.equal(packageLockJson.packages[""]?.version, packageJson.version);

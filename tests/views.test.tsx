@@ -1719,7 +1719,11 @@ test("SettingsView exposes Google provider and save action", () => {
   );
 
   assert.match(html, /data-mode-header="settings"/);
-  assert.match(html, /連線設定與 API 金鑰存於本機，不會上傳。/);
+  assert.match(html, /AI 金鑰只存在這部電腦。Ingest token 只會送到你設定的後端。/);
+  assert.match(html, /data-settings-ingest-help="true"/);
+  assert.match(html, /http:\/\/100\.115\.102\.41:8000/);
+  assert.match(html, /Authorization: Bearer/);
+  assert.match(html, /http:\/\/127\.0\.0\.1:8000/);
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
   assert.doesNotMatch(html, /data-settings-group="folder"/);

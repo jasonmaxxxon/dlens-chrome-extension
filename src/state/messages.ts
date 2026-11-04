@@ -20,7 +20,7 @@ export type ExtensionMessagePayload =
   | { type: "state/get-active-tab" }
   | { type: "state/get-tab"; tabId: number }
   | { type: "storage/get-usage" }
-  | { type: "settings/set-ingest-base-url"; value: string }
+  | { type: "settings/set-ingest-base-url"; value: string; apiToken?: string; clearApiToken?: boolean }
   | { type: "settings/set-product-profile"; productProfile: ProductProfile | null }
   | { type: "settings/init-product-profile"; description: string }
   | { type: "settings/set-one-liner-config"; provider: "openai" | "claude" | "google" | null; openaiApiKey: string; claudeApiKey: string; googleApiKey: string; deepReadingModels?: ExtensionSettings["deepReadingModels"] }

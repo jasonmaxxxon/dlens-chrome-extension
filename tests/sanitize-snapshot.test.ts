@@ -10,7 +10,8 @@ test("sanitizeSettingsForContentScript removes raw keys but keeps presence + oth
     ingestBaseUrl: "http://host:9000",
     openaiApiKey: "sk-secret",
     claudeApiKey: "",
-    googleApiKey: "AIza-secret"
+    googleApiKey: "AIza-secret",
+    ingestApiToken: "ingest-secret"
   };
 
   const safe = sanitizeSettingsForContentScript(settings);
@@ -18,9 +19,11 @@ test("sanitizeSettingsForContentScript removes raw keys but keeps presence + oth
   assert.equal(safe.openaiApiKey, "");
   assert.equal(safe.claudeApiKey, "");
   assert.equal(safe.googleApiKey, "");
+  assert.equal(safe.ingestApiToken, "");
   assert.equal(safe.hasOpenAiKey, true);
   assert.equal(safe.hasClaudeKey, false);
   assert.equal(safe.hasGoogleKey, true);
+  assert.equal(safe.hasIngestApiToken, true);
   // Non-secret settings survive so the content script still works.
   assert.equal(safe.ingestBaseUrl, "http://host:9000");
   // Original object is not mutated.

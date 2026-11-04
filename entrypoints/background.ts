@@ -12,10 +12,12 @@ import {
   fetchJob,
   fetchThreadsAdvancedMetrics,
   fetchWorkerStatus,
+  ingestTargetFromSettings,
   normalizeBaseUrl,
   submitCaptureTarget,
   triggerWorkerDrain
 } from "../src/ingest/client";
+import { classifyIngestBaseUrl } from "../src/ingest/host-permission";
 import type { CaptureSnapshot, CaptureTargetResponse, JobSnapshot } from "../src/contracts/ingest";
 import type { TargetDescriptor } from "../src/contracts/target-descriptor";
 import type { ExtensionMessage, ExtensionResponse, StartProcessingResponse, WorkerStatusMessageResponse } from "../src/state/messages";
@@ -140,7 +142,7 @@ import {
   PrNarrativeSourceChangedError,
   runPrNarrativeRead
 } from "../src/state/pr-narrative-handlers";
-import { mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
+import { mergeIngestApiToken, mergeLayoutPreferences, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage";
 import { buildRefreshFailureMessage } from "../src/state/refresh-errors";
 import { createAsyncLock } from "../src/state/snapshot-lock";
 import {
@@ -895,7 +897,7 @@ async function fetchAdvancedMetricsForPrCampaign(
     return { rows, summary: { updated: 0, failed: 0 } };
   }
 
-  const baseUrl = normalizeBaseUrl(global.settings.ingestBaseUrl);
+  const ingestTarget = ingestTargetFromSettings(global.settings);
   let updated = 0;
   let failed = 0;
   for (const row of rows) {
@@ -908,7 +910,7 @@ async function fetchAdvancedMetricsForPrCampaign(
       continue;
     }
     try {
-      const response = await fetchThreadsAdvancedMetrics(baseUrl, row.postUrl);
+      const response = await fetchThreadsAdvancedMetrics(ingestTarget, row.postUrl);
       const nextRow = mergeAdvancedMetrics(row, response.metrics || {}, response.fetched_at || new Date().toISOString());
       await savePrEvidenceRow(storageArea, nextRow);
       updated += 1;
@@ -1709,16 +1711,16 @@ async function queueSessionItem(
     const inFlight = inFlightSubmit(item);
     if (inFlight) return { snapshot: current, submit: inFlight };
 
-    const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
-    const submit = await submitCaptureTarget(baseUrl, item.descriptor, session.name);
-    const initialJob = await fetchJob(baseUrl, submit.job_id).catch(() => null);
+    const ingestTarget = ingestTargetFromSettings(current.global.settings);
+    const submit = await submitCaptureTarget(ingestTarget, item.descriptor, session.name);
+    const initialJob = await fetchJob(ingestTarget, submit.job_id).catch(() => null);
 
     let globalState = updateSessionItem(current.global, sessionId, itemId, (existing) =>
       markSessionItemQueued(existing, submit, initialJob)
     );
 
     if (initialJob) {
-      const refreshedCapture = await fetchCapture(baseUrl, submit.capture_id).catch(() => null);
+      const refreshedCapture = await fetchCapture(ingestTarget, submit.capture_id).catch(() => null);
       globalState = updateSessionItem(globalState, sessionId, itemId, (existing) =>
         reconcileSessionItem(existing, initialJob, refreshedCapture)
       );
@@ -1813,7 +1815,7 @@ async function queueSessionItemsAndStartProcessing(
   }
 
   try {
-    const processing = await triggerWorkerDrain(normalizeBaseUrl(queued.snapshot.global.settings.ingestBaseUrl));
+    const processing = await triggerWorkerDrain(ingestTargetFromSettings(queued.snapshot.global.settings));
     const snapshot = await mutateSnapshot(tabId, (current) => ({
       global: current.global,
       tab: {
@@ -1865,10 +1867,10 @@ async function refreshItem(
       };
     }
 
-    const baseUrl = normalizeBaseUrl(current.global.settings.ingestBaseUrl);
+    const ingestTarget = ingestTargetFromSettings(current.global.settings);
     const [jobResult, captureResult] = await Promise.allSettled([
-      fetchJob(baseUrl, item.jobId),
-      fetchCapture(baseUrl, item.captureId)
+      fetchJob(ingestTarget, item.jobId),
+      fetchCapture(ingestTarget, item.captureId)
     ]);
     const { job, capture } = mergeRefreshResults(item, jobResult, captureResult);
 
@@ -2066,7 +2068,7 @@ export default defineBackground(() => {
   }
 
   async function backgroundRefreshInFlightItems(global: ExtensionGlobalState): Promise<void> {
-    const baseUrl = normalizeBaseUrl(global.settings.ingestBaseUrl);
+    const ingestTarget = ingestTargetFromSettings(global.settings);
     const refreshResults: ItemRefreshResult[] = [];
 
     for (const session of global.sessions) {
@@ -2076,8 +2078,8 @@ export default defineBackground(() => {
       const results = await Promise.allSettled(
         inFlight.map(async (item) => {
           const [jobResult, captureResult] = await Promise.allSettled([
-            fetchJob(baseUrl, item.jobId!),
-            fetchCapture(baseUrl, item.captureId!)
+            fetchJob(ingestTarget, item.jobId!),
+            fetchCapture(ingestTarget, item.captureId!)
           ]);
           const { job, capture } = mergeRefreshResults(item, jobResult, captureResult);
           return { itemId: item.id, sessionId: session.id, job, capture };
@@ -2219,10 +2221,15 @@ export default defineBackground(() => {
             return;
           }
           case "backend/get-health": {
+            const stored = await loadGlobalState();
             const baseUrl = normalizeBaseUrl(message.baseUrl);
+            const ingestTarget = ingestTargetFromSettings({
+              ...stored.settings,
+              ingestBaseUrl: baseUrl
+            });
             const checkedAt = new Date().toISOString();
             try {
-              const health = await fetchBackendHealth(baseUrl);
+              const health = await fetchBackendHealth(ingestTarget);
               sendResponse({
                 ok: true,
                 backendHealth: {
@@ -2243,13 +2250,22 @@ export default defineBackground(() => {
             return;
           }
           case "settings/set-ingest-base-url": {
+            const classified = classifyIngestBaseUrl(message.value);
+            if (!classified.ok) {
+              throw new Error(classified.message);
+            }
             const tabId = await resolveTabId(sender);
             const snapshot = await mutateSnapshot(tabId, (current) => ({
               global: {
                 ...current.global,
                 settings: {
                   ...current.global.settings,
-                  ingestBaseUrl: normalizeBaseUrl(message.value)
+                  ingestBaseUrl: classified.normalized,
+                  ingestApiToken: mergeIngestApiToken(
+                    current.global.settings.ingestApiToken,
+                    message.apiToken,
+                    message.clearApiToken === true
+                  )
                 }
               },
               tab: {
@@ -2839,7 +2855,7 @@ export default defineBackground(() => {
             const signals = await loadSignals(chrome.storage.local, message.sessionId);
             const hasDrainableWork = session ? hasDrainableProductSignalItems(session, signals) : false;
             if (shouldDrainWorkerAfterProductSignalQueue(queued.queued, hasDrainableWork)) {
-              await triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl));
+              await triggerWorkerDrain(ingestTargetFromSettings(current.global.settings));
             }
             const productSignalAnalyses = await analyzeProductSignalsForSession(current.global, message.sessionId, { reconcileToken });
             broadcastDirectStorageUpdate(tabId, current, { reconcileToken });
@@ -3237,7 +3253,7 @@ export default defineBackground(() => {
                 target: { tabId },
                 requestId: message.requestId,
                 responseDetail: (result) => ({ processingStatus: result.status }),
-                run: () => triggerWorkerDrain(normalizeBaseUrl(current.global.settings.ingestBaseUrl))
+                run: () => triggerWorkerDrain(ingestTargetFromSettings(current.global.settings))
               });
               const snapshot = await mutateSnapshot(tabId, (latest) => ({
                 global: latest.global,
@@ -3278,7 +3294,7 @@ export default defineBackground(() => {
                 target: { tabId },
                 requestId: message.requestId,
                 responseDetail: (result) => ({ workerStatus: result.status }),
-                run: () => fetchWorkerStatus(normalizeBaseUrl(current.global.settings.ingestBaseUrl))
+                run: () => fetchWorkerStatus(ingestTargetFromSettings(current.global.settings))
               });
               const backendWorkUiState = projectBackendWorkStatus(worker);
               sendResponse({

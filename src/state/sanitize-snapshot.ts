@@ -12,9 +12,11 @@ export function sanitizeSettingsForContentScript(settings: ExtensionSettings): E
     openaiApiKey: "",
     claudeApiKey: "",
     googleApiKey: "",
+    ingestApiToken: "",
     hasOpenAiKey: Boolean(settings.openaiApiKey.trim()),
     hasClaudeKey: Boolean(settings.claudeApiKey.trim()),
-    hasGoogleKey: Boolean(settings.googleApiKey.trim())
+    hasGoogleKey: Boolean(settings.googleApiKey.trim()),
+    hasIngestApiToken: Boolean(settings.ingestApiToken?.trim())
   };
 }
 

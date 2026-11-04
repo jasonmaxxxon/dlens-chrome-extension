@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage.ts";
+import { mergeIngestApiToken, mergeOneLinerSettings, normalizeExtensionSettings } from "../src/state/settings-storage.ts";
 import { createDefaultSettings, type ExtensionSettings } from "../src/state/types.ts";
 
 function buildSettings(): ExtensionSettings {
@@ -58,6 +58,19 @@ test("mergeOneLinerSettings preserves existing API keys when incoming drafts are
   assert.equal(next.openaiApiKey, "sk-existing");
   assert.equal(next.claudeApiKey, "sk-ant-existing");
   assert.equal(next.googleApiKey, "AIza-existing");
+});
+
+test("normalizeExtensionSettings blanks a missing ingest token and trims a saved one", () => {
+  assert.equal(normalizeExtensionSettings({}).ingestApiToken, "");
+  assert.equal(normalizeExtensionSettings({ ingestApiToken: "  abc  " }).ingestApiToken, "abc");
+  assert.equal(createDefaultSettings().ingestBaseUrl, "http://127.0.0.1:8000");
+  assert.equal(createDefaultSettings().ingestApiToken, "");
+});
+
+test("mergeIngestApiToken keeps a stored token until the draft replaces it or clear is set", () => {
+  assert.equal(mergeIngestApiToken("stored-token", "", false), "stored-token");
+  assert.equal(mergeIngestApiToken("stored-token", " next-token ", false), "next-token");
+  assert.equal(mergeIngestApiToken("stored-token", "next-token", true), "");
 });
 
 test("mergeOneLinerSettings replaces a key when the incoming draft has a value", () => {
