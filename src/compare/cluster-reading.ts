@@ -87,9 +87,11 @@ export function readClusterReadings(item: SessionItem, names: Record<string, str
   // Legacy clusters have no counts; the backend's size share still ranks them.
   const shares = new Map(groups.map(({ cluster }) => [cluster.cluster_key, validShare(cluster.size_share) ? cluster.size_share : -1]));
   return groups.map(({ cluster, complete, members }) => {
-    // B3's top ID is useful only when complete membership independently agrees.
+    // B3's top ID is useful only when complete membership independently agrees. A bookmark reply
+    // (留己看) still counts as a member but never names or quotes its group.
     const hint = eligibility.byId.get(cluster.top_comment_id ?? "");
-    const leader = complete ? (hint && hint.id === members[0]?.id ? hint : members[0] ?? null) : null;
+    const first = members.find(member => member.quality?.flag !== "bookmark") ?? null;
+    const leader = complete ? (hint && hint.id === first?.id ? hint : first) : null;
     const count = complete ? members.length : null;
     const aiName = readingLabel(names[String(cluster.cluster_key)], 48);
     const leaderText = leader ? clipReadingCopy(leader.text, 80) : "";

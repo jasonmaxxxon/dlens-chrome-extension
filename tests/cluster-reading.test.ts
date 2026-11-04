@@ -24,6 +24,19 @@ for (const size of [1, 14, 15, 30]) test(`complete membership size ${size} uses 
   assert.equal(cluster.pct, 100, "the original compatible share remains geometry, not small-N copy");
 });
 
+test("a bookmark reply stays a member but never names or quotes its group", () => {
+  const item = fixture(3);
+  item.latestCapture!.result!.comments[0].text = "留己看";
+  const [cluster] = readClusterReadings(item);
+  assert.equal(cluster.count, 3);
+  assert.equal(cluster.leader?.id, "C1");
+  assert.equal(cluster.label, "另一位觀眾的看法 1。");
+  const onlyBookmarks = fixture(2);
+  for (const comment of onlyBookmarks.latestCapture!.result!.comments) comment.text = "收藏";
+  const [quiet] = readClusterReadings(onlyBookmarks);
+  assert.deepEqual([quiet.count, quiet.leader, quiet.label, quiet.named], [2, null, "未有可用觀眾原句", false]);
+});
+
 test("frame keywords keep only strong backend words that verified members actually wrote", () => {
   const item = fixture(3);
   item.latestCapture!.result!.comments[1].text = "Hybrid 返工比較好";
