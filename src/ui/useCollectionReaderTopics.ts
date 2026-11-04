@@ -1,6 +1,7 @@
 import { awaitingAnalysis } from "../viewmodel/inline-card";
 import { readerNeedsReading } from "../viewmodel/collection-reader";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
+import {readInlineReadingHash} from "../compare/inline-reading";
 import { useEffect, useRef, useState } from "react";
 import type { Signal, Topic } from "../state/types";
 import type { ExtensionResponse } from "../state/messages";
@@ -58,13 +59,15 @@ export function useCollectionReaderLive(source: ReturnType<typeof import("../vie
   // Opening a reader is enough to (re)generate its reading; the card under the post is no longer the only trigger.
   const asked = useRef(new Set<string>());
   const needsReading = source?.session.mode === "topic" && item ? readerNeedsReading(item, reading) : false;
+  const inputHash=needsReading && item ? readInlineReadingHash(item) : null;
+  const sourceKey=item && inputHash ? JSON.stringify([item.id,item.latestCapture?.id,inputHash]) : null;
   useEffect(() => {
-    if (!item || !sessionId || !needsReading) return;
-    const key = `${item.id}:${item.latestCapture?.id ?? ""}`;
+    if (!item || !sessionId || !sourceKey) return;
+    const key = sourceKey;
     if (asked.current.has(key)) return;
     asked.current.add(key);
     void sendExtensionMessage<ExtensionResponse>({ type: "inline-reading/ensure", sessionId, itemId: item.id }).catch(() => asked.current.delete(key));
-  }, [sessionId, item?.id, item?.latestCapture?.id, needsReading]);
+  }, [sessionId, item?.id, sourceKey]);
   const analysisStatus = item?.latestCapture?.analysis?.status;
   useEffect(() => {
     if (!item || !sessionId || !(item.status === "queued" || item.status === "running" || (item.status === "succeeded" && analysisStatus !== "succeeded" && analysisStatus !== "failed"))) return;

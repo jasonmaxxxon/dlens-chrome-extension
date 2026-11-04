@@ -1,24 +1,27 @@
+import { readClusterReadings, rankClusterMembers } from "../compare/cluster-reading";
+import { COMMENT_ELIGIBILITY_VERSION, memoizeItemProjection, readCommentEligibility, unansweredVerified } from "../compare/comment-eligibility";
+import type { CommentQualityAssessment } from "../compare/comment-quality";
 import { clipReadingCopy, cleanReadingCopy } from "../compare/reading-copy";
 import { buildReplyThreads, isReplyQuestion } from "../compare/reply-thread";
 import type { FolderMode, SessionItem } from "../state/types";
-import { guardInlineAudienceReading, readCrawlComments, readOpHandle, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
+import { guardInlineAudienceReading, readInlineReadingHash, INLINE_READING_PROMPT_VERSION, normalizeHandle as handle, type CrawlComment } from "../compare/inline-reading";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { InlineReading } from "../compare/inline-reading";
 
 /**
  * One card under a saved post. Without AI it shows only what the crawl and quant analysis store
  * (大家點睇 / 樣本內最高讚 / 作者回應 / 大家問咩); with a finished AI reading 有咩做法 / 有咩分歧 replace
- * the middle two. Shares are always the backend's percentages.
+ * the middle two. Counts and shares require complete compatible audience membership.
  */
 export type InlineCardPhase = "saved" | "queued" | "running" | "failed" | "done";
 export type InlineCardEntryKey = "stance" | "method" | "split" | "top" | "op" | "ask";
-export interface InlineCardQuote { text: string; author: string; likes: number | null; isAuthor?: boolean }
+export interface InlineCardQuote { text: string; author: string; likes: number | null; isAuthor?: boolean; quality?: CommentQualityAssessment }
 export interface InlineCardEntry { key: InlineCardEntryKey; label: string; mark: string; finding: string }
 export type InlineCardAnswer =
-  | { kind: "clusters"; headline: string; segments: { label: string; pct: number; noise: boolean }[]; quote: InlineCardQuote | null }
+  | { kind: "clusters"; headline: string; segments: { label: string; measurementLabel: string; pct?: number; noise: boolean }[]; quote: InlineCardQuote | null }
   | { kind: "quotes"; rows: InlineCardQuote[] }
-  | { kind: "op"; rows: { text: string; inReplyTo: string; author?: string; likes?: number | null }[] }
-  | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" }[] }
+  | { kind: "op"; rows: { text: string; inReplyTo: string; author?: string; likes?: number | null; quality?: CommentQualityAssessment }[] }
+  | { kind: "ask"; headline: string; rows: { text: string; status: "author" | "other" | "none" | "unknown" }[] }
   | { kind: "methods"; rows: { name: string; fit: string }[]; quote: InlineCardQuote }
   | { kind: "split"; agree: string; sides: { claim: string; why: string; quote: InlineCardQuote }[]; note: string | null }
   | { kind: "empty"; text: string };
@@ -107,39 +110,42 @@ function peekOf(input: InlineCardPeekInput | undefined): InlineCardPeek | null {
 }
 
 /** Everything the card and 展開證據 read from one crawl, derived the same way for both. */
-export function readInlineCardThread(item: SessionItem) {
-  const comments = readCrawlComments(item);
-  const op = readOpHandle(item);
-  const byId = new Map(comments.map((c) => [c.id, c]));
+export const readInlineCardThread = memoizeItemProjection((item: SessionItem) => {
+  const eligibility = readCommentEligibility(item);
+  const comments = eligibility.audience;
+  const op = eligibility.op;
+  const byId = eligibility.byId;
   const children = new Map<string, Comment[]>();
-  for (const c of comments) if (c.parent) children.set(c.parent, [...(children.get(c.parent) ?? []), c]);
-  const clusters = [...(item.latestCapture?.analysis?.clusters ?? [])].sort((a, b) => b.size_share - a.size_share).slice(0, 4);
-  const evidence = item.latestCapture?.analysis?.evidence ?? [];
-  const ranked = comments.filter((c) => c.likes !== null).sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
-  // 作者回應: the author's replies under someone else's comment.
-  const opReplies = comments.filter((c) => op && handle(c.author) === op && c.parent && byId.has(c.parent) && handle(byId.get(c.parent)!.author) !== op);
-  // 大家問咩: a question rule plus the reply chain. A reply is not proof of an answer.
-  const asks = comments.filter((c) => handle(c.author) !== op && isReplyQuestion(c.text)).map((c) => {
+  for (const c of eligibility.all) if (c.parent) children.set(c.parent, [...(children.get(c.parent) ?? []), c]);
+  const clusters = readClusterReadings(item).filter(cluster => cluster.count !== 0).slice(0, 4);
+  const ranked = rankClusterMembers(comments.filter(c => c.likes !== null));
+  const opReplies = rankClusterMembers(eligibility.authorReplies);
+  const asks = comments.filter(c => isReplyQuestion(c.text)).map(c => {
     const kids = children.get(c.id) ?? [];
-    const status: "author" | "other" | "none" = kids.some((k) => handle(k.author) === op) ? "author" : kids.length ? "other" : "none";
-    return { c, status, reply: kids.find((k) => handle(k.author) === op) ?? kids[0] ?? null };
-  }).sort((a, b) => (a.status === "none" ? 0 : 1) - (b.status === "none" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0));
-  return { comments, op, byId, clusters, evidence, ranked, opReplies, asks };
-}
-const isNoise = (cluster: { cluster_key: number }, reading: InlineReading | null) => !!reading?.noiseClusters.includes(String(cluster.cluster_key));
+    const status: "author" | "other" | "none" | "unknown" = kids.some(k => op && handle(k.author) === op)
+      ? "author" : kids.length ? "other" : unansweredVerified(eligibility, c) ? "none" : "unknown";
+    return { c, status, reply: kids.find(k => op && handle(k.author) === op) ?? kids[0] ?? null };
+  }).sort((a, b) => (a.status === "none" || a.status === "unknown" ? 0 : 1)
+    - (b.status === "none" || b.status === "unknown" ? 0 : 1) || (b.c.likes ?? 0) - (a.c.likes ?? 0) || a.c.id.localeCompare(b.c.id));
+  return { comments, op, byId, clusters, ranked, opReplies, asks, eligibility };
+});
+const isNoise = (cluster: { clusterKey: number }, reading: InlineReading | null) => !!reading?.noiseClusters.includes(String(cluster.clusterKey));
 /** Largest first, but noise (spam, ads, off-topic) after every real reaction. */
-const orderClusters = <C extends { cluster_key: number }>(clusters: C[], reading: InlineReading | null) =>
+const orderClusters = <C extends { clusterKey: number }>(clusters: C[], reading: InlineReading | null) =>
   [...clusters.filter((c) => !isNoise(c, reading)), ...clusters.filter((c) => isNoise(c, reading))];
-const keywordLabel = (keywords: string[]) => keywords.map(cleanReadingCopy).filter(Boolean).slice(0, 3).join(" / ") || "未有關鍵詞";
-const pct = (share: number) => Math.round(share * 100);
-
-function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined) {
-  return ai?.status === "complete" && ai.captureId === item.latestCapture?.id ? guardInlineAudienceReading(ai.reading, buildReplyThreads(readCrawlComments(item), readOpHandle(item))) : null;
+function readingOf(item: SessionItem, ai: InlineCardAiInput | null | undefined, suppliedHash?: string | null) {
+  if (ai?.status !== "complete" || ai.captureId !== item.latestCapture?.id || ai.reading.promptVersion !== INLINE_READING_PROMPT_VERSION || ai.reading.eligibilityVersion !== COMMENT_ELIGIBILITY_VERSION) return null;
+  const inputHash = suppliedHash === undefined ? readInlineReadingHash(item) : suppliedHash;
+  if (!inputHash || ai.reading.inputHash !== inputHash) return null;
+  const eligibility = readCommentEligibility(item);
+  return guardInlineAudienceReading(ai.reading, buildReplyThreads(eligibility.all, eligibility.op));
 }
-function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined): InlineCardViewModel["ai"] {
+function aiStateOf(item: SessionItem, ai: InlineCardAiInput | null | undefined, reading: InlineReading | null, inputHash: string | null): InlineCardViewModel["ai"] {
   if (!ai) return null;
   if (ai.status === "no-key") return { state: "no-key", error: ai.reason ?? null };
-  if (ai.captureId !== item.latestCapture?.id) return null;
+  if (ai.captureId !== item.latestCapture?.id || (ai.status === "complete" && !reading)) return null;
+  if (ai.status !== "complete" && (!inputHash || ai.inputHash !== inputHash || ai.promptVersion !== INLINE_READING_PROMPT_VERSION
+    || ai.eligibilityVersion !== COMMENT_ELIGIBILITY_VERSION)) return null;
   return { state: ai.status, error: ai.status === "failed" ? ai.error : null };
 }
 
@@ -164,35 +170,36 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
   base.analysisPending = context.now !== undefined && awaitingAnalysis(item, context.now);
 
   const t = readInlineCardThread(item);
-  const quote = (c: Pick<Comment, "text" | "author" | "likes">): InlineCardQuote => ({ text: c.text, author: c.author, likes: c.likes, isAuthor: !!t.op && handle(c.author) === t.op });
+  const quote = (c: Pick<Comment, "text" | "author" | "likes" | "quality"> & {commentId?:string}): InlineCardQuote => {
+    const quality = c.quality ?? (c.commentId ? t.byId.get(c.commentId)?.quality : undefined);
+    return { text: c.text, author: c.author, likes: c.likes, isAuthor: !!t.op && handle(c.author) === t.op, ...(quality ? {quality} : {}) };
+  };
   const total = num(item.descriptor.engagement?.comments);
   base.countLabel = `${t.comments.length} / ${total ?? "?"} 則`;
-  const currentReading = readingOf(item, context.ai);
+  const currentInputHash = context.ai && context.ai.status !== "no-key" ? readInlineReadingHash(item) : null;
+  const currentReading = readingOf(item, context.ai, currentInputHash);
   base.readingCounts = { comments: t.comments.length, frames: t.comments.length < INLINE_CARD_MIN_COMMENTS ? 0
-    : (item.latestCapture?.analysis?.clusters ?? []).filter(cluster => !isNoise(cluster, currentReading)).length };
+    : t.clusters.filter(cluster => cluster.membership === "complete" && !isNoise(cluster, currentReading)).length };
   if (t.comments.length < INLINE_CARD_MIN_COMMENTS) {
     base.few = t.comments.slice(0, 9).map(quote);
     if (!context.forReader) return base;
   }
-  base.ai = base.analysisPending ? null : aiStateOf(item, context.ai);
-  const reading = readingOf(item, context.ai);
-  const nameOf = (cluster: { cluster_key: number; keywords: string[] }) => reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords);
+  base.ai = base.analysisPending ? null : aiStateOf(item, context.ai, currentReading, currentInputHash);
+  const reading = currentReading;
+  const projected = readClusterReadings(item, reading?.clusterNames).filter(cluster => cluster.count !== 0).slice(0, 4);
 
-  // 大家點睇: quant clusters, shares as percentages only; AI only names them, flags spam/off-topic ones and writes the gist.
-  // The entry's number and words always describe the same cluster: the largest one that is not noise.
-  if (t.clusters.length) {
-    const ordered = orderClusters(t.clusters, reading);
+  if (projected.length) {
+    const ordered = orderClusters(projected, reading);
     const lead = ordered[0];
-    const evidence = t.evidence.find((e) => e.cluster_key === lead.cluster_key)?.comments?.[0];
-    base.entries.push({ key: "stance", label: "大家點睇", mark: `${pct(lead.size_share)}%`, finding: nameOf(lead) });
+    base.entries.push({ key: "stance", label: "大家點睇", mark: lead.measurementLabel, finding: lead.label });
     base.answers.stance = {
       kind: "clusters",
-      headline: reading?.gist ?? `最大一群講「${nameOf(lead)}」，佔已讀留言 ${pct(lead.size_share)}%。`,
-      segments: ordered.map((c) => ({ label: nameOf(c), pct: pct(c.size_share), noise: isNoise(c, reading) })),
-      quote: evidence ? { text: evidence.text, author: evidence.author ?? "", likes: evidence.like_count ?? null, isAuthor: !!t.op && handle(evidence.author) === t.op } : null
+      headline: lead.named ? `一群留言講「${lead.label}」 · ${lead.measurementLabel}。` : `${lead.label} · ${lead.measurementLabel}。`,
+      segments: ordered.map(cluster => ({ label: cluster.label, measurementLabel: cluster.measurementLabel,
+        ...(cluster.pct === undefined ? {} : {pct:cluster.pct}), noise: isNoise(cluster, reading) })),
+      quote: lead.leader ? quote(lead.leader) : null,
     };
   }
-
   if (context.forReader && !base.answers.stance) {
     base.entries.push({key:'stance',label:'大家點睇',mark:'',finding:''});
     base.answers.stance={kind:'empty',text:t.comments.length < INLINE_CARD_MIN_COMMENTS ? '留言未夠歸納，先睇原句。' : '未有可用的回應分群。'};
@@ -218,26 +225,27 @@ export function buildInlineCardViewModel(item: SessionItem, mode: FolderMode, se
       base.entries.push({key:'top',label:'樣本內最高讚',mark:'',finding:''});
       base.answers.top={kind:'empty',text:'樣本內未有讚數。'};
     }
-    base.entries.push({ key: "op", label: "作者回應", mark: t.opReplies.length ? `${t.opReplies.length} 則` : "", finding: t.opReplies[0]?.text ?? "未有回覆留言" });
+    base.entries.push({ key: "op", label: "作者回應", mark: t.opReplies.length ? `${t.opReplies.length} 則` : "", finding: t.opReplies[0]?.text ?? "未能確認作者回覆" });
     base.answers.op = t.opReplies.length
-      ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text), author: t.op, likes: c.likes ?? null })) }
-      : { kind: "empty", text: "作者未有回覆任何留言。" };
+      ? { kind: "op", rows: t.opReplies.slice(0, 4).map((c) => ({ text: c.text, inReplyTo: short(t.byId.get(c.parent!)!.text), author: t.op, likes: c.likes ?? null, ...(c.quality ? {quality:c.quality} : {}) })) }
+      : { kind: "empty", text: "未能確認作者有否回覆觀眾留言。" };
   }
 
   const open = t.asks.filter((a) => a.status === "none").length;
-  base.entries.push({ key: "ask", label: "大家問咩", mark: t.asks.length ? (open ? `${open} 未回` : "都有回覆") : "", finding: cleanReadingCopy(reading?.find.ask ?? t.asks[0]?.c.text) || "未見提問" });
+  const uncertain = t.asks.some(a => a.status === "unknown");
+  base.entries.push({ key: "ask", label: "大家問咩", mark: t.asks.length ? (open ? `${open} 未回` : uncertain ? "未能確認" : "都有回覆") : "", finding: cleanReadingCopy(reading?.find.ask ?? t.asks[0]?.c.text) || "未見提問" });
   base.answers.ask = t.asks.length
-    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: cleanReadingCopy(a.c.text), status: a.status })) }
+    ? { kind: "ask", headline: open ? `${open} 條問題樣本內未見回覆` : uncertain ? "未能確認問題的回覆情況" : "問題都有人回覆", rows: t.asks.slice(0, 5).map((a) => ({ text: cleanReadingCopy(a.c.text), status: a.status })) }
     : { kind: "empty", text: "已讀留言裡未見提問。" };
   base.hasEvidence = t.clusters.length > 0 || t.ranked.length > 0 || (!!context.forReader && t.comments.length > 0);
   return base;
 }
 
 /* ---------- 展開證據: the replies behind the open answer, in Threads' own reply shape ---------- */
-export interface InlineEvidenceRow { author: string; text: string; likes: number | null; replies: number | null; time: string | null; isAuthor: boolean }
+export interface InlineEvidenceRow { author: string; text: string; likes: number | null; replies: number | null; time: string | null; isAuthor: boolean; quality?: CommentQualityAssessment }
 export interface InlineEvidenceChain { row: InlineEvidenceRow; reply: InlineEvidenceRow | null; unanswered: boolean }
 export interface InlineEvidenceGroup {
-  tone: "cluster" | "noise" | "method" | "side" | "none" | "author" | "other";
+  tone: "cluster" | "noise" | "method" | "side" | "none" | "author" | "other" | "unknown";
   /** Same index as the cluster's segment on the card, so colours match. */
   index: number;
   title: string;
@@ -265,8 +273,8 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
   const reading = readingOf(item, ai);
   // The card already quotes these; 展開證據 never repeats them.
   const shown = new Set(lens === "ask" ? [] : shownTexts(lens ? vm.answers[lens] : undefined));
-  const toRow = (c: Pick<Comment, "author" | "text" | "likes" | "replies" | "time">): InlineEvidenceRow =>
-    ({ author: c.author, text: c.text, likes: c.likes, replies: c.replies, time: c.time, isAuthor: !!t.op && handle(c.author) === t.op });
+  const toRow = (c: Pick<Comment, "author" | "text" | "likes" | "replies" | "time" | "quality">): InlineEvidenceRow =>
+    ({ author: c.author, text: c.text, likes: c.likes, replies: c.replies, time: c.time, isAuthor: !!t.op && handle(c.author) === t.op, ...(c.quality ? {quality:c.quality} : {}) });
   const lookup = (id: string, fallback: { text: string; author?: string; likes: number | null }) =>
     t.byId.get(id) ?? { id, parent: null, text: fallback.text, author: fallback.author ?? "", likes: fallback.likes, replies: null, time: null };
   // Spam often repeats one text verbatim; show each text once, and only a few per group.
@@ -292,8 +300,8 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
     groups = reading.split.sides.map((side, index) => ({ tone: "side", index, title: side.claim, meta: "", context: side.why || null, ...pick([lookup(side.quote.commentId, side.quote)], limit("side", index)) }));
   } else if (lens === "ask" && t.asks.length) {
     section = "問題與回覆";
-    const NAME = { none: "樣本內未見回覆", author: "作者回覆", other: "有人回覆" } as const;
-    groups = (["none", "author", "other"] as const).flatMap((status, index) => {
+    const NAME = { none: "樣本內未見回覆", author: "作者回覆", other: "有人回覆", unknown: "未能確認回覆" } as const;
+    groups = (["none", "author", "other", "unknown"] as const).flatMap((status, index) => {
       const asks = t.asks.filter((a) => a.status === status);
       if (!asks.length) return [];
       const take = (budget:number) => {
@@ -313,15 +321,15 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
       return [{tone:status,index,title:NAME[status],meta:`${asks.length} 條`,context:null,chains:visible.chains,more:totalRows-visible.rows}];
     });
   } else if (t.clusters.length) {
-    section = reading ? "按回應類別的原句" : "按關鍵詞分群的原句";
-    groups = orderClusters(t.clusters, reading).map((cluster, index) => {
+    section = "按回應類別的原句";
+    groups = orderClusters(readClusterReadings(item, reading?.clusterNames).filter(cluster => cluster.count !== 0).slice(0, 4), reading).map((cluster, index) => {
       const noise = isNoise(cluster, reading);
       return {
-        tone: noise ? "noise" : "cluster", index,
-        title: reading?.clusterNames[String(cluster.cluster_key)] || keywordLabel(cluster.keywords),
-        meta: `${pct(cluster.size_share)}%`, context: noise ? "AI 判斷為廣告、洗版或離題，不計作觀眾反應。" : null,
-        ...pick((t.evidence.find((e) => e.cluster_key === cluster.cluster_key)?.comments ?? [])
-          .map((e) => lookup(e.comment_id, { text: e.text, author: e.author, likes: e.like_count ?? null })), limit(noise ? "noise" : "cluster", index))
+        tone: noise ? "noise" : "cluster", index, title: cluster.label,
+        meta: cluster.measurementLabel,
+        context: noise ? "AI 判斷為廣告、洗版或離題，不計作觀眾反應。"
+          : cluster.membership === "limited" ? "分群成員資料未完整，未能確認代表原句與則數。" : null,
+        ...pick(cluster.members, limit(noise ? "noise" : "cluster", index)),
       };
     });
   } else {
@@ -340,9 +348,11 @@ export function buildInlineCardEvidence(item: SessionItem, vm: InlineCardViewMod
 /** Completion belongs to the captured reading, never a newly invented backend clock. */
 export function inlineReadingFinishedAt(item: SessionItem, ai: InlineCardAiInput | null | undefined, now: number): string | null {
   if (item.status !== "succeeded") return null;
-  const current = ai && "captureId" in ai && ai.captureId === item.latestCapture?.id ? ai : null;
-  if (current?.status === "running" || awaitingAnalysis(item, now)) return null;
-  if (current?.status === "complete") return current.reading.generatedAt;
+  const inputHash = readInlineReadingHash(item);
+  const reading = readingOf(item, ai, inputHash);
+  const current = aiStateOf(item, ai, reading, inputHash);
+  if (current?.state === "running" || awaitingAnalysis(item, now)) return null;
+  if (current?.state === "complete" && reading) return reading.generatedAt;
   return item.latestCapture?.analysis?.generated_at ?? item.completedAt ?? item.latestCapture?.result?.fetched_at ?? item.latestCapture?.captured_at ?? null;
 }
 export interface InlineSaveLine {
@@ -374,5 +384,5 @@ export function nextReturnGlow(previous: InlineReturnGlow | undefined, ready: bo
 }
 
 export function inlineReplyRow(c: CrawlComment, op: string): InlineEvidenceRow {
- return {author:c.author,text:c.text,likes:c.likes,replies:c.replies,time:c.time,isAuthor:!!op && handle(c.author)===op};
+ return {author:c.author,text:c.text,likes:c.likes,replies:c.replies,time:c.time,isAuthor:!!op && handle(c.author)===op,...(c.quality ? {quality:c.quality} : {})};
 }

@@ -17,7 +17,8 @@ import { normalizeSignal, normalizeTopic, SIGNALS_STORAGE_KEY, TOPICS_STORAGE_KE
 import { buildCardTopicLine } from "../viewmodel/topic-discourse";
 import { INLINE_READINGS_STORAGE_KEY, normalizeInlineReadingRecords, type InlineReadingRecord } from "../compare/inline-reading-storage";
 import { renderInlineTopicPicker, renderInlineSaveLine, renderInlineCard, formatEta } from "./inline-collect-card";
-import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
+import { INLINE_READING_PROMPT_VERSION,readInlineReadingHash } from "../compare/inline-reading";
+import {COMMENT_ELIGIBILITY_VERSION} from "../compare/comment-eligibility";
 import { tokens } from "../ui/tokens";
 import { fetchFirstReplies } from "./inline-collect-peek";
 
@@ -112,7 +113,7 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     if (!hidden || !item) unseen.delete(post.identity);
     const audience=saved(post.identity)?.mode === "topic";
     const live = reads && !!item && (item.status === "queued" || item.status === "running" || (audience && awaitingAnalysis(item, Date.now()))
-      || (audience && readings[item.id]?.status === "running" && readings[item.id]?.captureId === item.latestCapture?.id));
+      || (audience && aiOf(item)?.status === "running"));
     post.button.classList.toggle("busy", live);
     post.button.classList.toggle("queued", live && item?.status === "queued");
     post.button.classList.toggle("failed", reads && !!item && (item.status === "failed" || startErrors.has(post.identity)));
@@ -246,8 +247,12 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
   const keyGap = () => (global ? aiKeyGap(global.settings ?? {}) : null);
   function aiOf(item: SessionItem): InlineCardAiInput | null {
     const record = readings[item.id];
-    // A reading from an older prompt is stale like one from an older capture: ask again.
-    const current = record && record.captureId === item.latestCapture?.id && (record.status !== "complete" || record.reading.promptVersion === INLINE_READING_PROMPT_VERSION);
+    const identity=record?.status==='complete' ? record.reading : record;
+    // Cheap identity first; only a current-version record needs this capture's input hash.
+    const current = record && record.captureId === item.latestCapture?.id
+      && identity?.promptVersion === INLINE_READING_PROMPT_VERSION
+      && identity.eligibilityVersion === COMMENT_ELIGIBILITY_VERSION
+      && identity.inputHash === readInlineReadingHash(item);
     if (record && current) return record;
     const gap = keyGap();
     if (gap) return { status: "no-key", reason: gap };
@@ -255,7 +260,8 @@ export function startInlineCollectRuntime(overlayRoot: HTMLElement) {
     return null;
   }
   function ensureReading(destination: InlineCollectSavedPost, itemId: string, captureId: string, retry: boolean) {
-    const key = `${itemId}:${captureId}`;
+    const item=itemOf(destination);
+    const key = JSON.stringify([itemId,captureId,(item && readInlineReadingHash(item)) ?? '']);
     if (!retry && ensured.has(key)) return;
     ensured.add(key);
     void send({ type: "inline-reading/ensure", sessionId: destination.sessionId, itemId, retry }).then((response) => {

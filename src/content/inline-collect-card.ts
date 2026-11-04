@@ -35,8 +35,8 @@ function answerHtml(a: InlineCardAnswer): string {
   if (a.kind === "clusters") {
     const segs = a.segments.map((s, i) => ({ ...s, color: s.noise ? c.noise : c.clusterColors[i % c.clusterColors.length] }));
     return `<p class="hl">${esc(a.headline)}</p>
-      <div class="stack">${segs.map((s) => `<i style="flex:${Math.max(1, s.pct)} 1 0;background:${s.color}"></i>`).join("")}</div>
-      <div class="legend">${segs.map((s) => `<span${s.noise ? ` class="nz" title="AI 判斷為廣告、洗版或離題"` : ""}><i style="background:${s.color}"></i><b>${esc(s.label)}</b><em>${s.pct}%</em></span>`).join("")}</div>
+      <div class="stack" aria-hidden="true">${segs.map((s) => `<i style="flex:${Math.max(1, s.pct ?? 1)} 1 0;background:${s.color}"></i>`).join("")}</div>
+      <div class="legend">${segs.map((s) => `<span${s.noise ? ` class="nz" title="AI 判斷為廣告、洗版或離題"` : ""}><i style="background:${s.color}"></i><b>${esc(s.label)}</b><em>${esc(s.measurementLabel)}</em></span>`).join("")}</div>
       ${a.quote ? `<div class="q1"><q>「${esc(a.quote.text)}」</q><cite>${cite(a.quote)}</cite></div>` : ""}`;
   }
   if (a.kind === "quotes") return `<div class="rows">${a.rows.map((q) => `<div class="row top"><span class="n">${q.likes ?? 0} 讚</span><span class="t">「${esc(q.text)}」<small>@${esc(q.author)}${q.isAuthor ? " · <b>作者</b>" : ""}</small></span></div>`).join("")}</div>`;
@@ -49,9 +49,9 @@ function answerHtml(a: InlineCardAnswer): string {
     return a.sides.map((s) => `<div class="side"><p class="ctx"><b>${esc(s.claim)}</b> · ${esc(s.why)}</p><div class="q1"><q>「${esc(s.quote.text)}」</q><cite>${cite(s.quote)}</cite></div></div>`).join("");
   }
   if (a.kind === "op") return `<div class="rows">${a.rows.map((r) => `<div class="row"><i class="qd" style="background:${c.askColors.author}"></i><span class="t">${esc(r.text)}</span><span class="n">答「${esc(r.inReplyTo)}」</span></div>`).join("")}</div>`;
-  const LAB = { author: "作者回覆", other: "有人回覆", none: "樣本內未見回覆" } as const;
-  const dot = (s: keyof typeof LAB) => s === "none" ? `<i class="qd ring" style="border-color:${c.askColors.none}"></i>` : `<i class="qd" style="background:${c.askColors[s]}"></i>`;
-  const used = (["none", "author", "other"] as const).filter((s) => a.rows.some((r) => r.status === s));
+  const LAB = { author: "作者回覆", other: "有人回覆", none: "樣本內未見回覆", unknown: "未能確認回覆" } as const;
+  const dot = (s: keyof typeof LAB) => s === "none" || s === "unknown" ? `<i class="qd ring" style="border-color:${s === "unknown" ? c.soft : c.askColors.none}"></i>` : `<i class="qd" style="background:${c.askColors[s]}"></i>`;
+  const used = (["none", "author", "other", "unknown"] as const).filter((s) => a.rows.some((r) => r.status === s));
   return `<p class="hl">${esc(a.headline)}</p><div class="rows">${a.rows.map((r) => `<div class="row">${dot(r.status)}<span class="t">${esc(r.text)}</span></div>`).join("")}</div>
     <div class="key">${used.map((s) => `<span>${dot(s)}${LAB[s]}</span>`).join("")}</div>`;
 }

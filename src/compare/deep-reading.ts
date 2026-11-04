@@ -3,7 +3,8 @@ import type { ReadingCoverage } from './reading-coverage.ts';
 import type { SessionItem } from '../state/types.ts';
 import { readCrawlComments, readOpHandle } from './inline-reading.ts';
 import { buildReplyThreads, selectReplyThreads, scanThreadTerms, renderReplyThreads, type ThreadReply, type ThreadTerm } from './reply-thread.ts';
-export const DEEP_READING_PROMPT_VERSION = 'v3';
+// v4: the catalog is eligible comments (root and duplicates merged, unknown authors marked), not raw crawl rows.
+export const DEEP_READING_PROMPT_VERSION = 'v4';
 export const DEEP_REPLY_CHARACTER_BUDGET = 96_000;
 export const DEEP_OUTPUT_TOKENS = 4000;
 export const DEEP_READING_MODELS = { google: 'gemini-3.8-flash', claude: 'claude-sonnet-5-5', openai: 'gpt-4.1-mini' } as const;
@@ -59,7 +60,7 @@ export function buildDeepReadingPrompt(input: DeepReadingInput): string {
 const obj = (v: unknown): Record<string, unknown> | null => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
 const text = clipReadingCopy;
 const list = (v: unknown, cap: number) => (Array.isArray(v) ? v : []).slice(0,cap).flatMap(x => obj(x) ? [obj(x)!] : []);
-export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: string; role?: "op" | "reply" }[] }): DeepReading | null {
+export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: string; role?: "op" | "reply" | "unknown" }[] }): DeepReading | null {
   let p: Record<string, unknown> | null;
   try { p = obj(JSON.parse(raw.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim())); } catch { return null; }
   if (!p || !text(p.background,480) || !text(p.takeaway,240) || !Array.isArray(p.terms) || !Array.isArray(p.debates) || !obj(p.evidence) || !Array.isArray(obj(p.evidence)!.strong) || !Array.isArray(obj(p.evidence)!.weak) || !Array.isArray(p.unanswered)) return null;
@@ -75,7 +76,7 @@ export function parseDeepReadingResponse(raw: string, input: { catalog: { ref: s
       const sides=grounded(d.sides,4).flatMap(s=> ['experience','opinion','question'].includes(String(s.basis)) && text(s.claim,240) && text(s.who,60) ? [{who:text(s.who,60),claim:text(s.claim,240),basis:s.basis as 'experience'|'opinion'|'question',note:text(s.note,160),refs:s.refs}] : []);
       // Multi-sided debates describe audience positions: every side needs audience support.
       // A single author explanation remains valid context and keeps its cited source.
-      const audienceRefs = new Set(input.catalog.filter(c => c.role !== 'op').map(c => c.ref));
+      const audienceRefs = new Set(input.catalog.filter(c => c.role !== 'op' && c.role !== 'unknown').map(c => c.ref));
       const audienceSides = sides.length > 1 ? sides.filter(s => s.refs.some(ref => audienceRefs.has(ref))) : sides;
       if (audienceSides.length !== sides.length || (sides.length === 1 && d.status === 'agree' && sides[0].refs.every(ref => !audienceRefs.has(ref)))) droppedAudienceSide = true;
       if (sides.length > 1 && audienceSides.length < 2) return [];
@@ -98,7 +99,8 @@ export function guardDeepAudienceReading(reading: DeepReading, refs: DeepRef[], 
   const catalog = refs.map(ref => {
     const comment = comments.get(ref.commentId);
     // Unknown or replaced captures cannot establish an audience position. Keep cited explanations.
-    const role = comment && op && comment.author.replace(/^@/, '').trim().toLowerCase() !== op ? 'reply' as const : 'op' as const;
+    const author = comment?.author.replace(/^@/, '').trim().toLowerCase();
+    const role = !author || !op ? 'unknown' as const : author === op ? 'op' as const : 'reply' as const;
     return { ref: ref.ref, role };
   });
   return parseDeepReadingResponse(JSON.stringify(reading), { catalog });

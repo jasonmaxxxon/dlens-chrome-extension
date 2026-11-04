@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from "react";
 import { Heart, MessageCircle } from "lucide-react";
 import type { InlineEvidenceRow } from "../viewmodel/inline-card";
+import { commentQualityLabel } from "../compare/comment-quality";
 import { avatarGradient, tokens } from "./tokens";
 const c = tokens.collectCard, rc = tokens.reader.replyCard;
 /** A reply as a small Threads card: avatar, handle, text, likes and replies. Long text folds behind 全文. */
 export function ReaderReply({ row, threaded = false, footer }: { row: InlineEvidenceRow; threaded?: boolean; footer?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const long = row.text.length > rc.clampChars;
+  const qualityLabel = commentQualityLabel(row.quality?.flag ?? null);
   const meta = <span style={{ display: "inline-flex", alignItems: "center", gap: tokens.spacing.md, fontSize: tokens.reader.meta, color: c.soft }}>
     {row.likes !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Heart size={rc.icon} aria-hidden="true" />{row.likes}</span> : null}
     {row.replies !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><MessageCircle size={rc.icon} aria-hidden="true" />{row.replies}</span> : null}
@@ -18,6 +20,7 @@ export function ReaderReply({ row, threaded = false, footer }: { row: InlineEvid
       <p style={{ fontSize: tokens.reader.body, color: tokens.color.ink, margin: `${tokens.spacing.xs}px 0`, whiteSpace: "pre-wrap", overflowWrap: "anywhere", ...(long && !open ? { display: "-webkit-box", WebkitLineClamp: rc.clampLines, WebkitBoxOrient: "vertical", overflow: "hidden" } : {}) }}>{row.text}</p>
       <div style={{ display: "flex", alignItems: "center", gap: tokens.spacing.md, flexWrap: "wrap" }}>
         {meta}{footer}
+        {qualityLabel ? <span data-reader-comment-quality={row.quality?.flag} style={{ fontSize: tokens.reader.meta, color: c.soft }}>{qualityLabel}</span> : null}
         {long ? <button type="button" data-reader-reply-full="" onClick={() => setOpen(v => !v)} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, fontSize: tokens.reader.meta, color: c.soft, cursor: "pointer" }}>{open ? "收起" : "全文"}</button> : null}
       </div>
     </div>
