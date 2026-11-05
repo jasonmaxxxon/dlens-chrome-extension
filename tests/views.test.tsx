@@ -257,16 +257,16 @@ function buildPrNarrativeViewFixture(): Pick<PrEvidenceResourceState, "campaign"
   };
 }
 
-test("surfaceCardStyle uses the shared glass-ground defaults", () => {
+test("surfaceCardStyle uses the side panel surface defaults", () => {
   const style = surfaceCardStyle();
 
   assert.equal(
     style.background,
-    `linear-gradient(180deg, ${tokens.color.elevated}, ${tokens.color.surface})`
+    tokens.panel.surface
   );
-  assert.equal(style.borderRadius, tokens.radius.cardLg);
-  assert.equal(style.border, `1px solid ${tokens.color.cardEdge}`);
-  assert.equal(style.boxShadow, tokens.shadow.shell);
+  assert.equal(style.borderRadius, tokens.panel.radius.md);
+  assert.equal(style.border, `1px solid ${tokens.panel.border}`);
+  assert.equal(style.boxShadow, tokens.panel.shadow.card);
 });
 
 test("tokens keep the design-system UI and editorial type split", () => {
@@ -878,8 +878,8 @@ test("PrEvidenceView aligns the editorial PR structure to shared workspace token
   assert.match(html, /data-pr-match-summary="true"/);
   assert.match(html, /data-pr-metrics-detail="collapsed"/);
   assert.doesNotMatch(html, /data-pr-work-tab=/);
-  assert.match(html, /border-radius:20px/);
-  assert.match(html, /0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+  assert.match(html, new RegExp(`border-radius:${tokens.panel.radius.md}px`));
+  assert.ok(html.includes(`box-shadow:${tokens.panel.shadow.card}`));
 });
 
 test("PR Evidence setup copy is Chinese-first and avoids fake campaign examples", () => {
@@ -1719,10 +1719,10 @@ test("SettingsView exposes Google provider and save action", () => {
   );
 
   assert.match(html, /data-mode-header="settings"/);
-  assert.match(html, /AI 金鑰只存在這部電腦。Ingest token 只會送到你設定的後端。/);
+  assert.match(html, /用你自己嘅 key，只存喺呢部電腦/);
   assert.match(html, /data-settings-ingest-help="true"/);
-  assert.match(html, /http:\/\/100\.x\.y\.z:8000/);
-  assert.match(html, /Authorization: Bearer/);
+  assert.match(html, /遠端網址儲存時，Chrome 會問一次權限。/);
+  assert.match(html, /儲存連線/);
   assert.match(html, /http:\/\/127\.0\.0\.1:8000/);
   assert.doesNotMatch(html, /field drawer/);
   assert.match(html, /data-settings-surface="drawer"/);
@@ -1738,15 +1738,15 @@ test("SettingsView exposes Google provider and save action", () => {
   assert.doesNotMatch(html, /data-settings-group="keys"/);
   assert.ok(html.indexOf('data-settings-group="ai"') < html.indexOf('data-settings-group="connection"'), "AI comes first (side panel A)");
   assert.match(html, /data-settings-group="product"/);
-  assert.match(html, /data-settings-group="connection"[^>]*border-radius:20px/);
-  assert.match(html, /data-settings-group="connection"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
+  assert.match(html, new RegExp(`data-settings-group="connection"[^>]*border-radius:${tokens.panel.radius.md}px`));
+  assert.ok(html.includes(`box-shadow:${tokens.panel.shadow.card}`));
   assert.doesNotMatch(html, /資料夾類型/);
   assert.doesNotMatch(html, /產品觀察（Product）/);
   assert.doesNotMatch(html, /版面偏好/);
   assert.doesNotMatch(html, /Product signal card/);
   assert.doesNotMatch(html, /Topic synthesis/);
   assert.doesNotMatch(html, /Compare result/);
-  assert.match(html, /Connection/);
+  assert.doesNotMatch(html, />Connection<|>Language<|>Product<|Runtime settings|Tune connections/);
   assert.match(html, /Storage 用量：2\.0 KB · 不限額/);
   assert.doesNotMatch(html, /Storage 用量：2\.0 KB \/ 10 MB/);
   assert.match(html, /AI provider/);
@@ -1984,7 +1984,7 @@ test("PR-only popup keeps mixed inventories and stale non-PR routes behind the P
       assert.ok(host.querySelector('[data-workspace-home]'), "stale non-PR domain opens only the allowed workspace index");
       assert.deepEqual([...host.querySelectorAll('[data-workspace-session]')].map((row) => row.getAttribute("data-workspace-session")), [pr.id]);
       await act(async () => [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "＋ 新工作區")!.click());
-      assert.deepEqual([...host.querySelectorAll('select[name="workspace-type"] option')].map((option) => option.getAttribute("value")), ["pr-evidence"]);
+      assert.deepEqual([...host.querySelectorAll('input[type="radio"][name="workspace-type"]')].map((radio) => radio.getAttribute("value")), ["pr-evidence"]);
       const name = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
       await act(async () => { name.value = "新核對"; name.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
       await act(async () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
@@ -2152,6 +2152,34 @@ test("SettingsView deep model field follows the chosen provider and saved overri
   assert.match(html,/value="custom-model"/);
 });
 
+test("SettingsView returns explicitly and starts connection permission before saving", async () => {
+  const calls: string[] = [];
+  const permission = Promise.resolve({ ok: true as const, normalized: "http://127.0.0.1:8000", requestedOrigins: [] });
+  await withCollectionFocusDom(async (host, _dom, root, act) => {
+    const props = {
+      sessionMode: "topic", draftBaseUrl: "http://127.0.0.1:8000", draftProvider: "openai", draftOpenAiKey: "", draftClaudeKey: "", draftGoogleKey: "",
+      draftLayoutPreferences: createDefaultSettings().layoutPreferences, draftProductProfile: { name: "", category: "", audience: "" },
+      hasIngestApiToken: true, hasOpenAiKey: true,
+      onDraftBaseUrlChange: () => {}, onDraftProviderChange: () => {}, onDraftOpenAiKeyChange: () => {}, onDraftClaudeKeyChange: () => {}, onDraftGoogleKeyChange: () => {},
+      onDraftLayoutPreferencesChange: () => {}, onDraftProductProfileChange: () => {}, createContextFileId: () => "fixture",
+      onBack: () => calls.push("back"),
+      onBeginSettingsSave: (baseUrl: string) => { calls.push(`permission:${baseUrl}`); return permission; },
+      onSaveSettings: (pending: unknown) => { assert.equal(pending, permission); calls.push("save"); }
+    };
+    await act(async () => root.render(React.createElement(SettingsView, props as any)));
+    assert.deepEqual(calls, []);
+    const back = host.querySelector<HTMLButtonElement>('[data-settings-back]');
+    assert.ok(back);
+    await act(async () => back.click());
+    const save = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === "儲存連線");
+    assert.ok(save);
+    await act(async () => save.click());
+    assert.deepEqual(calls, ["back", "permission:http://127.0.0.1:8000", "save"]);
+    assert.equal(host.querySelector<HTMLInputElement>('[data-settings-ingest-token]')?.type, "password");
+    assert.equal(host.querySelector<HTMLInputElement>('[data-settings-ingest-token]')?.value, "");
+  });
+});
+
 test('card reader handoff opens on the requested lens live and after pending load, without domain mutations', async()=>{
  const {JSDOM}=await import('jsdom');const {act}=await import('react');const {requestWorkspaceOpen}=await import('../src/ui/inpage-helpers.tsx');
  const dom=new JSDOM('<div id="root"></div>',{url:'https://dlens.test',pretendToBeVisual:true});
@@ -2266,7 +2294,7 @@ test("AI settings requests open the AI group on cold mount and live navigation",
     assert.equal(viewport.scrollTop,0,'AI request returns to the first AI section even after scrolling');
     assert.deepEqual(pages,['settings','settings']);
     assert.doesNotMatch(host.textContent!, /100\.115\.102\.41/);
-    assert.match(host.textContent!, /100\.x\.y\.z/);
+    assert.match(host.textContent!, /遠端網址儲存時，Chrome 會問一次權限。/);
   } finally {
     await act(async()=>root.unmount());Object.assign(globalThis,prior);
     if(oldFlag===undefined)delete flags.IS_REACT_ACT_ENVIRONMENT;else flags.IS_REACT_ACT_ENVIRONMENT=oldFlag;

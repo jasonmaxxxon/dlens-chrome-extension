@@ -18,6 +18,7 @@ import {
   WorkspaceSurface,
 } from "../src/ui/components.tsx";
 import { tokens } from "../src/ui/tokens.ts";
+import { ConnectionHealth, backendHost } from "../src/ui/ConnectionHealth.tsx";
 
 function findTagWithAttribute(html: string, attribute: string): string {
   const attributeIndex = html.indexOf(attribute);
@@ -45,7 +46,7 @@ test("WorkspaceSurface clips inner content so rounded cards stay rounded", () =>
 
   assert.match(html, /data-workspace-surface="content"/);
   assert.match(html, /overflow:hidden/);
-  assert.match(styleFromTag(findTagWithAttribute(html, `data-workspace-surface="content"`)), new RegExp(`border:1px solid ${tokens.color.cardEdge.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(styleFromTag(findTagWithAttribute(html, `data-workspace-surface="content"`)), new RegExp(`border:1px solid ${tokens.panel.border.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 });
 
 test("WorkspaceSurface opaque tones retain the shared card edge", () => {
@@ -54,14 +55,14 @@ test("WorkspaceSurface opaque tones retain the shared card edge", () => {
       React.createElement(WorkspaceSurface, { tone }, React.createElement("div", null, tone))
     );
     const style = styleFromTag(findTagWithAttribute(html, `data-workspace-surface="${tone}"`));
-    assert.match(style, new RegExp(`border:1px solid ${tokens.color.cardEdge.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    assert.match(style, new RegExp(`border:1px solid ${tokens.panel.border.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   }
 });
 
 test("shared button motion CSS is scoped to the extension root", () => {
   assert.match(DLENS_BUTTON_CSS, /\[data-dlens-control="true"\] \[data-dlens-button\]/);
-  assert.match(DLENS_BUTTON_CSS, /translateY\(-3px\)/);
-  assert.match(DLENS_BUTTON_CSS, /scale\(0\.93\)/);
+  assert.match(DLENS_BUTTON_CSS, /transform: none/);
+  assert.match(DLENS_BUTTON_CSS, /scale\(0\.98\)/);
   assert.match(DLENS_BUTTON_CSS, /prefers-reduced-motion/);
   assert.match(DLENS_BUTTON_CSS, /animation: none !important/);
   assert.doesNotMatch(DLENS_BUTTON_CSS, /^\[data-dlens-button\]/m);
@@ -70,7 +71,7 @@ test("shared button motion CSS is scoped to the extension root", () => {
 test("attention button beam is the sole hover transform owner", () => {
   assert.match(
     DLENS_BUTTON_CSS,
-    /\[data-attention-button-beam="true"\]:hover\s*\{[^}]*transform:\s*translateY\(-3px\)/
+    /\[data-attention-button-beam="true"\]:hover\s*\{[^}]*transform:\s*none/
   );
   assert.match(
     DLENS_BUTTON_CSS,
@@ -97,11 +98,11 @@ test("SearchingOrb exposes one fixed-size shared CSS marker", () => {
 
 test("SearchingOrb dots use the ink token with a high-contrast alpha floor", () => {
   assert.deepEqual(searchingOrbDotStyle(0, 0), {
-    fill: tokens.color.ink,
+    fill: tokens.panel.ink,
     alpha: 0.68
   });
   assert.deepEqual(searchingOrbDotStyle(1, 1), {
-    fill: tokens.color.ink,
+    fill: tokens.panel.ink,
     alpha: 1
   });
 });
@@ -155,32 +156,18 @@ test("ModeHeader uses the Topic list intro grammar across modes", () => {
 
   assert.match(html, /data-mode-header="signals"/);
   assert.match(html, /data-mode-intro="topic"/);
-  assert.match(html, /padding:10px 4px 0/);
+  assert.match(html, /padding:8px 0 0/);
   assert.doesNotMatch(html, /data-mode-header="signals"[^>]*border-radius:20px/);
   assert.doesNotMatch(html, /data-mode-header="signals"[^>]*0 4px 14px -4px rgba\(27,26,23,0\.07\)/);
   assert.match(html, /Saved Signals<\/h2>/);
-  assert.match(html, /font-weight:900/);
+  assert.match(html, /font-weight:600/);
 });
 
-test("WorkspaceSurface glass tone uses the shared material instead of the utility paper gradient", () => {
-  const glass = (tokens as unknown as {
-    material?: { workspaceGlass?: { panel?: string; blur?: string } };
-  }).material?.workspaceGlass;
-  assert.ok(glass?.panel, "workspace glass panel token must exist");
-  assert.ok(glass.blur, "workspace glass blur token must exist");
-
-  const html = renderToStaticMarkup(
-    React.createElement(WorkspaceSurface as unknown as React.ComponentType<Record<string, unknown>>, {
-      tone: "glass",
-      children: React.createElement("div", null, "Glass content")
-    })
-  );
-
+test("WorkspaceSurface legacy glass tone uses the panel surface without blur", () => {
+  const html = renderToStaticMarkup(React.createElement(WorkspaceSurface, {tone:"glass"}, React.createElement("div", null, "Glass content")));
   const style = styleFromTag(findTagWithAttribute(html, `data-workspace-surface="glass"`));
-  assert.match(style, /backdrop-filter:/);
-  assert.ok(style.includes(glass.panel), "glass surface must use the shared panel material");
-  assert.ok(style.includes(glass.blur), "glass surface must use the shared blur material");
-  assert.doesNotMatch(style, new RegExp(tokens.color.utilitySurface.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.ok(style.includes(tokens.panel.surface), "legacy glass route must use the replacement panel surface");
+  assert.doesNotMatch(style, /backdrop-filter:|linear-gradient/);
 });
 
 test("SurfaceCard exposes shared utility surface geometry", () => {
@@ -195,7 +182,7 @@ test("SurfaceCard exposes shared utility surface geometry", () => {
   assert.match(html, /data-shared-surface-card="utility"/);
   assert.match(html, /data-dlens-presence="card"/);
   assert.match(html, /data-test-surface="card"/);
-  assert.match(html, /border-radius:20px/);
+  assert.match(html, /border-radius:12px/);
   assert.match(html, /overflow:hidden/);
 });
 
@@ -212,7 +199,7 @@ test("SectionHeader keeps section title, caption, and action in one shared row",
   assert.match(html, /已儲存貼文/);
   assert.match(html, /2 rows/);
   assert.match(html, /Run/);
-  assert.match(html, /Instrument Serif/);
+  assert.match(html, /Noto Sans TC/);
 });
 
 test("StatusDot and StatusRail map backend reachability and work states to DOM hooks", () => {
@@ -237,9 +224,9 @@ test("StatusDot and StatusRail map backend reachability and work states to DOM h
   assert.match(railHtml, /data-status-rail="shared"/);
   assert.match(railHtml, /data-backend-reachability="slow"/);
   assert.match(railHtml, /data-backend-work-kind="retry_waiting"/);
-  assert.match(railHtml, /資料夾 1\/3 ready/);
-  assert.match(railHtml, /title="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 資料夾 1\/3 ready"/);
-  assert.match(railHtml, /aria-label="Backend: Backend slow \| Work: Retry waiting · 2 tasks are backed off - Backend is waiting before retrying\. Not actively crawling\. \| Items: 資料夾 1\/3 ready"/);
+  assert.match(railHtml, /1\/3 篇讀完/);
+  assert.match(railHtml, /title="後端回應慢 · 處理：等重試 · 1\/3 篇讀完 · 2 篇等重試"/);
+  assert.match(railHtml, /aria-label="後端回應慢 · 處理：等重試 · 1\/3 篇讀完 · 2 篇等重試"/);
 });
 
 test("StatusRail labels folder progress and exposes an active disclosure", () => {
@@ -255,7 +242,7 @@ test("StatusRail labels folder progress and exposes an active disclosure", () =>
 
   assert.match(html, /data-status-rail-active="true"/);
   assert.match(html, /tabindex="0"/);
-  assert.match(html, /資料夾 9\/20 ready/);
+  assert.match(html, /9\/20 篇讀完/);
   assert.match(html, /data-status-rail-disclosure="true"/);
   assert.match(html, /data-status-rail-progress="true"/);
   assert.match(html, /width:45%/);
@@ -307,7 +294,7 @@ test("StatusRail exposes an unreachable backend in its visible status copy", () 
     })
   );
 
-  assert.match(html, />Backend unreachable<\/span>/);
+  assert.match(html, />連唔到後端<\/span>/);
   assert.doesNotMatch(html, />idle<\/span>/);
 });
 
@@ -327,4 +314,37 @@ test("components.tsx module surface: tree-shaken dead exports are gone, live sur
   assert.equal(componentsModule.ModeRail, undefined);
   assert.equal(typeof componentsModule.SurfaceCard, "function");
   assert.equal(typeof componentsModule.WorkspaceSurface, "function");
+});
+
+
+test("connection host projection omits credentials, paths and query parameters", () => {
+ assert.equal(backendHost("https://fixture-user:token-fixture@backend.test:8443/worker/status?key=token-fixture#fixture"),"backend.test:8443");
+ assert.equal(backendHost("http://127.0.0.1:8000"),"127.0.0.1:8000");
+ for(const value of [undefined,null,"","invalid", "file:///fixture/image.png"]) assert.equal(backendHost(value),null);
+ const html=renderToStaticMarkup(<ConnectionHealth backendReachability="reachable" ingestBaseUrl="https://fixture-user:token-fixture@backend.test:8443/worker/status?key=token-fixture"/>);
+ assert.match(html,/後端已連線/);
+ assert.match(html,/backend.test:8443/);
+ assert.doesNotMatch(html,/fixture-user|token-fixture|worker\/status|key=/);
+});
+
+test("connection health only shows the configured host when one exists", () => {
+ const html=renderToStaticMarkup(<ConnectionHealth backendReachability="slow"/>);
+ assert.match(html,/後端回應慢/);
+ assert.doesNotMatch(html,/data-connection-host/);
+});
+
+
+test("StatusRail formats a scheduled retry as local 24-hour time and omits invalid dates", () => {
+ const at="2026-11-05T03:02:00.000Z";
+ const local=new Date(at);
+ const expected=`${String(local.getHours()).padStart(2,"0")}:${String(local.getMinutes()).padStart(2,"0")}`;
+ const render=(earliestRetryAt:string)=>renderToStaticMarkup(<StatusRail backendWorkUiState={{kind:"retry_waiting",count:2,earliestRetryAt,nextDueAt:null}}/>);
+ const html=render(at);
+ assert.ok(html.includes(`約 ${expected}`), "scheduled retry uses the local 24-hour clock");
+ assert.doesNotMatch(html,/2026-11-05T03:02:00|000Z/);
+ assert.match(html,/data-status-dot="warning"[^>]*aria-label="等重試"[^>]*title="等重試"/);
+ const invalid=render("invalid-retry-time-fixture");
+ assert.doesNotMatch(invalid,/invalid-retry-time-fixture/);
+ assert.doesNotMatch(invalid,/約 /);
+ assert.match(invalid,/2 篇等重試/);
 });

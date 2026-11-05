@@ -2,6 +2,8 @@ import type { TargetDescriptor } from "../contracts/target-descriptor";
 import { MetricIcon, lineClamp } from "./components";
 import { tokens } from "./tokens";
 
+const panel = tokens.panel;
+
 type CollectorMetricKey = "likes" | "comments" | "reposts" | "forwards";
 
 const COLLECTOR_METRIC_KEYS: readonly CollectorMetricKey[] = ["likes", "comments", "reposts", "forwards"];
@@ -41,7 +43,7 @@ export function CollectorMetricStrip({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: tokens.spacing.xs,
+        gap: panel.space.xs,
         minWidth: 0,
         flexWrap: "wrap"
       }}
@@ -56,21 +58,21 @@ export function CollectorMetricStrip({
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: tokens.spacing.xs,
+              gap: panel.space.xs,
               minHeight: 20,
-              padding: `${tokens.spacing.xs - 1}px ${tokens.spacing.sm}px`,
-              borderRadius: tokens.radius.pill,
-              border: `1px solid ${present ? tokens.color.cardEdge : tokens.color.glassBorder}`,
-              background: present ? tokens.color.neutralSurfaceSoft : tokens.color.contextSurface,
-              color: present ? tokens.color.subInk : tokens.color.softInk,
-              fontFamily: tokens.font.mono,
-              fontSize: 10,
-              fontWeight: 700,
+              padding: `${panel.space.xs}px ${panel.space.sm}px`,
+              borderRadius: panel.radius.pill,
+              border: `1px solid ${present ? panel.border : panel.border}`,
+              background: present ? panel.surfaceSubtle : panel.surfaceSubtle,
+              color: present ? panel.ink2 : panel.ink3,
+              fontFamily: tokens.font.sans,
+              fontSize: panel.type.micro.fontSize,
+              fontWeight: 600,
               fontVariantNumeric: "tabular-nums",
-              lineHeight: 1
+              lineHeight: panel.type.micro.lineHeight
             }}
           >
-            <MetricIcon kind={key} size={12} />
+            <MetricIcon kind={key} size={panel.size.chipIcon} />
             <span>{formatCollectorMetricValue(value)}</span>
           </span>
         );
@@ -84,9 +86,9 @@ export function CollectorGist({ children, lines = 2 }: { children: string; lines
     <span
       style={{
         minWidth: 0,
-        color: tokens.color.subInk,
-        fontSize: 12,
-        lineHeight: 1.55,
+        color: panel.ink2,
+        fontSize: panel.type.meta.fontSize, fontWeight: panel.type.meta.fontWeight,
+        lineHeight: panel.type.meta.lineHeight,
         ...lineClamp(lines)
       }}
     >

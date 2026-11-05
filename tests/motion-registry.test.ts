@@ -116,12 +116,14 @@ test("reduced-motion safety net is scoped to DLens roots and neutralises animati
   assert.match(DLENS_REDUCED_MOTION_CSS, /animation-iteration-count:\s*1\s*!important/);
 });
 
-test("active status rail motion stays under the global control-root reduced-motion wildcard", () => {
+test("status rail remains static and labelled under the control-root reduced-motion guard", () => {
   const componentsSource = readFileSync(fileURLToPath(new URL("../src/ui/components.tsx", import.meta.url)), "utf8");
   const popupSource = readFileSync(fileURLToPath(new URL("../src/ui/InPageCollectorPopup.tsx", import.meta.url)), "utf8");
 
   assert.match(componentsSource, /data-status-rail-active/);
-  assert.match(componentsSource, /tokens\.motion\.keyframes\.pulse/);
+  const railSource = componentsSource.slice(componentsSource.indexOf("export function StatusRail("), componentsSource.indexOf("/** Hover state for interactive scan rows */"));
+  assert.doesNotMatch(railSource, /\banimation\s*:/);
+  assert.match(railSource, /ConnectionHealth/);
   assert.match(popupSource, /data-dlens-control="true"/);
   assert.match(DLENS_REDUCED_MOTION_CSS, /\[data-dlens-control="true"\]\s+\*[\s\S]*animation-duration:\s*0\.01ms\s*!important[\s\S]*animation-iteration-count:\s*1\s*!important/);
 });

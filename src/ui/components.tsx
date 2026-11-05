@@ -7,46 +7,24 @@ BackendReachability,
 BackendWorkUiState,
 WorkerStatus
 } from "../state/processing-state.ts";
-import { textStyles,tokens } from "./tokens";
+import { tokens } from "./tokens";
+import { Heart, MessageCircle, Repeat2, Send, Eye } from "lucide-react";
+import { ConnectionHealth, backendHost } from "./ConnectionHealth";
+import { getProcessingFailureUiMessage } from "../state/processing-errors";
 
 
-const MODE_ACCENT = `var(--dlens-mode-accent, ${tokens.color.accent})`;
-const MODE_ACCENT_MID = `var(--dlens-mode-accent-mid, ${tokens.color.accentMid})`;
-const MODE_ACCENT_SOFT = `var(--dlens-mode-accent-soft, ${tokens.color.accentSoft})`;
-const MODE_ACCENT_BUTTON_SHADOW = `var(--dlens-mode-accent-button-shadow, ${tokens.shadow.accentButton})`;
+const p = tokens.panel;
+const MODE_ACCENT = p.accent;
+const MODE_ACCENT_SOFT = p.accentSoft;
 
 /* ─── Metric Icons (SVG) ─── */
 
-export function MetricIcon({
-  kind,
-  size = 13
-}: {
+export function MetricIcon({ kind, size = p.size.icon }: {
   kind: "likes" | "comments" | "reposts" | "forwards" | "views";
   size?: number;
 }) {
-  const common = {
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.6,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const
-  };
-
-  switch (kind) {
-    case "likes":
-      return <svg {...common}><path d="M12 20.5s-6.5-4.35-8.5-7.05C1.1 10.17 2.18 6.5 5.82 6.5c1.92 0 3.1.95 4.02 2.2C10.76 7.45 11.94 6.5 13.86 6.5 17.5 6.5 18.58 10.17 20.5 13.45 18.5 16.15 12 20.5 12 20.5Z" /></svg>;
-    case "comments":
-      return <svg {...common}><path d="M7 17.5h6l4 3v-3h.5A2.5 2.5 0 0 0 20 15V7a2.5 2.5 0 0 0-2.5-2.5h-11A2.5 2.5 0 0 0 4 7v8A2.5 2.5 0 0 0 6.5 17.5H7Z" /></svg>;
-    case "reposts":
-      return <svg {...common}><path d="M7 7h10l-2.5-2.5" /><path d="M17 17H7l2.5 2.5" /><path d="M17 7v4" /><path d="M7 17v-4" /></svg>;
-    case "forwards":
-      return <svg {...common}><path d="M21 4 10 15" /><path d="m21 4-7 16-4-5-5-4 16-7Z" /></svg>;
-    case "views":
-      return <svg {...common}><path d="M2.5 12s3.4-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.4 5.5-9.5 5.5S2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.5" /></svg>;
-  }
+  const Icon = { likes: Heart, comments: MessageCircle, reposts: Repeat2, forwards: Send, views: Eye }[kind];
+  return <Icon size={size} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />;
 }
 
 /* ─── Utility helpers ─── */
@@ -71,7 +49,7 @@ export function searchingOrbDotStyle(
   const normalizedDepth = Math.min(1, Math.max(0, depth));
   const normalizedBoost = Math.min(1, Math.max(0, boost));
   return {
-    fill: tokens.color.ink,
+    fill: p.ink,
     alpha: Math.min(1, 0.68 + 0.24 * normalizedDepth + 0.08 * normalizedBoost)
   };
 }
@@ -197,25 +175,23 @@ export function AttentionBeam({
 export function viewRootStyle(extra?: CSSProperties): CSSProperties {
   return {
     display: "grid",
-    gap: tokens.spacing.lg,
+    gap: p.space.lg,
     minWidth: 0,
     overflowX: "clip",
     ...extra
   };
 }
 
-/** Thin glass panel — the base building block */
+/** Shared opaque panel card; callers may adjust the content layout. */
 export function surfaceCardStyle(extra?: CSSProperties): CSSProperties {
   return {
-    padding: tokens.spacing.section,
-    borderRadius: tokens.radius.cardLg,
+    padding: p.space.lg,
+    borderRadius: p.radius.md,
     overflow: "hidden",
-    background: `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`,
-    backdropFilter: tokens.effect.glassBlur,
-    WebkitBackdropFilter: tokens.effect.glassBlur,
-    border: `1px solid ${tokens.color.cardEdge}`,
-    boxShadow: tokens.shadow.shell,
-    transition: tokens.motion.interactiveTransition,
+    background: p.surface,
+    border: `1px solid ${p.border}`,
+    boxShadow: p.shadow.card,
+    transition: `transform ${p.motion.fast} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}`,
     ...extra
   };
 }
@@ -233,16 +209,16 @@ export function SurfaceCard({
   style?: CSSProperties;
   dataAttrs?: Record<string, string>;
 }) {
-  let background: string = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.contentSurface})`;
-  let boxShadow: string = tokens.shadow.shell;
+  let background: string = p.surface;
+  let boxShadow: string = p.shadow.card;
 
   if (tone === "utility") {
-    background = `linear-gradient(180deg, ${tokens.color.utilitySurface}, ${tokens.color.contentSurface})`;
+    background = p.surfaceSubtle;
   }
 
   if (tone === "focused") {
-    background = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.elevated})`;
-    boxShadow = tokens.shadow.focusedSurface;
+    background = p.surface;
+    boxShadow = p.shadow.raised;
   }
 
   return (
@@ -251,7 +227,7 @@ export function SurfaceCard({
       {...dataAttrs}
       data-dlens-presence={dataAttrs?.["data-dlens-presence"] ?? "card"}
       style={surfaceCardStyle({
-        padding: tokens.spacing.section,
+        padding: p.space.lg,
         background,
         boxShadow,
         minWidth: 0,
@@ -280,20 +256,18 @@ export function SectionHeader({
       style={{
         display: "flex",
         alignItems: "baseline",
-        gap: 10,
-        marginBottom: 12,
+        gap: p.space.sm,
+        marginBottom: p.space.md,
         flexWrap: "wrap",
         ...style
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: p.space.sm, flexWrap: "wrap", minWidth: 0 }}>
         <span
           style={{
-            fontFamily: `${tokens.font.serif}, ${tokens.font.serifCjk}`,
-            fontSize: 16,
-            color: tokens.color.ink,
-            fontWeight: 700,
-            lineHeight: 1.3
+            ...p.type.heading,
+            fontFamily: tokens.font.sans,
+            color: p.ink
           }}
         >
           {title}
@@ -301,12 +275,9 @@ export function SectionHeader({
         {caption ? (
           <span
             style={{
-              ...textStyles.mono,
-              fontSize: textStyles.caption.fontSize,
-              lineHeight: textStyles.caption.lineHeight,
-              fontWeight: 500,
-              color: tokens.color.softInk,
-              letterSpacing: "0.04em"
+              ...p.type.bodySm,
+              fontFamily: tokens.font.sans,
+              color: p.ink3
             }}
           >
             {caption}
@@ -328,22 +299,22 @@ export type StatusDotTone = "success" | "warning" | "danger" | "info" | "neutral
 function statusDotTheme(tone: StatusDotTone) {
   switch (tone) {
     case "success":
-      return { color: tokens.color.success, background: tokens.color.successSoft, border: tokens.color.successBorder };
+      return { color: p.success, background: p.successSoft, border: p.successSoft };
     case "warning":
-      return { color: tokens.color.queued, background: tokens.color.queuedSoft, border: tokens.color.queuedBorder };
+      return { color: p.warning, background: p.warningSoft, border: p.warningSoft };
     case "danger":
-      return { color: tokens.color.failed, background: tokens.color.failedSoft, border: tokens.color.failedBorder };
+      return { color: p.danger, background: p.dangerSoft, border: p.dangerSoft };
     case "info":
-      return { color: MODE_ACCENT, background: MODE_ACCENT_SOFT, border: tokens.color.runningBorder };
+      return { color: MODE_ACCENT, background: MODE_ACCENT_SOFT, border: p.accentSoft };
     default:
-      return { color: tokens.color.softInk, background: tokens.color.neutralSurfaceSoft, border: tokens.color.lineStrong };
+      return { color: p.ink3, background: p.surfaceSubtle, border: p.borderStrong };
   }
 }
 
 export function StatusDot({
   tone = "neutral",
   label,
-  size = 10
+  size = p.size.statusDot
 }: {
   tone?: StatusDotTone;
   label: string;
@@ -358,10 +329,9 @@ export function StatusDot({
       style={{
         width: size,
         height: size,
-        borderRadius: tokens.radius.round,
+        borderRadius: p.radius.pill,
         background: theme.color,
-        border: `2px solid ${theme.background}`,
-        boxShadow: `0 0 0 1px ${theme.border}`,
+        border: 0,
         flexShrink: 0
       }}
     />
@@ -369,202 +339,89 @@ export function StatusDot({
 }
 
 function reachabilityStatus(reachability: BackendReachability): { tone: StatusDotTone; label: string } {
-  switch (reachability) {
-    case "slow":
-      return { tone: "warning", label: "Backend slow" };
-    case "unreachable":
-      return { tone: "danger", label: "Backend unreachable" };
-    default:
-      return { tone: "success", label: "Backend reachable" };
-  }
+  return reachability === "unreachable" ? { tone: "danger", label: "連唔到後端" }
+    : reachability === "slow" ? { tone: "warning", label: "後端回應慢" }
+    : { tone: "success", label: "後端已連線" };
 }
 
 function backendWorkStatus(state: BackendWorkUiState | null | undefined, workerStatus: WorkerStatus | null): { tone: StatusDotTone; label: string } {
-  if (state?.kind === "backend_error" || state?.kind === "analysis_failed" || state?.kind === "expired_running") {
-    return { tone: "danger", label: state.kind };
-  }
-  if (state?.kind === "retry_waiting") {
-    return { tone: "warning", label: "retry_waiting" };
-  }
-  if (state?.kind === "analysis_waiting" || state?.kind === "draining" || workerStatus === "draining") {
-    return { tone: "info", label: state?.kind ?? "draining" };
-  }
-  return { tone: "neutral", label: "idle" };
+  if (state?.kind === "backend_error") return { tone: "danger", label: `出錯：${getProcessingFailureUiMessage(resolveBackendWorkCopy(state)?.hint)}` };
+  if (state?.kind === "analysis_failed") return { tone: "danger", label: "出錯：分析失敗" };
+  if (state?.kind === "expired_running") return { tone: "danger", label: "出錯：處理逾時" };
+  if (state?.kind === "retry_waiting") return { tone: "warning", label: "等重試" };
+  if (state?.kind === "analysis_waiting" || state?.kind === "draining" || workerStatus === "draining") return { tone: "info", label: "處理緊" };
+  return { tone: "neutral", label: "閒置" };
+}
+
+function localRetryTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
 }
 
 export function StatusRail({
-  backendReachability = "reachable",
-  backendWorkUiState = null,
-  workerStatus = null,
-  ready,
-  total,
-  scopeLabel = "資料夾",
-  hint,
-  style
+  backendReachability = "reachable", backendWorkUiState = null, workerStatus = null,
+  ready, total, scopeLabel: _scopeLabel = "資料夾", hint, style, ingestBaseUrl
 }: {
   backendReachability?: BackendReachability;
   backendWorkUiState?: BackendWorkUiState | null;
   workerStatus?: WorkerStatus | null;
-  ready?: number;
-  total?: number;
-  scopeLabel?: string;
-  hint?: string;
-  style?: CSSProperties;
+  ready?: number; total?: number; scopeLabel?: string; hint?: string; style?: CSSProperties;
+  ingestBaseUrl?: string | null;
 }) {
   const reachability = reachabilityStatus(backendReachability);
   const work = backendWorkStatus(backendWorkUiState, workerStatus);
-  const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
-  const resolvedHint = hint
-    ?? (backendReachability === "reachable" ? recoveryCopy?.headline ?? work.label : reachability.label);
-  const countLabel = ready !== undefined && total !== undefined ? `${scopeLabel} ${ready}/${total} ready` : null;
-  const workKind = backendWorkUiState?.kind;
+  const countLabel = ready !== undefined && total !== undefined ? `${ready}/${total} 篇讀完` : null;
   const active = work.tone === "info";
-  const progress = total && total > 0
-    ? Math.min(1, Math.max(0, (ready ?? 0) / total))
-    : 0;
-  const workDetail = recoveryCopy
-    ? `${recoveryCopy.headline}${recoveryCopy.hint ? ` - ${recoveryCopy.hint}` : ""}`
-    : work.label;
-  const hoverLabel = `Backend: ${reachability.label} | Work: ${workDetail}${countLabel ? ` | Items: ${countLabel}` : ""}`;
-
-  return (
-    <div
-      data-status-rail="shared"
-      data-status-rail-active={active}
-      data-backend-reachability={backendReachability}
-      data-backend-work-kind={workKind ?? workerStatus ?? "idle"}
-      tabIndex={0}
-      aria-label={hoverLabel}
-      title={hoverLabel}
-      style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        gap: tokens.spacing.sm,
-        minWidth: 0,
-        padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`,
-        borderRadius: tokens.radius.pill,
-        border: `1px solid ${tokens.color.line}`,
-        background: tokens.color.contextSurface,
-        ...style
-      }}
-    >
-      <StatusDot tone={reachability.tone} label={reachability.label} />
-      <span style={{ display: "inline-flex", animation: active ? tokens.motion.keyframes.pulse : undefined }}>
-        <StatusDot tone={work.tone} label={work.label} size={tokens.spacing.sm} />
-      </span>
-      <span style={{ ...textStyles.caption, color: tokens.color.subInk, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {resolvedHint}
-      </span>
-      {countLabel ? (
-        <span style={{ ...textStyles.metric, marginLeft: "auto", color: tokens.color.softInk, whiteSpace: "nowrap" }}>
-          {countLabel}
-        </span>
-      ) : null}
-      {countLabel ? (
-        <span
-          data-status-rail-disclosure="true"
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "none",
-            gap: tokens.spacing.xs,
-            padding: tokens.spacing.xs,
-            borderRadius: tokens.radius.pill,
-            background: tokens.color.elevated
-          }}
-        >
-          <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", whiteSpace: "nowrap" }}>
-            {backendReachability === "reachable" ? work.label : reachability.label}·{countLabel}
-          </span>
-          <span
-            data-status-rail-progress="true"
-            style={{ height: tokens.spacing.xs, borderRadius: tokens.radius.round, background: tokens.color.neutralSurface, overflow: "hidden" }}
-          >
-            <span style={{ display: "block", width: `${progress * 100}%`, height: "100%", background: MODE_ACCENT }} />
-          </span>
-        </span>
-      ) : null}
+  const progress = total && total > 0 ? Math.min(1, Math.max(0, (ready ?? 0) / total)) : 0;
+  const recoveryCopy = resolveBackendWorkCopy(backendWorkUiState);
+  const nextRetry = backendWorkUiState?.kind === "retry_waiting" ? localRetryTime(backendWorkUiState.earliestRetryAt) : null;
+  const workHint = hint ?? (recoveryCopy && backendWorkUiState?.kind === "retry_waiting"
+    ? `${backendWorkUiState.count} 篇等重試${nextRetry ? ` · 約 ${nextRetry}` : ""}`
+    : recoveryCopy && backendWorkUiState?.kind === "analysis_waiting" ? `${backendWorkUiState.count} 篇留言整理中`
+    : recoveryCopy && backendWorkUiState?.kind === "analysis_failed" ? `${backendWorkUiState.count} 篇未能完成，打開貼文睇原因。`
+    : recoveryCopy && backendWorkUiState?.kind === "expired_running" ? `${backendWorkUiState.count} 篇等重新處理。` : null);
+  const hoverLabel = [reachability.label, backendHost(ingestBaseUrl), `處理：${work.label}`, countLabel, workHint].filter(Boolean).join(" · ");
+  return <div data-status-rail="shared" data-status-rail-active={active} data-backend-reachability={backendReachability}
+    data-backend-work-kind={backendWorkUiState?.kind ?? workerStatus ?? "idle"} tabIndex={0} aria-label={hoverLabel} title={hoverLabel}
+    style={{ display: "grid", gap: p.space.sm, minWidth: 0, padding: p.space.sm, fontFamily: tokens.font.sans, fontVariantNumeric: "tabular-nums", ...style }}>
+    <ConnectionHealth backendReachability={backendReachability} ingestBaseUrl={ingestBaseUrl} />
+    <div style={{ ...p.type.meta, color: p.ink3, display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: p.space.xs, paddingLeft: p.size.statusDot + p.space.sm }}>
+      <span data-status-dot={work.tone} aria-label={work.label} title={work.label}>處理：{work.label}</span>{countLabel ? <span>· {countLabel}</span> : null}
     </div>
-  );
+    {workHint ? <div style={{ ...p.type.meta, color: work.tone === "danger" ? p.danger : p.ink3, paddingLeft: p.size.statusDot + p.space.sm, overflowWrap: "anywhere" }}>{workHint}</div> : null}
+    {countLabel ? <span data-status-rail-disclosure="true" aria-hidden="true" style={{ display: "none" }}><span data-status-rail-progress="true"><span style={{ display: "block", width: `${progress * 100}%` }} /></span></span> : null}
+  </div>;
 }
 
 /** Hover state for interactive scan rows */
 export const SCAN_ROW_HOVER_CSS = `
-[data-dlens-control="true"] [data-scan-list] [data-scan-row]:not(.dlens-card-lift):not(.dlens-tactile-row) {
-  transition: background-color ${tokens.motion.duration.fast} ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-scan-list] [data-scan-row][data-scan-action="true"]:hover {
-  background: ${tokens.color.inkWash};
-}
-[data-dlens-control="true"] [data-scan-list] [data-scan-row]:last-child {
-  border-bottom: 0;
-}
+[data-dlens-control="true"] [data-scan-list] [data-scan-row][data-scan-action="true"]:hover { background: ${p.surfaceSubtle}; }
+[data-dlens-control="true"] [data-scan-list] [data-scan-row]:last-child { border-bottom: 0; }
 `;
 
 export const DLENS_BUTTON_CSS = `
-[data-status-rail]:is(:hover,:focus-visible)>[data-status-rail-disclosure]{display:grid}
-[data-dlens-control="true"] [data-dlens-button] {
-  transition: ${tokens.motion.preset.buttonPress};
-}
-[data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-[data-dlens-control="true"] [data-dlens-button]:not(:disabled):active {
-  transform: translateY(0) scale(0.96);
-  transition: transform 90ms ${tokens.motion.easing.standard}, background-color 140ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-dlens-button]:focus-visible {
-  outline: 2px solid var(--dlens-mode-accent, ${tokens.color.accent});
-  outline-offset: 2px;
-}
-[data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):hover {
-  transform: translateY(-3px);
-  box-shadow: ${tokens.shadow.cardLiftHover};
-  filter: brightness(1.05);
-}
-[data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):active {
-  transform: translateY(0) scale(0.93);
-  transition: transform 90ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard};
-}
-[data-dlens-control="true"] [data-dlens-button="secondary"]:not(:disabled):hover {
-  background: var(--dlens-mode-accent-soft, ${tokens.color.accentSoft});
-  border-color: var(--dlens-mode-hover-border-soft, ${tokens.color.lineStrong});
-}
-[data-dlens-control="true"] [data-attention-button-beam="true"] {
-  transition: ${tokens.motion.preset.buttonPress};
-}
-[data-dlens-control="true"] [data-attention-button-beam="true"]:hover {
-  transform: translateY(-3px);
-  box-shadow: ${tokens.shadow.cardLiftHover};
-  filter: brightness(1.05);
-}
-[data-dlens-control="true"] [data-attention-button-beam="true"]:active {
-  transform: translateY(0) scale(0.93);
-  transition: transform 90ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard};
-}
+[data-dlens-control="true"] [data-dlens-button],
+[data-dlens-control="true"] [data-attention-button-beam="true"] { transition: transform ${p.motion.fast} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}; }
+[data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover,
+[data-dlens-control="true"] [data-attention-button-beam="true"]:hover { transform: none; }
+[data-dlens-control="true"] [data-dlens-button]:not(:disabled):active,
+[data-dlens-control="true"] [data-attention-button-beam="true"]:active { transform: scale(${p.motion.press}); }
+[data-dlens-control="true"] [data-dlens-button]:focus-visible { outline: none; box-shadow: ${p.focusRing}; }
+[data-dlens-control="true"] [data-dlens-button="primary"]:not(:disabled):hover { background: ${p.accentHover}; }
+[data-dlens-control="true"] [data-dlens-button="secondary"]:not(:disabled):hover { background: ${p.surfaceSubtle}; border-color: ${p.borderStrong}; }
 [data-dlens-control="true"] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:not(:disabled):hover,
-[data-dlens-control="true"] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:not(:disabled):active {
-  transform: none;
-  filter: none;
-}
+[data-dlens-control="true"] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:not(:disabled):active { transform: none; filter: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-dlens-control="true"] [data-dlens-button],
-  [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active,
-  [data-dlens-control="true"] [data-attention-button-beam="true"] {
-    transition: background-color 140ms ${tokens.motion.easing.standard}, box-shadow 140ms ${tokens.motion.easing.standard}, border-color 140ms ${tokens.motion.easing.standard} !important;
-  }
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):hover,
   [data-dlens-control="true"] [data-dlens-button]:not(:disabled):active,
+  [data-dlens-control="true"] [data-attention-button-beam="true"],
   [data-dlens-control="true"] [data-attention-button-beam="true"]:hover,
-  [data-dlens-control="true"] [data-attention-button-beam="true"]:active {
-    transform: none !important;
-  }
+  [data-dlens-control="true"] [data-attention-button-beam="true"]:active { transition: none !important; transform: none !important; }
   [data-dlens-control="true"] [data-dlens-button],
-  [data-dlens-control="true"] [data-workspace-mode-frame="true"] {
-    animation: none !important;
-  }
+  [data-dlens-control="true"] [data-workspace-mode-frame="true"] { animation: none !important; }
 }
 `;
 export type WorkspaceMaterial = "paper" | "glass";
@@ -580,21 +437,21 @@ export function WorkspaceSurface({
   style?: CSSProperties;
   dataAttrs?: Record<string, string>;
 }) {
-  let background: string | undefined;
-  let boxShadow: CSSProperties["boxShadow"] = tokens.shadow.shell;
+  let background: string = p.surface;
+  let boxShadow: CSSProperties["boxShadow"] = p.shadow.card;
 
   if (tone === "utility") {
-    background = `linear-gradient(180deg, ${tokens.color.utilitySurface}, ${tokens.color.contentSurface})`;
+    background = p.surfaceSubtle;
   }
 
   if (tone === "focused") {
-    background = `linear-gradient(180deg, ${tokens.color.focusedSurface}, ${tokens.color.elevated})`;
-    boxShadow = tokens.shadow.focusedSurface;
+    background = p.surface;
+    boxShadow = p.shadow.raised;
   }
 
   if (tone === "glass") {
-    background = tokens.material.workspaceGlass.panel;
-    boxShadow = tokens.material.workspaceGlass.panelShadow;
+    background = p.surface;
+    boxShadow = p.shadow.card;
   }
 
   return (
@@ -602,14 +459,9 @@ export function WorkspaceSurface({
       data-workspace-surface={tone}
       {...dataAttrs}
       style={surfaceCardStyle({
-        padding: tokens.spacing.section,
+        padding: p.space.lg,
         background,
         boxShadow,
-        ...(tone === "glass" ? {
-          border: `1px solid ${tokens.material.workspaceGlass.edge}`,
-          backdropFilter: tokens.material.workspaceGlass.blur,
-          WebkitBackdropFilter: tokens.material.workspaceGlass.blur
-        } : {}),
         minWidth: 0,
         ...style
       })}
@@ -631,11 +483,10 @@ export function Kicker({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0,
-        color: tone === "accent" ? MODE_ACCENT : tokens.color.softInk
+        gap: p.space.xs,
+        ...p.type.micro,
+        fontFamily: tokens.font.sans,
+        color: tone === "accent" ? MODE_ACCENT : p.ink3
       }}
     >
       {children}
@@ -651,10 +502,10 @@ export function Stamp({
   tone?: "neutral" | "accent" | "success" | "warning";
 }) {
   const toneMap = {
-    neutral: { background: tokens.color.neutralSurface, color: tokens.color.subInk },
+    neutral: { background: p.surfaceSubtle, color: p.ink2 },
     accent: { background: MODE_ACCENT_SOFT, color: MODE_ACCENT },
-    success: { background: tokens.color.successSoft, color: tokens.color.success },
-    warning: { background: tokens.color.queuedSoft, color: tokens.color.queued }
+    success: { background: p.successSoft, color: p.success },
+    warning: { background: p.warningSoft, color: p.warning }
   } as const;
   const theme = toneMap[tone];
 
@@ -663,14 +514,13 @@ export function Stamp({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        minHeight: 22,
-        padding: "0 8px",
-        borderRadius: 999,
+        minHeight: p.size.chip,
+        padding: `0 ${p.space.sm}px`,
+        borderRadius: p.radius.xs,
         background: theme.background,
         color: theme.color,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: 0
+        ...p.type.micro,
+        fontFamily: tokens.font.sans
       }}
     >
       {children}
@@ -699,26 +549,26 @@ export function ModeHeader({
         display: "flex",
         alignItems: "end",
         justifyContent: "space-between",
-        gap: 12,
-        padding: "10px 4px 0",
+        gap: p.space.md,
+        padding: `${p.space.sm}px 0 0`,
         minWidth: 0
       }}
     >
-      <div style={{ display: "grid", gap: kicker ? 4 : 3, minWidth: 0 }}>
+      <div style={{ display: "grid", gap: p.space.xs, minWidth: 0 }}>
         {kicker ? <Kicker>{kicker}</Kicker> : null}
-        <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 23, fontWeight: 900, lineHeight: 1.15, color: tokens.color.ink }}>
+        <h2 style={{ margin: 0, ...p.type.title, fontFamily: tokens.font.sans, color: p.ink }}>
           {title}
         </h2>
-        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+        <p style={{ margin: 0, ...p.type.bodySm, fontFamily: tokens.font.sans, color: p.ink3 }}>
           {deck}
         </p>
       </div>
-      {stamp ? <div style={{ flexShrink: 0, alignSelf: "end", paddingBottom: 3 }}>{stamp}</div> : null}
+      {stamp ? <div style={{ flexShrink: 0, alignSelf: "end", paddingBottom: p.space.xs }}>{stamp}</div> : null}
     </header>
   );
 }
 
-/* ─── Primary Button (slim, glowing) ─── */
+/* ─── Primary Button ─── */
 
 export function PrimaryButton({
   children,
@@ -759,18 +609,20 @@ export function PrimaryButton({
       aria-busy={ariaBusy ? "true" : undefined}
       style={{
         border: "none",
-        borderRadius: tokens.radius.pill,
-        padding: "8px 14px",
+        borderRadius: p.radius.sm,
+        minHeight: p.size.button,
+        padding: `0 ${p.space.md}px`,
         background: disabled
-          ? tokens.color.disabledPrimary
-          : `linear-gradient(135deg, ${MODE_ACCENT}, ${MODE_ACCENT_MID})`,
-        color: tokens.color.elevated,
-        fontWeight: 600,
-        fontSize: 12,
-        letterSpacing: 0,
+          ? p.surfaceSunken
+          : MODE_ACCENT,
+        color: disabled ? p.ink3 : p.surface,
+        ...p.type.bodySm,
+        fontFamily: tokens.font.sans,
+        fontWeight: p.type.cardTitle.fontWeight,
+        whiteSpace: "nowrap",
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : MODE_ACCENT_BUTTON_SHADOW,
-        transition: tokens.motion.interactiveTransition,
+        boxShadow: "none",
+        transition: `transform ${p.motion.fast} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}`,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
@@ -807,18 +659,19 @@ export function SecondaryButton({
       disabled={disabled}
       aria-busy={ariaBusy ? "true" : undefined}
       style={{
-        border: `1px solid ${tokens.color.glassBorder}`,
-        borderRadius: tokens.radius.pill,
-        padding: "7px 14px",
-        background: tokens.color.surface,
-        backdropFilter: tokens.effect.glassBlur,
-        WebkitBackdropFilter: tokens.effect.glassBlur,
-        color: disabled ? tokens.color.softInk : tokens.color.subInk,
-        fontWeight: 500,
-        fontSize: 12,
+        border: `1px solid ${p.border}`,
+        borderRadius: p.radius.sm,
+        minHeight: p.size.button,
+        padding: `0 ${p.space.md}px`,
+        background: p.surface,
+        color: disabled ? p.ink3 : p.ink2,
+        ...p.type.bodySm,
+        fontFamily: tokens.font.sans,
+        fontWeight: p.type.meta.fontWeight,
+        whiteSpace: "nowrap",
         cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-        transition: tokens.motion.interactiveTransition,
+        opacity: 1,
+        transition: `transform ${p.motion.fast} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}`,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
@@ -856,23 +709,23 @@ export function SegmentedTabs<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      style={{ display: "flex", gap: 2, minWidth: 0, flexWrap: "wrap" }}
+      style={{ display: "flex", gap: p.space.xxs, minWidth: 0, flexWrap: "wrap" }}
     >
       {tabs.map((tab) => {
         const active = activeId === tab.id;
         const tone: SegmentedTabTone = tab.tone ?? "neutral";
         const countBg = active
           ? tone === "success"
-            ? tokens.color.successSoft
+            ? p.successSoft
             : tone === "accent"
               ? MODE_ACCENT_SOFT
-              : tokens.color.neutralSurface
-          : tokens.color.neutralSurface;
+              : p.surfaceSubtle
+          : p.surfaceSubtle;
         const countInk = active && tone !== "neutral"
           ? tone === "success"
-            ? tokens.color.success
+            ? p.success
             : MODE_ACCENT
-          : tokens.color.softInk;
+          : p.ink3;
         const extraData = dataAttr ? dataAttr(tab.id) : {};
         return (
           <button
@@ -887,17 +740,18 @@ export function SegmentedTabs<T extends string>({
               borderBottom: `2px solid ${active ? MODE_ACCENT : "transparent"}`,
               marginBottom: -1,
               background: "transparent",
-              color: active ? tokens.color.ink : tokens.color.softInk,
-              padding: "10px 12px 12px",
+              color: active ? p.ink : p.ink3,
+              padding: `${p.space.sm}px ${p.space.md}px`,
+              minHeight: p.size.button,
               fontFamily: tokens.font.sans,
-              fontSize: 12,
-              fontWeight: active ? 700 : 500,
+              ...p.type.meta,
+              fontWeight: active ? p.type.cardTitle.fontWeight : p.type.meta.fontWeight,
               letterSpacing: 0,
               cursor: "pointer",
               display: "inline-flex",
               alignItems: "center",
-              gap: 7,
-              transition: tokens.motion.interactiveTransition
+              gap: p.space.sm,
+              transition: `transform ${p.motion.fast} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}`
             }}
           >
             {tab.label}
@@ -905,14 +759,13 @@ export function SegmentedTabs<T extends string>({
               <span
                 aria-hidden
                 style={{
-                  fontFamily: tokens.font.mono,
-                  fontSize: 10,
-                  fontWeight: 700,
+                  fontFamily: tokens.font.sans,
+                  ...p.type.micro,
                   color: countInk,
-                  padding: "1px 7px",
-                  borderRadius: 999,
+                  padding: `${p.space.xxs}px ${p.space.sm}px`,
+                  borderRadius: p.radius.pill,
                   background: countBg,
-                  minWidth: 22,
+                  minWidth: p.size.chip,
                   textAlign: "center",
                   letterSpacing: 0
                 }}

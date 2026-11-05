@@ -1,9 +1,10 @@
 import { useRef, useState, type ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal, Settings } from "lucide-react";
 import type { BackendReachability, BackendWorkUiState } from "../state/processing-state";
 import type { CollectionPost, CollectionRowStatus } from "../viewmodel/collection-browser";
 import { CollectionThumbnail } from "./CollectionBrowser";
 import { CollectionStatusChip } from "./CollectionStatusChip";
+import { ConnectionHealth } from "./ConnectionHealth";
 import { collectionTileTint, tokens } from "./tokens";
 import { BUILD_VERSION } from "./version";
 
@@ -12,7 +13,7 @@ const p = tokens.panel;
 const tabWidth = p.space.xxl * 2;
 
 /** One stable reading surface; domain tools live inside their workspace. */
-export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView, onInView, diagnostics, children, busy = false, allowCollection = true, backendReachability = "reachable", backendWorkUiState }: {
+export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView, onInView, diagnostics, children, busy = false, allowCollection = true, backendReachability = "reachable", backendWorkUiState, ingestBaseUrl }: {
   inView?: { author: string; summary: string; post?: CollectionPost; rowStatus?: CollectionRowStatus } | null;
   onInView?: () => void;
   tab: CollectionTab;
@@ -24,6 +25,7 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
   allowCollection?: boolean;
   backendReachability?: BackendReachability;
   backendWorkUiState?: BackendWorkUiState | null;
+  ingestBaseUrl?: string | null;
 }) {
   const menuRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLElement>(null);
@@ -47,14 +49,14 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
           <span data-collection-tab-indicator="" aria-hidden="true" style={{ position: "absolute", bottom: 0, left: 0, width: tabWidth, height: p.space.xxs, background: p.accent, borderRadius: p.radius.xs, transform: `translateX(${allowCollection && tab === "workspaces" ? tabWidth + p.space.lg : 0}px)` }} />
         </nav>
         <details ref={menuRef} data-collection-menu="true" onToggle={event => setMenuOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); closeMenu(); } }} style={{ position: "relative", flex: "none" }}>
-          <summary ref={triggerRef} aria-label={`更多選項 · ${healthLabel}`} aria-expanded={menuOpen} style={{ cursor: "pointer", listStyle: "none", width: p.size.button, height: p.size.button, display: "flex", alignItems: "center", justifyContent: "center", gap: p.space.xs, borderRadius: p.radius.sm, color: p.ink2 }}><span data-collection-health-dot="" aria-hidden="true" style={{ width: p.size.statusDot, height: p.size.statusDot, borderRadius: p.radius.pill, background: healthColor, flex: "none" }} /><MoreHorizontal size={p.size.icon} strokeWidth={1.75} aria-hidden="true" /></summary>
-          <div data-collection-popover="" style={{ position: "absolute", top: "100%", right: 0, zIndex: 2, width: tokens.layout.collectionMenuWidth, maxWidth: "70vw", display: "grid", gap: p.space.sm, padding: p.space.md, border: `1px solid ${p.border}`, borderRadius: p.radius.md, background: p.surface, boxShadow: p.shadow.popover }}>
-            <button type="button" onClick={onSettings} style={{ ...p.type.bodySm, fontFamily: tokens.font.sans, textAlign: "left", border: 0, background: "transparent", minHeight: p.size.button, padding: p.space.sm, color: p.ink, cursor: "pointer" }}>設定</button>
-            <details>
-              <summary style={{ ...p.type.micro, color: p.ink3, cursor: "pointer", minHeight: p.size.buttonSm }}>連線與處理狀態</summary>
-              <div style={{ display: "grid", gap: p.space.sm, paddingTop: p.space.sm }}>{diagnostics}</div>
-            </details>
-            <span style={{ ...p.type.micro, color: p.ink3 }}>v.{BUILD_VERSION}</span>
+          <summary ref={triggerRef} aria-label={`更多選項 · ${healthLabel}`} aria-expanded={menuOpen} style={{ cursor: "pointer", listStyle: "none", width: p.size.button, height: p.size.button, display: "flex", alignItems: "center", justifyContent: "center", gap: p.space.xs, borderRadius: p.radius.sm, color: p.ink2 }}><span data-collection-health-dot="" aria-hidden="true" style={{ width: p.size.statusDot, height: p.size.statusDot, borderRadius: p.radius.pill, background: healthColor, flex: "none" }} /><MoreHorizontal size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /></summary>
+          <div data-collection-popover="" style={{ position: "absolute", top: "100%", right: 0, zIndex: 2, width: p.size.menu, maxWidth: `calc(100vw - ${p.space.lg * 2}px)`, boxSizing: "border-box", display: "grid", gap: p.space.sm, padding: p.space.sm, borderRadius: p.radius.md, background: p.surface, boxShadow: p.shadow.popover }}>
+            <span style={{ ...p.type.micro, color: p.ink3, padding: `${p.space.xs}px ${p.space.sm}px 0` }}>連線</span>
+            {diagnostics ?? <ConnectionHealth backendReachability={backendReachability} ingestBaseUrl={ingestBaseUrl} />}
+            <div role="separator" style={{ borderTop: `1px solid ${p.border}` }} />
+            <button type="button" data-collection-menu-row="settings" onClick={() => { closeMenu(); onSettings(); }} style={{ ...p.type.bodySm, fontFamily: tokens.font.sans, display: "flex", alignItems: "center", gap: p.space.sm, textAlign: "left", border: 0, borderRadius: p.radius.sm, background: "transparent", height: p.size.input, padding: `0 ${p.space.sm}px`, color: p.ink, cursor: "pointer" }}><Settings size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /><span>設定</span><ChevronRight size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" style={{ marginLeft: "auto" }} /></button>
+            <div role="separator" style={{ borderTop: `1px solid ${p.border}` }} />
+            <span style={{ ...p.type.micro, color: p.ink3, padding: `0 ${p.space.sm}px ${p.space.xs}px` }}>DLens {BUILD_VERSION}</span>
           </div>
         </details>
       </header>

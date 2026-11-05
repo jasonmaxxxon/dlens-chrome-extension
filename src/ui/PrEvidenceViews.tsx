@@ -30,55 +30,57 @@ import {
 } from "./components.tsx";
 import { CollectorGist, CollectorMetricStrip } from "./CollectorMetricStrip.tsx";
 import { useUiText } from "./i18n.ts";
-import { textStyles, tokens } from "./tokens.ts";
+import { tokens } from "./tokens.ts";
+
+const panel = tokens.panel;
 
 const accentButtonStyle = {
-  borderColor: "var(--dlens-mode-accent)",
-  background: "var(--dlens-mode-accent-soft)",
-  color: "var(--dlens-mode-accent)",
-  fontWeight: 700
+  borderColor: panel.accent,
+  background: panel.accentSoft,
+  color: panel.accent,
+  fontWeight: 600
 } as const;
 
 const compactButtonStyle = {
-  padding: "6px 10px",
-  fontSize: textStyles.caption.fontSize
+  padding: `${(panel.space.xs + panel.space.xxs)}px ${(panel.space.sm + panel.space.xxs)}px`,
+  fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight
 } as const;
 
 const exportButtonStyle = {
-  borderColor: tokens.color.successBorder,
-  background: tokens.color.successSoft,
-  color: tokens.color.success,
-  fontWeight: 700
+  borderColor: panel.success,
+  background: panel.successSoft,
+  color: panel.success,
+  fontWeight: 600
 } as const;
 
-const PR_RADIUS = tokens.radius.card;
-const PR_RULE = tokens.color.line;
-const PR_ACCENT = "var(--dlens-mode-accent)";
-const PR_MOSS = tokens.color.success;
-const PR_ROUND = tokens.radius.round;
+const PR_RADIUS = panel.radius.md;
+const PR_RULE = panel.border;
+const PR_ACCENT = panel.accent;
+const PR_MOSS = panel.success;
+const PR_ROUND = panel.radius.pill;
 
 const prMonoMetaStyle = {
-  ...textStyles.mono,
-  fontSize: textStyles.caption.fontSize,
-  lineHeight: textStyles.caption.lineHeight,
+  ...panel.type.micro,
+  fontSize: panel.type.micro.fontSize,
+  lineHeight: panel.type.micro.lineHeight,
   fontWeight: 500
 } as const;
 
 function ExportButtonContent({ format, label = "匯出" }: { format: "csv" | "md" | "docx"; label?: string }) {
   const upper = format.toUpperCase();
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-      <Download data-pr-export-download-icon={format} size={13} strokeWidth={2} aria-hidden="true" />
-      <span style={{ fontSize: 11, fontWeight: 650 }}>{label}</span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: (panel.space.xs + panel.space.xxs), minWidth: 0 }}>
+      <Download data-pr-export-download-icon={format} size={panel.size.icon} strokeWidth={panel.iconStrokeWidth} aria-hidden="true" />
+      <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: 600 }}>{label}</span>
       <span
         data-pr-export-format-tag={format}
         style={{
-          fontFamily: tokens.font.mono,
-          fontSize: 10.5,
-          fontWeight: 800,
+          fontFamily: tokens.font.sans,
+          fontSize: panel.type.micro.fontSize,
+          fontWeight: 600,
           fontVariantNumeric: "tabular-nums",
           letterSpacing: 0,
-          lineHeight: 1
+          lineHeight: panel.type.micro.lineHeight
         }}
       >
         {upper}
@@ -88,8 +90,8 @@ function ExportButtonContent({ format, label = "匯出" }: { format: "csv" | "md
 }
 
 const prRowTextStyle = {
-  ...textStyles.bodyTight,
-  lineHeight: 1.4
+  ...panel.type.bodySm,
+  lineHeight: panel.type.bodySm.lineHeight
 } as const;
 
 /* ── Notice bar: success/error tones ────────────────────────────────── */
@@ -100,13 +102,13 @@ function NoticeBar({ notice }: { notice: string }) {
   return (
     <div
       style={{
-        fontSize: 12,
-        lineHeight: 1.55,
-        padding: "8px 10px",
+        fontSize: panel.type.meta.fontSize, fontWeight: panel.type.meta.fontWeight,
+        lineHeight: panel.type.meta.lineHeight,
+        padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`,
         borderRadius: PR_RADIUS,
-        background: isError ? tokens.color.failedSoft : tokens.color.successSoft,
-        color: isError ? tokens.color.failed : tokens.color.success,
-        transition: tokens.motion.interactiveTransition
+        background: isError ? panel.dangerSoft : panel.successSoft,
+        color: isError ? panel.danger : panel.success,
+        transition: `transform ${panel.motion.base} ${panel.motion.standard}, opacity ${panel.motion.base} ${panel.motion.standard}`
       }}
     >
       {notice}
@@ -115,14 +117,14 @@ function NoticeBar({ notice }: { notice: string }) {
 }
 
 const CAMPAIGN_EDITOR_CSS = `
-[data-pr-field]:focus {
-  border-color: var(--dlens-mode-accent) !important;
-  box-shadow: 0 0 0 2.5px var(--dlens-mode-accent-soft) !important;
+[data-pr-field]:focus-visible {
+  border-color: ${panel.accent} !important;
+  box-shadow: ${panel.focusRing} !important;
   outline: none !important;
 }
 [data-pr-section] + [data-pr-section] {
-  border-top: 1px solid var(--dlens-line, ${tokens.color.line});
-  padding-top: 14px;
+  border-top: 1px solid ${panel.border};
+  padding-top: ${panel.space.md}px;
 }
 `;
 
@@ -135,8 +137,8 @@ function parseCoreMessage(raw: string): { label: string | null; value: string } 
 }
 
 const CRITERION_GHOST_BUTTON_STYLE = {
-  padding: "4px 8px",
-  fontSize: textStyles.caption.fontSize,
+  padding: `${panel.space.xs}px ${panel.space.sm}px`,
+  fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
   fontWeight: 500
 } as const;
 
@@ -156,25 +158,25 @@ function CriterionReviewRow({
   onDispatch: (command: PrEvidenceCommand) => void;
 }) {
   const statusTone = criterion.status === "not_mentioned"
-    ? tokens.color.softInk
+    ? panel.ink3
     : criterion.status === "candidate"
       ? PR_ACCENT
       : criterion.status === "confirmed"
         ? PR_MOSS
-        : tokens.color.subInk;
+        : panel.ink2;
   return (
     <div
       data-pr-criterion-row={criterion.id}
       data-pr-criterion-status={criterion.status}
       style={{
         display: "grid",
-        gap: 5,
-        padding: "8px 0",
-        borderTop: `1px solid ${tokens.color.line}`
+        gap: panel.space.xs,
+        padding: `${panel.space.sm}px 0`,
+        borderTop: `1px solid ${panel.border}`
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
-        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, flex: "0 0 18px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: (panel.space.sm + panel.space.xxs), minWidth: 0 }}>
+        <span style={{ ...prMonoMetaStyle, color: panel.ink3, flex: "0 0 18px" }}>
           {criterion.numberLabel}
         </span>
         {criterion.editable ? (
@@ -188,12 +190,12 @@ function CriterionReviewRow({
               minWidth: 0,
               boxSizing: "border-box",
               fontFamily: tokens.font.sans,
-              fontSize: 12,
-              padding: "7px 9px",
-              background: tokens.color.surface,
+              fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: panel.type.meta.fontWeight,
+              padding: `${panel.space.sm}px ${panel.space.sm}px`,
+              background: panel.surface,
               border: `1px solid ${PR_RULE}`,
-              borderRadius: tokens.radius.card,
-              color: tokens.color.ink,
+              borderRadius: panel.radius.md,
+              color: panel.ink,
               outline: "none"
             }}
           />
@@ -204,7 +206,7 @@ function CriterionReviewRow({
               ...prRowTextStyle,
               flex: 1,
               minWidth: 0,
-              color: criterion.status === "not_mentioned" ? tokens.color.softInk : tokens.color.ink,
+              color: criterion.status === "not_mentioned" ? panel.ink3 : panel.ink,
               fontWeight: 500
             }}
           >
@@ -223,22 +225,22 @@ function CriterionReviewRow({
           data-pr-criterion-support={criterion.supported ? "found" : "missing"}
           style={{
             margin: 0,
-            paddingLeft: 28,
-            ...textStyles.caption,
-            color: criterion.supported ? tokens.color.subInk : PR_AMBER
+            paddingLeft: (panel.space.xxl + panel.space.xs),
+            ...panel.type.micro,
+            color: criterion.supported ? panel.ink2 : PR_AMBER
           }}
         >
           {criterion.supportLabel}
           {criterion.supportExcerpt ? `：「${criterion.supportExcerpt}」` : ""}
         </p>
       ) : null}
-      <div style={{ display: "flex", gap: 6, paddingLeft: 28, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: (panel.space.xs + panel.space.xxs), paddingLeft: (panel.space.xxl + panel.space.xs), flexWrap: "wrap" }}>
         {criterion.confirmCommand ? (
           <SecondaryButton
             onClick={() => onDispatch(criterion.confirmCommand as PrEvidenceCommand)}
             dataAttrs={{ "data-pr-criterion-confirm": criterion.id }}
             style={criterion.confirmEmphasis
-              ? { ...accentButtonStyle, ...CRITERION_GHOST_BUTTON_STYLE, fontWeight: 700 }
+              ? { ...accentButtonStyle, ...CRITERION_GHOST_BUTTON_STYLE, fontWeight: 600 }
               : CRITERION_GHOST_BUTTON_STYLE}
           >
             {criterion.confirmLabel}
@@ -344,25 +346,25 @@ function CampaignEditor({
   const briefPreview = campaign.briefText.split("\n").find((l) => l.trim()) ?? "";
   const fieldLabelStyle = {
     fontFamily: tokens.font.sans,
-    fontSize: 11,
+    fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
     fontWeight: 600,
     letterSpacing: 0,
-    color: tokens.color.subInk
+    color: panel.ink2
   } as const;
   const inputLineStyle = {
     width: "100%",
     boxSizing: "border-box",
     fontFamily: tokens.font.sans,
-    fontSize: 12,
+    fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight,
     fontWeight: 400,
-    padding: "9px 10px",
-    background: tokens.color.surface,
+    padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`,
+    background: panel.surface,
     border: `1px solid ${PR_RULE}`,
-    borderRadius: tokens.radius.card,
-    color: tokens.color.ink,
+    borderRadius: panel.radius.md,
+    color: panel.ink,
     outline: "none",
     margin: 0,
-    transition: tokens.motion.interactiveTransitionFast
+    transition: `transform ${panel.motion.fast} ${panel.motion.standard}, opacity ${panel.motion.fast} ${panel.motion.standard}`
   } as const;
   /* ── Collapsed summary row ───────────────────────────────────────── */
   if (collapsed) {
@@ -373,17 +375,17 @@ function CampaignEditor({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: tokens.spacing.md,
-          padding: `${tokens.spacing.sm}px 0`,
+          gap: panel.space.md,
+          padding: `${panel.space.sm}px 0`,
           borderBottom: `1px dashed ${PR_RULE}`,
           borderRadius: PR_RADIUS
         }}
       >
         <span style={{ ...fieldLabelStyle, flex: "0 0 96px" }}>活動</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: tokens.color.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: panel.type.bodySm.fontSize, lineHeight: panel.type.bodySm.lineHeight, fontWeight: 600, color: panel.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {campaign.name || "未命名活動"}
         </span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: PR_MOSS, fontSize: 12, fontWeight: 600 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: (panel.space.xs + panel.space.xxs), color: PR_MOSS, fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: 600 }}>
           <span aria-hidden style={{ width: 6, height: 6, borderRadius: PR_ROUND, background: PR_MOSS }} />
           已設定
         </span>
@@ -404,8 +406,8 @@ function CampaignEditor({
       data-pr-campaign-form="editorial"
       style={{
         display: "grid",
-        gap: tokens.spacing.md,
-        padding: `0 0 ${tokens.spacing.section}px`,
+        gap: panel.space.md,
+        padding: `0 0 ${panel.space.lg}px`,
         borderBottom: `1px dashed ${PR_RULE}`,
         borderRadius: PR_RADIUS
       }}
@@ -414,7 +416,7 @@ function CampaignEditor({
 
         {/* ── Campaign name ─────────────────────────────────────────── */}
         <div data-pr-section="name">
-          <label style={{ display: "grid", gap: 6 }}>
+          <label style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs) }}>
             <span style={fieldLabelStyle}>
               活動名稱
             </span>
@@ -429,14 +431,14 @@ function CampaignEditor({
         </div>
 
         {/* ── PR brief (collapsible) ────────────────────────────────── */}
-        <div data-pr-section="brief" style={{ display: "grid", gap: 8 }}>
+        <div data-pr-section="brief" style={{ display: "grid", gap: panel.space.sm }}>
 
           {/* Header row — always visible */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: panel.space.sm }}>
             <span style={fieldLabelStyle}>
               新聞稿 / PR brief
             </span>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: (panel.space.xs + panel.space.xxs), alignItems: "center" }}>
               {/* Upload — always available */}
               <SecondaryButton
                 onClick={() => {
@@ -466,19 +468,19 @@ function CampaignEditor({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
-                padding: "8px 10px",
+                gap: panel.space.sm,
+                padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`,
                 borderRadius: PR_RADIUS,
                 border: `1px solid ${PR_RULE}`,
-                background: tokens.color.surface,
+                background: panel.surface,
                 cursor: "default"
               }}
             >
               <div
                 style={{
                   flex: 1,
-                  fontSize: 12,
-                  color: tokens.color.softInk,
+                  fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: panel.type.meta.fontWeight,
+                  color: panel.ink3,
                   overflow: "hidden",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis"
@@ -489,11 +491,11 @@ function CampaignEditor({
               <span
                 style={{
                   flexShrink: 0,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: tokens.color.softInk,
-                  background: tokens.color.neutralSurface,
-                  padding: "2px 7px",
+                  fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
+                  fontWeight: 600,
+                  color: panel.ink3,
+                  background: panel.surfaceSunken,
+                  padding: `${panel.space.xxs}px ${panel.space.sm}px`,
                   borderRadius: PR_ROUND
                 }}
               >
@@ -515,12 +517,12 @@ function CampaignEditor({
                 style={{
                   width: "100%",
                   fontFamily: tokens.font.sans,
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                  padding: "12px 14px",
-                  background: tokens.color.neutralSurfaceSoft,
+                  fontSize: panel.type.bodySm.fontSize, fontWeight: panel.type.bodySm.fontWeight,
+                  lineHeight: panel.type.bodySm.lineHeight,
+                  padding: `${panel.space.md}px ${(panel.space.md + panel.space.xxs)}px`,
+                  background: panel.surfaceSubtle,
                   border: `1px solid ${PR_RULE}`,
-                  color: tokens.color.subInk,
+                  color: panel.ink2,
                   outline: "none",
                   resize: "vertical",
                   minHeight: 88,
@@ -528,7 +530,7 @@ function CampaignEditor({
                 }}
               />
               {uploadError ? (
-                <div data-pr-upload-error="true" style={{ fontSize: 11, color: tokens.color.failed }}>
+                <div data-pr-upload-error="true" style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.danger }}>
                   {uploadError}
                 </div>
               ) : null}
@@ -542,7 +544,7 @@ function CampaignEditor({
               style={{
                 borderRadius: PR_RADIUS,
                 border: `1px solid ${PR_RULE}`,
-                background: tokens.color.contextSurface,
+                background: panel.surfaceSubtle,
                 overflow: "hidden"
               }}
             >
@@ -550,13 +552,13 @@ function CampaignEditor({
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  padding: "7px 10px",
-                  borderBottom: `1px solid ${tokens.color.line}`,
-                  background: tokens.color.failedWash
+                  gap: (panel.space.xs + panel.space.xxs),
+                  padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`,
+                  borderBottom: `1px solid ${panel.border}`,
+                  background: panel.accentSoft
                 }}
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--dlens-mode-accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg width={panel.size.icon} height={panel.size.icon} viewBox="0 0 24 24" fill="none" stroke={panel.accent} strokeWidth={panel.iconStrokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" /><path d="M12 8v4" /><path d="M12 16h.01" />
                 </svg>
                 <Kicker tone="accent">偵測到的核心訊息</Kicker>
@@ -568,20 +570,20 @@ function CampaignEditor({
                     style={{
                       display: "grid",
                       gridTemplateColumns: label ? "minmax(0, 130px) minmax(0, 1fr)" : "1fr",
-                      gap: 8,
+                      gap: panel.space.sm,
                       alignItems: "start",
-                      padding: "7px 10px",
-                      borderBottom: i < parsedMessages.length - 1 ? `1px solid ${tokens.color.line}` : "none"
+                      padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`,
+                      borderBottom: i < parsedMessages.length - 1 ? `1px solid ${panel.border}` : "none"
                     }}
                   >
                     {label ? (
                       <span
                         style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "var(--dlens-mode-accent)",
-                          background: "var(--dlens-mode-accent-soft)",
-                          padding: "2px 7px",
+                          fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
+                          fontWeight: 600,
+                          color: panel.accent,
+                          background: panel.accentSoft,
+                          padding: `${panel.space.xxs}px ${panel.space.sm}px`,
                           borderRadius: PR_ROUND,
                           display: "inline-flex",
                           alignItems: "center",
@@ -597,9 +599,9 @@ function CampaignEditor({
                     ) : null}
                     <span
                       style={{
-                        fontSize: 11,
-                        lineHeight: 1.55,
-                        color: tokens.color.subInk,
+                        fontSize: panel.type.micro.fontSize, fontWeight: panel.type.micro.fontWeight,
+                        lineHeight: panel.type.micro.lineHeight,
+                        color: panel.ink2,
                         display: "-webkit-box",
                         WebkitBoxOrient: "vertical",
                         WebkitLineClamp: 2,
@@ -616,12 +618,12 @@ function CampaignEditor({
         </div>
 
         {/* ── Narrative definition ─────────────────────────────────── */}
-        <div data-pr-section="narrative" style={{ display: "grid", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+        <div data-pr-section="narrative" style={{ display: "grid", gap: (panel.space.sm + panel.space.xxs) }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: (panel.space.sm + panel.space.xxs) }}>
             <span style={fieldLabelStyle}>敘事判讀設定</span>
-            <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>提供給 AI 的判讀邊界</span>
+            <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>提供給 AI 的判讀邊界</span>
           </div>
-          <label style={{ display: "grid", gap: 6 }}>
+          <label style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs) }}>
             <span style={fieldLabelStyle}>核心敘事</span>
             <textarea
               aria-label="核心敘事"
@@ -630,11 +632,11 @@ function CampaignEditor({
               onChange={(event) => updateNarrativeSetting("narrativeAnchor", event.target.value)}
               placeholder="這個活動希望市場記住的主要說法"
               rows={2}
-              style={{ ...inputLineStyle, lineHeight: 1.5, resize: "vertical", minHeight: 58 }}
+              style={{ ...inputLineStyle, lineHeight: panel.type.bodySm.lineHeight, resize: "vertical", minHeight: 58 }}
             />
           </label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: tokens.spacing.md }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: panel.space.md }}>
+            <label style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs) }}>
               <span style={fieldLabelStyle}>目標受眾</span>
               <input
                 aria-label="目標受眾"
@@ -645,7 +647,7 @@ function CampaignEditor({
                 style={inputLineStyle}
               />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs) }}>
               <span style={fieldLabelStyle}>希望行動</span>
               <input
                 aria-label="希望行動"
@@ -660,19 +662,19 @@ function CampaignEditor({
         </div>
 
         {/* ── PR matching criteria ──────────────────────────────────── */}
-        <div data-pr-section="criteria" style={{ display: "grid", gap: 9 }}>
+        <div data-pr-section="criteria" style={{ display: "grid", gap: panel.space.sm }}>
           {campaign.briefText.trim() ? (
             <div
               data-pr-criteria-ai-banner="true"
-              style={{ display: "flex", gap: 10, alignItems: "center", padding: "9px 12px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
+              style={{ display: "flex", gap: (panel.space.sm + panel.space.xxs), alignItems: "center", padding: `${panel.space.sm}px ${panel.space.md}px`, borderRadius: PR_RADIUS, border: `1px solid ${panel.border}`, background: panel.surfaceSubtle }}
             >
-              <span aria-hidden style={{ width: 28, height: 28, borderRadius: 8, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 14, flexShrink: 0 }}>✦</span>
-              <span data-pr-criteria-caption="true" style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+              <span aria-hidden style={{ width: 28, height: 28, borderRadius: panel.radius.sm, background: panel.accentSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: panel.type.body.fontSize, lineHeight: panel.type.body.lineHeight, fontWeight: panel.type.body.fontWeight, flexShrink: 0 }}>✦</span>
+              <span data-pr-criteria-caption="true" style={{ ...prRowTextStyle, color: panel.ink2, minWidth: 0 }}>
                 {campaign.criteriaCaption}
               </span>
             </div>
           ) : null}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: (panel.space.sm + panel.space.xxs), alignItems: "center" }}>
             <span style={fieldLabelStyle}>
               PR 判斷條件
             </span>
@@ -704,14 +706,14 @@ function CampaignEditor({
         </div>
 
         {/* ── Save ─────────────────────────────────────────────────── */}
-        <div data-pr-section="save" style={{ paddingTop: 4, display: "flex", gap: 8, alignItems: "center" }}>
+        <div data-pr-section="save" style={{ paddingTop: panel.space.xs, display: "flex", gap: panel.space.sm, alignItems: "center" }}>
           <PrimaryButton onClick={onSave} disabled={isSaving || !campaign.name.trim()} style={compactButtonStyle}>
             {isSaving ? "儲存中..." : "儲存活動"}
           </PrimaryButton>
           <SecondaryButton onClick={() => onCollapse?.()} style={compactButtonStyle}>
             取消
           </SecondaryButton>
-          <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
+          <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: panel.ink3 }}>
             儲存後自動同步
           </span>
         </div>
@@ -731,15 +733,15 @@ function PrEvidenceHeaderStats({ health }: { health: PrEvidenceViewModel["criter
       style={{
         display: "inline-flex",
         alignItems: "baseline",
-        gap: 5,
+        gap: panel.space.xs,
         minWidth: 0,
-        fontFamily: tokens.font.mono,
+        fontFamily: tokens.font.sans,
         fontVariantNumeric: "tabular-nums",
         whiteSpace: "nowrap"
       }}
     >
-      <b style={{ fontSize: 13, lineHeight: 1, fontWeight: 800, color: tone }}>{value}</b>
-      <span style={{ fontSize: 10.5, lineHeight: 1.2, color: tokens.color.softInk }}>{label}</span>
+      <b style={{ fontSize: panel.type.bodySm.fontSize, lineHeight: panel.type.bodySm.lineHeight, fontWeight: 600, color: tone }}>{value}</b>
+      <span style={{ fontSize: panel.type.micro.fontSize, fontWeight: panel.type.micro.fontWeight, lineHeight: panel.type.micro.lineHeight, color: panel.ink3 }}>{label}</span>
     </span>
   );
   return (
@@ -749,9 +751,9 @@ function PrEvidenceHeaderStats({ health }: { health: PrEvidenceViewModel["criter
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: panel.space.md,
         flexWrap: "wrap",
-        padding: "7px 0 3px",
+        padding: `${panel.space.sm}px 0 ${panel.space.xs}px`,
         minWidth: 0
       }}
     >
@@ -778,19 +780,19 @@ function EvidenceStrengthChip({ row }: { row: PrEvidenceRowViewModel }) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
+        gap: panel.space.xs,
         justifySelf: "end",
         alignSelf: "center",
-        padding: "4px 7px",
+        padding: `${panel.space.xs}px ${panel.space.sm}px`,
         borderRadius: PR_ROUND,
         border: `1px solid ${meta.rowBorder}`,
         background: meta.rowBg,
         color: meta.accent,
-        fontFamily: tokens.font.mono,
-        fontSize: 10,
-        fontWeight: 800,
+        fontFamily: tokens.font.sans,
+        fontSize: panel.type.micro.fontSize,
+        fontWeight: 600,
         fontVariantNumeric: "tabular-nums",
-        lineHeight: 1,
+        lineHeight: panel.type.micro.lineHeight,
         whiteSpace: "nowrap"
       }}
     >
@@ -810,7 +812,7 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
           data-pr-evidence-rows-detail="collapsed"
           style={{
             borderTop: `1px solid ${PR_RULE}`,
-            paddingTop: 12,
+            paddingTop: panel.space.md,
             borderRadius: PR_RADIUS,
             minWidth: 0
           }}
@@ -823,20 +825,20 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
               cursor: "pointer",
               display: "flex",
               alignItems: "baseline",
-              gap: 8,
-              color: tokens.color.ink,
-              fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
-              fontSize: 15,
-              fontWeight: 700
+              gap: panel.space.sm,
+              color: panel.ink,
+              fontFamily: tokens.font.sans,
+              fontSize: panel.type.heading.fontSize, lineHeight: panel.type.heading.lineHeight,
+              fontWeight: 600
             }}
           >
-            <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+            <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.ink3 }}>▸</span>
             已儲存貼文
-            <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
+            <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: panel.ink3 }}>
               {caption}
             </span>
           </summary>
-          <div style={{ display: "grid", gap: 10, paddingTop: 10 }}>
+          <div style={{ display: "grid", gap: (panel.space.sm + panel.space.xxs), paddingTop: (panel.space.sm + panel.space.xxs) }}>
             <div data-scan-list="pr-evidence" style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
               {rows.map((row, index) => {
                 const auditNumber = formatAuditNumber(index);
@@ -848,34 +850,34 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
                     style={{
                       display: "grid",
                       gridTemplateColumns: "26px minmax(0, 1fr) auto",
-                      gap: 10,
-                      padding: "12px 4px",
+                      gap: (panel.space.sm + panel.space.xxs),
+                      padding: `${panel.space.md}px ${panel.space.xs}px`,
                       borderBottom: `1px solid ${PR_RULE}`,
                       background: "transparent",
                       cursor: "default",
-                      transition: tokens.motion.interactiveTransitionFast,
+                      transition: `transform ${panel.motion.fast} ${panel.motion.standard}, opacity ${panel.motion.fast} ${panel.motion.standard}`,
                       minWidth: 0
                     }}
                   >
                     <span
                       data-pr-evidence-audit-number={auditNumber}
                       style={{
-                        ...textStyles.metric,
+                        ...panel.type.meta,
                         color: PR_ACCENT,
-                        fontWeight: 800,
-                        paddingTop: 2,
+                        fontWeight: 600,
+                        paddingTop: panel.space.xxs,
                         textAlign: "center",
-                        letterSpacing: "0.02em"
+                        letterSpacing: 0
                       }}
                     >
                       {auditNumber}
                     </span>
-                    <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+                    <div style={{ display: "grid", gap: panel.space.sm, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: panel.space.sm, flexWrap: "wrap", minWidth: 0 }}>
                         <span
                           style={{
                             ...prMonoMetaStyle,
-                            color: tokens.color.ink,
+                            color: panel.ink,
                             maxWidth: 124,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -887,7 +889,7 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
                         <span style={{ flex: 1 }} />
                         <SourceLinkIcon row={row} />
                         <CriterionChips row={row} variant="compact" />
-                        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+                        <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
                           {row.collectedAtLabel}
                         </span>
                       </div>
@@ -907,7 +909,7 @@ function EvidenceLedger({ rows, caption }: { rows: PrEvidenceRowViewModel[]; cap
           </div>
         </details>
       ) : (
-        <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
+        <div style={{ padding: `${panel.space.lg}px ${panel.space.md}px`, borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: panel.surface, fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: panel.type.meta.fontWeight, color: panel.ink2 }}>
           尚未收集 evidence rows。先到 Collect 保存已打開的 Threads posts。
         </div>
       )}
@@ -922,17 +924,17 @@ function formatAuditNumber(index: number) {
 function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
   const href = row.sourceUrl;
   const baseStyle = {
-    width: 24,
-    height: 24,
+    width: panel.size.button,
+    height: panel.size.button,
     borderRadius: PR_ROUND,
-    background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`,
+    background: `linear-gradient(135deg, ${panel.surfaceSubtle}, ${panel.surfaceSunken})`,
     border: `1px solid ${PR_RULE}`,
-    color: href ? PR_ACCENT : tokens.color.softInk,
+    color: href ? PR_ACCENT : panel.ink3,
     display: "inline-grid",
     placeItems: "center",
     textDecoration: "none",
     opacity: href ? 1 : 0.42,
-    transition: tokens.motion.interactiveTransitionFast
+    transition: `transform ${panel.motion.fast} ${panel.motion.standard}, opacity ${panel.motion.fast} ${panel.motion.standard}`
   } as const;
 
   if (!href) {
@@ -950,7 +952,7 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
       onClick={(event) => event.stopPropagation()}
       style={baseStyle}
     >
-      <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+      <ExternalLink size={panel.size.icon} strokeWidth={panel.iconStrokeWidth} aria-hidden="true" />
     </a>
   );
 }
@@ -958,8 +960,8 @@ function SourceLinkIcon({ row }: { row: PrEvidenceRowViewModel }) {
 function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant: "full" | "compact" }) {
   const matchedTotal = row.matchedCount;
   if (variant === "compact") {
-    const tone = row.strong ? PR_MOSS : matchedTotal > 0 ? PR_ACCENT : tokens.color.softInk;
-    const soft = row.strong ? tokens.color.successSoft : matchedTotal > 0 ? tokens.color.runningSoft : tokens.color.neutralSurfaceSoft;
+    const tone = row.strong ? PR_MOSS : matchedTotal > 0 ? PR_ACCENT : panel.ink3;
+    const soft = row.strong ? panel.successSoft : matchedTotal > 0 ? panel.accentSoft : panel.surfaceSubtle;
     return (
       <span
         data-pr-match-indicator="true"
@@ -968,9 +970,9 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 6,
+          gap: (panel.space.xs + panel.space.xxs),
           flexWrap: "nowrap",
-          ...textStyles.metric,
+          ...panel.type.meta,
           color: tone,
           justifyContent: "flex-end",
           whiteSpace: "nowrap"
@@ -993,7 +995,7 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
   }
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, paddingLeft: 2 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: (panel.space.md + panel.space.xxs), paddingLeft: panel.space.xxs }}>
       {row.criteria.map((criterion) => {
         const matched = criterion.matched;
         return (
@@ -1003,8 +1005,8 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
             style={{
               display: "inline-flex",
               alignItems: "baseline",
-              gap: 3,
-              color: matched ? PR_MOSS : tokens.color.softInk,
+              gap: panel.space.xs,
+              color: matched ? PR_MOSS : panel.ink3,
               ...prMonoMetaStyle,
               fontWeight: matched ? 700 : 400,
               opacity: matched ? 1 : 0.7
@@ -1019,12 +1021,12 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
   );
 }
 
-const PR_AMBER = tokens.color.queued;
+const PR_AMBER = panel.warning;
 
 const CRITERIA_STRENGTH_META: Record<PrCriterionStrength, { accent: string; rowBg: string; rowBorder: string; status: string }> = {
-  strong: { accent: PR_MOSS, rowBg: tokens.color.surface, rowBorder: PR_RULE, status: "OK" },
-  partial: { accent: PR_AMBER, rowBg: tokens.color.queuedWash, rowBorder: tokens.color.queuedBorder, status: "半弱" },
-  gap: { accent: PR_ACCENT, rowBg: tokens.color.failedWash, rowBorder: tokens.color.failedBorderStrong, status: "GAP" }
+  strong: { accent: PR_MOSS, rowBg: panel.surface, rowBorder: PR_RULE, status: "OK" },
+  partial: { accent: PR_AMBER, rowBg: panel.warningSoft, rowBorder: panel.warning, status: "半弱" },
+  gap: { accent: PR_ACCENT, rowBg: panel.dangerSoft, rowBorder: panel.danger, status: "GAP" }
 };
 
 /* Frame 6 · PR Criteria Health — header stats + criterion coverage lanes + systemic-gap callout. */
@@ -1038,25 +1040,25 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
   if (!health.totalRows) {
     return null;
   }
-  const monoStat = { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" } as const;
+  const monoStat = { fontFamily: tokens.font.sans, fontVariantNumeric: "tabular-nums" } as const;
 
   return (
     <SurfaceCard
       tone="default"
       dataAttrs={{ "data-pr-criteria-health": "true" }}
-      style={{ display: "grid", gap: 12, padding: "14px 16px", background: tokens.color.surface }}
+      style={{ display: "grid", gap: panel.space.md, padding: `${(panel.space.md + panel.space.xxs)}px ${panel.space.lg}px`, background: panel.surface }}
     >
       <style>{CRITERIA_HEALTH_DISCLOSURE_CSS}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: (panel.space.sm + panel.space.xxs), flexWrap: "wrap" }}>
         <Kicker>條件健康度</Kicker>
-        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+        <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
           依 {health.totalRows} 列 evidence 反推
         </span>
       </div>
 
       <PrEvidenceHeaderStats health={health} />
 
-      <div style={{ display: "grid", gap: 6 }}>
+      <div style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs) }}>
         {health.criteria.map((entry) => {
           const meta = CRITERIA_STRENGTH_META[entry.strength];
           const pct = entry.totalRows ? Math.round((entry.matchedRows / entry.totalRows) * 100) : 0;
@@ -1071,7 +1073,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
               data-pr-criteria-coverage-row={entry.id}
               data-pr-criteria-coverage-ratio={String(pct)}
               style={{
-                borderRadius: tokens.radius.xs,
+                borderRadius: panel.radius.xs,
                 border: `1px solid ${meta.rowBorder}`,
                 background: meta.rowBg,
                 overflow: "hidden"
@@ -1085,13 +1087,13 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                   cursor: "pointer",
                   display: "grid",
                   gridTemplateColumns: "minmax(0, 1fr) auto",
-                  gap: 10,
+                  gap: (panel.space.sm + panel.space.xxs),
                   alignItems: "center",
-                  padding: "8px 11px"
+                  padding: `${panel.space.sm}px ${panel.space.md}px`
                 }}
               >
-                <span style={{ display: "grid", gap: 6, minWidth: 0 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs), minWidth: 0 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: panel.space.sm, minWidth: 0 }}>
                     <span
                       data-pr-criteria-strength-dot={entry.id}
                       aria-label={`${entry.strength} coverage`}
@@ -1101,19 +1103,19 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                       data-pr-criteria-id={entry.id}
                       style={{
                         ...monoStat,
-                        fontSize: 10,
-                        fontWeight: 700,
+                        fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
+                        fontWeight: 600,
                         color: PR_ACCENT,
-                        background: "var(--dlens-mode-accent-soft)",
+                        background: panel.accentSoft,
                         border: `1px solid ${PR_RULE}`,
-                        padding: "2px 5px",
-                        borderRadius: 5,
+                        padding: `${panel.space.xxs}px ${panel.space.xs}px`,
+                        borderRadius: panel.radius.xs,
                         textAlign: "center"
                       }}
                     >
                       {entry.id.toUpperCase()}
                     </span>
-                    <span style={{ ...prRowTextStyle, color: tokens.color.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ ...prRowTextStyle, color: panel.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {entry.label}
                     </span>
                   </span>
@@ -1125,7 +1127,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                       height: 6,
                       width: "100%",
                       borderRadius: PR_ROUND,
-                      background: tokens.color.neutralSurface,
+                      background: panel.surfaceSunken,
                       overflow: "hidden"
                     }}
                   >
@@ -1142,14 +1144,14 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                     />
                   </span>
                 </span>
-                <span style={{ display: "grid", gap: 3, justifyItems: "end" }}>
+                <span style={{ display: "grid", gap: panel.space.xs, justifyItems: "end" }}>
                   <span
                     data-pr-criteria-coverage-count={entry.id}
-                    style={{ ...monoStat, fontSize: 13, fontWeight: 700, color: meta.accent, textAlign: "right", whiteSpace: "nowrap" }}
+                    style={{ ...monoStat, fontSize: panel.type.bodySm.fontSize, lineHeight: panel.type.bodySm.lineHeight, fontWeight: 600, color: meta.accent, textAlign: "right", whiteSpace: "nowrap" }}
                   >
                     {entry.matchedRows}/{entry.totalRows}
                   </span>
-                  <span style={{ ...monoStat, fontSize: 9.5, fontWeight: 700, color: meta.accent, textAlign: "right", minWidth: 30 }}>
+                  <span style={{ ...monoStat, fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: 600, color: meta.accent, textAlign: "right", minWidth: 30 }}>
                     {meta.status}
                   </span>
                 </span>
@@ -1158,8 +1160,8 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                 data-pr-criteria-health-matches={entry.id}
                 style={{
                   display: "grid",
-                  gap: 5,
-                  padding: "0 11px 10px 50px"
+                  gap: panel.space.xs,
+                  padding: `0 ${panel.space.md}px ${(panel.space.sm + panel.space.xxs)}px ${panel.space.section}px`
                 }}
               >
                 {matchedRows.length ? matchedRows.map((row) => (
@@ -1169,16 +1171,16 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(0, 98px) minmax(0, 1fr) auto",
-                      gap: 8,
+                      gap: panel.space.sm,
                       alignItems: "baseline",
-                      padding: "6px 0",
-                      borderTop: `1px solid ${tokens.color.line}`
+                      padding: `${(panel.space.xs + panel.space.xxs)}px 0`,
+                      borderTop: `1px solid ${panel.border}`
                     }}
                   >
-                    <span style={{ ...prMonoMetaStyle, color: tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ ...prMonoMetaStyle, color: panel.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {row.authorLabel}
                     </span>
-                    <span style={{ ...textStyles.caption, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ ...panel.type.micro, color: panel.ink2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {row.captionLabel}
                     </span>
                     <span style={{ ...prMonoMetaStyle, color: row.strong ? PR_MOSS : PR_ACCENT }}>
@@ -1186,7 +1188,7 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
                     </span>
                   </div>
                 )) : (
-                  <span style={{ ...textStyles.caption, color: tokens.color.softInk, paddingTop: 6 }}>
+                  <span style={{ ...panel.type.micro, color: panel.ink3, paddingTop: (panel.space.xs + panel.space.xxs) }}>
                     沒有命中貼文。
                   </span>
                 )}
@@ -1201,18 +1203,18 @@ function CriteriaHealth({ health, rows }: { health: PrEvidenceViewModel["criteri
           data-pr-criteria-health-gap="true"
           style={{
             display: "grid",
-            gap: 5,
-            padding: "10px 13px",
+            gap: panel.space.xs,
+            padding: `${(panel.space.sm + panel.space.xxs)}px ${panel.space.md}px`,
             borderRadius: PR_RADIUS,
-            background: tokens.color.failedWash,
-            border: `1px solid ${tokens.color.failedBorder}`,
+            background: panel.dangerSoft,
+            border: `1px solid ${panel.danger}`,
             minWidth: 0
           }}
         >
-          <span style={{ ...textStyles.label, fontFamily: tokens.font.sans, color: PR_ACCENT, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 700 }}>
+          <span style={{ ...panel.type.micro, fontFamily: tokens.font.sans, color: PR_ACCENT, letterSpacing: 0, textTransform: "none", fontWeight: 600 }}>
             系統性缺口 · {health.systemicGap.label}
           </span>
-          <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+          <span style={{ ...prRowTextStyle, color: panel.ink2, minWidth: 0 }}>
             {health.systemicGap.label} 在 {health.systemicGap.missingRows} 列 evidence 全無命中,屬結構性缺欄,需先補來源才補得起來。
           </span>
         </div>
@@ -1239,16 +1241,16 @@ function PrWorkingArea({
       data-pr-working-area="true"
       data-pr-actions="true"
       data-pr-working-layout="single"
-      style={{ display: "grid", gap: tokens.spacing.md, marginBottom: tokens.spacing.lg, minWidth: 0 }}
+      style={{ display: "grid", gap: panel.space.md, marginBottom: panel.space.xl, minWidth: 0 }}
     >
       <div
         data-pr-workflow-toolbar="true"
         style={{
           display: "flex",
           alignItems: "center",
-          gap: tokens.spacing.sm,
+          gap: panel.space.sm,
           borderBottom: `1px solid ${PR_RULE}`,
-          paddingBottom: 8,
+          paddingBottom: panel.space.sm,
           flexWrap: "wrap"
         }}
       >
@@ -1290,7 +1292,7 @@ function PrWorkingArea({
         data-pr-metrics-detail="collapsed"
         style={{
           borderTop: `1px solid ${PR_RULE}`,
-          paddingTop: 12,
+          paddingTop: panel.space.md,
           borderRadius: PR_RADIUS
         }}
       >
@@ -1302,16 +1304,16 @@ function PrWorkingArea({
             cursor: "pointer",
             display: "flex",
             alignItems: "baseline",
-            gap: 8,
-            color: tokens.color.ink,
-            fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`,
-            fontSize: 15,
-            fontWeight: 700
+            gap: panel.space.sm,
+            color: panel.ink,
+            fontFamily: tokens.font.sans,
+            fontSize: panel.type.heading.fontSize, lineHeight: panel.type.heading.lineHeight,
+            fontWeight: 600
           }}
         >
-          <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+          <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.ink3 }}>▸</span>
           進階指標
-          <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>
+          <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: panel.ink3 }}>
             {viewModel.workingArea.metricsCaption}
           </span>
         </summary>
@@ -1331,34 +1333,34 @@ function MatchSummary({ viewModel }: { viewModel: PrEvidenceViewModel }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: panel.space.md,
         flexWrap: "wrap",
-        padding: "10px 12px",
+        padding: `${(panel.space.sm + panel.space.xxs)}px ${panel.space.md}px`,
         borderRadius: PR_RADIUS,
         border: `1px solid ${PR_RULE}`,
-        background: tokens.color.neutralSurfaceSoft,
+        background: panel.surfaceSubtle,
         minWidth: 0
       }}
     >
-      <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: tokens.color.softInk, letterSpacing: "0.04em" }}>
+      <span style={{ ...panel.type.micro, fontFamily: tokens.font.sans, color: panel.ink3, letterSpacing: 0 }}>
         條件命中
       </span>
-      <span style={{ ...prMonoMetaStyle, color: matchedCells ? PR_MOSS : tokens.color.softInk }}>
+      <span style={{ ...prMonoMetaStyle, color: matchedCells ? PR_MOSS : panel.ink3 }}>
         {matchedCells} / {totalCells}
       </span>
-      <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+      <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
         {viewModel.workingArea.match.caption}
       </span>
       {totals.some((total) => total > 0) ? (
-        <span style={{ display: "flex", flexWrap: "wrap", gap: 10, marginLeft: "auto", minWidth: 0 }}>
+        <span style={{ display: "flex", flexWrap: "wrap", gap: (panel.space.sm + panel.space.xxs), marginLeft: `auto`, minWidth: 0 }}>
           {totals.map((total, index) => (
-            <span key={index} style={{ ...prMonoMetaStyle, color: total > 0 ? tokens.color.ink : tokens.color.softInk, fontWeight: total > 0 ? 700 : 400 }}>
+            <span key={index} style={{ ...prMonoMetaStyle, color: total > 0 ? panel.ink : panel.ink3, fontWeight: total > 0 ? 700 : 400 }}>
               C{index + 1}:{total}
             </span>
           ))}
         </span>
       ) : (
-        <span style={{ ...prRowTextStyle, color: tokens.color.subInk, marginLeft: "auto" }}>
+        <span style={{ ...prRowTextStyle, color: panel.ink2, marginLeft: `auto` }}>
           先收集貼文，再執行條件判斷。
         </span>
       )}
@@ -1373,16 +1375,16 @@ function MetricCell({ label, value, advanced = false }: { label: string; value: 
       style={{
         display: "inline-flex",
         alignItems: "baseline",
-        gap: 4,
-        fontFamily: tokens.font.mono,
-        fontSize: 11,
-        lineHeight: 1.4,
+        gap: panel.space.xs,
+        fontFamily: tokens.font.sans,
+        fontSize: panel.type.micro.fontSize, fontWeight: panel.type.micro.fontWeight,
+        lineHeight: panel.type.micro.lineHeight,
         whiteSpace: "nowrap",
         fontVariantNumeric: "tabular-nums"
       }}
     >
-      <span style={{ color: tokens.color.softInk, fontWeight: 500 }}>{label}</span>
-      <span style={{ color: !valuePresent ? tokens.color.softInk : advanced ? PR_ACCENT : tokens.color.ink, fontWeight: valuePresent ? 700 : 400 }}>
+      <span style={{ color: panel.ink3, fontWeight: 500 }}>{label}</span>
+      <span style={{ color: !valuePresent ? panel.ink3 : advanced ? PR_ACCENT : panel.ink, fontWeight: valuePresent ? 700 : 400 }}>
         {value}
       </span>
     </span>
@@ -1401,27 +1403,27 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRowViewModel[] }) {
                 data-scan-row="true"
                 style={{
                   display: "grid",
-                  gap: 6,
-                  padding: "12px 4px",
+                  gap: (panel.space.xs + panel.space.xxs),
+                  padding: `${panel.space.md}px ${panel.space.xs}px`,
                   borderBottom: `1px solid ${PR_RULE}`
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: PR_ROUND, background: `linear-gradient(135deg, ${tokens.color.neutralSurfaceSoft}, ${tokens.color.neutralSurface})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
-                  <div style={{ ...prMonoMetaStyle, color: tokens.color.ink, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: (panel.space.sm + panel.space.xxs), minWidth: 0 }}>
+                  <span aria-hidden style={{ width: 22, height: 22, borderRadius: PR_ROUND, background: `linear-gradient(135deg, ${panel.surfaceSubtle}, ${panel.surfaceSunken})`, border: `1px solid ${PR_RULE}`, flexShrink: 0 }} />
+                  <div style={{ ...prMonoMetaStyle, color: panel.ink, flexShrink: 0, maxWidth: 124, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.authorLabel}
                   </div>
-                  <div style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: tokens.color.subInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ ...prRowTextStyle, flex: 1, minWidth: 0, color: panel.ink2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {row.captionLabel}
                   </div>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", columnGap: 16, rowGap: 4, paddingLeft: 32 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", columnGap: panel.space.lg, rowGap: panel.space.xs, paddingLeft: panel.space.section }}>
                   {row.metrics.map((metric) => (
                     <MetricCell key={metric.label} label={metric.label} value={metric.value} advanced={metric.advanced} />
                   ))}
                 </div>
                 {row.advancedMetricsError ? (
-                  <div style={{ fontSize: 11, lineHeight: 1.45, color: tokens.color.failed, paddingLeft: 32 }}>
+                  <div style={{ fontSize: panel.type.micro.fontSize, fontWeight: panel.type.micro.fontWeight, lineHeight: panel.type.micro.lineHeight, color: panel.danger, paddingLeft: panel.space.section }}>
                     {row.advancedMetricsError}
                   </div>
                 ) : null}
@@ -1429,7 +1431,7 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRowViewModel[] }) {
           ))}
         </div>
       ) : (
-        <div style={{ padding: "16px 12px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, fontSize: 12, color: tokens.color.subInk }}>
+        <div style={{ padding: `${panel.space.lg}px ${panel.space.md}px`, borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: panel.surface, fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: panel.type.meta.fontWeight, color: panel.ink2 }}>
           先收集貼文，再抓取進階指標。
         </div>
       )}
@@ -1440,23 +1442,23 @@ function AdvancedMetricsPanel({ rows }: { rows: PrEvidenceRowViewModel[] }) {
 function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
   const body = preview.rows;
   return (
-    <details data-pr-csv-preview="true" style={{ marginTop: 4, borderTop: `1px solid ${PR_RULE}`, paddingTop: 18, borderRadius: PR_RADIUS }}>
-      <summary data-dlens-presence="row" className="dlens-tactile-row" style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 16, fontWeight: 600, color: tokens.color.ink }}>
-        <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+    <details data-pr-csv-preview="true" style={{ marginTop: panel.space.xs, borderTop: `1px solid ${PR_RULE}`, paddingTop: (panel.space.lg + panel.space.xxs), borderRadius: PR_RADIUS }}>
+      <summary data-dlens-presence="row" className="dlens-tactile-row" style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: panel.space.sm, fontFamily: tokens.font.sans, fontSize: panel.type.title.fontSize, lineHeight: panel.type.title.lineHeight, fontWeight: 600, color: panel.ink }}>
+        <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.ink3 }}>▸</span>
         CSV 預覽
-        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk, fontWeight: 500 }}>
+        <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: panel.ink3, fontWeight: 500 }}>
           {preview.exportableCountLabel}
         </span>
       </summary>
       <div
         data-pr-csv-preview-layout="wrap"
         style={{
-          marginTop: 14,
+          marginTop: (panel.space.md + panel.space.xxs),
           display: "grid",
-          gap: 8,
+          gap: panel.space.sm,
           border: `1px solid ${PR_RULE}`,
           borderRadius: PR_RADIUS,
-          background: tokens.color.surface,
+          background: panel.surface,
           overflow: "hidden"
         }}
       >
@@ -1465,16 +1467,16 @@ function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
             key={rowIndex}
             style={{
               display: "grid",
-              gap: 8,
-              padding: "10px 12px",
+              gap: panel.space.sm,
+              padding: `${(panel.space.sm + panel.space.xxs)}px ${panel.space.md}px`,
               borderBottom: rowIndex < Math.min(body.length, 20) - 1 ? `1px solid ${PR_RULE}` : "none"
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, color: PR_ACCENT }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: panel.space.sm, flexWrap: "wrap" }}>
+              <span style={{ ...panel.type.micro, fontFamily: tokens.font.sans, color: PR_ACCENT }}>
                 第 {rowIndex + 1} 列
               </span>
-              <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+              <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
                 {(line[1] || line[0] || "-").slice(0, 72)}
               </span>
             </div>
@@ -1482,16 +1484,16 @@ function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
-                gap: 8,
+                gap: panel.space.sm,
                 minWidth: 0
               }}
             >
               {preview.header.map((cell, cellIndex) => (
-                <div key={`${rowIndex}-${cell}-${cellIndex}`} style={{ display: "grid", gap: 3, minWidth: 0 }}>
-                  <span style={{ ...textStyles.label, fontFamily: tokens.font.mono, letterSpacing: "0.04em", color: tokens.color.softInk, overflowWrap: "anywhere" }}>
+                <div key={`${rowIndex}-${cell}-${cellIndex}`} style={{ display: "grid", gap: panel.space.xs, minWidth: 0 }}>
+                  <span style={{ ...panel.type.micro, fontFamily: tokens.font.sans, letterSpacing: 0, color: panel.ink3, overflowWrap: "anywhere" }}>
                     {cell}
                   </span>
-                  <span style={{ ...textStyles.caption, fontWeight: 500, color: line[cellIndex] ? tokens.color.subInk : tokens.color.softInk, overflowWrap: "anywhere" }}>
+                  <span style={{ ...panel.type.micro, fontWeight: 500, color: line[cellIndex] ? panel.ink2 : panel.ink3, overflowWrap: "anywhere" }}>
                     {line[cellIndex] || "-"}
                   </span>
                 </div>
@@ -1499,7 +1501,7 @@ function CsvPreview({ preview }: { preview: PrEvidenceCsvPreviewViewModel }) {
             </div>
           </article>
         )) : (
-          <div style={{ padding: "14px 12px", fontSize: 12, color: tokens.color.subInk }}>
+          <div style={{ padding: `${(panel.space.md + panel.space.xxs)}px ${panel.space.md}px`, fontSize: panel.type.meta.fontSize, lineHeight: panel.type.meta.lineHeight, fontWeight: panel.type.meta.fontWeight, color: panel.ink2 }}>
             還沒有 CSV 列。
           </div>
         )}
@@ -1525,14 +1527,14 @@ function SummaryPanel({
       dataAttrs={{ "data-pr-summary": "facts-first", "data-dlens-presence": "card" }}
       style={{
         display: "grid",
-        gap: 12,
-        padding: "14px 16px",
-        background: tokens.color.surface
+        gap: panel.space.md,
+        padding: `${(panel.space.md + panel.space.xxs)}px ${panel.space.lg}px`,
+        background: panel.surface
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: (panel.space.sm + panel.space.xxs), alignItems: "center", flexWrap: "wrap" }}>
         <Kicker>PR 稽核摘要</Kicker>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: panel.space.sm, flexWrap: "wrap" }}>
           <SecondaryButton
             onClick={() => markdownCommand ? onCommand(markdownCommand) : undefined}
             disabled={!markdownCommand}
@@ -1551,7 +1553,7 @@ function SummaryPanel({
           </SecondaryButton>
         </div>
       </div>
-      <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: tokens.font.sans, fontSize: 12, lineHeight: 1.65, color: tokens.color.subInk }}>
+      <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: tokens.font.sans, fontSize: panel.type.meta.fontSize, fontWeight: panel.type.meta.fontWeight, lineHeight: panel.type.meta.lineHeight, color: panel.ink2 }}>
         {summary}
       </pre>
     </SurfaceCard>
@@ -1571,33 +1573,33 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
   ];
   const gap = viewModel.criteriaHealth.systemicGap;
   return (
-    <section data-pr-export-ready="true" style={{ display: "grid", gap: 8 }}>
+    <section data-pr-export-ready="true" style={{ display: "grid", gap: panel.space.sm }}>
       <div
         data-pr-export-ready-card="true"
         data-dlens-presence="card"
-        style={{ display: "flex", gap: 13, alignItems: "center", padding: "14px 16px", borderRadius: tokens.radius.cardLg, border: `1px solid ${tokens.color.failedBorder}`, background: `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` }}
+        style={{ display: "flex", gap: panel.space.md, alignItems: "center", padding: `${(panel.space.md + panel.space.xxs)}px ${panel.space.lg}px`, borderRadius: panel.radius.md, border: `1px solid ${panel.border}`, background: panel.surfaceSubtle }}
       >
-        <span aria-hidden style={{ width: 40, height: 40, borderRadius: 11, background: tokens.color.failedSoft, color: PR_ACCENT, display: "grid", placeItems: "center", fontSize: 20, flexShrink: 0 }}>✓</span>
-        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-          <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 15, fontWeight: 500, color: tokens.color.ink }}>輸出 ready · 含 {rowCount} rows</span>
-          <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>
+        <span aria-hidden style={{ width: 40, height: 40, borderRadius: panel.radius.md, background: panel.successSoft, color: panel.success, display: "grid", placeItems: "center", fontSize: panel.type.title.fontSize, lineHeight: panel.type.title.lineHeight, fontWeight: panel.type.title.fontWeight, flexShrink: 0 }}>✓</span>
+        <div style={{ display: "grid", gap: panel.space.xxs, minWidth: 0 }}>
+          <span style={{ fontFamily: tokens.font.sans, fontSize: panel.type.heading.fontSize, lineHeight: panel.type.heading.lineHeight, fontWeight: 500, color: panel.ink }}>輸出 ready · 含 {rowCount} rows</span>
+          <span style={{ ...panel.type.micro, color: panel.ink3 }}>
             {viewModel.exports.summaryMarkdown ? "CSV / MD / DOCX 三格式都已備齊" : "CSV 已備 · MD / DOCX 待生成摘要"}
           </span>
         </div>
-        <span style={{ marginLeft: "auto", ...prMonoMetaStyle, color: PR_ACCENT, whiteSpace: "nowrap" }}>● ready</span>
+        <span style={{ marginLeft: `auto`, ...prMonoMetaStyle, color: PR_ACCENT, whiteSpace: "nowrap" }}>● ready</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: panel.space.sm }}>
         {formats.map((format) => (
           <div
             key={format.id}
             data-pr-format-card={format.id}
-            style={{ display: "flex", gap: 10, alignItems: "center", padding: "11px 13px", borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: tokens.color.surface, minWidth: 0 }}
+            style={{ display: "flex", gap: (panel.space.sm + panel.space.xxs), alignItems: "center", padding: `${panel.space.md}px ${panel.space.md}px`, borderRadius: PR_RADIUS, border: `1px solid ${PR_RULE}`, background: panel.surface, minWidth: 0 }}
           >
-            <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 500, color: tokens.color.ink }}>{format.name}</span>
-              <span style={{ fontSize: 10, color: tokens.color.softInk, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{format.desc}</span>
+            <span style={{ display: "grid", gap: panel.space.xxs, minWidth: 0 }}>
+              <span style={{ fontSize: panel.type.bodySm.fontSize, lineHeight: panel.type.bodySm.lineHeight, fontWeight: 500, color: panel.ink }}>{format.name}</span>
+              <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.ink3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{format.desc}</span>
             </span>
-            <span style={{ marginLeft: "auto", ...textStyles.label, fontFamily: tokens.font.mono, color: format.available ? PR_MOSS : tokens.color.softInk, background: format.available ? tokens.color.successSoft : tokens.color.neutralSurfaceSoft, padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap" }}>
+            <span style={{ marginLeft: `auto`, ...panel.type.micro, fontFamily: tokens.font.sans, color: format.available ? PR_MOSS : panel.ink3, background: format.available ? panel.successSoft : panel.surfaceSubtle, padding: `${panel.space.xxs}px ${panel.space.sm}px`, borderRadius: panel.radius.xs, whiteSpace: "nowrap" }}>
               {format.available ? "可用" : "—"}
             </span>
           </div>
@@ -1606,7 +1608,7 @@ function ExportReadyPanel({ viewModel }: { viewModel: PrEvidenceViewModel }) {
       {gap ? (
         <div
           data-pr-export-gap-note="true"
-          style={{ ...prRowTextStyle, color: tokens.color.subInk, padding: "9px 12px", borderRadius: PR_RADIUS, border: `1px solid ${tokens.color.failedBorder}`, background: tokens.color.failedWash }}
+          style={{ ...prRowTextStyle, color: panel.ink2, padding: `${panel.space.sm}px ${panel.space.md}px`, borderRadius: PR_RADIUS, border: `1px solid ${panel.danger}`, background: panel.dangerSoft }}
         >
           <b style={{ color: PR_ACCENT, fontWeight: 600 }}>{gap.label} gap note</b> 已寫進輸出:此條件 {gap.missingRows} 列全無命中,交付方已知此限制。
         </div>
@@ -1630,24 +1632,24 @@ function PrScopeBar({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: tokens.spacing.sm,
-        padding: "9px 12px",
+        gap: panel.space.sm,
+        padding: `${panel.space.sm}px ${panel.space.md}px`,
         borderRadius: PR_RADIUS,
         border: `1px solid ${PR_RULE}`,
-        background: tokens.color.contextSurface,
+        background: panel.surfaceSubtle,
         minWidth: 0
       }}
     >
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: PR_ROUND, background: PR_ACCENT, flexShrink: 0 }} />
-      <span style={{ ...prRowTextStyle, color: tokens.color.subInk, minWidth: 0 }}>
+      <span style={{ ...prRowTextStyle, color: panel.ink2, minWidth: 0 }}>
         只分析這個 campaign 已 Collect 的 Threads 主帖
       </span>
-      <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, whiteSpace: "nowrap" }}>
+      <span style={{ ...prMonoMetaStyle, color: panel.ink3, whiteSpace: "nowrap" }}>
         {collectedCount} 篇
       </span>
       <SecondaryButton
         onClick={onOpenSettings}
-        style={{ ...compactButtonStyle, marginLeft: "auto", whiteSpace: "nowrap" }}
+        style={{ ...compactButtonStyle, marginLeft: `auto`, whiteSpace: "nowrap" }}
         dataAttrs={{ "data-pr-open-settings": "header" }}
       >
         活動設定
@@ -1670,38 +1672,38 @@ function NarrativeEvidenceList({
     <section
       data-pr-narrative-evidence-list={marker}
       {...(marker === "counterexamples" ? { "data-pr-narrative-counterexamples": "true" } : {})}
-      style={{ display: "grid", gap: 8 }}
+      style={{ display: "grid", gap: panel.space.sm }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: panel.space.sm }}>
         <Kicker tone={marker === "counterexamples" ? "accent" : "default"}>{title}</Kicker>
-        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>{rows.length} 篇</span>
+        <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>{rows.length} 篇</span>
       </div>
       <div style={{ display: "grid", borderTop: `1px solid ${PR_RULE}` }}>
         {rows.map((entry) => (
           <article
             key={`${marker}-${entry.rowId}`}
-            style={{ display: "grid", gap: 6, padding: "11px 0", borderBottom: `1px solid ${PR_RULE}` }}
+            style={{ display: "grid", gap: (panel.space.xs + panel.space.xxs), padding: `${panel.space.md}px 0`, borderBottom: `1px solid ${PR_RULE}` }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: panel.space.sm, minWidth: 0 }}>
               <span style={{ ...prMonoMetaStyle, color: PR_ACCENT, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 @{entry.row.authorLabel.replace(/^@/, "")}
               </span>
-              <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, marginLeft: "auto", whiteSpace: "nowrap" }}>
+              <span style={{ ...prMonoMetaStyle, color: panel.ink3, marginLeft: `auto`, whiteSpace: "nowrap" }}>
                 {entry.row.collectedAtLabel}
               </span>
             </div>
-            <span style={{ ...prRowTextStyle, color: tokens.color.ink }}>{entry.summary}</span>
-            <span style={{ ...textStyles.caption, color: tokens.color.softInk }}>{entry.row.captionLabel}</span>
+            <span style={{ ...prRowTextStyle, color: panel.ink }}>{entry.summary}</span>
+            <span style={{ ...panel.type.micro, color: panel.ink3 }}>{entry.row.captionLabel}</span>
             {entry.row.sourceUrl ? (
               <a
                 href={entry.row.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Threads 原帖 · ${entry.row.authorLabel}`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, width: "fit-content", color: PR_ACCENT, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
+                style={{ display: "inline-flex", alignItems: "center", gap: panel.space.xs, width: "fit-content", color: PR_ACCENT, fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: 600, textDecoration: "none" }}
               >
                 Threads 原帖
-                <ExternalLink size={12} strokeWidth={2} aria-hidden="true" />
+                <ExternalLink size={panel.size.icon} strokeWidth={panel.iconStrokeWidth} aria-hidden="true" />
               </a>
             ) : null}
           </article>
@@ -1751,17 +1753,17 @@ function NarrativeDrawer({
         width: "min(430px, calc(100vw - 32px))",
         display: "grid",
         gridTemplateRows: "auto minmax(0, 1fr)",
-        borderRadius: tokens.radius.cardLg,
-        border: `1px solid ${tokens.color.lineStrong}`,
-        background: tokens.color.shellSurface,
-        boxShadow: tokens.shadow.topicDrawer,
+        borderRadius: panel.radius.md,
+        border: `1px solid ${panel.borderStrong}`,
+        background: panel.surface,
+        boxShadow: panel.shadow.popover,
         overflow: "hidden"
       }}
     >
-      <header style={{ display: "grid", gap: 7, padding: "16px 18px", borderBottom: `1px solid ${PR_RULE}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <header style={{ display: "grid", gap: panel.space.sm, padding: `${panel.space.lg}px ${(panel.space.lg + panel.space.xxs)}px`, borderBottom: `1px solid ${PR_RULE}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: (panel.space.sm + panel.space.xxs) }}>
           <Kicker tone="accent">現象 claim</Kicker>
-          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk, marginLeft: "auto" }}>{detail.limitationLabel}</span>
+          <span style={{ ...prMonoMetaStyle, color: panel.ink3, marginLeft: `auto` }}>{detail.limitationLabel}</span>
           <SecondaryButton
             onClick={() => onCommand(detail.closeCommand)}
             style={compactButtonStyle}
@@ -1770,12 +1772,12 @@ function NarrativeDrawer({
             關閉
           </SecondaryButton>
         </div>
-        <h2 style={{ margin: 0, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 21, lineHeight: 1.3, color: tokens.color.ink }}>
+        <h2 style={{ margin: 0, fontFamily: tokens.font.sans, fontSize: panel.type.title.fontSize, fontWeight: panel.type.title.fontWeight, lineHeight: panel.type.title.lineHeight, color: panel.ink }}>
           {detail.claim.title}
         </h2>
-        <p style={{ ...prRowTextStyle, margin: 0, color: tokens.color.subInk }}>{detail.claim.statement}</p>
+        <p style={{ ...prRowTextStyle, margin: 0, color: panel.ink2 }}>{detail.claim.statement}</p>
       </header>
-      <div style={{ display: "grid", gap: tokens.spacing.lg, padding: "16px 18px 24px", overflowY: "auto", alignContent: "start" }}>
+      <div style={{ display: "grid", gap: panel.space.xl, padding: `${panel.space.lg}px ${(panel.space.lg + panel.space.xxs)}px ${panel.space.xxl}px`, overflowY: "auto", alignContent: "start" }}>
         <NarrativeEvidenceList title="支持證據" rows={detail.support} marker="support" />
         {detail.counterexamples.length ? (
           <NarrativeEvidenceList title="反例／限制" rows={detail.counterexamples} marker="counterexamples" />
@@ -1820,33 +1822,33 @@ function NarrativeCompass({
 }) {
   if (claims.length < 2) return null;
   return (
-    <details data-pr-narrative-compass="true" style={{ borderTop: `1px solid ${PR_RULE}`, paddingTop: 12, borderRadius: PR_RADIUS }}>
+    <details data-pr-narrative-compass="true" style={{ borderTop: `1px solid ${PR_RULE}`, paddingTop: panel.space.md, borderRadius: PR_RADIUS }}>
       <summary
         data-dlens-presence="row"
         className="dlens-tactile-row"
-        style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, color: tokens.color.ink, fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 15, fontWeight: 700 }}
+        style={{ listStyle: "none", cursor: "pointer", display: "flex", alignItems: "baseline", gap: panel.space.sm, color: panel.ink, fontFamily: tokens.font.sans, fontSize: panel.type.heading.fontSize, lineHeight: panel.type.heading.lineHeight, fontWeight: 600 }}
       >
-        <span style={{ fontSize: 11, color: tokens.color.softInk }}>▸</span>
+        <span style={{ fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight, fontWeight: panel.type.micro.fontWeight, color: panel.ink3 }}>▸</span>
         敘事羅盤
-        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: tokens.color.softInk }}>挑戰 ↔ 呼應 · 態度 ↕ 行動</span>
+        <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: panel.ink3 }}>挑戰 ↔ 呼應 · 態度 ↕ 行動</span>
       </summary>
-      <div style={{ paddingTop: 12 }}>
+      <div style={{ paddingTop: panel.space.md }}>
         <div
           style={{
             position: "relative",
             height: 210,
             borderRadius: PR_RADIUS,
             border: `1px solid ${PR_RULE}`,
-            background: tokens.color.contextSurface,
+            background: panel.surfaceSubtle,
             overflow: "hidden"
           }}
         >
           <span aria-hidden style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: PR_RULE }} />
           <span aria-hidden style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 1, background: PR_RULE }} />
-          <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>挑戰</span>
-          <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>呼應</span>
-          <span style={{ position: "absolute", left: "50%", top: 7, transform: "translateX(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>行動</span>
-          <span style={{ position: "absolute", left: "50%", bottom: 7, transform: "translateX(-50%)", ...textStyles.caption, color: tokens.color.softInk }}>態度</span>
+          <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", ...panel.type.micro, color: panel.ink3 }}>挑戰</span>
+          <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", ...panel.type.micro, color: panel.ink3 }}>呼應</span>
+          <span style={{ position: "absolute", left: "50%", top: 7, transform: "translateX(-50%)", ...panel.type.micro, color: panel.ink3 }}>行動</span>
+          <span style={{ position: "absolute", left: "50%", bottom: 7, transform: "translateX(-50%)", ...panel.type.micro, color: panel.ink3 }}>態度</span>
           {claims.map((claim, index) => (
             <button
               key={claim.id}
@@ -1863,13 +1865,13 @@ function NarrativeCompass({
                 width: claim.priority ? 32 : 26,
                 height: claim.priority ? 32 : 26,
                 borderRadius: PR_ROUND,
-                border: `2px solid ${claim.priority ? PR_ACCENT : tokens.color.surface}`,
-                background: claim.priority ? tokens.color.failedSoft : tokens.color.successSoft,
+                border: `2px solid ${claim.priority ? PR_ACCENT : panel.surface}`,
+                background: claim.priority ? panel.accentSoft : panel.successSoft,
                 color: claim.priority ? PR_ACCENT : PR_MOSS,
-                boxShadow: tokens.shadow.card,
-                fontFamily: tokens.font.mono,
-                fontSize: 10,
-                fontWeight: 800,
+                boxShadow: panel.shadow.card,
+                fontFamily: tokens.font.sans,
+                fontSize: panel.type.micro.fontSize, lineHeight: panel.type.micro.lineHeight,
+                fontWeight: 600,
                 cursor: "pointer"
               }}
             >
@@ -1915,17 +1917,17 @@ function NarrativeStateMessage({
       data-pr-narrative-state={status}
       style={{
         display: "grid",
-        gap: 4,
-        padding: "11px 13px",
+        gap: panel.space.xs,
+        padding: `${panel.space.md}px ${panel.space.md}px`,
         borderRadius: PR_RADIUS,
-        border: `1px solid ${warning ? tokens.color.queuedBorder : status === "error" ? tokens.color.failedBorder : PR_RULE}`,
-        background: warning ? tokens.color.queuedWash : status === "error" ? tokens.color.failedWash : tokens.color.neutralSurfaceSoft
+        border: `1px solid ${warning ? panel.warning : status === "error" ? panel.danger : PR_RULE}`,
+        background: warning ? panel.warningSoft : status === "error" ? panel.dangerSoft : panel.surfaceSubtle
       }}
     >
-      <strong style={{ ...textStyles.bodyTight, color: status === "error" ? tokens.color.failed : tokens.color.ink }}>{copy.title}</strong>
-      <span style={{ ...textStyles.caption, color: tokens.color.subInk, lineHeight: 1.55 }}>{copy.body}</span>
+      <strong style={{ ...panel.type.bodySm, color: status === "error" ? panel.danger : panel.ink }}>{copy.title}</strong>
+      <span style={{ ...panel.type.micro, color: panel.ink2, lineHeight: panel.type.micro.lineHeight }}>{copy.body}</span>
       {error ? (
-        <span style={{ ...prMonoMetaStyle, color: tokens.color.failed }}>
+        <span style={{ ...prMonoMetaStyle, color: panel.danger }}>
           {status === "error" ? error : `上次重新判讀失敗：${error}`}
         </span>
       ) : null}
@@ -1956,41 +1958,41 @@ function NarrativeClaimCard({
         display: "grid",
         gap: priority ? 9 : 6,
         padding: priority ? "16px 18px" : "12px 14px",
-        borderRadius: priority ? tokens.radius.cardLg : PR_RADIUS,
-        border: `1px solid ${priority ? tokens.color.failedBorder : PR_RULE}`,
-        background: priority ? `linear-gradient(180deg, ${tokens.color.surface}, ${tokens.color.failedWash})` : tokens.color.surface,
-        boxShadow: priority ? tokens.shadow.card : "none",
-        color: tokens.color.ink,
+        borderRadius: priority ? panel.radius.md : PR_RADIUS,
+        border: `1px solid ${priority ? panel.accent : PR_RULE}`,
+        background: priority ? panel.accentSoft : panel.surface,
+        boxShadow: priority ? panel.shadow.card : "none",
+        color: panel.ink,
         textAlign: "left",
         cursor: "pointer",
-        transition: tokens.motion.interactiveTransition
+        transition: `transform ${panel.motion.base} ${panel.motion.standard}, opacity ${panel.motion.base} ${panel.motion.standard}`
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: panel.space.sm, minWidth: 0 }}>
         {priority ? <Kicker tone="accent">優先判斷</Kicker> : null}
-        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: priority ? 17 : 14, fontWeight: 700, minWidth: 0 }}>
+        <span style={{ fontFamily: tokens.font.sans, fontSize: priority ? panel.type.title.fontSize : panel.type.cardTitle.fontSize, fontWeight: 600, minWidth: 0 }}>
           {claim.title}
         </span>
-        <span style={{ ...prMonoMetaStyle, marginLeft: "auto", color: claim.supportCount ? PR_MOSS : tokens.color.softInk, whiteSpace: "nowrap" }}>
+        <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, color: claim.supportCount ? PR_MOSS : panel.ink3, whiteSpace: "nowrap" }}>
           {claim.supportCount}/{claim.denominator} 支持
         </span>
       </div>
       {priority ? (
-        <strong style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 22, lineHeight: 1.38, fontWeight: 600, color: PR_ACCENT }}>
+        <strong style={{ fontFamily: tokens.font.sans, fontSize: panel.type.title.fontSize, lineHeight: panel.type.title.lineHeight, fontWeight: 600, color: PR_ACCENT }}>
           {claim.implication}
         </strong>
       ) : null}
-      <span style={{ ...prRowTextStyle, color: tokens.color.subInk }}>{claim.statement}</span>
-      <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+      <span style={{ ...prRowTextStyle, color: panel.ink2 }}>{claim.statement}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: panel.space.sm, flexWrap: "wrap" }}>
+        <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
           {NARRATIVE_ALIGNMENT_LABEL[claim.alignment]} · {NARRATIVE_MODE_LABEL[claim.mode]}
         </span>
         {claim.counterCount ? (
-          <span style={{ ...prMonoMetaStyle, color: PR_ACCENT, background: tokens.color.failedSoft, padding: "2px 7px", borderRadius: tokens.radius.pill }}>
+          <span style={{ ...prMonoMetaStyle, color: PR_ACCENT, background: panel.accentSoft, padding: `${panel.space.xxs}px ${panel.space.sm}px`, borderRadius: panel.radius.pill }}>
             {claim.counterCount} 個反例
           </span>
         ) : null}
-        <span style={{ ...textStyles.caption, marginLeft: "auto", color: PR_ACCENT, fontWeight: 700 }}>查看原帖 →</span>
+        <span style={{ ...panel.type.micro, marginLeft: `auto`, color: PR_ACCENT, fontWeight: 600 }}>查看原帖 →</span>
       </span>
     </button>
   );
@@ -2008,11 +2010,11 @@ function PrNarrativeLens({
   const canGenerate = Boolean(narrative.generateCommand && viewModel.rows.length > 0 && !narrative.isGenerating);
   const showsRead = Boolean(narrative.priorityClaim && (narrative.status === "ready" || narrative.status === "stale"));
   return (
-    <section data-pr-narrative-lens="true" style={{ display: "grid", gap: tokens.spacing.md, minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 2 }}>
+    <section data-pr-narrative-lens="true" style={{ display: "grid", gap: panel.space.md, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: (panel.space.sm + panel.space.xxs), flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gap: panel.space.xxs }}>
           <Kicker>敘事判讀</Kicker>
-          <span style={{ ...prMonoMetaStyle, color: tokens.color.softInk }}>
+          <span style={{ ...prMonoMetaStyle, color: panel.ink3 }}>
             {narrative.coverageLabel}{narrative.snippetFallbackCount ? ` · ${narrative.snippetFallbackCount} 篇使用採集摘要` : ""}
           </span>
         </div>
@@ -2020,7 +2022,7 @@ function PrNarrativeLens({
           onClick={() => narrative.generateCommand ? onCommand(narrative.generateCommand) : undefined}
           ariaBusy={narrative.isGenerating}
           disabled={!canGenerate}
-          style={{ ...compactButtonStyle, marginLeft: "auto" }}
+          style={{ ...compactButtonStyle, marginLeft: `auto` }}
           dataAttrs={{ "data-pr-narrative-generate": "true" }}
         >
           <AttentionBeam
@@ -2034,7 +2036,7 @@ function PrNarrativeLens({
 
       {narrative.status !== "ready" ? <NarrativeStateMessage status={narrative.status} error={narrative.error} /> : null}
       {narrative.status === "ready" && narrative.error ? (
-        <div data-pr-narrative-last-error="true" style={{ ...textStyles.caption, color: tokens.color.failed, padding: "8px 10px", borderRadius: PR_RADIUS, background: tokens.color.failedWash }}>
+        <div data-pr-narrative-last-error="true" style={{ ...panel.type.micro, color: panel.danger, padding: `${panel.space.sm}px ${(panel.space.sm + panel.space.xxs)}px`, borderRadius: PR_RADIUS, background: panel.dangerSoft }}>
           上次重新判讀失敗：{narrative.error}
         </div>
       ) : null}
@@ -2044,7 +2046,7 @@ function PrNarrativeLens({
       ) : null}
 
       {showsRead && otherClaims.length ? (
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gap: panel.space.sm }}>
           <Kicker>其餘現象</Kicker>
           {otherClaims.map((claim) => <NarrativeClaimCard key={claim.id} claim={claim} priority={false} onCommand={onCommand} />)}
         </div>
@@ -2075,10 +2077,12 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
   return (
     <div
       style={viewRootStyle({
-        gap: tokens.spacing.md,
+        gap: panel.space.md,
+        fontFamily: tokens.font.sans,
+        fontVariantNumeric: "tabular-nums",
         boxSizing: "border-box",
         maxWidth: "100%",
-        paddingRight: tokens.spacing.sm
+        paddingRight: panel.space.sm
       })}
       data-pr-evidence-view="true"
       data-pr-editorial-v1="true"
@@ -2095,12 +2099,12 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
         tone="utility"
         style={{
           display: "grid",
-          gap: tokens.spacing.md,
+          gap: panel.space.md,
           minWidth: 0,
           maxWidth: "100%",
           overflow: "hidden",
-          borderRadius: tokens.radius.cardLg,
-          boxShadow: tokens.shadow.topicCard
+          borderRadius: panel.radius.md,
+          boxShadow: panel.shadow.card
         }}
       >
         <PrScopeBar
@@ -2133,7 +2137,7 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: tokens.spacing.sm,
+                gap: panel.space.sm,
                 borderBottom: `1px solid ${PR_RULE}`,
                 minWidth: 0,
                 flexWrap: "wrap"
@@ -2149,7 +2153,7 @@ function PrEvidenceViewInner({ viewModel, onCommand }: PrEvidenceViewProps) {
                 ariaLabel="PR 分析視角"
                 dataAttr={(lens) => ({ "data-pr-lens-tab": lens })}
               />
-              <span style={{ ...prMonoMetaStyle, marginLeft: "auto", paddingRight: 4, color: tokens.color.softInk }}>
+              <span style={{ ...prMonoMetaStyle, marginLeft: `auto`, paddingRight: panel.space.xs, color: panel.ink3 }}>
                 同一批 {viewModel.rows.length} 篇 · 兩種讀法
               </span>
             </div>
@@ -2208,18 +2212,18 @@ function SummaryGenerateCard({ onGenerate, loading, disabled = false }: { onGene
       style={{
         display: "flex",
         justifyContent: "space-between",
-        gap: tokens.spacing.md,
+        gap: panel.space.md,
         alignItems: "center",
         flexWrap: "wrap",
-        padding: "12px 14px",
-        background: tokens.color.surface
+        padding: `${panel.space.md}px ${(panel.space.md + panel.space.xxs)}px`,
+        background: panel.surface
       }}
     >
-      <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
-        <span style={{ fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontSize: 14, fontWeight: 700, color: tokens.color.ink }}>
+      <div style={{ display: "grid", gap: panel.space.xs, minWidth: 0 }}>
+        <span style={{ fontFamily: tokens.font.sans, fontSize: panel.type.body.fontSize, lineHeight: panel.type.body.lineHeight, fontWeight: 600, color: panel.ink }}>
           PR 摘要
         </span>
-        <span style={{ ...textStyles.caption, color: tokens.color.softInk, fontWeight: 500, lineHeight: 1.5 }}>
+        <span style={{ ...panel.type.micro, color: panel.ink3, fontWeight: 500, lineHeight: panel.type.micro.lineHeight }}>
           生成摘要：把已判斷 evidence 轉成可貼進 PR brief 的段落。
         </span>
       </div>

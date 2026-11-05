@@ -43,14 +43,13 @@ function button(host: HTMLElement, label: string): HTMLButtonElement {
 
 async function fillForm(host: HTMLElement, dom: JSDOM, name: string, mode: FolderMode) {
   const input = host.querySelector<HTMLInputElement>('input[name="workspace-name"]');
-  const select = host.querySelector<HTMLSelectElement>('select[name="workspace-type"]');
+  const radio = host.querySelector<HTMLInputElement>(`input[name="workspace-type"][value="${mode}"]`);
   assert.ok(input);
-  assert.ok(select);
+  assert.ok(radio);
   await act(async () => {
     input.value = name;
     input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-    select.value = mode;
-    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    radio.click();
   });
 }
 
@@ -58,7 +57,7 @@ test("workspace home keeps every same-mode folder and legacy archive reachable",
   const sessions = [session("one", "Topic workspace", "topic"), session("two", "另一項研究", "topic"), session("archive", "Archive", "archive")];
   const opened: string[] = [];
   await withView({ sessions, activeSessionId: "one", onOpen: (id) => { opened.push(id); }, onCreate: async () => undefined }, async (host) => {
-    assert.match(host.textContent ?? "", /議題探索/);
+    assert.match(host.textContent ?? "", /觀眾反應/);
     assert.match(host.textContent ?? "", /收藏整理/);
     assert.equal(host.querySelectorAll("h1,h2").length, 0);
     for (const id of ["two", "one", "archive"]) {
@@ -77,9 +76,10 @@ test("new workspace sends explicit trimmed name and chosen type once while pendi
   await withView({ sessions: [], activeSessionId: null, onOpen: () => undefined, onCreate: async (name, mode) => { calls.push([name, mode]); await completion; } }, async (host, dom) => {
     assert.equal(host.querySelector("form"), null);
     await act(async () => button(host, "＋ 新工作區").click());
-    const select = host.querySelector<HTMLSelectElement>("select")!;
-    assert.equal(select.value, "topic");
-    assert.deepEqual(Array.from(select.options).map((option) => [option.value, option.textContent]), [["topic", "議題探索"], ["product", "個人應用"], ["pr-evidence", "訊息核對"]]);
+    const radios = Array.from(host.querySelectorAll<HTMLInputElement>('input[name="workspace-type"]'));
+    assert.equal(radios.find((radio) => radio.checked)?.value, "topic");
+    assert.deepEqual(radios.map((radio) => [radio.value, radio.closest("label")?.textContent]), [["topic", "觀眾反應"], ["product", "個人應用"], ["pr-evidence", "活動追蹤"]]);
+    assert.equal(host.querySelector("select"), null, "the segmented purpose control uses real radios");
     assert.equal(button(host, "建立").disabled, true);
     await fillForm(host, dom, "  我的應用  ", "product");
     const form = host.querySelector("form")!;
@@ -109,7 +109,7 @@ test("creation failures preserve user input, display safe feedback and allow ret
       assert.match(host.querySelector('[role="alert"]')?.textContent ?? "", /未能建立工作區/);
       assert.doesNotMatch(host.textContent ?? "", /private/);
       assert.equal(host.querySelector<HTMLInputElement>("input")?.value, "訊息研究");
-      assert.equal(host.querySelector<HTMLSelectElement>("select")?.value, "pr-evidence");
+      assert.equal(host.querySelector<HTMLInputElement>('input[name="workspace-type"]:checked')?.value, "pr-evidence");
       assert.equal(button(host, "建立").disabled, false);
     }
     await act(async () => button(host, "建立").click());
@@ -120,7 +120,8 @@ test("creation failures preserve user input, display safe feedback and allow ret
 
 test("busy state blocks navigation and submission; an empty home invents no workspaces", async () => {
   const html = renderToStaticMarkup(<WorkspaceHomeView sessions={[]} activeSessionId={null} onOpen={() => undefined} onCreate={async () => undefined} />);
-  assert.match(html, /還沒有工作區/);
+  assert.match(html, /未有工作區/);
+  assert.match(html, /建立第一個工作區/);
   assert.doesNotMatch(html, /data-workspace-session/);
   let calls = 0;
   const props: Props = { sessions: [session("one", "研究", "topic")], activeSessionId: "one", onOpen: () => { calls += 1; }, onCreate: async () => { calls += 1; } };
@@ -207,7 +208,8 @@ test("PR-only creation keeps its allowed purpose after reopening the form", asyn
   }, async (host, dom) => {
     for (let index = 0; index < 2; index += 1) {
       await act(async () => button(host, "＋ 新工作區").click());
-      assert.deepEqual(Array.from(host.querySelector<HTMLSelectElement>("select")!.options).map((option) => option.value), ["pr-evidence"]);
+      assert.deepEqual(Array.from(host.querySelectorAll<HTMLInputElement>('input[name="workspace-type"]')).map((radio) => radio.value), ["pr-evidence"]);
+      assert.equal(host.querySelector<HTMLInputElement>('input[name="workspace-type"]:checked')?.value, "pr-evidence");
       const input = host.querySelector<HTMLInputElement>('input[name="workspace-name"]')!;
       await act(async () => { input.value = "訊息核對"; input.dispatchEvent(new dom.window.Event("input", { bubbles: true })); });
       await act(async () => button(host, "建立").click());
@@ -224,9 +226,9 @@ test("workspace B cards expose purpose, count, last save and at most four stacke
   workspace.items = Array.from({ length: 5 }, (_, i) => item(String(i), { savedAt: new Date(nowMs - (i + 1) * 3600000).toISOString(), descriptor: descriptor({ post_url: `https://threads.com/@author/post/${i}`, image_url: i % 2 ? null : `https://images.test/${i}.jpg` }) }));
   const html = renderToStaticMarkup(<WorkspaceHomeView sessions={[workspace]} nowMs={nowMs} activeSessionId="one" onOpen={() => undefined} onCreate={async () => undefined} />);
   const doc = new JSDOM(html).window.document;
-  assert.match(doc.body.textContent ?? "", /1 個工作區/);
+  assert.match(doc.body.textContent ?? "", /工作區/);
   assert.match(doc.body.textContent ?? "", /睇大家點講、有咩分歧/);
-  assert.match(doc.body.textContent ?? "", /5 篇 · 最近收藏 1h 前/);
+  assert.match(doc.body.textContent ?? "", /5 篇 · 最近收藏 1 小時前/);
   assert.equal(doc.querySelectorAll("[data-workspace-preview]").length, 4);
   assert.equal(doc.querySelectorAll("[data-workspace-preview] img").length, 2);
   const tiles = [...doc.querySelectorAll("[data-workspace-preview]")].filter(preview => !preview.querySelector("img"));
@@ -248,7 +250,20 @@ test("the whole workspace card opens it once, while its menu keeps its own click
   });
 });
 
-test("workspace cards render the wheel's icon for each mode", () => {
+test("workspace cards keep each mode identity as a compact dot", () => {
   const html = renderToStaticMarkup(<WorkspaceHomeView sessions={(["topic", "product", "pr-evidence", "archive"] as const).map(mode => ({ id: mode, name: mode, mode, createdAt: "", updatedAt: "", items: [] }))} activeSessionId={null} onOpen={() => {}} onCreate={() => {}} />);
-  for (const name of ["compass", "box", "shield", "archive"]) assert.match(html, new RegExp(`lucide-${name}`));
+  const doc = new JSDOM(html).window.document;
+  for (const mode of ["topic", "product", "pr-evidence", "archive"]) {
+    assert.equal(doc.querySelector<HTMLElement>(`[data-workspace-mode-icon="${mode}"]`)?.style.width, "6px");
+  }
+  assert.doesNotMatch(html, /lucide-compass|lucide-box|lucide-shield|lucide-archive/);
+});
+
+test("workspace cards report queued and running items as reading while keeping active navigation", async () => {
+  const { item, descriptor } = await import("./collection-browser.fixtures.ts");
+  const workspace = session("one", "我的話題", "topic");
+  workspace.items = (["queued", "running", "succeeded"] as const).map((status) => item(status, { status, descriptor: descriptor({ post_url: `https://threads.com/@fixture/post/${status}` }) }));
+  const html = renderToStaticMarkup(<WorkspaceHomeView sessions={[workspace]} activeSessionId="one" onOpen={() => undefined} onCreate={async () => undefined} />);
+  assert.match(html, /3 篇 · 2 讀緊/);
+  assert.match(html, /data-workspace-session="one" aria-current="true"/);
 });

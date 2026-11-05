@@ -439,6 +439,7 @@ function OpenInPageCollectorPopup({
             busy={navigationBusy}
             backendReachability={app.backendReachability}
             backendWorkUiState={app.backendWorkUiState}
+            ingestBaseUrl={snapshot?.global.settings.ingestBaseUrl}
             onTabChange={selectPrimaryTab}
             onSettings={() => {
               if (navigationPending.current) return;
@@ -447,7 +448,7 @@ function OpenInPageCollectorPopup({
             }}
             inView={inView}
             onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
-            diagnostics={<StatusRail scopeLabel="資料夾" backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
+            diagnostics={<StatusRail scopeLabel="資料夾" ingestBaseUrl={snapshot?.global.settings.ingestBaseUrl} backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
             {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
             {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
@@ -463,7 +464,7 @@ function OpenInPageCollectorPopup({
               <WorkspaceHomeView nowMs={nowMs} sessions={IS_PR_ONLY_BUILD ? (snapshot?.global.sessions ?? []).filter((session) => session.mode === "pr-evidence") : snapshot?.global.sessions ?? []} activeSessionId={activeFolder?.id ?? null}
                 onOpen={openWorkspace} onCreate={createWorkspace} onRename={(id, name) => manageWorkspace(id, "rename", name)} onDelete={(id) => manageWorkspace(id, "delete")} externalError={navigationError} busy={navigationBusy} allowedCreationModes={IS_PR_ONLY_BUILD ? ["pr-evidence"] : undefined} />
             ) : null}
-            {domainPage && !readingNavigation.settingsOpen && !discourseViewModel?.topic ? <button type="button" onClick={() => setReadingNavigation(current => ({ ...current, workspaceOpen: false }))} style={{ border: 0, background: "transparent", color: tokens.color.subInk, cursor: "pointer", padding: tokens.spacing.sm }}>← 工作區</button> : null}
+            {domainPage && !readingNavigation.settingsOpen && !discourseViewModel?.topic ? <button type="button" onClick={() => setReadingNavigation(current => ({ ...current, workspaceOpen: false }))} style={{ ...tokens.panel.type.meta, fontFamily: tokens.font.sans, border: 0, background: "transparent", color: tokens.panel.accent, cursor: "pointer", minHeight: tokens.panel.size.thumb, padding: `0 ${tokens.panel.space.sm}px` }}>← 工作區</button> : null}
           {domainPage === "topics" ? (
             <WorkspaceSurface style={{ padding: 0, background: "transparent", boxShadow: "none", border: "none", overflow: "visible" }}>
               {discourseViewModel ? <TopicDiscourseView viewModel={discourseViewModel} onCommand={onDiscourseCommand} readingModel={topicReadingModel} uiState={discourseUi[discourseUiKey] ?? EMPTY_DISCOURSE_UI} onUiStateChange={next=>setDiscourseUi(current=>({...current,[discourseUiKey]:next}))} /> : null}
@@ -493,6 +494,9 @@ function OpenInPageCollectorPopup({
           {domainPage === "settings" ? (
             <WorkspaceSurface style={SETTINGS_WORKSPACE_SURFACE_STYLE}>
               <SettingsView
+                onBack={()=>void selectPrimaryTab(readingNavigation.tab)}
+                backendReachability={app.backendReachability}
+                ingestBaseUrl={snapshot?.global.settings.ingestBaseUrl}
                 sessionMode={IS_PR_ONLY_BUILD ? "pr-evidence" : activeFolder?.mode ?? "topic"}
                 draftBaseUrl={app.draftBaseUrl}
                 draftIngestApiToken={app.draftIngestApiToken}

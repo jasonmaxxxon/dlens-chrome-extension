@@ -1,15 +1,14 @@
 import { DEEP_READING_MODELS } from "../compare/deep-reading";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
+import type { BackendReachability } from "../state/processing-state";
+import { ConnectionHealth } from "./ConnectionHealth";
 import type { IngestPermissionDecision } from "../ingest/host-permission";
 import type { ExtensionSettings, FolderMode, LayoutPreferences, ProductContext, ProductProfile, ProductProfileContextFile } from "../state/types";
 import {
-  ModeHeader,
   PrimaryButton,
   SecondaryButton,
-  SectionHeader,
-  Stamp,
-  viewRootStyle
+  Stamp
 } from "./components";
 import { useUiText } from "./i18n";
 import { tokens } from "./tokens";
@@ -17,6 +16,9 @@ import { tokens } from "./tokens";
 
 interface SettingsViewProps {
   sessionMode: FolderMode;
+  backendReachability?: BackendReachability;
+  ingestBaseUrl?: string | null;
+  onBack?: () => void;
   draftBaseUrl: string;
   draftIngestApiToken?: string;
   hasIngestApiToken?: boolean;
@@ -63,14 +65,14 @@ interface SettingsViewProps {
 }
 
 const inputStyle = {
-  borderRadius: tokens.radius.lg,
-  border: `1px solid ${tokens.color.line}`,
-  padding: "10px 12px",
-  background: tokens.color.surface,
-  color: tokens.color.ink,
-  fontSize: 12,
-  outline: "none",
-  transition: tokens.motion.interactiveTransitionFast,
+  borderRadius: tokens.panel.radius.sm,
+  border: `1px solid ${tokens.panel.border}`,
+  minHeight: tokens.panel.size.input,
+  padding: `0 ${tokens.panel.space.md}px`,
+  background: tokens.panel.surface,
+  color: tokens.panel.ink,
+  ...tokens.panel.type.bodySm,
+  transition: `opacity ${tokens.panel.motion.fast} ${tokens.panel.motion.standard}`,
   width: "100%",
   boxSizing: "border-box",
   minWidth: 0,
@@ -85,8 +87,9 @@ const MB = 1024 * 1024;
 
 const settingsDrawerStyle: CSSProperties = {
   display: "grid",
-  gap: tokens.spacing.md,
-  overflow: "visible"
+  gap: tokens.panel.space.md,
+  overflow: "visible",
+  minWidth: 0
 };
 
 // Flows at the end of the form (not sticky) so the preceding card's bottom
@@ -135,15 +138,18 @@ function SettingsGroup({
       data-dlens-presence="card"
       style={{
         display: "grid",
-        gap: 12,
-        padding: "14px 16px",
-        borderRadius: tokens.radius.cardLg,
-        border: `1px solid ${tokens.color.cardEdge}`,
-        background: tokens.color.elevated,
-        boxShadow: tokens.shadow.topicCard
+        gap: tokens.panel.space.md,
+        padding: tokens.panel.space.md,
+        borderRadius: tokens.panel.radius.md,
+        border: `1px solid ${tokens.panel.border}`,
+        background: tokens.panel.surface,
+        boxShadow: tokens.panel.shadow.card
       }}
     >
-      <SectionHeader title={title} caption={caption} style={{ marginBottom: 0 }} />
+      <div data-section-header="shared" style={{ display: "grid", gap: tokens.panel.space.xs, minWidth: 0 }}>
+        <span style={{ ...tokens.panel.type.heading, color: tokens.panel.ink }}>{title}</span>
+        {caption ? <span style={{ ...tokens.panel.type.bodySm, color: tokens.panel.ink3 }}>{caption}</span> : null}
+      </div>
       {children}
     </div>
   );
@@ -172,20 +178,20 @@ function ProductContextSourceCard({
         alignItems: "center",
         gap: 8,
         padding: "10px 11px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${loaded ? tokens.color.successBorder : tokens.color.cardEdge}`,
-        background: loaded ? tokens.color.successSoft : tokens.color.surface
+        borderRadius: tokens.panel.radius.md,
+        border: `1px solid ${loaded ? tokens.panel.success : tokens.panel.border}`,
+        background: loaded ? tokens.panel.successSoft : tokens.panel.surface
       }}
     >
       <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: loaded ? tokens.color.success : tokens.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ ...tokens.panel.type.bodySm, fontWeight: 600, color: loaded ? tokens.panel.success : tokens.panel.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {title} {loaded ? "已載入" : "尚未載入"}
         </span>
-        <span style={{ fontSize: 10.5, color: loaded ? tokens.color.subInk : tokens.color.softInk, lineHeight: 1.45, fontFamily: loaded ? tokens.font.mono : tokens.font.sans }}>
+        <span style={{ ...tokens.panel.type.bodySm, color: loaded ? tokens.panel.ink2 : tokens.panel.ink3, lineHeight: tokens.panel.type.bodySm.lineHeight, fontFamily: tokens.font.sans }}>
           {loaded && file ? `${file.kind} · ${formatCompactCount(file.charCount)} chars` : description}
         </span>
       </span>
-      <SecondaryButton onClick={onImport} style={{ padding: "6px 10px", fontSize: 11, flexShrink: 0 }}>
+      <SecondaryButton onClick={onImport} style={{ padding: "6px 10px", ...tokens.panel.type.bodySm, flexShrink: 0 }}>
         匯入 {title}
       </SecondaryButton>
     </div>
@@ -206,6 +212,9 @@ function SavedKeyStatus({ provider, visible }: { provider: "openai" | "claude" |
 
 export function SettingsView({
   sessionMode,
+  backendReachability,
+  ingestBaseUrl,
+  onBack,
   draftBaseUrl,
   draftIngestApiToken = "",
   hasIngestApiToken = false,
@@ -267,13 +276,13 @@ export function SettingsView({
     <div
       data-settings-save-status={settingsSaveStatus.kind}
       style={{
-        fontSize: 11,
-        lineHeight: 1.55,
-        color: settingsSaveStatus.kind === "error" ? tokens.color.failed : tokens.color.success,
+        ...tokens.panel.type.bodySm,
+        lineHeight: tokens.panel.type.bodySm.lineHeight,
+        color: settingsSaveStatus.kind === "error" ? tokens.panel.danger : tokens.panel.success,
         padding: "8px 10px",
-        borderRadius: tokens.radius.card,
-        border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft}`,
-        background: settingsSaveStatus.kind === "error" ? tokens.color.failedSoft : tokens.color.successSoft
+        borderRadius: tokens.panel.radius.md,
+        border: `1px solid ${settingsSaveStatus.kind === "error" ? tokens.panel.dangerSoft : tokens.panel.successSoft}`,
+        background: settingsSaveStatus.kind === "error" ? tokens.panel.dangerSoft : tokens.panel.successSoft
       }}
     >
       {settingsSaveStatus.message}
@@ -319,24 +328,22 @@ export function SettingsView({
   }
 
   return (
-    <div style={viewRootStyle()}>
-      <ModeHeader
-        mode="settings"
-        kicker="Runtime settings"
-        title={t("調整連線與模型入口", "Tune connections and model access")}
-        deck={t("AI 金鑰只存在這部電腦。Ingest token 只會送到你設定的後端。", "AI keys stay on this device. The ingest token is sent only to the backend you configure.")}
-      />
+    <div style={{ display: "grid", gap: tokens.panel.space.lg, minWidth: 0, fontFamily: tokens.font.sans, color: tokens.panel.ink, ...tokens.panel.type.bodySm }}>
+      <header data-mode-header="settings" data-mode-intro="topic" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: tokens.panel.space.md, minHeight: tokens.panel.size.header }}>
+        {onBack ? <button type="button" data-settings-back="true" onClick={onBack} style={{ ...tokens.panel.type.bodySm, fontFamily: tokens.font.sans, minHeight: tokens.panel.size.button, padding: 0, border: 0, background: "transparent", color: tokens.panel.accent, cursor: "pointer" }}>‹ 返回</button> : null}
+        <h2 style={{ ...tokens.panel.type.title, margin: 0, marginLeft: "auto" }}>{activeLanguage === "en" ? "Settings" : "設定"}</h2>
+      </header>
 
       <div data-settings-surface="drawer" style={settingsDrawerStyle}>
-          <SettingsGroup name="ai" title="AI" caption="用你自己的 key，只存在這部電腦">
-            <div style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
+          <SettingsGroup name="ai" title="AI" caption={activeLanguage === "en" ? "Use your own key, saved only on this device" : "用你自己嘅 key，只存喺呢部電腦"}>
+            <div style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>
               觀眾反應的「有咩做法 / 有咩分歧」和個人應用，都用這裡選的一家。
             </div>
             <div
               role="radiogroup"
               aria-label="AI provider"
               data-settings-provider-switch="true"
-              style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, padding: 3, borderRadius: tokens.radius.lg, background: tokens.color.contextSurface }}
+              style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: tokens.panel.space.xs, padding: tokens.panel.space.xs, borderRadius: tokens.panel.radius.sm, background: tokens.panel.surfaceSubtle }}
             >
               {providers.map((provider) => {
                 const active = draftProvider === provider.id;
@@ -350,29 +357,33 @@ export function SettingsView({
                     data-active={active ? "true" : "false"}
                     onClick={() => onDraftProviderChange(provider.id)}
                     style={{
-                      display: "grid",
-                      gap: 1,
-                      padding: "7px 0",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: tokens.panel.space.xs,
+                      minHeight: tokens.panel.size.input,
+                      minWidth: 0,
+                      padding: 0,
                       border: 0,
-                      borderRadius: tokens.radius.xs,
-                      background: active ? tokens.color.elevated : "transparent",
-                      boxShadow: active ? tokens.shadow.card : "none",
-                      color: active ? tokens.color.ink : tokens.color.subInk,
+                      borderRadius: tokens.panel.radius.xs,
+                      background: active ? tokens.panel.surface : "transparent",
+                      boxShadow: active ? tokens.panel.shadow.card : "none",
+                      color: active ? tokens.panel.ink : tokens.panel.ink2,
                       fontFamily: tokens.font.sans,
-                      fontSize: 12.5,
-                      fontWeight: active ? 700 : 500,
+                      ...tokens.panel.type.bodySm,
+                      fontWeight: active ? 600 : 500,
                       cursor: "pointer"
                     }}
                   >
                     {provider.name}
-                    <small style={{ fontSize: 10.5, fontWeight: 400, color: tokens.color.softInk }}>{provider.filled ? "已填" : "未填"}</small>
+                    <small style={{ ...tokens.panel.type.micro, color: tokens.panel.ink3 }}>{provider.filled ? "已填" : "未填"}</small>
                   </button>
                 );
               })}
             </div>
             {chosen ? (
               <>
-                <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+                <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     {chosen.name} API key
                     <SavedKeyStatus provider={chosen.id} visible={chosen.saved} />
@@ -397,31 +408,32 @@ export function SettingsView({
                     </PrimaryButton>
                   </span>
                 </label>
-                <label style={{ display: "grid", gap: tokens.spacing.sm, color: tokens.color.subInk }}>
+                <label style={{ ...tokens.panel.type.bodySm, display: "grid", gap: tokens.panel.space.sm, color: tokens.panel.ink2 }}>
                   深入解讀模型
                   <input aria-label={`${chosen.name} 深入解讀模型`} data-settings-deep-model={chosen.id} value={draftDeepReadingModels?.[chosen.id] ?? DEEP_READING_MODELS[chosen.id]} placeholder={DEEP_READING_MODELS[chosen.id]} onChange={event => onDraftDeepReadingModelsChange?.(chosen.id, event.target.value)} style={inputStyle} />
                 </label>
-                <button type="button" onClick={() => onDraftProviderChange("")} style={{ justifySelf: "start", border: 0, background: "none", padding: 0, fontSize: 11, color: tokens.color.softInk, cursor: "pointer" }}>
+                <button type="button" onClick={() => onDraftProviderChange("")} style={{ justifySelf: "start", border: 0, background: "none", minHeight: tokens.panel.size.button, padding: 0, ...tokens.panel.type.bodySm, color: tokens.panel.ink3, cursor: "pointer" }}>
                   不用 AI
                 </button>
               </>
             ) : (
-              <div style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>未選 AI：觀眾反應只顯示不用 AI 的四個入口。選一家並填 key 即可開始。</div>
+              <div style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>未選 AI：觀眾反應只顯示不用 AI 的四個入口。選一家並填 key 即可開始。</div>
             )}
             {aiKeyStatus ? (
               <div
                 data-settings-ai-status={aiKeyStatus.kind}
-                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: aiKeyStatus.kind === "ok" ? tokens.color.success : aiKeyStatus.kind === "error" ? tokens.color.failed : tokens.color.softInk }}
+                style={{ display: "flex", alignItems: "center", gap: tokens.panel.space.sm, padding: tokens.panel.space.sm, borderRadius: tokens.panel.radius.xs, background: aiKeyStatus.kind === "ok" ? tokens.panel.successSoft : aiKeyStatus.kind === "error" ? tokens.panel.dangerSoft : tokens.panel.surfaceSubtle, ...tokens.panel.type.bodySm, color: aiKeyStatus.kind === "ok" ? tokens.panel.success : aiKeyStatus.kind === "error" ? tokens.panel.danger : tokens.panel.ink3 }}
               >
-                <i style={{ width: 7, height: 7, borderRadius: "50%", background: "currentColor" }} />{aiKeyStatus.message}
+                <i aria-hidden="true" style={{ width: tokens.panel.size.statusDot, height: tokens.panel.size.statusDot, flexShrink: 0, borderRadius: tokens.panel.radius.pill, background: "currentColor" }} />{aiKeyStatus.message}
               </div>
             ) : null}
             {saveStatus("ai")}
           </SettingsGroup>
 
-          <SettingsGroup name="connection" title="連線" caption="Connection">
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
-              Ingest base URL
+          <SettingsGroup name="connection" title="連線" caption={activeLanguage === "en" ? "Connection" : ""}>
+            <ConnectionHealth backendReachability={backendReachability} ingestBaseUrl={ingestBaseUrl} />
+            <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
+              後端網址
               <input
                 value={draftBaseUrl}
                 onChange={(event) => onDraftBaseUrlChange(event.target.value)}
@@ -431,9 +443,9 @@ export function SettingsView({
                 style={inputStyle}
               />
             </label>
-            <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+            <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                Ingest API token
+                API token
                 {hasIngestApiToken && !draftIngestApiToken.trim() ? <Stamp tone="success">已設定</Stamp> : null}
               </span>
               <span style={{ display: "flex", gap: 8 }}>
@@ -441,7 +453,7 @@ export function SettingsView({
                   value={draftIngestApiToken}
                   onChange={(event) => onDraftIngestApiTokenChange?.(event.target.value)}
                   type="password"
-                  placeholder={hasIngestApiToken && !draftIngestApiToken.trim() ? "已儲存 token · 輸入以覆寫" : "貼上 ingest API token"}
+                  placeholder={hasIngestApiToken && !draftIngestApiToken.trim() ? "•••••••• · 已設定" : "未設定（本機可留空）"}
                   aria-label="Ingest API token"
                   data-settings-ingest-token="true"
                   autoComplete="off"
@@ -454,29 +466,17 @@ export function SettingsView({
                 ) : null}
               </span>
             </label>
-            <div data-settings-ingest-help="true" style={{ fontSize: 11, lineHeight: 1.55, color: tokens.color.softInk }}>
-              預設 http://127.0.0.1:8000，token 留空就不會送 Authorization。連 lam 的 Tailscale 時，網址改成 http://100.x.y.z:8000，貼上那台機器的 ingest API token 再儲存。儲存會請 Chrome 允許這一個網址；拒絕就不會儲存。Token 只存在這部瀏覽器，有填才會以 Authorization: Bearer 送到該後端。
-            </div>
-
-            <div
-              data-settings-storage-usage="true"
-              style={{
-                fontSize: 11,
-                lineHeight: 1.5,
-                color: tokens.color.softInk,
-                fontVariantNumeric: "tabular-nums"
-              }}
-            >
-              Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
+            <div data-settings-ingest-help="true" style={{ ...tokens.panel.type.micro, color: tokens.panel.ink3 }}>
+              遠端網址儲存時，Chrome 會問一次權限。
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <SecondaryButton onClick={() => saveFrom("connection")} disabled={isSavingSettings}>儲存</SecondaryButton>
+              <SecondaryButton onClick={() => saveFrom("connection")} disabled={isSavingSettings}>儲存連線</SecondaryButton>
             </div>
             {saveStatus("connection")}
           </SettingsGroup>
 
-          <SettingsGroup name="language" title="語言" caption="Language">
+          <SettingsGroup name="language" title="語言" caption={activeLanguage === "en" ? "Language" : ""}>
             <div
               data-settings-language-switch="true"
               role="radiogroup"
@@ -495,16 +495,17 @@ export function SettingsView({
                     data-active={active ? "true" : "false"}
                     onClick={() => onDraftLayoutPreferencesChange({ language: lang })}
                     style={{
-                      padding: "9px 12px",
-                      borderRadius: tokens.radius.lg,
-                      border: `1px solid ${active ? tokens.color.accent : tokens.color.line}`,
-                      background: active ? tokens.color.accent : tokens.color.surface,
-                      color: active ? tokens.color.inverse : tokens.color.subInk,
+                      minHeight: tokens.panel.size.input,
+                      padding: `0 ${tokens.panel.space.md}px`,
+                      borderRadius: tokens.panel.radius.sm,
+                      border: `1px solid ${active ? tokens.panel.accent : tokens.panel.border}`,
+                      background: active ? tokens.panel.accent : tokens.panel.surface,
+                      color: active ? tokens.panel.surface : tokens.panel.ink2,
                       fontFamily: tokens.font.sans,
-                      fontSize: 12.5,
-                      fontWeight: active ? 700 : 500,
+                      ...tokens.panel.type.bodySm,
+                      fontWeight: active ? 600 : 500,
                       cursor: "pointer",
-                      transition: tokens.motion.interactiveTransitionFast
+                      transition: `opacity ${tokens.panel.motion.fast} ${tokens.panel.motion.standard}`
                     }}
                   >
                     {lang === "zh" ? "中文" : "English"}
@@ -512,7 +513,7 @@ export function SettingsView({
                 );
               })}
             </div>
-            <div style={{ fontSize: 10.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+            <div style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>
               {t("切換介面外殼（模式標題、導覽列）的語言；深層內容暫時維持繁中。儲存後生效。", "Switches the shell chrome (mode headers, nav rail) language; deeper content stays 繁中 for now. Applies after saving.")}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -522,8 +523,8 @@ export function SettingsView({
           </SettingsGroup>
 
           {sessionMode === "product" ? (
-            <SettingsGroup name="product" title="產品脈絡" caption="Product">
-              <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+            <SettingsGroup name="product" title="產品脈絡" caption={activeLanguage === "en" ? "Product" : ""}>
+              <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
                 產品名稱
                 <input
                   value={draftProductProfile.name}
@@ -533,7 +534,7 @@ export function SettingsView({
                 />
               </label>
 
-              <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
                 類別
                 <input
                   value={draftProductProfile.category}
@@ -543,7 +544,7 @@ export function SettingsView({
                 />
               </label>
 
-              <label style={{ display: "grid", gap: 6, fontSize: 11, color: tokens.color.subInk }}>
+              <label style={{ display: "grid", gap: 6, ...tokens.panel.type.bodySm, color: tokens.panel.ink2 }}>
                 目標受眾
                 <input
                   value={draftProductProfile.audience}
@@ -554,7 +555,7 @@ export function SettingsView({
               </label>
 
               <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>一鍵初始化</div>
+                <div style={{ ...tokens.panel.type.bodySm, fontWeight: 600, color: tokens.panel.ink }}>一鍵初始化</div>
                 <textarea
                   value={productProfileSeedText}
                   onChange={(event) => onProductProfileSeedTextChange?.(event.target.value)}
@@ -563,6 +564,7 @@ export function SettingsView({
                   style={{
                     ...inputStyle,
                     minHeight: 92,
+                    padding: tokens.panel.space.md,
                     resize: "vertical",
                     fontFamily: tokens.font.sans
                   }}
@@ -573,7 +575,7 @@ export function SettingsView({
               </div>
 
               <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: tokens.color.ink }}>產品文件</div>
+                <div style={{ ...tokens.panel.type.bodySm, fontWeight: 600, color: tokens.panel.ink }}>產品文件</div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <ProductContextSourceCard
                     sourceKey="readme"
@@ -627,13 +629,13 @@ export function SettingsView({
                     event.currentTarget.value = "";
                   }}
                 />
-                <div style={{ fontSize: 10.5, lineHeight: 1.6, color: tokens.color.softInk }}>
+                <div style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>
                   {contextFiles.length}/3 files · {(draftProductProfile.contextText ?? "").length}/60000 chars
                   {contextNotice ? ` · ${contextNotice}` : ""}
                 </div>
               </div>
 
-              <div style={{ fontSize: 10.5, lineHeight: 1.6, color: tokens.color.softInk }}>
+              <div style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>
                 儲存後會用這些資料編譯 ProductContext；Product AI 頁面只在 Phase B 啟用後產生結論。
               </div>
 
@@ -644,52 +646,71 @@ export function SettingsView({
                     display: "grid",
                     gap: 9,
                     padding: "11px 12px",
-                    borderRadius: tokens.radius.card,
-                    border: `1px solid ${tokens.color.line}`,
-                    background: tokens.color.contextSurface
+                    borderRadius: tokens.panel.radius.md,
+                    border: `1px solid ${tokens.panel.border}`,
+                    background: tokens.panel.surfaceSubtle
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.ink }}>系統理解</span>
+                    <span style={{ ...tokens.panel.type.bodySm, fontWeight: 600, color: tokens.panel.ink }}>系統理解</span>
                     <Stamp tone="success">ProductContext</Stamp>
                   </div>
-                  <div style={{ display: "grid", gap: 7, fontSize: 11.5, lineHeight: 1.55, color: tokens.color.subInk }}>
-                    <div><strong style={{ color: tokens.color.ink }}>Promise：</strong>{compiledProductContext.productPromise}</div>
-                    <div><strong style={{ color: tokens.color.ink }}>Workflows：</strong>{compiledProductContext.coreWorkflows.join("、") || "未列出"}</div>
-                    <div><strong style={{ color: tokens.color.ink }}>Constraints：</strong>{compiledProductContext.explicitConstraints.join("、") || "未列出"}</div>
+                  <div style={{ display: "grid", gap: 7, ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink2 }}>
+                    <div><strong style={{ color: tokens.panel.ink }}>Promise：</strong>{compiledProductContext.productPromise}</div>
+                    <div><strong style={{ color: tokens.panel.ink }}>Workflows：</strong>{compiledProductContext.coreWorkflows.join("、") || "未列出"}</div>
+                    <div><strong style={{ color: tokens.panel.ink }}>Constraints：</strong>{compiledProductContext.explicitConstraints.join("、") || "未列出"}</div>
                   </div>
                 </div>
               ) : (
                 <div
                   data-product-context-preview="missing"
                   style={{
-                    fontSize: 11.5,
-                    lineHeight: 1.55,
-                    color: tokens.color.softInk,
+                    ...tokens.panel.type.bodySm,
+                    lineHeight: tokens.panel.type.bodySm.lineHeight,
+                    color: tokens.panel.ink3,
                     padding: "9px 10px",
-                    borderRadius: tokens.radius.card,
-                    border: `1px dashed ${tokens.color.lineStrong}`,
-                    background: tokens.color.contextSurface
+                    borderRadius: tokens.panel.radius.md,
+                    border: `1px dashed ${tokens.panel.borderStrong}`,
+                    background: tokens.panel.surfaceSubtle
                   }}
                 >
                   系統理解尚未編譯；儲存 Settings 後才會產生可檢查的 ProductContext。
                 </div>
               )}
 
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <PrimaryButton onClick={() => saveFrom("product")} disabled={isSavingSettings}>{isSavingSettings ? "儲存中…" : "儲存產品資料"}</PrimaryButton>
+              </div>
+              {saveStatus("product")}
+            </SettingsGroup>
+          ) : null}
+
+          <footer data-settings-footer="true" style={{ display: "grid", gap: tokens.panel.space.md, padding: tokens.panel.space.md, borderTop: `1px solid ${tokens.panel.border}`, color: tokens.panel.ink3 }}>
+            <div
+              data-settings-storage-usage="true"
+              style={{
+                ...tokens.panel.type.bodySm,
+                lineHeight: tokens.panel.type.bodySm.lineHeight,
+                color: tokens.panel.ink3,
+                fontVariantNumeric: "tabular-nums"
+              }}
+            >
+              Storage 用量：{storageUsage ? formatStorageUsage(storageUsage) : "讀取中"}
+            </div>
+            {sessionMode === "product" ? (
               <div
                 data-product-cache-reset="true"
                 style={{
                   display: "grid",
                   gap: 8,
-                  padding: "10px 11px",
-                  borderRadius: tokens.radius.card,
-                  border: `1px solid ${tokens.color.line}`,
-                  background: tokens.color.surface
+                  padding: 0,
+                  borderRadius: tokens.panel.radius.md,
+                  background: "transparent"
                 }}
               >
                 <div style={{ display: "grid", gap: 3 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: tokens.color.ink }}>清除 Product cache</span>
-                  <span style={{ fontSize: 10.5, lineHeight: 1.55, color: tokens.color.softInk }}>
+                  <span style={{ ...tokens.panel.type.bodySm, fontWeight: 600, color: tokens.panel.ink }}>清除 Product cache</span>
+                  <span style={{ ...tokens.panel.type.bodySm, lineHeight: tokens.panel.type.bodySm.lineHeight, color: tokens.panel.ink3 }}>
                     只會移除 Product 分析、判讀與編譯脈絡；已儲存的 signals、topics、PR evidence 不會被刪除。
                   </span>
                 </div>
@@ -699,12 +720,8 @@ export function SettingsView({
                   </SecondaryButton>
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <PrimaryButton onClick={() => saveFrom("product")} disabled={isSavingSettings}>{isSavingSettings ? "儲存中…" : "儲存產品資料"}</PrimaryButton>
-              </div>
-              {saveStatus("product")}
-            </SettingsGroup>
-          ) : null}
+            ) : null}
+          </footer>
 
       </div>
     </div>

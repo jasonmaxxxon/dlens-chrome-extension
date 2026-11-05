@@ -55,7 +55,7 @@ export const tokens = {
       popover: "0 12px 32px -8px rgba(20,18,15,.20), 0 0 0 1px rgba(20,18,15,.08)"
     },
     size: {
-      header: 44, banner: 52, chip: 28, button: 32, buttonSm: 28, input: 36,
+      menu: 280, header: 44, banner: 52, chip: 28, button: 32, buttonSm: 28, input: 36,
       thumb: 40, avatar: 24, replyAvatar: 20, statusDot: 8, modeDot: 6, icon: 16, chipIcon: 14
     },
     motion: {

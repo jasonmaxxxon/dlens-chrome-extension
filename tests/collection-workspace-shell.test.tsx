@@ -79,3 +79,17 @@ test("menu Escape closes the popover and returns focus to its trigger", async ()
   Object.assign(globalThis,prior);actGlobal.IS_REACT_ACT_ENVIRONMENT=priorAct;dom.window.close();
  }
 });
+
+
+test("menu shows connection details immediately with the release label", () => {
+ const html=renderToStaticMarkup(<CollectionWorkspaceShell tab="collection" onTabChange={()=>{}} onSettings={()=>{}} diagnostics={<span data-fixture-diagnostic="">12/14 篇讀完</span>}>body</CollectionWorkspaceShell>);
+ const doc=new JSDOM(html).window.document;
+ const menu=doc.querySelector<HTMLElement>("[data-collection-menu]")!;
+ const popover=menu.querySelector<HTMLElement>("[data-collection-popover]")!;
+ assert.equal(menu.querySelectorAll("details").length,0);
+ assert.equal(popover.style.width,"280px");
+ assert.match(popover.textContent!,/連線/);
+ assert.match(popover.textContent!,/12\/14 篇讀完/);
+ assert.match(popover.textContent!,/DLens 0.5.91/);
+ assert.equal(popover.querySelector("button")!.textContent,"設定");
+});
