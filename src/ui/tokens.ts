@@ -34,6 +34,8 @@ export const tokens = {
     success: "#1F7A4D", successSoft: "#E7F4EC", warning: "#A15C07", warningSoft: "#FBF1E2",
     danger: "#B42318", dangerSoft: "#FDECEA", running: "#2952CC", runningSoft: "#EBF0FC",
     focusRing: "0 0 0 2px #FFFFFF, 0 0 0 4px #2952CC",
+    iconStrokeWidth: 1.75,
+    reader: { sourceLines: 6, replyClampChars: 180, replyClampLines: 6, refsShown: 3, clusterBar: 3, lensHeight: 44, shareHeight: 8, skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10 },
     chipCountOn: "rgba(255,255,255,.7)",
     scrollMask: "linear-gradient(to right, #000 calc(100% - 24px), transparent)",
     type: {

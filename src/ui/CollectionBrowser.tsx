@@ -14,10 +14,11 @@ import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { Topic, Signal } from "../state/types";
 import { CollectionAudienceReading } from "./CollectionAudienceReading";
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { ArrowLeft, ExternalLink, Search } from "lucide-react";
+import { Check, Heart, LoaderCircle, MessageCircle, RotateCcw, Search } from "lucide-react";
+import { buildCollectionReaderDetails } from "../viewmodel/collection-reader-details";
 
 import type { SessionRecord } from "../state/types";
-import { buildCollectionRowStatus, buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { buildCollectionRowStatus, buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, collectionPanelRelativeTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
 import { CollectionPostCard } from "./CollectionPostCard";
 import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 export { CollectionThumbnail } from "./CollectionThumbnail";
@@ -70,17 +71,19 @@ export interface CollectionBrowserProps {
   isLoading?: boolean;
 }
 
+const p = tokens.panel;
+const readerModeLabels = { topic: "觀眾反應", product: "個人應用", archive: "收藏整理", "pr-evidence": "活動追蹤" } as const;
 const rootStyle: CSSProperties = {
   display: "flex", flexDirection: "column", minWidth: 0,
-  width: "100%", boxSizing: "border-box", color: tokens.color.ink
+  width: "100%", boxSizing: "border-box", color: p.ink
 };
 const quietButton: CSSProperties = {
-  ...textStyles.meta, display: "inline-flex", alignItems: "center", gap: tokens.spacing.sm,
-  border: 0, padding: tokens.spacing.sm, borderRadius: tokens.radius.xs,
-  background: "transparent", color: tokens.color.accent, cursor: "pointer"
+  ...p.type.meta, fontFamily: tokens.font.sans, display: "inline-flex", alignItems: "center", gap: p.space.sm,
+  minHeight: p.size.buttonSm, border: 0, padding: `0 ${p.space.sm}px`, borderRadius: p.radius.sm,
+  background: "transparent", color: p.accent, cursor: "pointer"
 };
 const statusText: Record<CollectionPost["status"], string> = {
-  saved: "尚未擷取", queued: "等候擷取", running: "擷取中", succeeded: "擷取完成", failed: "擷取未完成"
+  saved: "未抓取", queued: "排隊中", running: "抓取中", succeeded: "已抓取", failed: "抓取失敗"
 };
 
 function OriginalImage({ url, index }: { url: string; index: number }) {
@@ -88,13 +91,13 @@ function OriginalImage({ url, index }: { url: string; index: number }) {
   return (
     <div data-collection-reader-image="" style={{ minWidth: 0 }}>
       {failed ? (
-        <p style={{ ...textStyles.meta, color: tokens.color.softInk, margin: 0, padding: tokens.spacing.md }}>
-          圖片暫時無法載入，可查看原帖。
+        <p style={{ ...p.type.bodySm, color: p.ink3, margin: 0, padding: p.space.md }}>
+          圖片載入唔到，可以去原帖睇。
         </p>
       ) : (
         <img src={url} alt={`原帖圖片 ${index + 1}`} loading="lazy" decoding="async" referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          style={{ display: "block", width: "100%", height: "auto", objectFit: "contain", borderRadius: tokens.radius.lg }} />
+          style={{ display: "block", width: "100%", height: "auto", objectFit: "contain", borderRadius: p.radius.md }} />
       )}
     </div>
   );
@@ -128,51 +131,49 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
       (note) => setRecrawl({ pending: false, from, note, failed: false }),
       (error: unknown) => setRecrawl({ pending: false, from: null, note: error instanceof Error ? error.message : String(error), failed: true }));
   };
+  const details = buildCollectionReaderDetails(source?.item);
+  const mode = source?.session.mode ?? post.memberships[0]?.mode ?? "archive";
+  const detailRow = (label: string, value: ReactNode) => <div key={label} data-reader-detail={label} style={{ display: "grid", gridTemplateColumns: `${p.space.section * 2}px minmax(0,1fr)`, gap: p.space.sm, alignItems: "baseline" }}><dt style={{ ...p.type.micro, color: p.ink3 }}>{label}</dt><dd style={{ ...p.type.bodySm, margin: 0, color: p.ink, minWidth: 0, overflowWrap: "anywhere" }}>{value}</dd></div>;
   return (
-    <section data-collection-browser="reader" aria-label="收藏原文" style={rootStyle}>
-      <div style={{ display: "flex", alignItems: "center", flexShrink: 0, justifyContent: "space-between", marginTop: -tokens.spacing.md }}>
-        <button type="button" data-collection-action="back" onClick={onBack} style={quietButton}>
-          ‹ {readerBackLabel}
-        </button>
-        {post.postUrl ? <a href={post.postUrl} target="_blank" rel="noopener noreferrer" style={{...quietButton,textDecoration:"none"}}>原帖 ↗</a> : null}
+    <section data-collection-browser="reader" aria-label="收藏原文" style={{ ...rootStyle, ...p.type.body, fontFamily: tokens.font.sans }}>
+      <div data-reader-back-bar="" style={{ display: "flex", alignItems: "center", flexShrink: 0, justifyContent: "space-between", height: p.size.thumb, marginTop: -p.space.lg }}>
+        <button type="button" data-collection-action="back" onClick={onBack} style={quietButton}>‹ {readerBackLabel}</button>
+        {post.postUrl ? <a href={post.postUrl} target="_blank" rel="noopener noreferrer" style={{ ...quietButton, textDecoration: "none" }}>原帖 ↗</a> : null}
       </div>
-      <article style={{ minWidth: 0, padding: `${tokens.spacing.sm}px 0 ${tokens.spacing.lg}px` }}>
-        <header style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: tokens.spacing.sm, marginBottom: tokens.spacing.lg }}>
-          <span aria-hidden="true" style={{...collectionTileTint(post.author),width:tokens.collection.previewSize,height:tokens.collection.previewSize,borderRadius:tokens.radius.round,display:"grid",placeItems:"center",fontSize:tokens.reader.meta}}>{[...post.author][0] || "？"}</span><span style={{ ...textStyles.meta, fontSize: tokens.reader.secondary, color: tokens.color.softInk }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span><small style={{fontSize:tokens.reader.meta,color:tokens.color.softInk}}>{post.descriptor.time_token_hint}</small>
-
+      <article style={{ minWidth: 0, padding: `${p.space.sm}px 0 ${p.space.lg}px` }}>
+        <header style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: p.space.sm, marginBottom: p.space.md, minWidth: 0 }}>
+          <span aria-hidden="true" style={{ ...collectionTileTint(post.author), width: p.size.avatar, height: p.size.avatar, flex: "none", borderRadius: p.radius.pill, display: "grid", placeItems: "center", ...p.type.meta }}>{[...post.author.replace(/^@/, "")][0]?.toUpperCase() || "？"}</span>
+          <span style={{ ...p.type.meta, color: p.ink3, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}{post.descriptor.time_token_hint ? ` · ${collectionPanelRelativeTime(post.descriptor.time_token_hint)}` : ""}</span>
+          <span style={{ ...p.type.micro, color: p.ink3, display: "inline-flex", alignItems: "center", gap: p.space.xs, flex: "none" }}><i aria-hidden="true" style={{ width: p.size.modeDot, height: p.size.modeDot, borderRadius: p.radius.pill, background: getModeTheme(mode).accent }} />{readerModeLabels[mode]}</span>
         </header>
-        <div data-collection-reader-body="" style={{ ...textStyles.body, fontSize:tokens.reader.body,lineHeight:tokens.reader.lineHeight,display:"-webkit-box",WebkitLineClamp:fullText ? undefined : tokens.reader.sourceLines,WebkitBoxOrient:"vertical",overflow:"hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: tokens.color.ink }}>
-          {post.body || "沒有已保存的原文文字。"}
+        <div data-collection-reader-body="" style={{ ...p.type.body, display: "-webkit-box", WebkitLineClamp: fullText ? undefined : p.reader.sourceLines, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: p.ink }}>{post.body || "未有原文"}</div>
+        <button type="button" data-reader-full-text="" onClick={() => setFullText(v => !v)} aria-expanded={fullText} style={{ ...quietButton, margin: `${p.space.xs}px 0 ${p.space.sm}px`, paddingLeft: 0 }}>{fullText ? "收起" : "全文 ▾"}</button>
+        {post.imageUrls.length ? <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length > 1 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: p.space.md, alignItems: "start", marginBottom: p.space.lg }}>{post.imageUrls.map((url, index) => <OriginalImage key={url} url={url} index={index} />)}</div> : null}
+        <div data-reader-source-meta="" style={{ ...p.type.meta, color: p.ink3, display: "flex", alignItems: "center", flexWrap: "wrap", gap: p.space.xs, fontVariantNumeric: "tabular-nums" }}>
+          <Heart size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{post.descriptor.engagement.likes ?? "—"}<span>·</span><MessageCircle size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /><span>{post.descriptor.engagement.comments ?? "—"} 則留言</span><span>· 讀咗 {source ? readInlineCardThread(source.item).comments.length : 0}</span>
         </div>
-        {post.imageUrls.length ? (
-          <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length > 1 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: tokens.spacing.md, alignItems: "start", marginBottom: tokens.spacing.lg }}>
-            {post.imageUrls.map((url, index) => <OriginalImage key={url} url={url} index={index} />)}
-          </div>
-        ) : null}
-
-        <div data-reader-source-meta="" style={{fontSize:tokens.reader.meta,color:tokens.color.softInk,display:"flex",alignItems:"center",gap:tokens.spacing.sm}}>♡ {post.descriptor.engagement.likes ?? "—"} · {post.descriptor.engagement.comments ?? "—"} 則留言 · 讀咗 {source ? readInlineCardThread(source.item).comments.length : 0}<button type="button" onClick={()=>setFullText(v=>!v)} aria-expanded={fullText} style={{...quietButton,fontSize:tokens.reader.meta,marginLeft:"auto"}}>{fullText ? "收起" : "全文"}</button></div>
-        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} onMore={key=>setGroupLimits(current=>expandReaderEvidenceGroup(current,key))} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
-        {product ? <CollectionProductReading model={product} onLens={setLens} onSettings={onSettings} onAnalyze={onProductAnalyze} onCopy={onCopy} copyStatus={copyStatus}/> : null}
-        {!reading && deepReading ? <DeepReadingView model={deepReading} onCommand={onDeepCommand}/> : null}
-        {post.captureLimit ? <p style={{ ...textStyles.meta, color: tokens.color.softInk, marginTop: tokens.spacing.lg }}>{post.captureLimit}</p> : null}
-        <details style={{ borderTop: `1px solid ${tokens.color.line}`, marginTop: tokens.spacing.xl, paddingTop: tokens.spacing.md }}>
-          <summary style={{ ...textStyles.meta, color: tokens.color.softInk, cursor: "pointer", padding: tokens.spacing.sm }}>詳情</summary>
-          <div style={{ display: "grid", gap: tokens.spacing.md, padding: tokens.spacing.sm, minWidth: 0 }}>
-            <SavedPostMetrics descriptor={post.descriptor} />
-            <div style={{ ...textStyles.meta, color: tokens.color.softInk }}>
-              收藏時間：<time dateTime={post.savedAt}>{collectionSavedTime(post.savedAt)}</time>
-              {post.capturedAt ? <div>原文擷取：<time dateTime={post.capturedAt}>{collectionSavedTime(post.capturedAt)}</time></div> : null}
-              <div>最新收藏擷取狀態：{statusText[post.status]}</div>
-            </div>
-            {canRecrawl ? <button type="button" data-collection-action="recrawl" disabled={recrawl.pending || recrawlSent} onClick={startRecrawl} title="再抓一次呢篇嘅留言，完成後按新留言重新整理閱讀（會用一次抓取同 AI）" style={{ ...quietButton, justifySelf: "start" }}>{recrawl.pending ? "排緊隊…" : recrawlSent ? "已排隊" : "重新抓取留言"}</button> : null}
-            {recrawl.note ? <p role={recrawl.failed ? "alert" : "status"} style={{ ...textStyles.meta, color: tokens.color.softInk, margin: 0 }}>{recrawl.note}</p> : null}
-            <ul aria-label="所屬工作區" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {workspaces.map((membership) => (
-                <li key={membership.sessionId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: tokens.spacing.sm }}>
-                  <span style={{ ...textStyles.meta, color: tokens.color.softInk, overflowWrap: "anywhere" }}>{membership.sessionName}</span>
-                  <button type="button" data-collection-workspace={membership.sessionId} onClick={() => onOpenWorkspace(membership.sessionId)} style={quietButton}>開啟工作區</button>
-                </li>
-              ))}
+        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} onMore={key => setGroupLimits(current => expandReaderEvidenceGroup(current, key))} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
+        {product ? <CollectionProductReading model={product} onLens={setLens} onSettings={onSettings} onAnalyze={onProductAnalyze} onCopy={onCopy} copyStatus={copyStatus} /> : null}
+        {!reading && deepReading ? <DeepReadingView model={deepReading} onCommand={onDeepCommand} /> : null}
+        {post.captureLimit ? <p style={{ ...p.type.meta, color: p.ink3, marginTop: p.space.lg }}>{post.captureLimit}</p> : null}
+        <details data-reader-details="" style={{ borderTop: `1px solid ${p.border}`, marginTop: p.space.xxl }}>
+          <summary style={{ ...p.type.meta, fontWeight: 600, color: p.ink2, cursor: "pointer", minHeight: p.size.thumb, display: "list-item", alignContent: "center", padding: `0 ${p.space.sm}px` }}>詳情</summary>
+          <div style={{ display: "grid", gap: p.space.md, padding: p.space.md, minWidth: 0, background: p.surface, borderRadius: p.radius.md, boxShadow: p.shadow.card }}>
+            <dl style={{ display: "grid", gap: p.space.md, padding: 0, margin: 0, minWidth: 0 }}>
+              {detailRow("抓取", <>{statusText[post.status]}{post.capturedAt ? <> · <time dateTime={post.capturedAt}>{collectionSavedTime(post.capturedAt)}</time></> : null}</>)}
+              {detailRow("收藏", <time dateTime={post.savedAt}>{collectionSavedTime(post.savedAt)}</time>)}
+              {details ? detailRow("留言", details.commentLabel) : null}
+              {details?.analysisVersion ? detailRow("分析", details.analysisVersion) : null}
+              {detailRow("互動", <SavedPostMetrics descriptor={post.descriptor} />)}
+            </dl>
+            {canRecrawl ? <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: p.space.sm, borderTop: `1px solid ${p.border}`, paddingTop: p.space.md }}>
+              <button type="button" data-collection-action="recrawl" disabled={recrawl.pending || recrawlSent} onClick={startRecrawl} title="再抓一次呢篇嘅留言，完成後按新留言重新整理閱讀（會用一次抓取同 AI）" style={{ ...quietButton, border: `1px solid ${p.border}`, background: recrawlSent ? p.successSoft : p.surface, color: recrawlSent ? p.success : p.ink, minHeight: p.size.button }}>
+                {recrawl.pending ? <LoaderCircle data-panel-spinner="" size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /> : recrawlSent ? <Check size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /> : <RotateCcw size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />}{recrawl.pending ? "排緊隊…" : recrawlSent ? "已排隊" : "重新抓取留言"}
+              </button><span style={{ ...p.type.micro, color: p.ink3 }}>會用一次抓取同 AI 額度</span>
+            </div> : null}
+            {recrawl.note ? <p role={recrawl.failed ? "alert" : "status"} style={{ ...p.type.bodySm, color: recrawl.failed ? p.danger : p.ink3, margin: 0 }}>{recrawl.note}</p> : null}
+            <ul aria-label="所屬工作區" style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: p.space.sm }}>
+              {workspaces.map(membership => <li key={membership.sessionId} style={{ display: "flex", alignItems: "center", gap: p.space.sm, minWidth: 0 }}><span style={{ ...p.type.bodySm, color: p.ink3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}><span style={{ ...p.type.micro }}>所屬工作區 </span>{readerModeLabels[membership.mode]} · {membership.sessionName}</span><button type="button" data-collection-workspace={membership.sessionId} onClick={() => onOpenWorkspace(membership.sessionId)} aria-label={`開啟工作區 ${membership.sessionName}`} style={{ ...quietButton, flex: "none" }}>開啟 ›</button></li>)}
             </ul>
           </div>
         </details>

@@ -109,3 +109,66 @@ test("explicit yes/no answers and short substantive questions have no low-conten
     } finally { dom.window.close(); }
   }
 });
+
+
+test("stance keeps its representative inside the cluster and moves coverage and topic chips after evidence", () => {
+  const { model, dom } = renderReader(fixture(30));
+  try {
+    const doc = dom.window.document;
+    const group = doc.querySelector('[data-reader-evidence-group]')!;
+    assert.ok(group.querySelector('[data-reader-representative]'));
+    const quotes = [...doc.querySelectorAll('[data-reader-reply] p')].filter(node => node.textContent === "觀眾最高讚的原句。");
+    assert.equal(quotes.length, 1, "the representative is moved, never copied");
+    const coverage = doc.querySelector('[data-reading-coverage]')!;
+    assert.ok(group.compareDocumentPosition(coverage) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    const topics = doc.querySelector('[data-reader-topic]')!;
+    assert.ok(coverage.compareDocumentPosition(topics) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  } finally { dom.window.close(); }
+});
+
+
+test("noise evidence starts folded after audience groups while keeping captured text available", () => {
+  const source = fixture(30);
+  const sessions = [session("audience", [source], "topic")];
+  const model = buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], {}, 0, "stance")!;
+  model.evidence!.groups.unshift({ tone: "noise", index: 9, title: "離題", meta: "約 1 則", context: "AI 判斷為離題。", chains: [{ row: { author: "noise", text: "合成離題原句", likes: 0, replies: null, time: null, isAuthor: false }, reply: null, unanswered: false }], more: 0 });
+  const dom = new JSDOM(renderToStaticMarkup(<CollectionAudienceReading model={model} onMore={() => {}} onLens={() => {}} onAssign={() => {}} />));
+  try {
+    const doc = dom.window.document;
+    const noise = doc.querySelector<HTMLDetailsElement>('[data-reader-noise]')!;
+    assert.ok(noise);
+    assert.equal(noise.open, false);
+    assert.match(noise.textContent!, /合成離題原句/);
+    assert.equal(doc.querySelector('[data-reader-evidence-group]:last-child')!.contains(noise), true);
+  } finally { dom.window.close(); }
+});
+
+import { CollectionProductReading } from "../src/ui/CollectionProductReading";
+import { buildProductReaderModel } from "../src/viewmodel/product-reader";
+import { createDefaultSettings } from "../src/state/types";
+test("product context and analysis errors stay visible even on the reply lens", () => {
+  const saved = fixture(3);
+  const settings = { ...createDefaultSettings(), oneLinerProvider: "openai" as const, openaiApiKey: "sk-fixture" };
+  for (const [error, expected, role] of [[null, /去設定/, "status"], ["合成額度錯誤", /合成額度錯誤/, "alert"]] as const) {
+    const model = buildProductReaderModel(saved, "product", null, undefined, settings, !!error, "add", false, error);
+    const dom = new JSDOM(renderToStaticMarkup(<CollectionProductReading model={model} onLens={() => {}} />));
+    try {
+      assert.equal(dom.window.document.querySelector('[data-reader-entry="add"]')!.getAttribute("aria-pressed"), "true");
+      const state = dom.window.document.querySelector('[data-product-reader-state]')!;
+      assert.ok(state);
+      assert.equal(state.getAttribute("role"), role);
+      assert.match(state.textContent!, expected);
+    } finally { dom.window.close(); }
+  }
+});
+
+
+test("few audience comments remain a direct quote list on the stance lens", () => {
+  const { dom } = renderReader(fixture(5));
+  try {
+    const doc = dom.window.document;
+    assert.match(doc.querySelector('[data-reader-answer]')!.textContent!, /留言未夠歸納，先睇原句/);
+    assert.equal(doc.querySelectorAll('[data-reader-few] [data-reader-reply]').length, 5);
+    assert.equal(doc.querySelector('[data-reader-evidence-group]'), null);
+  } finally { dom.window.close(); }
+});

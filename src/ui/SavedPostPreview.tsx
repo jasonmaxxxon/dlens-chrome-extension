@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import { MetricIcon } from "./components";
-import { textStyles, tokens } from "./tokens";
+import { Heart, MessageCircle, Repeat2, Share2 } from "lucide-react";
+import { tokens } from "./tokens";
 
 /** Expired CDN URLs use the same quiet, aligned space as text-only posts. */
 export function SavedPostThumbnail({ imageUrl }: { imageUrl?: string | null }) {
@@ -14,7 +14,7 @@ export function SavedPostThumbnail({ imageUrl }: { imageUrl?: string | null }) {
     display: "block",
     width: tokens.layout.savedPostThumbnailSize,
     height: tokens.layout.savedPostThumbnailSize,
-    borderRadius: tokens.radius.xs,
+    borderRadius: tokens.panel.radius.sm,
     flexShrink: 0
   } as const;
 
@@ -27,24 +27,26 @@ export function SavedPostThumbnail({ imageUrl }: { imageUrl?: string | null }) {
       decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setFailedUrl(source)}
-      style={{ ...style, objectFit: "cover", background: tokens.color.inkWash }}
+      style={{ ...style, objectFit: "cover", background: tokens.panel.surfaceSubtle }}
     />
   ) : <span data-saved-post-thumbnail="fallback" aria-hidden="true" style={style} />;
 }
 
+const METRIC_ICONS = { likes: Heart, comments: MessageCircle, reposts: Repeat2, forwards: Share2 } as const;
 const METRIC_LABELS = { likes: "讚", comments: "回覆", reposts: "轉發", forwards: "分享" } as const;
 
 export function SavedPostMetrics({ descriptor }: { descriptor?: TargetDescriptor }) {
   return (
-    <span aria-label="貼文互動" role="group" style={{ display: "flex", gap: tokens.spacing.sm, flexWrap: "wrap", minWidth: 0 }}>
+    <span aria-label="貼文互動" role="group" style={{ display: "flex", gap: tokens.panel.space.sm, flexWrap: "wrap", minWidth: 0 }}>
       {(Object.keys(METRIC_LABELS) as Array<keyof typeof METRIC_LABELS>).map((key) => {
+        const Icon = METRIC_ICONS[key];
         const count = descriptor?.engagement[key];
         const present = descriptor?.engagement_present[key] === true && typeof count === "number" && Number.isFinite(count);
         const value = present ? String(count) : "未讀";
         const label = `${METRIC_LABELS[key]} ${value}`;
         return (
-          <span key={key} data-saved-signal-metric={key} aria-label={label} title={label} style={{ ...textStyles.caption, display: "inline-flex", alignItems: "center", gap: tokens.spacing.xs, color: tokens.color.softInk }}>
-            <span aria-hidden="true"><MetricIcon kind={key} size={tokens.spacing.md} /></span>
+          <span key={key} data-saved-signal-metric={key} aria-label={label} title={label} style={{ ...tokens.panel.type.meta, display: "inline-flex", alignItems: "center", gap: tokens.panel.space.xs, color: tokens.panel.ink3, fontVariantNumeric: "tabular-nums" }}>
+            <span aria-hidden="true"><Icon size={tokens.panel.size.icon} strokeWidth={tokens.panel.iconStrokeWidth} /></span>
             <span>{value}</span>
           </span>
         );

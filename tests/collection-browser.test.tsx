@@ -130,7 +130,7 @@ test("reader keeps images large, falls back after expiry and never turns unsafe 
     assert.equal(view.container.querySelector("a"), null);
     await act(async () => image.dispatchEvent(new view.dom.window.Event("error")));
     assert.equal(view.container.querySelector("[data-collection-reader-image] img"), null);
-    assert.match(view.container.textContent ?? "", /圖片暫時無法載入/);
+    assert.match(view.container.textContent ?? "", /圖片載入唔到，可以去原帖睇/);
     assert.ok(view.container.querySelector("[data-collection-reader-body]"));
   } finally { await view.close(); }
 });
@@ -140,7 +140,7 @@ test("reader with text-only source omits empty image frames and AI surfaces", as
   const view = await mount({ sessions, selectedKey: buildCollectionPosts(sessions)[0].key });
   try {
     assert.equal(view.container.querySelector("[data-collection-reader-image]"), null);
-    assert.match(view.container.textContent ?? "", /收藏時/);
+    assert.ok(view.container.querySelector('[data-reader-detail="收藏"] time'));
     assert.doesNotMatch(view.container.textContent ?? "", /AI|刪除|摘要|分析建議/);
     const link = view.container.querySelector<HTMLAnchorElement>("a");
     assert.ok(link);
@@ -215,7 +215,7 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
     assert.equal(h.container.querySelector("[data-reader-evidence-toggle]"),null);
     const header = h.container.querySelector<HTMLDivElement>("[data-reader-evidence-header]")!;
     assert.equal(header.style.display, "grid");
-    assert.equal(header.children.length, 3);
+    assert.equal(header.children.length, 2);
     assert.equal(header.textContent, "支持約 12 則");
     assert.ok(h.container.querySelector("[data-reader-reply]"));
     await h.click('[data-reader-topic="t1"]');
@@ -257,7 +257,7 @@ test('product reader uses four lens tabs, reply fallback and folded source',asyn
   assert.deepEqual([...h.container.querySelectorAll('[data-reader-entry]')].map(e=>e.textContent?.trim()),['講咩—','啱唔啱你—','點試—','留言補充2 則']);
   assert.equal(h.container.querySelector('[data-reader-entry="add"]')?.getAttribute('aria-pressed'),'true');
   assert.match(h.container.querySelector('[data-reader-answer]')!.textContent!,/作者補充/);
-  assert.equal(h.container.querySelector<HTMLDivElement>('[data-collection-reader-body]')!.style.webkitLineClamp,'3');
+  assert.equal(h.container.querySelector<HTMLDivElement>('[data-collection-reader-body]')!.style.webkitLineClamp,'6');
   await h.click('[data-reader-entry="fit"]');assert.match(h.container.textContent!,/未接 AI/);
  }finally{await h.close();}
 });
@@ -267,7 +267,7 @@ test('reader evidence is present initially and 再睇 expands just one group',as
  const sessions=[session('topic',[saved],'topic')];const h=await mount({sessions,selectedKey:buildCollectionPosts(sessions)[0].key});
  try{
   const count=()=>[...h.container.querySelectorAll('[data-reader-evidence] section')].map(g=>g.querySelectorAll('[data-reader-reply]').length);
-  assert.deepEqual(count(),[3,3]);await h.click('[data-reader-more="cluster:0"]');assert.deepEqual(count(),[13,3]);
+  assert.deepEqual(count(),[4,3]);await h.click('[data-reader-more="cluster:0"]');assert.deepEqual(count(),[14,3]);
  }finally{await h.close();}
 });
 
@@ -357,4 +357,25 @@ test("collection list keeps search before scrollable chips and shows one reserve
     assert.equal(view.container.querySelector("[data-collection-status-chip]")?.textContent, "未抓取");
     assert.equal(view.container.querySelector("[data-collection-type-tile]")?.textContent, "A");
   } finally { await view.close(); }
+});
+
+
+test("reader separates the full-text action from source metadata and details label/value rows", async () => {
+  const saved = item("reader-detail", { status: "succeeded", latestCapture: capture({}, { analysis: { status: "succeeded", analysis_version: "v2", clusters: [], evidence: [] } as never }) });
+  const sessions = [session("audience", [saved], "topic")];
+  const h = await mount({ sessions, selectedKey: buildCollectionPosts(sessions)[0].key, onRecrawl: async () => null });
+  try {
+    const body = h.container.querySelector<HTMLElement>('[data-collection-reader-body]')!;
+    assert.equal(body.style.webkitLineClamp, "6");
+    const full = h.container.querySelector<HTMLButtonElement>('[data-reader-full-text]')!;
+    assert.ok(full);
+    assert.equal(h.container.querySelector('[data-reader-source-meta]')!.contains(full), false);
+    await h.click('[data-reader-full-text]');
+    assert.equal(body.style.webkitLineClamp, "");
+    assert.equal(full.getAttribute("aria-expanded"), "true");
+    const details = h.container.querySelector('[data-reader-details]')!;
+    assert.match(details.textContent!, /抓取.*收藏.*留言.*分析.*v2/s);
+    assert.match(details.textContent!, /會用一次抓取同 AI 額度/);
+    assert.equal(details.querySelectorAll('[data-reader-detail="分析"]').length, 1);
+  } finally { await h.close(); }
 });

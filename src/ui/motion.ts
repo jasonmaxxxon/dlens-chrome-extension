@@ -8,6 +8,7 @@ export const DLENS_KEYFRAMES_CSS = `
   [data-deep-skeleton], [data-topic-reading-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
 }
 
+@keyframes dlens-panel-reader-enter { from { opacity: 0; transform: translateY(${tokens.panel.space.xs}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-panel-popover { from { opacity: 0; transform: translateY(${tokens.panel.space.xs}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-panel-fade { from { opacity: 1; } to { opacity: 0; } }
 @keyframes dlens-panel-skeleton { 50% { opacity: .55; } }
@@ -148,7 +149,10 @@ export const DLENS_MOTION_CSS = `
   [data-collection-workspace-shell] [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
   [data-collection-workspace-shell] [data-collection-mist] { animation: none; }
   [data-collection-workspace-shell] [data-collection-menu][open] > [data-collection-popover] { animation: dlens-panel-popover ${tokens.panel.motion.slow} ${tokens.panel.motion.standard} both; }
-  [data-collection-workspace-shell] [data-panel-skeleton] { animation: dlens-panel-skeleton ${tokens.panel.motion.skeletonMs}ms ${tokens.panel.motion.standard} infinite; }
+  [data-collection-workspace-shell] [data-panel-skeleton],
+  [data-collection-workspace-shell] [data-deep-skeleton],
+  [data-collection-workspace-shell] [data-topic-reading-skeleton] { animation: dlens-panel-skeleton ${tokens.panel.motion.skeletonMs}ms ${tokens.panel.motion.standard} infinite; background: ${tokens.panel.surfaceSubtle}; }
+  [data-collection-workspace-shell] [data-collection-browser="reader"] { animation: dlens-panel-reader-enter ${tokens.panel.motion.slow} ${tokens.panel.motion.standard} both; }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-collection-workspace-shell],

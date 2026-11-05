@@ -259,3 +259,38 @@ test("panel in-view sibling reuses the list row projection and leaves the legacy
   assert.equal(buildCollectionInViewStatus(posts, "threads-post:ABC", posts[0].key, sessions, {}, {}, rowNow), null);
   assert.equal(buildCollectionInViewStatus(posts, "threads-post:MISSING", null, sessions, {}, {}, rowNow), null);
 });
+
+import { buildCollectionReaderDetails } from "../src/viewmodel/collection-reader-details.ts";
+
+test("reader detail counts reuse eligible audience, linked author replies and all exclusion categories", () => {
+  const source = rowSource(0);
+  source.latestCapture = capture({ author: "author", post_id: "ABC" }, {
+    analysis: { ...source.latestCapture!.analysis!, analysis_version: "v2" },
+    result: { ...capture({ author: "author", post_id: "ABC" }).result!, comments: [
+      { comment_id: "ABC", author: "author", text: "根帖不計觀眾" },
+      { comment_id: "fan-question", author: "fan", text: "點樣做？" },
+      { comment_id: "duplicate", author: "fan", text: "點樣做？" },
+      { comment_id: "author-answer", author: "author", text: "可以先試一個流程", parent_comment_id: "fan-question" },
+      { comment_id: "author-continuation", author: "author", text: "作者續文", parent_comment_id: "ABC" },
+      { comment_id: "unknown", author: "unknown", text: "未能確認作者的原句" }
+    ] }
+  });
+  const before = structuredClone(source);
+  assert.deepEqual(buildCollectionReaderDetails(source), { audience: 1, authorReplies: 1, excluded: 5, analysisVersion: "v2", commentLabel: "1 則觀眾 · 1 則作者回覆 · 排除 5" });
+  assert.deepEqual(source, before, "details projection never edits the stored capture or eligibility inputs");
+});
+
+test("reader detail version preserves a stored label and hides absent analysis without inventing one", () => {
+  const source = rowSource(3);
+  source.latestCapture = { ...source.latestCapture!, analysis: { ...source.latestCapture!.analysis!, analysis_version: " v2 " } };
+  assert.equal(buildCollectionReaderDetails(source)?.analysisVersion, "v2");
+  const missing = { ...source, latestCapture: { ...source.latestCapture!, analysis: null } };
+  assert.equal(buildCollectionReaderDetails(missing)?.analysisVersion, null);
+  const empty = { ...source, latestCapture: { ...source.latestCapture!, analysis: { ...source.latestCapture!.analysis!, analysis_version: "" } } };
+  assert.equal(buildCollectionReaderDetails(empty)?.analysisVersion, null);
+});
+
+test("reader detail projection has no source when no reading membership exists", () => {
+  assert.equal(buildCollectionReaderDetails(null), null);
+  assert.equal(buildCollectionReaderDetails(undefined), null);
+});
