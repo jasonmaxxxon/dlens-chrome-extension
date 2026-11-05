@@ -1,6 +1,7 @@
 import {
 useEffect,
 useLayoutEffect,
+useMemo,
 useRef,
 useState,
 type CSSProperties,
@@ -14,7 +15,7 @@ import { getProcessingFailureMessage } from "../state/processing-errors";
 import { getModeHomePage } from "../state/processing-state";
 import type { FolderMode,PopupPage } from "../state/types";
 import type { CollectionFilter,CollectionSort } from "../viewmodel/collection-browser";
-import { buildCollectionInView,buildCollectionPosts } from "../viewmodel/collection-browser";
+import { buildCollectionInViewStatus,buildCollectionPosts } from "../viewmodel/collection-browser";
 import { collectionReadingSource,resolveCollectionReaderOpen } from "../viewmodel/collection-reader";
 import type { PrEvidenceCommand } from "../viewmodel/pr-evidence";
 import { EMPTY_DISCOURSE_UI,buildTopicDiscourseViewModel,type DiscourseUiState } from "../viewmodel/topic-discourse";
@@ -153,8 +154,8 @@ function OpenInPageCollectorPopup({
   const productHasContext=products.hasContext || isProductContextSourceReady(snapshot?.global.settings.productProfile);
   const [copyStatus,setCopyStatus]=useState<string>('');
   useEffect(()=>setCopyStatus(''),[readingNavigation.selectedKey]);
-  const collectionPosts=buildCollectionPosts(snapshot?.global.sessions ?? []);
-  const inView=IS_PR_ONLY_BUILD ? null : buildCollectionInView(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null);
+  const collectionPosts=useMemo(()=>buildCollectionPosts(snapshot?.global.sessions ?? []),[snapshot?.global.sessions]);
+  const inView=useMemo(()=>IS_PR_ONLY_BUILD ? null : buildCollectionInViewStatus(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null,snapshot?.global.sessions ?? [],discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded},nowMs),[collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab,domainPage,readingNavigation.selectedKey,snapshot?.global.sessions,discourseFeeds.readings,products.analyses,products.signals,snapshot?.global.settings,productHasContext,products.loaded,nowMs]);
   const openedReadings = useOpenedReadings(true, !domainPage && readingNavigation.tab === "collection" ? readingNavigation.selectedKey : null, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
   const readerSource = !domainPage && readingNavigation.tab === "collection"
     ? collectionReadingSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
@@ -390,14 +391,14 @@ function OpenInPageCollectorPopup({
     <div
       data-dlens-control="true"
       data-workspace-popup="shell"
-      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", color: tokens.color.ink, fontFamily: tokens.font.sans }}
+      style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: tokens.panel.bg, color: tokens.panel.ink, fontFamily: tokens.font.sans }}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
     >
       <style>{DLENS_BUTTON_CSS}</style>
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: tokens.collection.paper, pointerEvents: "none" }} />
-      <div aria-hidden="true" data-collection-mist="" style={{ position: "absolute", width: tokens.collection.mistWidth, height: tokens.collection.mistHeight, top: tokens.collection.mistTop, left: tokens.collection.mistLeft, borderRadius: tokens.radius.round, background: tokens.collection.mist, pointerEvents: "none" }} />
-      <div aria-hidden="true" data-collection-grain="" style={{ position: "absolute", inset: 0, opacity: tokens.collection.grainOpacity, backgroundImage: tokens.collection.grain, pointerEvents: "none" }} />
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: tokens.panel.bg, pointerEvents: "none" }} />
+      <div aria-hidden="true" data-collection-mist="" style={{ display: "none" }} />
+      <div aria-hidden="true" data-collection-grain="" style={{ display: "none" }} />
       <div
         ref={scrollRef}
         data-workspace-popup-scroll="viewport"
@@ -436,6 +437,8 @@ function OpenInPageCollectorPopup({
             tab={readingNavigation.tab}
             allowCollection={!IS_PR_ONLY_BUILD}
             busy={navigationBusy}
+            backendReachability={app.backendReachability}
+            backendWorkUiState={app.backendWorkUiState}
             onTabChange={selectPrimaryTab}
             onSettings={() => {
               if (navigationPending.current) return;

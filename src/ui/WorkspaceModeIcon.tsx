@@ -7,6 +7,6 @@ export function WorkspaceModeIcon({ mode }: { mode: FolderMode }) {
   const Icon = icons[mode];
   const theme = getModeTheme(mode);
   return <span data-workspace-mode-icon={mode} aria-hidden="true" style={{ display: "grid", placeItems: "center", flexShrink: 0,
-    width: tokens.collection.modeTileSize, height: tokens.collection.modeTileSize, borderRadius: tokens.radius.card,
-    background: theme.accentSoft, color: theme.accent }}><Icon size={tokens.spacing.section} /></span>;
+    width: tokens.panel.size.icon, height: tokens.panel.size.icon,
+    color: theme.accent }}><Icon size={tokens.panel.size.icon} strokeWidth={1.75} /></span>;
 }

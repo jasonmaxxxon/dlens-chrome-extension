@@ -106,13 +106,13 @@ test("collection uses the compact square thumbnail and replaces expired media wi
   try {
     const image = view.container.querySelector<HTMLImageElement>("[data-collection-thumbnail] img");
     assert.ok(image);
-    assert.equal(image.style.width, `${tokens.layout.collectionThumbnailSize}px`);
-    assert.equal(image.style.height, `${tokens.layout.collectionThumbnailSize}px`);
+    assert.equal(image.style.width, `${tokens.panel.size.thumb}px`);
+    assert.equal(image.style.height, `${tokens.panel.size.thumb}px`);
     await act(async () => image.dispatchEvent(new view.dom.window.Event("error")));
     assert.equal(view.container.querySelector("[data-collection-thumbnail] img"), null);
     const placeholder = view.container.querySelector<HTMLElement>("[data-collection-thumbnail]");
-    assert.equal(placeholder?.style.width, `${tokens.layout.collectionThumbnailSize}px`);
-    assert.equal(placeholder?.querySelector("[data-collection-type-tile]")?.textContent, "收");
+    assert.equal(placeholder?.style.width, `${tokens.panel.size.thumb}px`);
+    assert.equal(placeholder?.querySelector("[data-collection-type-tile]")?.textContent, "A");
     assert.doesNotMatch(view.container.textContent ?? "", /圖片.*失敗|圖片.*無法/);
     await view.click("[data-collection-post]");
     assert.ok(view.container.querySelector("[data-collection-reader-body]"));
@@ -154,7 +154,7 @@ test("collection B sort commands slide the knob, reorder rows and persist throug
   const view = await mount({ sessions: [session("one", [item("one"), item("two", { savedAt: "2026-09-19T00:00:00Z", descriptor: descriptor({ post_url: "https://threads.com/@author/post/TWO", engagement: { ...descriptor().engagement, comments: 99 } }) })])] });
   try {
     await view.click('[data-collection-sort="comments"]');
-    assert.match(view.container.querySelector("[data-collection-post]")?.textContent ?? "", /留言 99/);
+    assert.equal(view.container.querySelector("[data-collection-post] [data-collection-comments]")?.textContent, "99");
     assert.equal(view.container.querySelector("[data-collection-day]"), null);
     assert.equal(view.container.querySelector<HTMLElement>("[data-collection-sort-knob]")?.style.transform, "translateX(200%)");
     await view.click("[data-collection-post]");
@@ -226,7 +226,7 @@ test("audience reader reuses four entries, horizontal evidence headers and topic
   } finally { await h.close(); }
 });
 
-test("recent readings sit above search, 讀完 chip filters finished posts and a strip row opens reader", async () => {
+test("recent readings sit below search without duplicate summaries, 讀完 chip filters finished posts and a strip row opens reader", async () => {
   const now = Date.parse("2026-10-13T12:00:00Z");
   const completedAt = new Date(now - 60000).toISOString();
   const ready = item("done", { status: "succeeded", completedAt, latestCapture: capture({}, { analysis: { status: "succeeded", generated_at: completedAt, clusters: [], evidence: [] } as NonNullable<ReturnType<typeof capture>["analysis"]> }) });
@@ -234,8 +234,9 @@ test("recent readings sit above search, 讀完 chip filters finished posts and a
   const view = await mount({ sessions: [session("one", [ready, waiting], "topic")], nowMs: now });
   try {
     const strip = view.container.querySelector("[data-reading-strip]")!;
-    assert.match(strip.textContent!, /剛讀完|讀完 · 0 種講法|1 分前/);
-    assert.ok(strip.compareDocumentPosition(view.container.querySelector("[data-collection-search]")!) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.match(strip.textContent!, /啱啱讀完.*@author · 讀完 1 分前/);
+    assert.doesNotMatch(strip.textContent!, /種講法|則觀眾留言/);
+    assert.ok(strip.compareDocumentPosition(view.container.querySelector("[data-collection-search]")!) & view.dom.window.Node.DOCUMENT_POSITION_PRECEDING);
     assert.equal(view.container.querySelectorAll('[data-collection-state="arc"]').length, 1);
     assert.equal(view.container.querySelectorAll('[data-collection-state="dot"]').length, 1);
     assert.equal(view.container.querySelector("[data-collection-finished-filter]"),null);
@@ -337,4 +338,23 @@ test("a refused re-crawl says why and stays retryable; unfinished, settling and 
     try { assert.equal(view.container.querySelector('[data-collection-action="recrawl"]'), null, label); }
     finally { await view.close(); }
   }
+});
+
+
+test("collection list keeps search before scrollable chips and shows one reserved summary/status slot per card", async () => {
+  const view = await mount({ sessions: [session("topic", [item("saved")], "topic"), session("archive", [])] });
+  try {
+    const search = view.container.querySelector("[data-collection-search]")!;
+    const chips = view.container.querySelector<HTMLElement>("[data-collection-filter-scroll]")!;
+    assert.ok(chips);
+    assert.ok(search.compareDocumentPosition(chips) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.equal(chips.style.overflowX, "auto");
+    assert.equal(chips.style.flexWrap, "nowrap");
+    assert.equal(chips.querySelectorAll("[data-collection-filter]").length, 6);
+    assert.equal(view.container.querySelector("[data-reading-strip]"), null, "empty recent copy is removed");
+    assert.equal(view.container.querySelectorAll("[data-collection-summary]").length, 1);
+    assert.equal(view.container.querySelector<HTMLElement>("[data-collection-summary]")?.style.minHeight, tokens.panel.type.bodySm.lineHeight);
+    assert.equal(view.container.querySelector("[data-collection-status-chip]")?.textContent, "未抓取");
+    assert.equal(view.container.querySelector("[data-collection-type-tile]")?.textContent, "A");
+  } finally { await view.close(); }
 });

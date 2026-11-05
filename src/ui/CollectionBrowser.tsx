@@ -8,17 +8,19 @@ import { collectionReadingSource, expandReaderEvidenceGroup } from "../viewmodel
 import type { DeepReadingRecord } from "../compare/deep-reading-storage";
 import type { ExtensionSettings } from "../state/types";
 import type { OpenedReadings } from "../state/opened-readings-storage";
-import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 import { buildCollectionReaderModel } from "../viewmodel/collection-reader";
 import type { InlineCardEntryKey } from "../viewmodel/inline-card";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { Topic, Signal } from "../state/types";
 import { CollectionAudienceReading } from "./CollectionAudienceReading";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink, Search } from "lucide-react";
 
 import type { SessionRecord } from "../state/types";
-import { buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { buildCollectionRowStatus, buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
+import { CollectionPostCard } from "./CollectionPostCard";
+import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
+export { CollectionThumbnail } from "./CollectionThumbnail";
 import { useCollectionMotion } from "./useCollectionMotion";
 import { SavedPostMetrics } from "./SavedPostPreview";
 import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
@@ -96,22 +98,6 @@ function OriginalImage({ url, index }: { url: string; index: number }) {
       )}
     </div>
   );
-}
-
-export function CollectionThumbnail({ post, miniature = false }: { post: CollectionPost; miniature?: boolean }) {
-  const url = post.imageUrls[0];
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
-  const size = miniature ? tokens.collection.previewSize : tokens.layout.collectionThumbnailSize;
-  const style: CSSProperties = { display: "grid", placeItems: "center", position: "relative", overflow: "hidden",
-    width: size, height: size, borderRadius: miniature ? tokens.radius.pill : tokens.collection.thumbnailRadius, flexShrink: 0,
-    ...collectionTileTint(post.author), fontFamily: tokens.font.serifCjk, fontSize: miniature ? tokens.collection.metaSize : tokens.collection.tileSize };
-  return <span data-collection-thumbnail="" aria-hidden="true" style={style}>
-    <span data-collection-type-tile="">{post.tileCharacter}</span>
-    {url && failedUrl !== url ? <img src={url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer"
-      data-collection-image-loaded={loadedUrl === url ? "true" : "false"} onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)}
-      style={{ display: "block", position: "absolute", inset: 0, width: size, height: size, objectFit: "cover" }} /> : null}
-  </span>;
 }
 
 export function CollectionReader({ productAnalyses = {}, productSignals = [], productHasContext = false, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerBackLabel = "收藏", post, onBack, onOpenWorkspace, sessions, topics = [], signals = [], readings = {}, nowMs = 0, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, onRecrawl }: Pick<CollectionBrowserProps, "readerBackLabel" | "productAnalyses" | "productSignals" | "productHasContext" | "productLoaded" | "productPending" | "productErrors" | "onProductAnalyze" | "onSettings" | "onCopy" | "copyStatus" | "requestedLens" | "settings" | "deepReadings" | "deepPending" | "deepErrors" | "onDeepRun" | "onRecrawl" | "sessions" | "topics" | "signals" | "readings" | "nowMs" | "onAssignTopic" | "assignmentPending"> & {
@@ -209,60 +195,76 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(filtered.posts, query, sort, nowMs), [posts,arrival,filter, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
+  const rowStatuses = useMemo(() => Object.fromEntries(posts.map(post => [post.key, buildCollectionRowStatus(post, sessions, readings ?? {}, { analyses: productAnalyses, signals: productSignals, settings, hasContext: productHasContext, loaded: productLoaded }, nowMs)])), [posts, sessions, readings, productAnalyses, productSignals, settings, productHasContext, productLoaded, nowMs]);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterOverflow, setFilterOverflow] = useState(false);
+  const updateFilterOverflow = () => {
+    const element = filterRef.current;
+    setFilterOverflow(!!element && element.scrollWidth - element.clientWidth - element.scrollLeft > 1);
+  };
+  useLayoutEffect(() => {
+    updateFilterOverflow();
+    const element = filterRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateFilterOverflow);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [selectedKey, sessions, filter]);
   if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader readerBackLabel={readerBackLabel} productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} onRecrawl={onRecrawl} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={onReaderBack ?? (() => onSelect(null))} onOpenWorkspace={onOpenWorkspace} /></>;
-  const metaStyle: CSSProperties = { ...textStyles.meta, fontSize: tokens.collection.metaSize, color: tokens.color.softInk };
+  const panel = tokens.panel;
+  const metaStyle: CSSProperties = { ...panel.type.meta, color: panel.ink3, fontVariantNumeric: "tabular-nums" };
+  const buttonStyle: CSSProperties = { ...panel.type.bodySm, minHeight: panel.size.buttonSm, border: 0, padding: `0 ${panel.space.sm}px`, borderRadius: panel.radius.sm, color: panel.accentInk, background: "transparent", cursor: "pointer", fontFamily: tokens.font.sans };
   return (
-    <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={rootStyle}>
-      {!query.trim() ? <div data-reading-strip="" style={{ display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.sm }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={metaStyle}>剛讀完</span>
-        </div>
-        {arrival.recent.length ? arrival.recent.slice(0, 1).map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)} style={{ ...quietButton, color: tokens.color.ink, textAlign: "left", width: "100%" }}>
-          <WorkspaceModeIcon mode={row.mode} /><span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}><b>@{row.post.author.replace(/^@/, "") || "匿名"}</b><span style={metaStyle}>{row.summary}</span></span><time style={metaStyle} dateTime={row.at}>{row.ago}</time>
-        </button>) : <p style={{ ...metaStyle, margin: 0 }}>讀完會喺呢度出現，唔使留喺原帖等。</p>}
-        {openedError ? <p role="alert" style={{ ...metaStyle, margin: 0 }}>{openedError}</p> : null}
-      </div> : null}
-      <header style={{ display: "grid", gap: tokens.spacing.md, paddingBottom: tokens.spacing.sm }}>
-        <div role="group" aria-label="收藏篩選" style={{display:"flex",overflowX:"auto",gap:tokens.spacing.sm}}>{filtered.chips.map(chip=><button type="button" key={chip.key} data-collection-filter={chip.key} aria-pressed={chip.selected} onClick={()=>setFilter(chip.key)} style={{...quietButton,whiteSpace:"nowrap",flexShrink:0,borderRadius:tokens.radius.pill,background:chip.selected ? tokens.color.ink : tokens.collection.wash,color:chip.selected ? tokens.color.inverse : tokens.color.subInk}}>{chip.label} <small>{chip.count}</small></button>)}</div>
-        <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: tokens.spacing.sm, height: tokens.collection.searchHeight, width: "100%", minWidth: 0, boxSizing: "border-box", borderRadius: tokens.collection.thumbnailRadius, padding: `0 ${tokens.spacing.md}px` }}>
-          <Search size={tokens.spacing.section} aria-hidden="true" style={{ color: tokens.color.softInk, flexShrink: 0 }} />
-          <input type="search" aria-label="搜尋收藏" placeholder="搜尋收藏的內容或作者" value={query} onChange={(event) => onQueryChange(event.target.value)}
-            style={{ ...textStyles.bodyTight, width: "100%", minWidth: 0, border: 0, outline: "none", background: "transparent", color: tokens.color.ink }} />
+    <section data-collection-browser="list" aria-label="收藏" aria-busy={isLoading} style={{ ...rootStyle, color: panel.ink, fontFamily: tokens.font.sans }}>
+      <header style={{ display: "grid", gap: panel.space.sm }}>
+        <label data-collection-search="" style={{ display: "flex", alignItems: "center", gap: panel.space.sm, height: panel.size.input, width: "100%", minWidth: 0,
+          boxSizing: "border-box", background: panel.surface, border: `1px solid ${panel.border}`, borderRadius: panel.radius.sm, padding: `0 ${panel.space.md}px` }}>
+          <Search size={panel.size.icon} strokeWidth={1.75} aria-hidden="true" style={{ color: panel.ink3, flexShrink: 0 }} />
+          <input type="search" aria-label="搜尋收藏" placeholder="搜尋內容或作者" value={query} onChange={event => onQueryChange(event.target.value)}
+            style={{ ...panel.type.bodySm, fontFamily: tokens.font.sans, width: "100%", minWidth: 0, border: 0, background: "transparent", color: panel.ink }} />
         </label>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: tokens.spacing.sm, flexWrap: "wrap" }}>
+        <div ref={filterRef} data-collection-filter-scroll="" role="group" aria-label="收藏篩選" onScroll={updateFilterOverflow}
+          style={{ display: "flex", flexWrap: "nowrap", overflowX: "auto", minWidth: 0, gap: panel.space.xs + panel.space.xxs, scrollbarWidth: "none", scrollSnapType: "x proximity", maskImage: filterOverflow ? panel.scrollMask : undefined }}>
+          {filtered.chips.map(chip => <button type="button" key={chip.key} data-collection-filter={chip.key} aria-pressed={chip.selected} onClick={() => setFilter(chip.key)}
+            style={{ ...panel.type.meta, fontFamily: tokens.font.sans, display: "inline-flex", alignItems: "center", gap: panel.space.xs, height: panel.size.chip,
+              padding: `0 ${panel.space.sm + panel.space.xxs}px`, flex: "none", whiteSpace: "nowrap", border: 0, borderRadius: panel.radius.pill,
+              background: chip.selected ? panel.ink : panel.surfaceSubtle, color: chip.selected ? panel.surface : panel.ink2, cursor: "pointer" }}>
+            {chip.label}<span style={{ ...panel.type.micro, color: chip.selected ? panel.chipCountOn : panel.ink3, fontVariantNumeric: "tabular-nums" }}>{chip.count}</span>
+          </button>)}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: panel.space.sm, minWidth: 0 }}>
           <span data-collection-count="" style={metaStyle}>{model.count} 篇</span>
-          <div role="group" aria-label="收藏排序" style={{ display: "flex", position: "relative", padding: tokens.collection.segmentPadding, background: tokens.collection.wash, borderRadius: tokens.collection.segmentRadius }}>
-            <span aria-hidden="true" data-collection-sort-knob="" style={{ position: "absolute", left: tokens.collection.segmentPadding, top: tokens.collection.segmentPadding, bottom: tokens.collection.segmentPadding, width: `calc((100% - ${tokens.collection.segmentPadding * 2}px) / 3)`, transform: `translateX(${COLLECTION_SORTS.findIndex(entry => entry.key === sort) * 100}%)`, background: tokens.color.elevated, borderRadius: tokens.collection.knobRadius, boxShadow: tokens.collection.knobShadow }} />
+          <div role="group" aria-label="收藏排序" style={{ display: "flex", position: "relative", background: panel.surfaceSunken, borderRadius: panel.radius.sm }}>
+            <span aria-hidden="true" data-collection-sort-knob="" style={{ position: "absolute", left: panel.space.xxs, top: panel.space.xxs, bottom: panel.space.xxs,
+              width: `calc((100% - ${panel.space.xs}px) / 3)`, transform: `translateX(${COLLECTION_SORTS.findIndex(entry => entry.key === sort) * 100}%)`, background: panel.surface, borderRadius: panel.radius.xs, boxShadow: panel.shadow.card }} />
             {COLLECTION_SORTS.map(entry => <button key={entry.key} type="button" data-collection-sort={entry.key} aria-pressed={entry.key === sort} onClick={() => onSortChange?.(entry.key)}
-              style={{ ...metaStyle, position: "relative", zIndex: 1, flex: 1, whiteSpace: "nowrap", height: tokens.collection.segmentHeight, padding: `0 ${tokens.spacing.sm}px`, border: 0, background: "transparent", color: sort === entry.key ? tokens.color.ink : tokens.color.softInk, cursor: "pointer" }}>{entry.label}</button>)}
+              style={{ ...panel.type.micro, fontFamily: tokens.font.sans, position: "relative", zIndex: 1, flex: 1, whiteSpace: "nowrap", height: panel.size.buttonSm,
+                padding: `0 ${panel.space.sm}px`, border: 0, background: "transparent", color: sort === entry.key ? panel.ink : panel.ink3, cursor: "pointer" }}>{entry.label}</button>)}
           </div>
         </div>
       </header>
       {filter === "product" ? exportRow : null}
-      <div style={{ minWidth: 0 }}>
+      {!query.trim() && arrival.recent.length > 0 ? <div data-reading-strip="" style={{ display: "grid", gap: panel.space.xxs, marginTop: panel.space.md }}>
+        <span style={{ ...panel.type.micro, color: panel.ink3, fontWeight: 600 }}>啱啱讀完</span>
+        {arrival.recent.slice(0, 2).map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)}
+          style={{ ...buttonStyle, display: "flex", alignItems: "center", gap: panel.space.sm, minHeight: panel.size.input, textAlign: "left", width: "100%", minWidth: 0, padding: `0 ${panel.space.sm}px`, color: panel.ink2 }}>
+          <WorkspaceModeIcon mode={row.mode} /><span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{row.post.author.replace(/^@/, "") || "匿名"} · 讀完 <time dateTime={row.at}>{row.ago}</time></span><span style={{ color: panel.accentInk, flexShrink: 0 }}>打開 ›</span>
+        </button>)}
+      </div> : null}
+      {openedError ? <p role="alert" style={{ ...metaStyle, color: panel.danger, background: panel.dangerSoft, margin: `${panel.space.sm}px 0 0`, padding: panel.space.sm, borderRadius: panel.radius.sm }}>{openedError}</p> : null}
+      <div style={{ minWidth: 0, paddingTop: panel.space.md }}>
         <ul ref={motion.listRef} style={{ listStyle: "none", margin: 0, padding: 0, position: "relative" }}>
-          {motion.rows.map(({ post, dayLabel, postedRelative, comments, exiting }, index) => (
-            <li key={post.key} data-collection-row={post.key} data-collection-exiting={exiting ? "true" : undefined} style={{ position: "relative", display: "grid", gridTemplateRows: "1fr", pointerEvents: exiting ? "none" : undefined }} inert={exiting || undefined}>
-              <div style={{ minHeight: 0, overflow: "hidden" }}>
-                {dayLabel ? <div data-collection-day="" style={{ ...metaStyle, fontWeight: 600, paddingTop: tokens.spacing.section, paddingBottom: tokens.spacing.xs }}>{dayLabel}</div> : null}
-                <button type="button" data-collection-post={post.key} data-collection-arrival="" onClick={() => onSelect(post.key)}
-                  style={{ "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, display: "flex", position: "relative", alignItems: "center", gap: tokens.spacing.md, width: "100%", minWidth: 0, textAlign: "left", boxSizing: "border-box", padding: `${tokens.collection.rowPadding}px ${tokens.spacing.sm}px`, border: 0, borderRadius: tokens.radius.card, background: "transparent", cursor: "pointer", color: tokens.color.ink } as CSSProperties}>
-                  <CollectionThumbnail post={post} />
-                  <span style={{ display: "grid", gap: tokens.spacing.xs, flex: 1, minWidth: 0 }}>
-                    <span style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, lineHeight: tokens.collection.lineHeight, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}>{post.body || "沒有已保存的原文文字"}</span>
-                    <span style={{ ...metaStyle, display: "flex", alignItems: "center", gap: tokens.spacing.xs, overflow: "hidden", whiteSpace: "nowrap" }}>
-                      <span title={post.memberships[0]?.sessionName} style={{ width: tokens.collection.dotSize, height: tokens.collection.dotSize, flexShrink: 0, borderRadius: tokens.radius.round, background: getModeTheme(post.memberships[0]?.mode ?? "archive").accent }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}</span>
-                      {postedRelative ? <span>· {postedRelative}</span> : null}<span>· 留言 {comments ?? "—"}</span>
-                    </span>
-                  </span>
-                  {arrival.states[post.key] !== "none" ? <span data-collection-state={arrival.states[post.key]} role="img" aria-label={arrival.states[post.key] === "arc" ? "讀緊留言" : "未打開結果"} style={{ flexShrink: 0, width: arrival.states[post.key] === "arc" ? tokens.collectCard.arcSize : tokens.collection.dotSize, height: arrival.states[post.key] === "arc" ? tokens.collectCard.arcSize : tokens.collection.dotSize, borderRadius: tokens.radius.round, background: arrival.states[post.key] === "dot" ? getModeTheme(post.memberships[0]?.mode ?? "archive").accent : "transparent", border: arrival.states[post.key] === "arc" ? `${tokens.collectCard.arcBorder}px solid ${tokens.color.line}` : undefined, borderTopColor: getModeTheme(post.memberships[0]?.mode ?? "archive").accent, boxSizing: "border-box" }} /> : null}
-                </button>
+          {motion.rows.map(({ post, dayLabel, postedRelative, comments, exiting }) => (
+            <li key={post.key} data-collection-row={post.key} data-collection-exiting={exiting ? "true" : undefined}
+              style={{ position: "relative", display: "grid", gridTemplateRows: "1fr", marginBottom: panel.space.sm, pointerEvents: exiting ? "none" : undefined }} inert={exiting || undefined}>
+              <div style={{ minHeight: 0 }}>
+                {dayLabel ? <div data-collection-day="" style={{ ...panel.type.micro, color: panel.ink3, fontWeight: 600, paddingTop: panel.space.lg, paddingBottom: panel.space.xs }}>{dayLabel}</div> : null}
+                <CollectionPostCard post={post} status={rowStatuses[post.key]} postedRelative={postedRelative} comments={comments} arrival={arrival.states[post.key]} onOpen={() => onSelect(post.key)} />
               </div>
             </li>
           ))}
         </ul>
-        {!model.count ? <p role="status" style={{ ...textStyles.bodyTight, color: tokens.color.softInk, padding: `${tokens.spacing.xl}px 0`, margin: 0 }}>
+        {!model.count ? <p role="status" style={{ ...panel.type.bodySm, color: panel.ink3, padding: `${panel.space.xxl}px 0`, margin: 0 }}>
           {isLoading ? "正在載入收藏…" : posts.length ? "找不到符合搜尋的收藏。" : "尚未收藏貼文。從 Threads 收集感興趣的內容後，便可在這裡閱讀。"}
         </p> : null}
       </div>

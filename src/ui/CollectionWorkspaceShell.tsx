@@ -1,14 +1,20 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { tokens, textStyles } from "./tokens";
+import type { BackendReachability, BackendWorkUiState } from "../state/processing-state";
+import type { CollectionPost, CollectionRowStatus } from "../viewmodel/collection-browser";
+import { CollectionThumbnail } from "./CollectionBrowser";
+import { CollectionStatusChip } from "./CollectionStatusChip";
+import { collectionTileTint, tokens } from "./tokens";
 import { BUILD_VERSION } from "./version";
 
 export type CollectionTab = "collection" | "workspaces";
+const p = tokens.panel;
+const tabWidth = p.space.xxl * 2;
 
 /** One stable reading surface; domain tools live inside their workspace. */
-export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView, onInView, diagnostics, children, busy = false, allowCollection = true }: {
-  inView?:{author:string;summary:string} | null;
-  onInView?:()=>void;
+export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView, onInView, diagnostics, children, busy = false, allowCollection = true, backendReachability = "reachable", backendWorkUiState }: {
+  inView?: { author: string; summary: string; post?: CollectionPost; rowStatus?: CollectionRowStatus } | null;
+  onInView?: () => void;
   tab: CollectionTab;
   onTabChange: (tab: CollectionTab) => void;
   onSettings: () => void;
@@ -16,31 +22,51 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
   children: ReactNode;
   busy?: boolean;
   allowCollection?: boolean;
+  backendReachability?: BackendReachability;
+  backendWorkUiState?: BackendWorkUiState | null;
 }) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const healthLabel = backendReachability === "unreachable" ? "連唔到後端" : backendReachability === "slow" ? "後端回應慢" : "後端已連線";
+  const workError = backendWorkUiState?.kind === "backend_error" || backendWorkUiState?.kind === "analysis_failed" || backendWorkUiState?.kind === "expired_running";
+  const healthColor = backendReachability === "unreachable" || workError ? p.danger : backendReachability === "slow" || backendWorkUiState?.kind === "retry_waiting" ? p.warning : p.success;
+  const closeMenu = () => {
+    if (menuRef.current) menuRef.current.open = false;
+    setMenuOpen(false);
+    triggerRef.current?.focus();
+  };
   return (
-    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0 }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 3, background: tokens.collection.header, backdropFilter: tokens.collection.headerBlur, WebkitBackdropFilter: tokens.collection.headerBlur, height: tokens.collection.headerHeight, boxSizing: "border-box", display: "flex", alignItems: "center", gap: tokens.collection.tabGap, margin: `0 -${tokens.spacing.section}px`, padding: `0 ${tokens.spacing.section}px`, borderBottom: `1px solid ${tokens.color.line}` }}>
-        <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: tokens.collection.tabGap, height: "100%", flex: 1 }}>
+    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0, fontFamily: tokens.font.sans, color: p.ink, fontVariantNumeric: "tabular-nums" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 3, background: p.bg, height: p.size.header, boxSizing: "border-box", display: "flex", alignItems: "center", gap: p.space.lg, margin: `0 -${p.space.lg}px`, padding: `0 ${p.space.lg}px`, borderBottom: `1px solid ${p.border}` }}>
+        <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: p.space.lg, height: "100%", flex: 1, minWidth: 0 }}>
           {([['collection', '收藏'], ['workspaces', '工作區']] as const).filter(([key]) => allowCollection || key !== 'collection').map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} disabled={busy} onClick={() => onTabChange(key)}
-              style={{ ...textStyles.bodyTight, fontSize: tokens.collection.bodySize, width: tokens.collection.tabWidth, fontWeight: tab === key ? 600 : 500, color: tab === key ? tokens.color.accent : tokens.color.softInk, background: "transparent", border: 0, padding: 0, cursor: "pointer" }}>{label}</button>
+              style={{ ...p.type.cardTitle, fontFamily: tokens.font.sans, width: tabWidth, flex: "none", whiteSpace: "nowrap", fontWeight: tab === key ? 600 : 500, color: tab === key ? p.ink : p.ink3, background: "transparent", border: 0, padding: 0, cursor: "pointer" }}>{label}</button>
           ))}
-          <span data-collection-tab-indicator="" aria-hidden="true" style={{ position: "absolute", bottom: 0, left: 0, width: tokens.collection.tabWidth, height: tokens.collection.indicatorHeight, background: tokens.color.accent, borderRadius: tokens.radius.xs, transform: `translateX(${allowCollection && tab === "workspaces" ? tokens.collection.tabWidth + tokens.collection.tabGap : 0}px)` }} />
+          <span data-collection-tab-indicator="" aria-hidden="true" style={{ position: "absolute", bottom: 0, left: 0, width: tabWidth, height: p.space.xxs, background: p.accent, borderRadius: p.radius.xs, transform: `translateX(${allowCollection && tab === "workspaces" ? tabWidth + p.space.lg : 0}px)` }} />
         </nav>
-        <details data-collection-menu="true" style={{ position: "relative" }}>
-          <summary aria-label="更多選項" style={{ cursor: "pointer", listStyle: "none", padding: tokens.spacing.sm, color: tokens.color.subInk }}><MoreHorizontal size={tokens.spacing.section} aria-hidden="true" /></summary>
-          <div style={{ position: "absolute", top: "100%", right: 0, zIndex: 2, width: tokens.layout.collectionMenuWidth, maxWidth: "70vw", display: "grid", gap: tokens.spacing.sm, padding: tokens.spacing.md, border: `1px solid ${tokens.color.line}`, borderRadius: tokens.radius.card, background: tokens.color.surface, boxShadow: tokens.shadow.card }}>
-            <button type="button" onClick={onSettings} style={{ ...textStyles.bodyTight, textAlign: "left", border: 0, background: "transparent", padding: tokens.spacing.sm, color: tokens.color.ink, cursor: "pointer" }}>設定</button>
+        <details ref={menuRef} data-collection-menu="true" onToggle={event => setMenuOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); closeMenu(); } }} style={{ position: "relative", flex: "none" }}>
+          <summary ref={triggerRef} aria-label={`更多選項 · ${healthLabel}`} aria-expanded={menuOpen} style={{ cursor: "pointer", listStyle: "none", width: p.size.button, height: p.size.button, display: "flex", alignItems: "center", justifyContent: "center", gap: p.space.xs, borderRadius: p.radius.sm, color: p.ink2 }}><span data-collection-health-dot="" aria-hidden="true" style={{ width: p.size.statusDot, height: p.size.statusDot, borderRadius: p.radius.pill, background: healthColor, flex: "none" }} /><MoreHorizontal size={p.size.icon} strokeWidth={1.75} aria-hidden="true" /></summary>
+          <div data-collection-popover="" style={{ position: "absolute", top: "100%", right: 0, zIndex: 2, width: tokens.layout.collectionMenuWidth, maxWidth: "70vw", display: "grid", gap: p.space.sm, padding: p.space.md, border: `1px solid ${p.border}`, borderRadius: p.radius.md, background: p.surface, boxShadow: p.shadow.popover }}>
+            <button type="button" onClick={onSettings} style={{ ...p.type.bodySm, fontFamily: tokens.font.sans, textAlign: "left", border: 0, background: "transparent", minHeight: p.size.button, padding: p.space.sm, color: p.ink, cursor: "pointer" }}>設定</button>
             <details>
-              <summary style={{ ...textStyles.caption, cursor: "pointer" }}>連線與處理狀態</summary>
-              <div style={{ display: "grid", gap: tokens.spacing.sm, paddingTop: tokens.spacing.sm }}>{diagnostics}</div>
+              <summary style={{ ...p.type.micro, color: p.ink3, cursor: "pointer", minHeight: p.size.buttonSm }}>連線與處理狀態</summary>
+              <div style={{ display: "grid", gap: p.space.sm, paddingTop: p.space.sm }}>{diagnostics}</div>
             </details>
-            <span style={textStyles.caption}>v.{BUILD_VERSION}</span>
+            <span style={{ ...p.type.micro, color: p.ink3 }}>v.{BUILD_VERSION}</span>
           </div>
         </details>
       </header>
-      {inView ? <div data-collection-in-view="" style={{minWidth:0,position:'sticky',top:tokens.collection.headerHeight,zIndex:2,display:'flex',alignItems:'center',gap:tokens.spacing.sm,margin:`0 -${tokens.spacing.section}px ${tokens.spacing.sm}px`,padding:`${tokens.spacing.sm}px ${tokens.spacing.section}px`,background:tokens.collection.inViewBar,backdropFilter:tokens.collection.headerBlur,WebkitBackdropFilter:tokens.collection.headerBlur,borderBottom:`1px solid ${tokens.collection.inViewBarEdge}`,fontSize:tokens.reader.secondary}}><span style={{minWidth:0,overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis'}}>畫面上：@{inView.author.replace(/^@/,'')} · {inView.summary}</span><button type="button" onClick={onInView} style={{marginLeft:'auto',flexShrink:0,border:0,background:'transparent',color:tokens.color.accent,cursor:'pointer',fontSize:tokens.reader.secondary}}>睇 ›</button></div> : null}
-      <main style={{ minWidth: 0, paddingTop:tokens.spacing.lg }}>{children}</main>
+      {inView ? <div data-collection-in-view="" style={{ minWidth: 0, position: "sticky", top: p.size.header, zIndex: 2, height: p.size.banner, boxSizing: "border-box", display: "flex", alignItems: "center", gap: p.space.md, margin: `0 -${p.space.lg}px`, padding: `0 ${p.space.lg}px`, background: p.surface, borderBottom: `1px solid ${p.border}` }}>
+        {inView.post ? <CollectionThumbnail post={inView.post} /> : <span data-collection-thumbnail="" aria-hidden="true" style={{ ...collectionTileTint(inView.author), width: p.size.thumb, height: p.size.thumb, borderRadius: p.radius.sm, display: "grid", placeItems: "center", flex: "none", ...p.type.cardTitle }}>{[...inView.author.replace(/^@/, "")][0]?.toUpperCase() || "？"}</span>}
+        <span style={{ display: "grid", gap: p.space.xxs, minWidth: 0, flex: 1 }}>
+          <span style={{ display: "flex", alignItems: "baseline", minWidth: 0 }}><span style={{ ...p.type.micro, color: p.ink3, flex: "none", whiteSpace: "pre" }}>畫面上 · </span><span style={{ ...p.type.meta, color: p.ink2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>@{inView.author.replace(/^@/, '')}</span></span>
+          <span style={{ display: "flex", gap: p.space.xs, minWidth: 0, alignItems: "center" }}><span style={{ ...p.type.bodySm, color: p.ink, flex: 1, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{inView.summary}</span>{inView.rowStatus?.chip ? <CollectionStatusChip chip={inView.rowStatus.chip} /> : null}</span>
+        </span>
+        <button type="button" onClick={onInView} style={{ ...p.type.meta, fontFamily: tokens.font.sans, height: p.size.buttonSm, padding: `0 ${p.space.sm}px`, flex: "none", border: 0, borderRadius: p.radius.sm, background: p.surfaceSubtle, color: p.accentInk, cursor: "pointer" }}>打開</button>
+      </div> : null}
+      <main style={{ minWidth: 0, paddingTop: p.space.lg }}>{children}</main>
     </div>
   );
 }

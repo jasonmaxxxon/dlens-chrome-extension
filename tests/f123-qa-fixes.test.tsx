@@ -82,10 +82,10 @@ test("the reader's 大家問咩 answer is only its headline; the questions appea
   assert.match(src, /if \(answer\.kind === "ask"\) return <h3 style=\{h3\}>\{answer\.headline\}<\/h3>;/);
 });
 
-test("the 畫面上 bar is near-opaque and spans the panel", () => {
+test("the 畫面上 bar is opaque and spans the panel", () => {
   const html = renderToStaticMarkup(<CollectionWorkspaceShell tab="workspaces" onTabChange={() => undefined} onSettings={() => undefined} inView={{ author: "s.s_santa", summary: "想問點解香港職場" }} onInView={() => undefined}><p>body</p></CollectionWorkspaceShell>);
   const bar = new JSDOM(html).window.document.querySelector<HTMLElement>("[data-collection-in-view]")!;
-  assert.match(bar.style.background, /0\.96/);
+  assert.equal(bar.style.background, "rgb(255, 255, 255)");
   assert.match(bar.style.margin, /^0px -\d+px/);
 });
 

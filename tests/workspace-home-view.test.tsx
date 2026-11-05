@@ -231,7 +231,7 @@ test("workspace B cards expose purpose, count, last save and at most four stacke
   assert.equal(doc.querySelectorAll("[data-workspace-preview] img").length, 2);
   const tiles = [...doc.querySelectorAll("[data-workspace-preview]")].filter(preview => !preview.querySelector("img"));
   assert.equal(tiles.length, 2);
-  assert.ok(tiles.every(preview => preview.querySelector("[data-collection-type-tile]")?.textContent === "收"));
+  assert.ok(tiles.every(preview => preview.querySelector("[data-collection-type-tile]")?.textContent === "A"));
 });
 
 test("the whole workspace card opens it once, while its menu keeps its own click", async () => {

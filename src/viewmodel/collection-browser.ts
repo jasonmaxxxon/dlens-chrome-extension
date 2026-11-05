@@ -1,6 +1,6 @@
 import { inlineCollectPostKey } from "../state/inline-collect";
 import { providerKeyFromSettings } from "../state/ai-key";
-import { productReadingFinishedAt, PRODUCT_VERDICT_LABELS } from "./product-reader";
+import { productReadingFinishedAt, PRODUCT_VERDICT_LABELS, buildProductReaderModel } from "./product-reader";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
 import type { ProductSignalAnalysis, Signal, ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
 import { stripThreadsTranslationChrome } from "../state/source-text";
@@ -9,6 +9,10 @@ import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import { INLINE_READING_PROMPT_VERSION } from "../compare/inline-reading";
 import type { OpenedReadings } from "../state/opened-readings-storage";
 import { postedAt } from "./topic-discourse";
+import { collectionReadingSource, readerNeedsReading } from "./collection-reader";
+import { readCommentEligibility } from "../compare/comment-eligibility";
+import { PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../compare/product-signal-analysis";
+import { INLINE_CARD_MIN_COMMENTS, type InlineCardPeekInput } from "./inline-card";
 /** AND-combined local search tokens; leading @ matches stored author handles. */
 export function parseLibrarySearchTokens(rawQuery: string): string[] {
   return rawQuery.trim().toLowerCase().split(/\s+/).map(token => token.replace(/^@+/, "")).filter(Boolean);
@@ -285,4 +289,68 @@ export function buildCollectionInView(posts:CollectionPost[], inView:string|null
  if (!inView) return null;
  const post=posts.find(p=>p.memberships.some(m=>inlineCollectPostKey(m.item.descriptor)===inView));
  return post && post.key!==openKey ? {key:post.key,author:post.author,summary:post.body.replace(/\s+/g,' ').slice(0,60)} : null;
+}
+
+
+/** Side-panel-only summary; the Threads card and existing projections keep their contracts. */
+export interface CollectionRowStatus {
+  summary: string | null;
+  chip: { label: string; tone: "neutral" | "success" | "warning" | "running" | "danger" | "accent" } | null;
+  mode: SessionRecord["mode"];
+  itemId: string | null;
+  error: boolean;
+}
+
+export function buildCollectionRowStatus(post: CollectionPost, sessions: SessionRecord[], readings: Record<string, InlineReadingRecord>, product: CollectionProductInputs, now: number, peek?: InlineCardPeekInput): CollectionRowStatus {
+  const source = collectionReadingSource(post, sessions);
+  if (!source) return { summary: null, chip: null, mode: post.memberships.find(member => member.mode === "archive")?.mode ?? post.memberships[0]?.mode ?? "archive", itemId: null, error: false };
+  const { session, item } = source;
+  const base = { mode: session.mode, itemId: item.id, error: false };
+  const stored = readings[item.id];
+  const ai = stored && !readerNeedsReading(item, stored) ? stored : null;
+  const card = buildInlineCardViewModel(item, session.mode, session.name, { ai, now, queue: sessions.flatMap(current => current.items), peek });
+  if (card.phase === "failed") return { ...base, summary: card.error, chip: { label: "抓取失敗", tone: "danger" }, error: true };
+  if (card.phase === "queued") return { ...base, summary: null, chip: { label: `排隊中${card.eta ? ` · 前面 ${card.eta.ahead} 篇` : ""}`, tone: "warning" } };
+  if (card.phase === "running") {
+    const left = card.eta ? card.eta.seconds - Math.floor((now - Date.parse(card.eta.from)) / 1000) : null;
+    const late = left !== null && (!Number.isFinite(left) || left < 0);
+    return { ...base, summary: card.peek?.state === "ready" ? card.peek.top?.text ?? null : null,
+      chip: { label: late ? "比平常久" : `抓取中${left === null ? "" : ` · 約 ${Math.max(1, Math.ceil(left / 60))} 分`}`, tone: late ? "warning" : "running" } };
+  }
+  if (card.phase === "saved") return { ...base, summary: null, chip: { label: "未抓取", tone: "neutral" } };
+  if (session.mode === "product") {
+    const signal = product.signals?.find(current => current.sessionId === session.id && current.itemId === item.id);
+    const candidate = product.analyses?.[signal?.id ?? ""];
+    const captured = Math.max(timestamp(item.completedAt), timestamp(item.latestCapture?.captured_at), timestamp(item.latestCapture?.result?.fetched_at));
+    // These inputs have no current ProductContext or SignalReading packet. Fence
+    // every identity they do carry; never upgrade a known stale result to current.
+    const current = candidate?.status === "complete" && candidate.signalId === signal?.id
+      && candidate.promptVersion === PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION && !!candidate.productContextHash
+      && timestamp(candidate.analyzedAt) >= captured && timestamp(candidate.analyzedAt) > 0 && timestamp(candidate.analyzedAt) <= now
+      && (!(candidate.verdict === "try" || candidate.verdict === "watch") || !!candidate.productReading) ? candidate : undefined;
+    const reader = product.settings ? buildProductReaderModel(item, session.id, signal?.id ?? null, current, product.settings, !!product.hasContext) : null;
+    const analysis = reader?.analysis;
+    return { ...base, summary: analysis?.reason?.trim() || analysis?.contentSummary?.trim() || `${readCommentEligibility(item).all.length} 則留言`,
+      chip: analysis ? { label: PRODUCT_VERDICT_LABELS[analysis.verdict], tone: "accent" } : { label: "未分析", tone: "neutral" } };
+  }
+  const count = card.readingCounts.comments;
+  const countLine = `${count} 則觀眾留言`;
+  if (count < INLINE_CARD_MIN_COMMENTS) return { ...base, summary: `${countLine} · 未夠歸納`, chip: { label: "讀完", tone: "success" } };
+  if (card.analysisPending) return { ...base, summary: countLine, chip: { label: "分群整理中", tone: "running" } };
+  if (card.ai?.state === "running") return { ...base, summary: countLine, chip: { label: "AI 整理中", tone: "running" } };
+  const stance = card.entries.find(entry => entry.key === "stance");
+  return { ...base, summary: stance?.finding ? `「${stance.finding}」${stance.mark ? ` ${stance.mark}` : ""} · ${countLine}` : countLine,
+    chip: { label: "讀完", tone: "success" } };
+}
+
+/** Banner projection shares the list summary/status without changing the legacy export. */
+export function buildCollectionInViewStatus(posts: CollectionPost[], inView: string | null, openKey: string | null, sessions: SessionRecord[], readings: Record<string, InlineReadingRecord>, product: CollectionProductInputs, now: number) {
+  const banner = buildCollectionInView(posts, inView, openKey);
+  const post = banner && posts.find(current => current.key === banner.key);
+  return banner && post ? { ...banner, post, rowStatus: buildCollectionRowStatus(post, sessions, readings, product, now) } : null;
+}
+
+/** Display-only Chinese units for the side panel, preserving the legacy m/h/d export. */
+export function collectionPanelRelativeTime(relative: string | null): string | null {
+  return relative?.replace(/(\d+)m$/, "$1分").replace(/(\d+)h$/, "$1小時").replace(/(\d+)d$/, "$1日") ?? null;
 }

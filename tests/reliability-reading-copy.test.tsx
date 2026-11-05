@@ -39,12 +39,12 @@ test('cost labels identify US dollars for both reading offers',()=>{
  assert.match(buildDeepReadingModel(source(),s,undefined,now)!.cost,/US\$\d+\.\d{3}/);
  assert.match(buildTopicReadingModel({id:'t',name:'合成'} as any,[source()],s,undefined,now).cost,/US\$\d+\.\d{3}/);
 });
-test('recent completions use one compact row and disappear while searching',()=>{
+test('recent completions use at most two compact rows and disappear while searching',()=>{
  const now=Date.parse('2026-10-15T00:00:00Z');
  const posts=Array.from({length:3},(_,i)=>item(String(i),{status:'succeeded',completedAt:new Date(now-i*1000).toISOString(),descriptor:descriptor({post_url:`https://www.threads.com/@test/post/${i}`}),latestCapture:capture({},{analysis:{status:'succeeded',generated_at:new Date(now-i*1000).toISOString(),clusters:[],evidence:[]} as any})}));
  const props={sessions:[session('s',posts,'topic')],query:'',onQueryChange:()=>{},selectedKey:null,onSelect:()=>{},onOpenWorkspace:()=>{},nowMs:now};
  const html=renderToStaticMarkup(<CollectionBrowser {...props}/>);
- assert.equal((html.match(/data-reading-arrival=""/g)||[]).length,1);
+ assert.equal((html.match(/data-reading-arrival=""/g)||[]).length,2);
  const search=renderToStaticMarkup(<CollectionBrowser {...props} query="收藏"/>);
- assert.doesNotMatch(search,/data-reading-strip|剛讀完/);
+ assert.doesNotMatch(search,/data-reading-strip|啱啱讀完/);
 });
