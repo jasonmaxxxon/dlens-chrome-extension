@@ -1,6 +1,8 @@
-/* ─── DLens Glass Workspace Theme ───
+/* ─── DLens Surface Tokens ───
  *
- * Active design contract (Glass unification, 2026-07-10):
+ * Side-panel replacement (2026-11-05): `panel` owns the warm-neutral reading UI.
+ * Shared Threads controls keep their established values below.
+ * Legacy design contract (Glass unification, 2026-07-10):
  *   全部 surface 收斂到 `material.workspaceGlass` 的白綠玻璃地面；
  *   editorial 的暖墨（ink）與 serif 標題聲音保留，暖紙 cream 面全面退役。
  *
@@ -23,6 +25,43 @@ const WORKSPACE_GLASS = {
 } as const;
 
 export const tokens = {
+  /* Side-panel replacement system. Shared Threads controls retain their existing tokens. */
+  panel: {
+    bg: "#FAFAF9", surface: "#FFFFFF", surfaceSubtle: "#F4F4F2", surfaceSunken: "#EFEEEB",
+    border: "#E7E5E1", borderStrong: "#D6D3CD",
+    ink: "#1C1B19", ink2: "#44423D", ink3: "#6E6B64", ink4: "#A19D95",
+    accent: "#2952CC", accentHover: "#2246B3", accentSoft: "#EBF0FC", accentInk: "#1E3E9E",
+    success: "#1F7A4D", successSoft: "#E7F4EC", warning: "#A15C07", warningSoft: "#FBF1E2",
+    danger: "#B42318", dangerSoft: "#FDECEA", running: "#2952CC", runningSoft: "#EBF0FC",
+    focusRing: "0 0 0 2px #FFFFFF, 0 0 0 4px #2952CC",
+    chipCountOn: "rgba(255,255,255,.7)",
+    scrollMask: "linear-gradient(to right, #000 calc(100% - 24px), transparent)",
+    type: {
+      title: { fontSize: 17, lineHeight: "24px", fontWeight: 600 },
+      heading: { fontSize: 15, lineHeight: "22px", fontWeight: 600 },
+      cardTitle: { fontSize: 14, lineHeight: "20px", fontWeight: 600 },
+      body: { fontSize: 14, lineHeight: "22px", fontWeight: 400 },
+      bodySm: { fontSize: 13, lineHeight: "19px", fontWeight: 400 },
+      meta: { fontSize: 12, lineHeight: "17px", fontWeight: 500 },
+      micro: { fontSize: 11, lineHeight: "15px", fontWeight: 500 }
+    },
+    space: { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, section: 32 },
+    radius: { xs: 6, sm: 8, md: 12, lg: 16, pill: 999 },
+    shadow: {
+      card: "0 1px 2px rgba(20,18,15,.05), 0 0 0 1px rgba(20,18,15,.06)",
+      raised: "0 2px 6px rgba(20,18,15,.06), 0 0 0 1px rgba(20,18,15,.07)",
+      popover: "0 12px 32px -8px rgba(20,18,15,.20), 0 0 0 1px rgba(20,18,15,.08)"
+    },
+    size: {
+      header: 44, banner: 52, chip: 28, button: 32, buttonSm: 28, input: 36,
+      thumb: 40, avatar: 24, replyAvatar: 20, statusDot: 8, modeDot: 6, icon: 16, chipIcon: 14
+    },
+    motion: {
+      fast: "120ms", base: "180ms", slow: "240ms",
+      standard: "cubic-bezier(.2,.8,.2,1)", exit: "cubic-bezier(.4,0,1,1)", press: .98, skeletonMs: 1200
+    }
+  },
+
   deepReading: {
     accent: "#7b4a8a", wash: "rgba(123,74,138,.08)",
     status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },

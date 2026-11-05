@@ -8,6 +8,9 @@ export const DLENS_KEYFRAMES_CSS = `
   [data-deep-skeleton], [data-topic-reading-skeleton] { animation: dlens-card-shimmer ${tokens.motion.collectCard.shimmerMs}ms linear infinite; }
 }
 
+@keyframes dlens-panel-popover { from { opacity: 0; transform: translateY(${tokens.panel.space.xs}px); } to { opacity: 1; transform: none; } }
+@keyframes dlens-panel-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dlens-panel-skeleton { 50% { opacity: .55; } }
 @keyframes dlens-lens-swap { 0% { opacity: 0; transform: translateY(${tokens.motion.lens.risePx}px); } 60% { opacity: 1; transform: translateY(${tokens.motion.lens.overshootPx}px); } 100% { opacity: 1; transform: none; } }
 @keyframes dlens-lens-ink { 0% { opacity: .5; transform: scaleX(${tokens.motion.lens.inkFrom}); } 60% { opacity: 1; transform: scaleX(${tokens.motion.lens.inkOver}); } 100% { transform: scaleX(1); } }
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
@@ -117,30 +120,47 @@ export function ensureDlensKeyframes(doc: Document = document): void {
  * Applies across every workspace mode; classes are opt-in so unstyled
  * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
 export const DLENS_MOTION_CSS = `
-[data-collection-workspace-shell] [data-collection-search] { background: ${tokens.collection.wash}; }
-[data-collection-workspace-shell] [data-collection-search]:focus-within { background: ${tokens.color.elevated}; box-shadow: ${tokens.collection.focusShadow}; }
-[data-collection-workspace-shell] [data-collection-post]:hover { background: ${tokens.collection.hover} !important; }
-[data-collection-row] + [data-collection-row] [data-collection-post]::before { content: ""; position: absolute; top: 0; left: ${tokens.layout.collectionThumbnailSize + tokens.spacing.md + tokens.spacing.sm}px; right: ${tokens.spacing.sm}px; height: ${tokens.collection.indicatorHeight / 2}px; background: ${tokens.collection.hairline}; }
-[data-collection-row]:hover [data-collection-post]::before,
-[data-collection-row]:hover + [data-collection-row] [data-collection-post]::before { opacity: 0; }
-@media (prefers-reduced-motion: no-preference) {
-  [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} var(--collection-delay, 0ms) backwards; }
-  [data-reader-ink] { transition: transform ${tokens.motion.lens.inkMs}ms ${tokens.motion.easing.spring}; }
-  [data-reader-answer-swap] { animation: dlens-lens-swap ${tokens.motion.lens.swapMs}ms ${tokens.motion.easing.entrance} both; }
-  [data-reading-arrival] { animation: dlens-collection-rise ${tokens.motion.collection.riseMs}ms ${tokens.motion.easing.entrance} backwards; }
-  [data-collection-state="arc"], [data-discourse-arc] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
-  [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.motion.collection.glideMs}ms ${tokens.motion.easing.entrance} backwards; }
-  [data-collection-row][data-collection-exiting="true"] { animation: dlens-collection-fold ${tokens.motion.collection.foldMs}ms ${tokens.motion.easing.exit} forwards; }
-  [data-collection-tab-indicator], [data-collection-sort-knob] { transition: transform ${tokens.motion.duration.slower} ${tokens.motion.easing.entrance}; }
-  [data-collection-workspace-shell] [data-collection-post], [data-collection-workspace-shell] [data-workspace-card] { transition: transform ${tokens.motion.duration.base} ${tokens.motion.easing.entrance}, background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.base} ${tokens.motion.easing.standard}; }
-  [data-collection-workspace-shell] [data-collection-post]:hover, [data-collection-workspace-shell] [data-workspace-card]:hover { transform: translateY(${tokens.collection.rowLift}px); }
-  [data-collection-workspace-shell] [data-workspace-card]:hover { box-shadow: ${tokens.shadow.card}; }
-  [data-collection-workspace-shell] [data-workspace-card]:active { transform: scale(${tokens.collection.cardPress}); transition-duration: ${tokens.motion.duration.instant}; }
-  [data-collection-search] { transition: background ${tokens.motion.duration.base} ${tokens.motion.easing.standard}, box-shadow ${tokens.motion.duration.slow} ${tokens.motion.easing.entrance}; }
-  [data-collection-image-loaded="false"] { opacity: 0; }
-  [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.motion.collection.fadeMs}ms ${tokens.motion.easing.entrance} backwards; }
-  [data-collection-mist] { animation: dlens-collection-mist ${tokens.motion.collection.mistMs}ms ${tokens.motion.easing.standard} infinite alternate; }
+[data-collection-workspace-shell] :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: ${tokens.panel.focusRing} !important;
 }
+[data-collection-workspace-shell] [data-collection-search] { background: ${tokens.panel.surface}; }
+[data-collection-workspace-shell] [data-collection-search]:focus-within { border-color: ${tokens.panel.borderStrong}; }
+[data-collection-workspace-shell] [data-collection-post]:hover { box-shadow: ${tokens.panel.shadow.raised}; }
+[data-collection-workspace-shell] [data-collection-menu] summary::-webkit-details-marker { display: none; }
+[data-collection-workspace-shell] [data-collection-menu] summary::marker { content: ""; }
+[data-collection-workspace-shell] [data-collection-filter], [data-collection-workspace-shell] [data-reader-topic] { scroll-snap-align: start; }
+[data-collection-workspace-shell] [data-collection-filter-scroll]::-webkit-scrollbar { display: none; }
+[data-collection-workspace-shell] [data-collection-menu-row]:hover { background: ${tokens.panel.surfaceSubtle}; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.panel.motion.base} ${tokens.panel.motion.standard} var(--collection-delay, 0ms) backwards; }
+  [data-collection-workspace-shell] [data-reader-ink] { transition: transform ${tokens.panel.motion.base} ${tokens.panel.motion.standard}; }
+  [data-collection-workspace-shell] [data-reader-answer-swap] { animation: dlens-lens-swap ${tokens.panel.motion.base} ${tokens.panel.motion.standard} both; }
+  [data-collection-workspace-shell] [data-reading-arrival] { animation: dlens-collection-rise ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
+  [data-collection-workspace-shell] [data-collection-state="arc"], [data-collection-workspace-shell] [data-discourse-arc], [data-collection-workspace-shell] [data-panel-spinner] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
+  [data-collection-workspace-shell] [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
+  [data-collection-workspace-shell] [data-collection-row][data-collection-exiting="true"] { animation: dlens-panel-fade ${tokens.panel.motion.base} ${tokens.panel.motion.exit} forwards; }
+  [data-collection-workspace-shell] [data-collection-tab-indicator], [data-collection-workspace-shell] [data-collection-sort-knob] { transition: transform ${tokens.panel.motion.base} ${tokens.panel.motion.standard}; }
+  [data-collection-workspace-shell] :is(button, a, summary), [data-collection-workspace-shell] [data-collection-post], [data-collection-workspace-shell] [data-workspace-card] { transition: transform ${tokens.panel.motion.fast} ${tokens.panel.motion.standard}; }
+  [data-collection-workspace-shell] :is(button, a, summary):active { transform: scale(${tokens.panel.motion.press}); }
+  [data-collection-workspace-shell] [data-collection-post]:hover, [data-collection-workspace-shell] [data-workspace-card]:hover { box-shadow: ${tokens.panel.shadow.raised}; }
+  [data-collection-workspace-shell] [data-collection-image-loaded="false"] { opacity: 0; }
+  [data-collection-workspace-shell] [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
+  [data-collection-workspace-shell] [data-collection-mist] { animation: none; }
+  [data-collection-workspace-shell] [data-collection-menu][open] > [data-collection-popover] { animation: dlens-panel-popover ${tokens.panel.motion.slow} ${tokens.panel.motion.standard} both; }
+  [data-collection-workspace-shell] [data-panel-skeleton] { animation: dlens-panel-skeleton ${tokens.panel.motion.skeletonMs}ms ${tokens.panel.motion.standard} infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-collection-workspace-shell],
+  [data-collection-workspace-shell] *,
+  [data-collection-workspace-shell] *::before,
+  [data-collection-workspace-shell] *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  [data-collection-workspace-shell] :is(button, a, summary):active { transform: none !important; }
+}
+
 [data-dlens-control="true"] .dlens-card-lift {
   transition: ${tokens.motion.preset.cardLift};
   will-change: transform;
