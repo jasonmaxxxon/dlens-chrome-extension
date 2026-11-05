@@ -208,7 +208,7 @@ export function WorkspaceHomeView({ sessions, nowMs = 0, activeSessionId, onOpen
             <article key={session.id} data-workspace-card="" data-collection-arrival=""
               // The whole card opens the workspace; its name button and ⋯ menu keep their own clicks.
               onClick={(event) => { if (!(event.target as Element).closest("button, summary, details")) void openWorkspace(session.id); }}
-              style={{ ...inlineCardStyle, cursor: disabled ? "default" : "pointer", "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", background: session.id === activeSessionId ? tokens.panel.accentSoft : tokens.panel.surface, borderLeft: `3px solid ${session.id === activeSessionId ? tokens.panel.accent : "transparent"}` } as CSSProperties}>
+              style={{ ...inlineCardStyle, cursor: disabled ? "default" : "pointer", "--collection-delay": `${Math.min(index, tokens.motion.collection.staggerCap) * tokens.motion.collection.staggerMs}ms`, position: "relative", background: tokens.panel.surface, borderLeft: `3px solid ${session.id === activeSessionId ? tokens.panel.accentSoft : "transparent"}` } as CSSProperties}>
               <div style={{ display: "flex", alignItems: "center", gap: tokens.panel.space.sm }}>
                 <button type="button" data-workspace-session={session.id} aria-current={session.id === activeSessionId ? "true" : undefined}
                   disabled={disabled} onClick={() => void openWorkspace(session.id)}

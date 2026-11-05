@@ -21,7 +21,7 @@ import { createPrEvidenceResource } from "../src/ui/pr-evidence-resource.ts";
 import { PrEvidenceView, prEvidenceViewTestables } from "../src/ui/PrEvidenceViews.tsx";
 import { SettingsView } from "../src/ui/SettingsView.tsx";
 import { surfaceCardStyle } from "../src/ui/components.tsx";
-import { modeThemeStyle, textStyles, tokens } from "../src/ui/tokens.ts";
+import { modeThemeStyle, tokens } from "../src/ui/tokens.ts";
 
 function productTestProfile() {
   return {
@@ -269,15 +269,15 @@ test("surfaceCardStyle uses the side panel surface defaults", () => {
   assert.equal(style.boxShadow, tokens.panel.shadow.card);
 });
 
-test("tokens keep the design-system UI and editorial type split", () => {
+test("tokens keep the single panel hierarchy and shared Threads values", () => {
   assert.match(tokens.font.sans, /Noto Sans TC/);
   assert.doesNotMatch(tokens.font.sans, /Noto Serif TC|Songti TC/);
-  assert.match(tokens.font.serifCjk, /Noto Serif TC|Songti TC/);
+  assert.equal(tokens.panel.type.title.fontSize, 17);
   assert.equal(tokens.color.canvas, "#f2f7f3");
   assert.equal(tokens.color.surface, "#f8fbf8");
   assert.equal(tokens.color.elevated, "#ffffff");
-  assert.equal(tokens.radius.card, 12);
-  assert.equal(tokens.radius.lg, 12);
+  assert.equal(tokens.panel.radius.md, 12);
+  assert.equal(tokens.panel.radius.lg, 16);
 });
 
 test("mode themes keep topic and product visually separate", () => {
@@ -755,9 +755,9 @@ test("InPageCollectorPopup preserves the scroll frame and reaches topic creation
     assert.ok(track);
     assert.equal(track.style.transform, "", "rebound leaves transform ownership alone");
     assert.equal(track.style.minHeight, "100%");
-    const spacer = track.lastElementChild as HTMLElement | null;
-    assert.ok(spacer, "last action remains reachable through a real scroll spacer");
-    assert.equal(spacer.style.height, `${tokens.spacing.xl}px`);
+    const lastContent = track.lastElementChild as HTMLElement | null;
+    assert.ok(lastContent?.matches('[data-collection-workspace-shell="true"]'), "the scroll track ends with real panel content");
+    assert.equal(track.querySelector(':scope > [aria-hidden="true"]'), null, "no decorative empty spacer remains");
     viewport.scrollTop = 150;
     await act(async () => popupTab(host, "工作區").click());
     assert.equal(viewport.scrollTop, 0, "primary navigation resets the shared scroll viewport");
@@ -1574,10 +1574,9 @@ test("PrEvidenceView keeps metrics actions prominent and avoids horizontal inspe
   assert.doesNotMatch(html, /data-pr-evidence-view="true"[^>]*padding-bottom/);
 });
 
-test("PR Evidence compact rows use shared typography tokens instead of fractional font drift", () => {
-  assert.equal(textStyles.metric.fontSize, 11);
-  assert.equal(textStyles.metric.fontWeight, 700);
-  assert.equal(textStyles.metric.fontVariantNumeric, "tabular-nums");
+test("PR Evidence compact rows use shared typography tokens instead of fractional font drift", async () => {
+  assert.equal(tokens.panel.type.micro.fontSize, 11);
+  assert.equal(tokens.panel.type.micro.fontWeight, 500);
 
   const previewCampaign: PrCampaign = {
     id: "campaign-typography",
@@ -1623,6 +1622,10 @@ test("PR Evidence compact rows use shared typography tokens instead of fractiona
     })
   );
 
+  const { JSDOM } = await import("jsdom");
+  const metadata = new JSDOM(previewHtml).window.document.querySelector<HTMLElement>('[data-pr-csv-preview] > summary span:last-child');
+  assert.equal(metadata?.style.fontVariantNumeric, "tabular-nums");
+  assert.equal(metadata?.textContent?.trim(), vm.csvPreview.exportableCountLabel);
   assert.doesNotMatch(`${ledgerHtml}${previewHtml}`, /font-size:(?:9\.5|10\.5|11\.5|12\.5)px/);
 });
 

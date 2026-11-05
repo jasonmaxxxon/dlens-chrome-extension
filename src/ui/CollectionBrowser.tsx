@@ -2,7 +2,7 @@ import { awaitingAnalysis, readInlineCardThread } from "../viewmodel/inline-card
 import { DeepReadingView } from "./DeepReadingView";
 import { CollectionProductReading } from "./CollectionProductReading";
 import { buildProductReaderModel } from "../viewmodel/product-reader";
-import type { ProductSignalAnalysis } from "../state/types";
+import type { ProductContext, ProductSignalAnalysis } from "../state/types";
 import { buildDeepReadingModel, toggleDeepDisclosure, EMPTY_DEEP_DISCLOSURE, type DeepCommand } from "../viewmodel/deep-reading";
 import { collectionReadingSource, expandReaderEvidenceGroup } from "../viewmodel/collection-reader";
 import type { DeepReadingRecord } from "../compare/deep-reading-storage";
@@ -14,23 +14,26 @@ import type { InlineReadingRecord } from "../compare/inline-reading-storage";
 import type { Topic, Signal } from "../state/types";
 import { CollectionAudienceReading } from "./CollectionAudienceReading";
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Check, Heart, LoaderCircle, MessageCircle, RotateCcw, Search } from "lucide-react";
+import { Bookmark, Check, Heart, LoaderCircle, MessageCircle, RotateCcw, Search } from "lucide-react";
 import { buildCollectionReaderDetails } from "../viewmodel/collection-reader-details";
 
 import type { SessionRecord } from "../state/types";
 import { buildCollectionRowStatus, buildCollectionArrivalModel, buildCollectionPosts, buildCollectionBrowserModel, collectionSavedTime, collectionPanelRelativeTime, COLLECTION_SORTS, buildCollectionFilters, type CollectionFilter, type CollectionSort, type CollectionPost } from "../viewmodel/collection-browser";
 import { CollectionPostCard } from "./CollectionPostCard";
+import { CollectionLoadingSkeleton } from "./CollectionLoadingSkeleton";
+import { PanelErrorBanner } from "./PanelErrorBanner";
 import { WorkspaceModeIcon } from "./WorkspaceModeIcon";
 export { CollectionThumbnail } from "./CollectionThumbnail";
 import { useCollectionMotion } from "./useCollectionMotion";
 import { SavedPostMetrics } from "./SavedPostPreview";
-import { collectionTileTint, getModeTheme, textStyles, tokens } from "./tokens";
+import { collectionTileTint, getModeTheme, tokens } from "./tokens";
 
 export interface CollectionBrowserProps {
   sessions: SessionRecord[];
   productAnalyses?: Record<string,ProductSignalAnalysis>;
   productSignals?: Signal[];
   productHasContext?: boolean;
+  productContext?: ProductContext | null;
   productLoaded?: boolean;
   productPending?: Record<string,boolean>;
   productErrors?: Record<string,string>;
@@ -186,7 +189,7 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
 // A stable empty default: a fresh {} per render would recompute the rows and loop the motion hook.
 const NO_OPENED: OpenedReadings = {};
 
-export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, filter: controlledFilter, onFilterChange, exportRow, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, onRecrawl, productAnalyses, productSignals, productHasContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest, readerBackLabel, onReaderBack }: CollectionBrowserProps) {
+export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, query, onQueryChange, sort = "saved", onSortChange, nowMs = 0, selectedKey, onSelect, filter: controlledFilter, onFilterChange, exportRow, onOpenWorkspace, isLoading = false, topics, signals, readings, onAssignTopic, assignmentPending, settings, deepReadings, deepPending, deepErrors, onDeepRun, onRecrawl, productAnalyses, productSignals, productHasContext, productContext, productLoaded, productPending, productErrors, onProductAnalyze, onSettings, onCopy, copyStatus, requestedLens, readerRequest, readerBackLabel, onReaderBack }: CollectionBrowserProps) {
   const posts = useMemo(() => buildCollectionPosts(sessions), [sessions]);
   const [localFilter,setLocalFilter]=useState<CollectionFilter>("all");
   const filter = controlledFilter ?? localFilter;
@@ -196,7 +199,7 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
   const selected = selectedKey ? posts.find((post) => post.key === selectedKey) : undefined;
   const model = useMemo(() => buildCollectionBrowserModel(filtered.posts, query, sort, nowMs), [posts,arrival,filter, query, sort, nowMs]);
   const motion = useCollectionMotion(model.rows);
-  const rowStatuses = useMemo(() => Object.fromEntries(posts.map(post => [post.key, buildCollectionRowStatus(post, sessions, readings ?? {}, { analyses: productAnalyses, signals: productSignals, settings, hasContext: productHasContext, loaded: productLoaded }, nowMs)])), [posts, sessions, readings, productAnalyses, productSignals, settings, productHasContext, productLoaded, nowMs]);
+  const rowStatuses = useMemo(() => Object.fromEntries(posts.map(post => [post.key, buildCollectionRowStatus(post, sessions, readings ?? {}, { analyses: productAnalyses, signals: productSignals, settings, hasContext: productHasContext, loaded: productLoaded, context: productContext }, nowMs)])), [posts, sessions, readings, productAnalyses, productSignals, settings, productHasContext, productContext, productLoaded, nowMs]);
   const filterRef = useRef<HTMLDivElement>(null);
   const [filterOverflow, setFilterOverflow] = useState(false);
   const updateFilterOverflow = () => {
@@ -211,7 +214,7 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
     observer.observe(element);
     return () => observer.disconnect();
   }, [selectedKey, sessions, filter]);
-  if (selected) return <>{openedError ? <p role="alert" style={{ ...textStyles.meta, color: tokens.color.softInk }}>{openedError}</p> : null}<CollectionReader readerBackLabel={readerBackLabel} productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} onRecrawl={onRecrawl} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={onReaderBack ?? (() => onSelect(null))} onOpenWorkspace={onOpenWorkspace} /></>;
+  if (selected) return <>{openedError ? <div style={{ paddingBottom: p.space.lg }}><PanelErrorBanner>{openedError}</PanelErrorBanner></div> : null}<CollectionReader readerBackLabel={readerBackLabel} productAnalyses={productAnalyses} productSignals={productSignals} productHasContext={productHasContext} productLoaded={productLoaded} productPending={productPending} productErrors={productErrors} onProductAnalyze={onProductAnalyze} onSettings={onSettings} onCopy={onCopy} copyStatus={copyStatus} requestedLens={requestedLens} settings={settings} deepReadings={deepReadings} deepPending={deepPending} deepErrors={deepErrors} onDeepRun={onDeepRun} onRecrawl={onRecrawl} assignmentPending={assignmentPending} sessions={sessions} topics={topics} signals={signals} readings={readings} nowMs={nowMs} onAssignTopic={onAssignTopic} key={`${selected.key}:${requestedLens ?? ""}:${readerRequest ?? 0}`} post={selected} onBack={onReaderBack ?? (() => onSelect(null))} onOpenWorkspace={onOpenWorkspace} /></>;
   const panel = tokens.panel;
   const metaStyle: CSSProperties = { ...panel.type.meta, color: panel.ink3, fontVariantNumeric: "tabular-nums" };
   const buttonStyle: CSSProperties = { ...panel.type.bodySm, minHeight: panel.size.buttonSm, border: 0, padding: `0 ${panel.space.sm}px`, borderRadius: panel.radius.sm, color: panel.accentInk, background: "transparent", cursor: "pointer", fontFamily: tokens.font.sans };
@@ -245,16 +248,16 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
         </div>
       </header>
       {filter === "product" ? exportRow : null}
-      {!query.trim() && arrival.recent.length > 0 ? <div data-reading-strip="" style={{ display: "grid", gap: panel.space.xxs, marginTop: panel.space.md }}>
+      {!isLoading && !query.trim() && arrival.recent.length > 0 ? <div data-reading-strip="" style={{ display: "grid", gap: panel.space.xxs, marginTop: panel.space.md }}>
         <span style={{ ...panel.type.micro, color: panel.ink3, fontWeight: 600 }}>啱啱讀完</span>
         {arrival.recent.slice(0, 2).map(row => <button type="button" key={row.itemId + row.at} data-reading-arrival="" onClick={() => onSelect(row.post.key)}
           style={{ ...buttonStyle, display: "flex", alignItems: "center", gap: panel.space.sm, minHeight: panel.size.input, textAlign: "left", width: "100%", minWidth: 0, padding: `0 ${panel.space.sm}px`, color: panel.ink2 }}>
           <WorkspaceModeIcon mode={row.mode} /><span style={{ minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@{row.post.author.replace(/^@/, "") || "匿名"} · 讀完 <time dateTime={row.at}>{row.ago}</time></span><span style={{ color: panel.accentInk, flexShrink: 0 }}>打開 ›</span>
         </button>)}
       </div> : null}
-      {openedError ? <p role="alert" style={{ ...metaStyle, color: panel.danger, background: panel.dangerSoft, margin: `${panel.space.sm}px 0 0`, padding: panel.space.sm, borderRadius: panel.radius.sm }}>{openedError}</p> : null}
+      {openedError ? <div style={{ marginTop: panel.space.sm }}><PanelErrorBanner>{openedError}</PanelErrorBanner></div> : null}
       <div style={{ minWidth: 0, paddingTop: panel.space.md }}>
-        <ul ref={motion.listRef} style={{ listStyle: "none", margin: 0, padding: 0, position: "relative" }}>
+        {isLoading ? <CollectionLoadingSkeleton /> : <ul ref={motion.listRef} style={{ listStyle: "none", margin: 0, padding: 0, position: "relative" }}>
           {motion.rows.map(({ post, dayLabel, postedRelative, comments, exiting }) => (
             <li key={post.key} data-collection-row={post.key} data-collection-exiting={exiting ? "true" : undefined}
               style={{ position: "relative", display: "grid", gridTemplateRows: "1fr", marginBottom: panel.space.sm, pointerEvents: exiting ? "none" : undefined }} inert={exiting || undefined}>
@@ -264,10 +267,14 @@ export function CollectionBrowser({ opened = NO_OPENED, openedError, sessions, q
               </div>
             </li>
           ))}
-        </ul>
-        {!model.count ? <p role="status" style={{ ...panel.type.bodySm, color: panel.ink3, padding: `${panel.space.xxl}px 0`, margin: 0 }}>
-          {isLoading ? "正在載入收藏…" : posts.length ? "找不到符合搜尋的收藏。" : "尚未收藏貼文。從 Threads 收集感興趣的內容後，便可在這裡閱讀。"}
-        </p> : null}
+        </ul>}
+        {!isLoading && !model.count ? <section data-collection-empty={query.trim() ? "search" : posts.length ? "filter" : "none"} role="status" style={{ display: "grid", justifyItems: "center", gap: panel.space.sm, marginTop: panel.list.emptyTop, textAlign: "center", color: panel.ink3 }}>
+          {query.trim() ? <><h3 style={{ ...panel.type.heading, color: panel.ink, margin: 0, overflowWrap: "anywhere" }}>搵唔到「{query.trim()}」</h3><button type="button" data-collection-clear-query="" onClick={() => onQueryChange("")} style={{ ...buttonStyle, minHeight: panel.size.button }}>清除搜尋</button></> : posts.length ? <><h3 style={{ ...panel.type.heading, color: panel.ink, margin: 0 }}>呢個分類未有帖文</h3><button type="button" data-collection-clear-filter="" onClick={() => setFilter("all")} style={{ ...buttonStyle, minHeight: panel.size.button }}>睇全部</button></> : <>
+            <Bookmark size={panel.list.emptyIcon} strokeWidth={panel.iconStrokeWidth} aria-hidden="true" style={{ color: panel.ink4 }} />
+            <h3 style={{ ...panel.type.heading, color: panel.ink, margin: 0 }}>未有收藏</h3>
+            <p style={{ ...panel.type.bodySm, margin: 0, color: panel.ink3 }}>喺 Threads 帖文旁邊撳 DLens 掣，就會收喺呢度。</p>
+          </>}
+        </section> : null}
       </div>
     </section>
   );

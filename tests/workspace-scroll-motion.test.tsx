@@ -145,16 +145,17 @@ test("workspace scroll motion applies a route-independent lead soft-pop then the
     assert.deepEqual(animationCalls.map((call) => call.options.delay), [0, 70, 130, 190, 250, 310, 370, 0]);
     assert.equal(animationCalls[0]!.frames[0]!.opacity, 0.68);
     assert.equal(animationCalls[0]!.frames[0]!.translate, "0 10px");
-    assert.equal(animationCalls[0]!.options.duration, 420);
-    assert.equal(animationCalls[0]!.options.easing, "cubic-bezier(0.25, 0.46, 0.45, 0.94)");
+    assert.equal(animationCalls[0]!.options.duration, 240);
+    assert.equal(animationCalls[0]!.options.easing, "cubic-bezier(.2,.8,.2,1)");
     assert.equal(animationCalls[0]!.animation.id, "dlens-scroll-presence");
     assert.equal(animationCalls[1]!.frames.length, 2, "later cards use fade-up without scale bounce");
     assert.equal(animationCalls[1]!.frames[0]!.opacity, 0.28);
     assert.equal(animationCalls[1]!.frames[0]!.translate, "0 10px");
     assert.equal(animationCalls[1]!.frames[0]!.scale, undefined);
-    assert.equal(animationCalls[1]!.options.duration, 480);
+    assert.equal(animationCalls[1]!.options.duration, 240);
     assert.equal(animationCalls.at(-1)!.frames[0]!.opacity, 0.92);
-    assert.equal(animationCalls.at(-1)!.options.duration, 220);
+    assert.equal(animationCalls.at(-1)!.options.duration, 180);
+    assert.equal(animationCalls.at(-1)!.options.easing, "cubic-bezier(.2,.8,.2,1)");
     assert.equal(observer.observed.size, 0, "intersecting targets are one-shot");
 
     observer.callback(entries, observer as unknown as IntersectionObserver);
@@ -171,8 +172,8 @@ test("workspace scroll motion applies a route-independent lead soft-pop then the
     assert.equal(dynamic.style.getPropertyValue("scale"), "");
     observer.callback([{ isIntersecting: true, target: dynamic } as IntersectionObserverEntry], observer as unknown as IntersectionObserver);
     assert.equal(animationCalls.at(-1)!.options.delay, 70, "a later card restarts the shared fade-up rhythm after the idle window");
-    assert.equal(animationCalls.at(-1)!.options.duration, 480);
-    assert.equal(animationCalls.at(-1)!.options.easing, "cubic-bezier(0.25, 0.46, 0.45, 0.94)");
+    assert.equal(animationCalls.at(-1)!.options.duration, 240);
+    assert.equal(animationCalls.at(-1)!.options.easing, "cubic-bezier(.2,.8,.2,1)");
     assert.deepEqual(animationCalls.at(-1)!.frames.map((frame) => frame.opacity), [0.28, 1]);
     assert.deepEqual(animationCalls.at(-1)!.frames.map((frame) => frame.translate), ["0 10px", "0 0"]);
     assert.deepEqual(animationCalls.at(-1)!.frames.map((frame) => frame.scale), [undefined, undefined]);
@@ -228,7 +229,8 @@ test("workspace scroll motion applies a route-independent lead soft-pop then the
     assert.equal(animationCalls.length, 1);
     assert.equal(animationCalls[0]!.target, track);
     assert.deepEqual(animationCalls[0]!.frames.map((frame) => frame.translate), ["0 -3px", "0 0"]);
-    assert.equal(animationCalls[0]!.options.duration, 280);
+    assert.equal(animationCalls[0]!.options.duration, 240);
+    assert.equal(animationCalls[0]!.options.easing, "cubic-bezier(.2,.8,.2,1)");
   } finally {
     flushSync(() => root.unmount());
     assert.equal(FakeIntersectionObserver.instances[0]?.disconnected, true);

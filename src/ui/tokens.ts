@@ -1,28 +1,5 @@
-/* ─── DLens Surface Tokens ───
- *
- * Side-panel replacement (2026-11-05): `panel` owns the warm-neutral reading UI.
- * Shared Threads controls keep their established values below.
- * Legacy design contract (Glass unification, 2026-07-10):
- *   全部 surface 收斂到 `material.workspaceGlass` 的白綠玻璃地面；
- *   editorial 的暖墨（ink）與 serif 標題聲音保留，暖紙 cream 面全面退役。
- *
- * English shorthand:
- *   Editorial voice on a shared glass workspace.
- *
- * `tokens.ts` is the single active design source. The surface family below
- * keeps opaque reading cards and shared glass panels in one material family.
- * macOS utility patterns extend existing token
- * slots such as shadow.shell, motion.preset.*, and effect.*;
- * they do not introduce a parallel palette, font stack, or scale.
- * Some callers still use legacy alias names such as glass*.
- */
-
-const WORKSPACE_GLASS = {
-  panel: "linear-gradient(168deg, rgba(255,255,255,0.84), rgba(255,255,255,0.50))",
-  edge: "rgba(255,255,255,0.82)",
-  blur: "blur(18px) saturate(1.35)",
-  panelShadow: "0 1px 2px rgba(31,38,33,0.03), 0 18px 44px -26px rgba(31,38,33,0.24), inset 0 1px 0 rgba(255,255,255,0.92)"
-} as const;
+/* DLens design values: the panel system replaces retired side-panel styles.
+ * Threads controls retain their shared palette, geometry and motion values. */
 
 export const tokens = {
   /* Side-panel replacement system. Shared Threads controls retain their existing tokens. */
@@ -36,6 +13,11 @@ export const tokens = {
     focusRing: "0 0 0 2px #FFFFFF, 0 0 0 4px #2952CC",
     iconStrokeWidth: 1.75,
     reader: { sourceLines: 6, replyClampChars: 180, replyClampLines: 6, refsShown: 3, clusterBar: 3, lensHeight: 44, shareHeight: 8, skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10 },
+    list: {
+      skeletonCount: 4, skeletonWidths: ["40%", "90%", "60%"], skeletonHeights: [12, 10, 10], emptyTop: 48, emptyIcon: 24,
+      card: { padding: 12, columnGap: 12, contentGap: 4, titleLines: 2, metaLine: 17, titleLine: 40, summaryLine: 19, statusLine: 19 }
+    },
+    visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",
     scrollMask: "linear-gradient(to right, #000 calc(100% - 24px), transparent)",
     type: {
@@ -64,83 +46,19 @@ export const tokens = {
     }
   },
 
-  deepReading: {
-    accent: "#7b4a8a", wash: "rgba(123,74,138,.08)",
-    status: { agree: "#3f5a3b", open: "#a06a17", heated: "#a8462e" },
-    skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10, skeletonBackground: "linear-gradient(90deg, rgba(123,74,138,.04), rgba(123,74,138,.12), rgba(123,74,138,.04))", skeletonBackgroundSize: "200% 100%"
-  },
-  /* 深入解讀 / 話題解讀 cards: one compact run pill, quiet source links, folded detail. */
-  reading: {
-    sourceOutlineWidth: 2, runHeight: 30, runPadding: 14, refsShown: 3, iconTile: 28, iconRadius: 9, cardPadding: 14, sectionGap: 12,
-    definition: "rgba(27,26,23,.04)", statusWash: { agree: "rgba(63,90,59,.09)", open: "rgba(160,106,23,.1)", heated: "rgba(168,70,46,.09)" },
-    basis: { experience: "#3f5a3b", opinion: "#6c695e", question: "#7b4a8a" }
-  },
-  reader: {
-    headline: 16, body: 14, secondary: 12.5, meta: 11.5, sourceLines: 3, lineHeight: 1.6,
-    lensLabel: 13.5, lensPadY: 11, lensGap: 3, lensInkInset: 14,
-    /* A quoted reply is a small Threads card nested in DLens' own reading, so the two never read as one voice. */
-    replyCard: { background: "#ffffff", border: "rgba(27,26,23,.09)", radius: 14, padding: "11px 13px 10px", shadow: "0 1px 2px rgba(27,26,23,.04)", avatar: 26, clampLines: 6, clampChars: 180, icon: 13, gap: 8 },
-    group: { background: "rgba(27,26,23,.028)", radius: 16, padding: 12, gap: 8 }
-  },
-  collection: {
-    modeTileSize: 34,
-    bodySize: 13.5, metaSize: 11.5, lineHeight: 1.5, tileSize: 21,
-    headerHeight: 48, tabWidth: 54, tabGap: 18, searchHeight: 36,
-    thumbnailRadius: 10, previewSize: 26, previewOverlap: 7, previewBorder: 2,
-    rowPadding: 10, rowLift: -2, cardPress: .985, indicatorHeight: 2, segmentPadding: 2,
-    segmentHeight: 28, segmentRadius: 8, knobRadius: 6, dotSize: 5,
-    paper: "#fbfbf9", header: "rgba(251,251,249,.78)", wash: "rgba(27,26,23,.035)",
-    /* 畫面上 bar: near-opaque frosted sage so scrolled content never shows through it. */
-    inViewBar: "rgba(240,245,238,.96)", inViewBarEdge: "rgba(63,90,59,.14)",
-    hover: "rgba(27,26,23,.04)", hairline: "rgba(27,26,23,.08)",
-    mist: "radial-gradient(closest-side, rgba(63,90,59,.09), transparent)",
-    headerBlur: "blur(14px) saturate(1.2)",
-    mistWidth: 560, mistHeight: 380, mistTop: -200, mistLeft: -60,
-    grainOpacity: .5,
-    grain: `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>")}")`,
-    focusShadow: "0 0 0 1px rgba(27,26,23,.08), 0 4px 14px rgba(27,26,23,.06)",
-    knobShadow: "0 1px 2px rgba(27,26,23,.10)"
-  },
-  material: {
-    workspaceGlass: WORKSPACE_GLASS
-  },
-
-  topicAccent: {
-    primary: "#3f5a3b",
-    primaryDeep: "#324a30",
-    primaryGlow: "rgba(63,90,59,0.16)",
-    tintSage: "#e6ede2",
-    tintSageHi: "#dde7d6",
-    warm: "#a06a17",
-    tintAmber: "#fbe9c8",
-    burnt: "#b85a18",
-    fail: "#a8462e",
-    failBg: "#fbe2d4"
-  },
-
   color: {
     /* text hierarchy — calm editorial workspace */
     ink: "#1b1a17",
     subInk: "#3d3b35",
-    softInk: "#6c695e",
 
     /* borders & dividers */
     line: "rgba(27,26,23,0.10)",
-    lineStrong: "rgba(27,26,23,0.18)",
     lineHover: "rgba(27,26,23,0.28)",
-    /* near-invisible edge for elevated cards — definition comes from shadow */
-    cardEdge: "rgba(27,26,23,0.055)",
-    inkWash: "rgba(27,26,23,0.025)",
 
     /* shared workspace surfaces — glass-white family */
     canvas: "#f2f7f3",
     surface: "#f8fbf8",
     elevated: "#ffffff",
-    shellSurface: "rgba(255,255,255,0.96)",
-    contentSurface: "#f8fbf8",
-    focusedSurface: "#ffffff",
-    contextSurface: "rgba(242,247,243,0.72)",
-    utilitySurface: "rgba(255,255,255,0.96)",
 
     /* inverse foregrounds & overlays — only for filled accent panels */
     inverse: "#fff",
@@ -161,58 +79,21 @@ export const tokens = {
     /* signal glow marks the active PR attention action */
     signalGlow: "rgba(67,214,200,0.36)",
 
-    /* compatibility aliases for the shared workspace glass material */
-
-    /* teal — named alias for design system alignment */
-
-    /* product accent — steel blue (restored 2026-07-14) */
-    product: "#234f7a",
-    productSoft: "rgba(35,79,122,0.10)",
-
     /* technique accents */
     techniqueRose: "#7a2030",
-
-    /* status */
-    success: "#3f5a3b",
-    successSoft: "rgba(63,90,59,0.10)",
-    successBorder: "rgba(63,90,59,0.28)",
-    queued: "#a16a17",
-    queuedWash: "rgba(161,106,23,0.04)",
-    queuedSoft: "rgba(161,106,23,0.11)",
-    queuedBorder: "rgba(161,106,23,0.24)",
     failed: "#7a2030",
-    failedWash: "rgba(122,32,48,0.04)",
-    failedSoft: "rgba(122,32,48,0.10)",
-    failedBorder: "rgba(122,32,48,0.24)",
-    failedBorderStrong: "rgba(122,32,48,0.30)",
-    running: "#1a2e4f",
     runningSoft: "rgba(26,46,79,0.08)",
     runningBorder: "rgba(26,46,79,0.25)",
-
-    /* shell aliases kept for existing callers */
-    glassBorder: "rgba(27,26,23,0.10)",
 
     /* idle / neutral */
 
     /* neutral surface — chips, inactive tabs */
     neutralSurface: "#edf2ee",
-    neutralSurfaceSoft: "rgba(237,242,238,0.78)",
-
-    /* disabled */
-    disabledPrimary: "rgba(139,150,141,0.55)",
   },
 
   radius: {
-    xs: 8,
-    lg: 12,
-    card: 12,
-    cardLg: 20,
-    button: 12,
-    chip: 14,
-    xl: 24,
-    pill: 8,   /* badge/button pill — not the round 999 used for status dots */
+    button: 12,   /* badge/button pill — not the round 999 used for status dots */
     round: 999,
-    sm: 4
   },
 
   /* ─── Elevation ───
@@ -224,18 +105,8 @@ export const tokens = {
    *   raised → top tier, active / focused cards
    */
   shadow: {
-    card: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 2px rgba(27,26,23,0.04), 0 4px 10px -4px rgba(27,26,23,0.06)",
-    topicCard: "0 1px 2px rgba(27,26,23,0.04), 0 4px 14px -4px rgba(27,26,23,0.07)",
-    topicDrawer: "0 12px 32px -8px rgba(27,26,23,0.14)",
-    shell: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(27,26,23,0.045), 0 8px 16px -6px rgba(27,26,23,0.08), 0 20px 38px -16px rgba(27,26,23,0.11)",
-    focus: "0 1px 0 rgba(27,26,23,0.035), 0 8px 18px -10px rgba(27,26,23,0.12), 0 1px 2px rgba(27,26,23,0.05)",
-    focusedSurface: "inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(27,26,23,0.05), 0 12px 24px -8px rgba(27,26,23,0.12), 0 30px 54px -20px rgba(27,26,23,0.15)",
     cardLiftHover: "0 18px 40px rgba(27,26,23,0.16), 0 3px 10px rgba(27,26,23,0.07)",
     accentButton: "0 8px 18px rgba(26,46,79,0.16)",
-  },
-
-  effect: {
-    glassBlur: "none",
   },
 
   /* Accepted collect-wheel gesture, geometry and material from the owner's v9 mockup.
@@ -274,13 +145,9 @@ export const tokens = {
     font: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang TC', 'Noto Sans TC', system-ui, sans-serif"
   },
 
-  /* 觀眾反應 workspace as a discourse layer (side panel A, 2026-10-08): 話題 chips, 未分流, 講法 rows, 發現 cards. */
-  discourse: {
-    pad: 16, gap: 8, sectionTop: 22, radius: 14, rowRadius: 10, chipPad: "6px 12px", pickPad: "4px 10px",
-    chipBg: "rgba(27,26,23,.05)", chipCountOn: "rgba(255,255,255,.72)", hover: "rgba(27,26,23,.04)", hair: "rgba(27,26,23,.06)", card: "#ffffff",
-    cardShadow: "0 1px 2px rgba(27,26,23,.04)", soft: "#6c695e", faint: "#a19e93",
-    inbox: "#a06a17", inboxWash: "rgba(160,106,23,.08)", trend: "#3f5a3b", like: "#a06a17", ask: "#7b4a8a", replied: "#234f7a",
-    titleFont: 19, inputBorder: "rgba(27,26,23,.18)", inputPad: "9px 11px", rowPad: "10px 12px", titleLineHeight: 1.35, bodyFont: 13, smallFont: 12, tinyFont: 11.5, avatar: 22, faceAvatar: 20, weekBar: 34
+  /* Shared topic-picker values still consumed by the Threads wheel and card. */
+  discourse: { gap: 8, radius: 14, chipPad: "6px 12px", pickPad: "4px 10px",
+    chipBg: "rgba(27,26,23,.05)", soft: "#6c695e", faint: "#a19e93", smallFont: 12,
   },
 
   /* The card under a saved post, from the owner's v9 mockup: status line, four entries, one answer at a time. */
@@ -323,7 +190,7 @@ export const tokens = {
     /* The card under a post: enters once, results fade up once, the live dot breathes, the peek shimmers. */
     /* Switching a reading angle: the ink line springs to the tab, the answer rises with a small overshoot. */
     lens: { inkMs: 460, swapMs: 420, risePx: 8, overshootPx: -2, inkFrom: 0.3, inkOver: 1.06 },
-    collection: { riseMs: 420, risePx: 8, staggerMs: 28, staggerCap: 10, foldMs: 240, glideMs: 420, fadeMs: 280, mistMs: 18000, mistX: 24, mistY: 12, clockMs: 60000 },
+    collection: { riseMs: 420, risePx: 8, staggerMs: 28, staggerCap: 10, foldMs: 240, glideMs: 420, fadeMs: 280, clockMs: 60000 },
     collectCard: { returnMs: 1200, returnTint: 16, enterMs: 260, enterOffset: 4, freshMs: 280, freshOffset: 3, breatheMs: 1100, breatheSpread: 4, breatheTint: 14, shimmerMs: 1100 },
     /* Primitive durations — pair with easings to build named transitions. */
     duration: {
@@ -357,12 +224,12 @@ export const tokens = {
     presence: {
       cardOpacityFrom: 0.28,
       cardRisePx: 10,
-      cardDurationMs: 480,
+      cardDurationMs: 240,
       cardDelayMs: 70,
       cardStaggerMs: 60,
       rowOpacityFrom: 0.92,
       rowRisePx: 4,
-      rowDurationMs: 220,
+      rowDurationMs: 180,
       staggerMs: 35,
       staggerCap: 6,
       staggerResetMs: 120,
@@ -374,12 +241,12 @@ export const tokens = {
         overshootPx: -1.5,
         scaleFrom: 0.985,
         scaleOvershoot: 1.003,
-        durationMs: 420
+        durationMs: 240
       }
     },
     bottomRebound: {
       amplitudePx: 3,
-      durationMs: 280,
+      durationMs: 240,
       hysteresisPx: 30,
       wheelGain: 0.06,
       settleDelayMs: 140,
@@ -403,26 +270,8 @@ export const tokens = {
     }
   },
 
-  layout: {
-    savedPostThumbnailSize: 44,
-    collectionMenuWidth: 224,
-    collectionThumbnailSize: 52,
-  },
-
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 20,
-    xl: 28,
-    section: 16,
-  },
-
   font: {
     sans: "'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
-    serif: "'Instrument Serif', 'Iowan Old Style', 'Times New Roman', Georgia, serif",
-    serifCjk: "'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', serif",
-    mono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace"
   }
 } as const;
 
@@ -503,51 +352,6 @@ export function modeThemeStyle(mode: string | null | undefined) {
     "--dlens-mode-hover-shadow-soft": theme.hoverShadowSoft
   } as const;
 }
-
-/* ─── Semantic text styles ───
- *
- * Weight-driven hierarchy (design system principle):
- *   400 = body  ·  500 = field labels  ·  600 = caption/emphasis
- *   700 = card title / section header  ·  800+ = hero / display
- *
- * Use these instead of ad-hoc { fontSize, fontWeight } in views.
- */
-export const textStyles = {
-  /** Serif headline — compare hero, mode header title */
-  h2: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 24, lineHeight: 1.25, letterSpacing: 0 } as const,
-  /** Serif sub-headline — section titles inside views */
-  h3: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontWeight: 700, fontSize: 18, lineHeight: 1.3, letterSpacing: 0 } as const,
-  /** Bold sans — card titles, workflow pattern names */
-  cardTitle: { fontFamily: tokens.font.sans, fontWeight: 700, fontSize: 15, lineHeight: 1.35 } as const,
-  /** Regular sans — primary reading text */
-  body: { fontFamily: tokens.font.sans, fontWeight: 400, fontSize: 14, lineHeight: 1.7 } as const,
-  /** Tight body — dense lists, evidence content */
-  bodyTight: { fontFamily: tokens.font.sans, fontWeight: 400, fontSize: 13, lineHeight: 1.55 } as const,
-  /** Medium sans — metadata, timestamps, counts */
-  meta: { fontFamily: tokens.font.sans, fontWeight: 500, fontSize: 12, lineHeight: 1.5 } as const,
-  /** Uppercase structural label — section headers, "POST A", kickers */
-  label: { fontFamily: tokens.font.sans, fontWeight: 700, fontSize: 10, lineHeight: 1.4, letterSpacing: "0.06em", textTransform: "uppercase" as const } as const,
-  /** Semi-bold caption — secondary labels, chip text */
-  caption: { fontFamily: tokens.font.sans, fontWeight: 600, fontSize: 11, lineHeight: 1.4 } as const,
-  /** Medium field label — "如何照抄", "為什麼可以這樣做" (not bold, not faint) */
-  fieldLabel: { fontFamily: tokens.font.sans, fontWeight: 500, fontSize: 11, lineHeight: 1.4, color: tokens.color.softInk } as const,
-  /** Monospace — evidence IDs, scores, code snippets */
-  mono: { fontFamily: tokens.font.mono, fontVariantNumeric: "tabular-nums" as const } as const,
-  /** Monospace metric — compact counts, scores, and ledger numbers */
-  metric: { fontFamily: tokens.font.mono, fontWeight: 700, fontSize: 11, lineHeight: 1.4, fontVariantNumeric: "tabular-nums" as const } as const,
-  /** Serif CJK italic pull quote — inside evidence cards */
-  quote: { fontFamily: `${tokens.font.serifCjk}, ${tokens.font.serif}`, fontStyle: "italic" as const, fontWeight: 500, fontSize: 15, lineHeight: 1.65 } as const,
-} as const;
-
-export type TextStyleKey = keyof typeof textStyles;
-
-/* ─── flat alias export ─── */
-/** A handle-tinted initial stands in for an avatar (no avatar URL is stored); same hue for the same handle everywhere. */
-export function avatarGradient(handle: string): string {
-  const hue = [...(handle || "?")].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
-  return `linear-gradient(135deg, hsl(${hue} 45% 60%), hsl(${hue + 40} 42% 44%))`;
-}
-
 
 /** Quiet type tiles share one deterministic tint per normalized author handle. */
 export function collectionTileTint(handle: string): { background: string; color: string } {

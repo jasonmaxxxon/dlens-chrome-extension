@@ -165,7 +165,7 @@ export function useWorkspaceScrollMotion(
         [{ translate: `0 -${start}px` }, { translate: "0 0" }],
         {
           duration: tokens.motion.bottomRebound.durationMs,
-          easing: tokens.motion.easing.springSoft,
+          easing: tokens.panel.motion.standard,
           fill: "both"
         }
       );
@@ -389,7 +389,7 @@ export function useWorkspaceScrollMotion(
               {
                 duration,
                 delay,
-                easing: leadSoftPop || !isRow ? tokens.motion.easing.softPop : tokens.motion.easing.entrance,
+                easing: tokens.panel.motion.standard,
                 fill: "both"
               }
             );

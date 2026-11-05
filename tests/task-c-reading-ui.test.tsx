@@ -172,3 +172,83 @@ test("few audience comments remain a direct quote list on the stance lens", () =
     assert.equal(doc.querySelector('[data-reader-evidence-group]'), null);
   } finally { dom.window.close(); }
 });
+
+
+import { readInlineReadingHash, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
+import { COMMENT_ELIGIBILITY_VERSION } from "../src/compare/comment-eligibility.ts";
+import type { InlineReadingRecord } from "../src/compare/inline-reading-storage.ts";
+
+function currentReading(source: SessionItem, noise = false): Extract<InlineReadingRecord, { status: "complete" }> {
+  const quote = (index: number) => ({ commentId: `C${index}`, author: `fan${index}`, text: String(source.latestCapture!.result!.comments[index].text), likes: 20 - index });
+  return { status: "complete", itemId: source.id, captureId: source.latestCapture!.id, reading: {
+    itemId: source.id, captureId: source.latestCapture!.id, promptVersion: INLINE_READING_PROMPT_VERSION,
+    eligibilityVersion: COMMENT_ELIGIBILITY_VERSION, inputHash: readInlineReadingHash(source)!, model: "fixture", generatedAt: "2026-11-05T02:05:00Z",
+    gist: "合成工具討論", find: { method: "先試小流程", split: "試用時機", ask: "" }, clusterNames: { "0": "合成離題群組" }, noiseClusters: noise ? ["0"] : [],
+    methods: [{ name: "先試小流程", fit: "有固定工作時", quote: quote(1) }],
+    split: { agree: "大家都想慳時間", sides: [{ claim: "即刻試", why: "已有固定工作", quote: quote(2) }, { claim: "先觀察", why: "先確認需求", quote: quote(3) }] }
+  } };
+}
+function currentModel(source: SessionItem, record: InlineReadingRecord, lens: "stance" | "method" | "split") {
+  const sessions = [session("audience", [source], "topic")];
+  return buildCollectionReaderModel(buildCollectionPosts(sessions)[0], sessions, [], [], { [source.id]: record }, Date.parse("2026-11-05T03:00:00Z"), lens)!;
+}
+function readerDocument(model: ReturnType<typeof currentModel>) {
+  return new JSDOM(renderToStaticMarkup(<CollectionAudienceReading model={model} onMore={() => {}} onLens={() => {}} onAssign={() => {}} />));
+}
+
+test("all-noise clusters keep the actual lead quote once inside a closed noise disclosure, including a missing-group fallback", () => {
+  const source = fixture(20), record = currentReading(source, true), model = currentModel(source, record, "stance");
+  assert.ok(model.answer?.kind === "clusters" && model.answer.quote);
+  assert.ok(model.answer.segments.every(segment => segment.noise));
+  const representative = model.answer.quote.text;
+  for (const projected of [model, { ...model, evidence: { ...model.evidence!, groups: [] } }]) {
+    const dom = readerDocument(projected);
+    try {
+      const doc = dom.window.document;
+      assert.equal([...doc.querySelectorAll('[data-reader-reply] p')].filter(node => node.textContent === representative).length, 1);
+      const noise = doc.querySelector<HTMLDetailsElement>('[data-reader-noise]')!;
+      assert.ok(noise); assert.equal(noise.open, false);
+      assert.equal(noise.querySelector('[data-reader-representative] [data-reader-reply] p')?.textContent, representative);
+    } finally { dom.window.close(); }
+  }
+});
+
+test("method and split retain one lead hook per DLens explanation without enclosing quoted replies", () => {
+  const source = fixture(20), record = currentReading(source);
+  for (const [lens, expected] of [["method", 1], ["split", 2]] as const) {
+    const model = currentModel(source, record, lens), dom = readerDocument(model);
+    try {
+      assert.equal(model.answer?.kind, lens === "method" ? "methods" : "split");
+      const leads = [...dom.window.document.querySelectorAll('[data-reader-lead]')];
+      assert.equal(leads.length, expected);
+      for (const lead of leads) assert.equal(lead.querySelector('[data-reader-reply]'), null);
+      assert.equal(dom.window.document.querySelectorAll('[data-reader-representative]').length, expected);
+    } finally { dom.window.close(); }
+  }
+});
+
+test("all-noise audience presentation keeps a neutral stance headline and mark across lenses while retaining raw quotes", () => {
+  const source = fixture(20), record = currentReading(source, true);
+  for (const lens of ["stance", "method", "split"] as const) {
+    const model = currentModel(source, record, lens), before = structuredClone(model.card.entries), dom = readerDocument(model);
+    try {
+      const doc = dom.window.document;
+      const stance = doc.querySelector('[data-reader-entry="stance"]')!;
+      assert.equal(stance.lastElementChild?.textContent, "—");
+      assert.doesNotMatch(stance.textContent ?? "", /[%％]/);
+      assert.deepEqual(model.card.entries, before, "presentation must not edit the shared inline VM entries");
+      if (lens === "stance") {
+        const answer = doc.querySelector('[data-reader-answer]')!;
+        assert.equal(answer.querySelector("h3")?.textContent, "未有可用觀眾講法");
+        assert.doesNotMatch(answer.textContent ?? "", /一群留言講|[%％]/);
+        assert.equal(answer.querySelector('[data-reader-share]'), null, "noise shares are not presented as audience stance");
+        assert.ok(model.answer?.kind === "clusters" && model.answer.quote);
+        const raw = model.answer.quote.text;
+        const noise = doc.querySelector<HTMLDetailsElement>('[data-reader-noise]')!;
+        assert.ok(noise); assert.equal(noise.open, false);
+        assert.equal([...doc.querySelectorAll('[data-reader-reply] p')].filter(node => node.textContent === raw).length, 1);
+        assert.ok(noise.textContent?.includes(raw));
+      }
+    } finally { dom.window.close(); }
+  }
+});

@@ -152,8 +152,8 @@ test("workspace cards project four latest sources, purpose and last save rather 
 import { buildCollectionRowStatus, buildCollectionInViewStatus } from "../src/viewmodel/collection-browser.ts";
 import { readInlineReadingHash, INLINE_READING_PROMPT_VERSION } from "../src/compare/inline-reading.ts";
 import { COMMENT_ELIGIBILITY_VERSION } from "../src/compare/comment-eligibility.ts";
-import { PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../src/compare/product-signal-analysis.ts";
-import { createDefaultSettings, type ProductSignalAnalysis, type Signal, type SessionItem } from "../src/state/types.ts";
+import { buildProductContextHash, PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../src/compare/product-signal-analysis.ts";
+import { createDefaultSettings, type ProductContext, type ProductSignalAnalysis, type Signal, type SessionItem } from "../src/state/types.ts";
 import type { InlineReadingRecord } from "../src/compare/inline-reading-storage.ts";
 
 const rowNow = Date.parse("2026-11-05T03:00:00Z");
@@ -178,7 +178,7 @@ function projectRow(source: SessionItem, readings: Record<string, InlineReadingR
 
 test("panel row summary uses current reader stance and rejects stale capture, prompt, eligibility and input identities", () => {
   const source = rowSource(), record = rowReading(source);
-  assert.deepEqual(projectRow(source, { row: record }), { summary: "「工具慳時間」 100% · 20 則觀眾留言", chip: { label: "讀完", tone: "success" }, mode: "topic", itemId: "row", error: false });
+  assert.deepEqual(projectRow(source, { row: record }), { clusterIndex: 0, summary: "「工具慳時間」 100% · 20 則觀眾留言", chip: { label: "讀完", tone: "success" }, mode: "topic", itemId: "row", error: false });
   for (const changed of [
     { ...record, captureId: "old-capture" },
     { ...record, reading: { ...record.reading, promptVersion: "old" } },
@@ -240,9 +240,10 @@ test("panel row membership priority is audience then product then archive withou
 
 test("panel product summary uses reader verdict and fences stale prompt, capture and signal identities", () => {
   const source = rowSource(3), sessions = [session("product", [source], "product")], post = buildCollectionPosts(sessions)[0];
+  const context = rowProductContext();
   const signal = { id: "signal", itemId: source.id, sessionId: "product", source: "threads" } as Signal;
-  const analysis = { signalId: signal.id, status: "complete", promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, productContextHash: "fixture-context", analyzedAt: "2026-11-05T02:05:00Z", verdict: "try", reason: "適合試一個小流程", productReading: { headline: "工具", body: "先試一個流程", supportRefs: ["root"] }, evidenceRefs: [] } as unknown as ProductSignalAnalysis;
-  const inputs = { settings: createDefaultSettings(), hasContext: true, signals: [signal], analyses: { signal: analysis } };
+  const analysis = { signalId: signal.id, status: "complete", promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION, productContextHash: buildProductContextHash(context), analyzedAt: "2026-11-05T02:05:00Z", verdict: "try", reason: "適合試一個小流程", productReading: { headline: "工具", body: "先試一個流程", supportRefs: ["root"] }, evidenceRefs: [] } as unknown as ProductSignalAnalysis;
+  const inputs = { settings: createDefaultSettings(), hasContext: true, context, signals: [signal], analyses: { signal: analysis } };
   const valid = buildCollectionRowStatus(post, sessions, {}, inputs, rowNow);
   assert.deepEqual(valid.chip, { label: "值得試", tone: "accent" }); assert.equal(valid.summary, "適合試一個小流程");
   for (const changed of [{ ...analysis, promptVersion: "old" }, { ...analysis, signalId: "other" }, { ...analysis, analyzedAt: "2020-01-01T00:00:00Z" }, { ...analysis, productReading: undefined }]) {
@@ -293,4 +294,62 @@ test("reader detail version preserves a stored label and hides absent analysis w
 test("reader detail projection has no source when no reading membership exists", () => {
   assert.equal(buildCollectionReaderDetails(null), null);
   assert.equal(buildCollectionReaderDetails(undefined), null);
+});
+
+test("panel stance summary exposes only a current visible cluster's shared colour index", () => {
+  const source = rowSource(20), record = rowReading(source);
+  assert.equal(projectRow(source, { row: record }).clusterIndex, 0);
+  assert.equal(projectRow(source).clusterIndex, 0, "captured non-AI stance uses the same colour slot");
+  const noise = { ...record, reading: { ...record.reading, noiseClusters: ["0"] } };
+  assert.equal(projectRow(source, { row: noise }).clusterIndex, undefined, "noise does not masquerade as a coloured stance");
+  assert.equal(projectRow(rowSource(3)).clusterIndex, undefined);
+  assert.equal(projectRow(rowSource(0, { status: "queued" })).clusterIndex, undefined);
+  const noClusters = rowSource(20);
+  noClusters.latestCapture = { ...noClusters.latestCapture!, analysis: { ...noClusters.latestCapture!.analysis!, clusters: [] } };
+  assert.equal(projectRow(noClusters).clusterIndex, undefined, "a count-only line has no invented cluster marker");
+});
+
+
+function rowProductContext(overrides: Partial<ProductContext> = {}): ProductContext {
+  return { productPromise: "幫團隊整理工作", targetAudience: "小型團隊", agentRoles: [], coreWorkflows: ["內容整理"],
+    currentCapabilities: [], explicitConstraints: [], nonGoals: [], preferredTechDirection: "", evaluationCriteria: [], unknowns: [],
+    compiledAt: "2026-11-05T02:00:00Z", sourceFileIds: ["fixture-doc"], promptVersion: "v1", ...overrides };
+}
+
+test("panel product verdict requires the loaded current context hash and compilation time, never a presence boolean", () => {
+  const source = rowSource(3), sessions = [session("product", [source], "product")], post = buildCollectionPosts(sessions)[0];
+  const signal = { id: "signal", itemId: source.id, sessionId: "product", source: "threads" } as Signal;
+  const context = rowProductContext();
+  const analysis = { signalId: signal.id, status: "complete", promptVersion: PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION,
+    productContextHash: buildProductContextHash(context), analyzedAt: "2026-11-05T02:05:00Z", verdict: "try", reason: "目前脈絡的建議",
+    productReading: { headline: "工具", body: "先試一個流程", supportRefs: ["root"] }, evidenceRefs: [] } as unknown as ProductSignalAnalysis;
+  const inputs = { settings: createDefaultSettings(), hasContext: true, context, signals: [signal], analyses: { signal: analysis } };
+  assert.deepEqual(buildCollectionRowStatus(post, sessions, {}, inputs, rowNow).chip, { label: "值得試", tone: "accent" });
+  const newer = rowProductContext({ productPromise: "新產品承諾", compiledAt: "2026-11-05T02:30:00Z" });
+  for (const changed of [{ ...inputs, context: newer }, { ...inputs, context: undefined }, { ...inputs, context: null },
+    { ...inputs, context: newer, analyses: { signal: { ...analysis, productContextHash: buildProductContextHash(newer) } } },
+    { ...inputs, context: rowProductContext({ compiledAt: "unknown" }), analyses: { signal: { ...analysis, productContextHash: buildProductContextHash(rowProductContext({ compiledAt: "unknown" })) } } }]) {
+    const row = buildCollectionRowStatus(post, sessions, {}, changed, rowNow);
+    assert.deepEqual(row.chip, { label: "未分析", tone: "neutral" });
+    assert.equal(row.summary, "3 則留言");
+  }
+  for (const compiledAt of ["", "1970-01-01T00:00:00Z", "1969-12-31T23:59:59Z", "2026-11-06T02:00:00Z"]) {
+    const unverifiable = rowProductContext({ compiledAt });
+    const row = buildCollectionRowStatus(post, sessions, {}, { ...inputs, context: unverifiable,
+      analyses: { signal: { ...analysis, productContextHash: buildProductContextHash(unverifiable) } } }, rowNow);
+    assert.deepEqual(row.chip, { label: "未分析", tone: "neutral" });
+  }
+  const compiledBefore = rowProductContext({ compiledAt: "2026-11-05T02:04:00Z" });
+  const valid = { ...inputs, context: compiledBefore, analyses: { signal: { ...analysis, productContextHash: buildProductContextHash(compiledBefore) } } };
+  assert.deepEqual(buildCollectionRowStatus(post, sessions, {}, valid, rowNow).chip, { label: "值得試", tone: "accent" });
+});
+
+test("all-noise panel rows keep only the comment count instead of promoting a noise finding or share", () => {
+  const source = rowSource(20), record = rowReading(source);
+  const noise = { ...record, reading: { ...record.reading, noiseClusters: ["0"] } };
+  const row = projectRow(source, { row: noise });
+  assert.equal(row.summary, "20 則觀眾留言");
+  assert.doesNotMatch(row.summary ?? "", /工具慳時間|[%％]|「/);
+  assert.equal(row.clusterIndex, undefined);
+  assert.deepEqual(row.chip, { label: "讀完", tone: "success" });
 });

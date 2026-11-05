@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 import { ReaderReply } from "./ReaderReply";
 export { ReaderReply } from "./ReaderReply";
 import { ReaderLensBar } from "./ReaderLensBar";
@@ -23,9 +24,14 @@ function ShareBar({ segments }: { segments: { label: string; measurementLabel: s
     </div>
   </div>;
 }
+function onlyNoiseClusters(answer: InlineCardAnswer | undefined): boolean {
+  return answer?.kind === "clusters" && answer.segments.length > 0 && answer.segments.every(segment => segment.noise);
+}
 function Answer({ answer }: { answer: InlineCardAnswer }) {
   if (answer.kind === "empty") return <h3 style={h3}>{answer.text}</h3>;
-  if (answer.kind === "clusters") return <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} /></>;
+  if (answer.kind === "clusters") return onlyNoiseClusters(answer)
+    ? <><h3 style={h3}>未有可用觀眾講法</h3><p style={{ ...p.type.bodySm, color: p.ink3 }}>分群均被 AI 標示為雜訊，可展開原句核對。</p></>
+    : <><h3 style={h3}>{answer.headline}</h3><ShareBar segments={answer.segments} /></>;
   if (answer.kind === "methods") return <h3 style={h3}>有咩做法</h3>;
   if (answer.kind === "split") return <><h3 style={h3}>{answer.agree}</h3>{answer.note ? <p style={{ ...p.type.bodySm, color: p.ink3 }}>{answer.note}</p> : null}</>;
   // Questions appear once in the evidence chains, with the captured answers attached.
@@ -45,10 +51,10 @@ function readingGroups(model: CollectionReaderModel): PresentedGroup[] {
   const empty = (index: number, title: string, tone: InlineEvidenceGroup["tone"], context: string | null = null): PresentedGroup => ({ index, title, tone, context, meta: "", chains: [], more: 0 });
   const answer = model.answer;
   if (answer?.kind === "clusters" && answer.quote) {
-    const segment = answer.segments.find(current => !current.noise);
-    const index = groups.findIndex(group => group.tone !== "noise" && group.title === segment?.label);
+    const segment = answer.segments[0];
+    const index = groups.findIndex(group => group.title === segment?.label && group.tone === (segment?.noise ? "noise" : "cluster"));
     if (index >= 0) groups[index].representative = answer.quote;
-    else if (segment) groups.unshift({ ...empty(0, segment.label, "cluster"), meta: segment.measurementLabel, representative: answer.quote });
+    else if (segment) groups.unshift({ ...empty(0, segment.label, segment.noise ? "noise" : "cluster"), meta: segment.measurementLabel, representative: answer.quote });
   } else if (answer?.kind === "methods") {
     return answer.rows.map((row, index) => ({ ...(groups.find(group => group.tone === "method" && group.index === index) ?? empty(index, row.name, "method", row.fit)), representative: index === 0 ? answer.quote : null }));
   } else if (answer?.kind === "split") {
@@ -64,18 +70,20 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
 }) {
   const few = model.selected === "stance" ? model.card.few : null;
   const groups = few ? [] : readingGroups(model);
+  const tabs = onlyNoiseClusters(model.card.answers.stance)
+    ? model.card.entries.map(entry => entry.key === "stance" ? { ...entry, mark: "—" } : entry) : model.card.entries;
   const stateLine = (model.stateLine ?? "").replace(/^排隊(?= ·|$)/, "排隊中");
   const stateTone = model.card.phase === "failed" ? { color: p.danger, background: p.dangerSoft }
     : model.card.phase === "queued" || stateLine.includes("比平常久") ? { color: p.warning, background: p.warningSoft }
     : { color: p.accentInk, background: p.accentSoft };
   return <section data-collection-reading="" style={{ marginTop: p.space.lg, borderTop: `1px solid ${p.border}`, ...p.type.body, fontFamily: tokens.font.sans, overflowWrap: "anywhere" }}>
     {model.stateLine ? <p role="status" data-reader-state="" style={{ ...p.type.meta, ...stateTone, borderRadius: p.radius.xs, padding: `${p.space.xs}px ${p.space.sm}px`, margin: `${p.space.lg}px 0 0` }}>{stateLine}</p> : null}
-    <ReaderLensBar tabs={model.card.entries} selected={model.selected} onSelect={onLens} accent={() => p.accent} />
+    <ReaderLensBar tabs={tabs} selected={model.selected} onSelect={onLens} accent={() => p.accent} />
     <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{ color: p.ink2 }}>{model.card.phase !== "done" ? null : few ? <div data-reader-few=""><h3 style={h3}>留言未夠歸納，先睇原句。</h3>{model.answer?.kind === "clusters" && model.answer.segments[0]?.measurementLabel && model.answer.segments[0].measurementLabel !== "未能確認則數" ? <p style={{ ...p.type.meta, color: p.ink3 }}>{model.answer.segments[0].measurementLabel}</p> : null}{few.map((row, i) => <div key={i}>{quote(row)}</div>)}</div> : model.answer ? <Answer answer={model.answer} /> : null}</div>
     {!few && (model.evidence || groups.length) ? <div data-reader-evidence="" style={{ marginTop: p.space.md }}>
       {groups.map(group => {
         const color = group.tone === "noise" ? p.borderStrong : group.tone === "side" ? c.sideColors[group.index % c.sideColors.length] : c.clusterColors[group.index % c.clusterColors.length];
-        const header = <div data-reader-evidence-header="" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "baseline", gap: `0 ${p.space.sm}px`, minWidth: 0 }}><b style={{ ...p.type.bodySm, fontWeight: 600, color: group.tone === "noise" ? p.ink3 : p.ink }}>{group.title}</b><span style={{ ...p.type.meta, whiteSpace: "nowrap", color: p.ink3, fontVariantNumeric: "tabular-nums" }}>{group.meta}</span></div>;
+        const header = <span data-reader-evidence-header="" data-reader-lead={group.tone === "method" || group.tone === "side" ? "" : undefined} style={{ display: "grid", flex: 1, gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "baseline", gap: `0 ${p.space.sm}px`, minWidth: 0 }}><b style={{ ...p.type.bodySm, fontWeight: 600, color: group.tone === "noise" ? p.ink3 : p.ink }}>{group.title}</b><span style={{ ...p.type.meta, whiteSpace: "nowrap", color: p.ink3, fontVariantNumeric: "tabular-nums" }}>{group.meta}</span></span>;
         const body = <>
           {group.context ? <p style={{ ...p.type.bodySm, color: p.ink3, margin: `${p.space.xs}px 0` }}>{group.context}</p> : null}
           {group.representative ? <div data-reader-representative="">{quote(group.representative)}</div> : null}
@@ -83,7 +91,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
           {group.more && !group.expanded ? <button type="button" data-reader-more={`${group.tone}:${group.index}`} onClick={() => onMore(`${group.tone}:${group.index}`)} style={{ ...button, marginTop: p.space.xs }}>展開 {group.more} 則 ›</button> : null}
         </>;
         return <section key={`${group.tone}:${group.index}`} data-reader-evidence-group="" style={{ marginTop: p.space.md, paddingLeft: p.space.md, borderLeft: `${p.reader.clusterBar}px solid ${color}`, minWidth: 0 }}>
-          {group.tone === "noise" ? <details data-reader-noise=""><summary style={{ cursor: "pointer", minHeight: p.size.buttonSm }}>{header}</summary>{body}</details> : <>{header}{body}</>}
+          {group.tone === "noise" ? <details data-reader-noise=""><summary style={{ cursor: "pointer", minHeight: p.size.buttonSm, display: "flex", alignItems: "center", gap: p.space.sm, listStyle: "none" }}><ChevronRight data-reader-noise-chevron="" size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" style={{ color: p.ink3, flexShrink: 0 }} />{header}</summary>{body}</details> : <>{header}{body}</>}
         </section>;
       })}
       {!groups.length ? <p style={{ ...p.type.bodySm, color: p.ink3 }}>支持原句已喺上面顯示，呢度唔重複。</p> : null}

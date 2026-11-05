@@ -63,7 +63,8 @@ const prMonoMetaStyle = {
   ...panel.type.micro,
   fontSize: panel.type.micro.fontSize,
   lineHeight: panel.type.micro.lineHeight,
-  fontWeight: 500
+  fontWeight: 500,
+  fontVariantNumeric: "tabular-nums"
 } as const;
 
 function ExportButtonContent({ format, label = "匯出" }: { format: "csv" | "md" | "docx"; label?: string }) {
@@ -1008,7 +1009,7 @@ function CriterionChips({ row, variant }: { row: PrEvidenceRowViewModel; variant
               gap: panel.space.xs,
               color: matched ? PR_MOSS : panel.ink3,
               ...prMonoMetaStyle,
-              fontWeight: matched ? 700 : 400,
+              fontWeight: matched ? 600 : 400,
               opacity: matched ? 1 : 0.7
             }}
           >
@@ -1354,7 +1355,7 @@ function MatchSummary({ viewModel }: { viewModel: PrEvidenceViewModel }) {
       {totals.some((total) => total > 0) ? (
         <span style={{ display: "flex", flexWrap: "wrap", gap: (panel.space.sm + panel.space.xxs), marginLeft: `auto`, minWidth: 0 }}>
           {totals.map((total, index) => (
-            <span key={index} style={{ ...prMonoMetaStyle, color: total > 0 ? panel.ink : panel.ink3, fontWeight: total > 0 ? 700 : 400 }}>
+            <span key={index} style={{ ...prMonoMetaStyle, color: total > 0 ? panel.ink : panel.ink3, fontWeight: total > 0 ? 600 : 400 }}>
               C{index + 1}:{total}
             </span>
           ))}
@@ -1384,7 +1385,7 @@ function MetricCell({ label, value, advanced = false }: { label: string; value: 
       }}
     >
       <span style={{ color: panel.ink3, fontWeight: 500 }}>{label}</span>
-      <span style={{ color: !valuePresent ? panel.ink3 : advanced ? PR_ACCENT : panel.ink, fontWeight: valuePresent ? 700 : 400 }}>
+      <span style={{ color: !valuePresent ? panel.ink3 : advanced ? PR_ACCENT : panel.ink, fontWeight: valuePresent ? 600 : 400 }}>
         {value}
       </span>
     </span>

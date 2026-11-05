@@ -12,8 +12,8 @@ export function SavedPostThumbnail({ imageUrl }: { imageUrl?: string | null }) {
     : null;
   const style = {
     display: "block",
-    width: tokens.layout.savedPostThumbnailSize,
-    height: tokens.layout.savedPostThumbnailSize,
+    width: tokens.panel.size.thumb,
+    height: tokens.panel.size.thumb,
     borderRadius: tokens.panel.radius.sm,
     flexShrink: 0
   } as const;

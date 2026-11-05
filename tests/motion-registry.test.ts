@@ -13,6 +13,7 @@ const {
   DLENS_PROPERTY_CSS,
   DLENS_REDUCED_MOTION_CSS,
   DLENS_MOTION_CSS,
+  DLENS_PANEL_CSS,
   DLENS_KEYFRAMES_STYLE_ID,
   ensureDlensKeyframes
 } = motionModule;
@@ -174,12 +175,12 @@ test("motion tokens carry the approved presence and bottom-rebound values", () =
   assert.deepEqual(tokens.motion.presence, {
     cardOpacityFrom: 0.28,
     cardRisePx: 10,
-    cardDurationMs: 480,
+    cardDurationMs: 240,
     cardDelayMs: 70,
     cardStaggerMs: 60,
     rowOpacityFrom: 0.92,
     rowRisePx: 4,
-    rowDurationMs: 220,
+    rowDurationMs: 180,
     staggerMs: 35,
     staggerCap: 6,
     staggerResetMs: 120,
@@ -191,13 +192,13 @@ test("motion tokens carry the approved presence and bottom-rebound values", () =
       overshootPx: -1.5,
       scaleFrom: 0.985,
       scaleOvershoot: 1.003,
-      durationMs: 420
+      durationMs: 240
     }
   });
   assert.equal(tokens.motion.easing.softPop, "cubic-bezier(0.25, 0.46, 0.45, 0.94)");
   assert.deepEqual(tokens.motion.bottomRebound, {
     amplitudePx: 3,
-    durationMs: 280,
+    durationMs: 240,
     hysteresisPx: 30,
     wheelGain: 0.06,
     settleDelayMs: 140,
@@ -259,11 +260,29 @@ test("ensureDlensKeyframes injects the registry + reduced-motion exactly once pe
   assert.match(appended[0]!.textContent, /prefers-reduced-motion:\s*reduce/);
 });
 
-test("collection B owns rise, fold, glide, image and mist keyframes and current shell markers", () => {
+test("collection owns opacity and transform keyframes while retired fold and mist motion are absent", () => {
   const names = new Set(registryKeyframeNames());
-  for (const suffix of ["rise", "fold", "glide", "image", "mist"]) assert.ok(names.has(`dlens-collection-${suffix}`));
+  for (const suffix of ["rise", "glide", "image"]) assert.ok(names.has(`dlens-collection-${suffix}`));
+  assert.equal(names.has("dlens-collection-fold"),false);
+  assert.equal(names.has("dlens-collection-mist"),false);
   const start = DLENS_MOTION_CSS.indexOf("@media (prefers-reduced-motion: no-preference) {\n  [data-collection-workspace-shell]");
   assert.notEqual(start, -1, "collection motion sits behind the no-preference gate");
   const block = DLENS_MOTION_CSS.slice(start, DLENS_MOTION_CSS.indexOf("\n}\n", start));
-  for (const marker of ["data-collection-arrival", "data-collection-glide", "data-collection-exiting", "data-collection-tab-indicator", "data-collection-sort-knob", "data-collection-image-loaded", "data-collection-mist"]) assert.ok(block.includes(marker), marker);
+  for (const marker of ["data-collection-arrival", "data-collection-glide", "data-collection-exiting", "data-collection-tab-indicator", "data-collection-sort-knob", "data-collection-image-loaded", "data-panel-skeleton"]) assert.ok(block.includes(marker), marker);
+});
+
+
+test("panel motion overrides legacy styles last and keeps focus and reduced motion scoped", () => {
+ assert.equal(typeof DLENS_PANEL_CSS,"string");
+ assert.ok(DLENS_MOTION_CSS.endsWith(DLENS_PANEL_CSS),"panel rules must follow the legacy tactile/card styles");
+ assert.match(DLENS_PANEL_CSS,/\[data-collection-workspace-shell\]/);
+ assert.ok(DLENS_PANEL_CSS.includes(`--dlens-mode-accent: ${tokens.panel.accent}`));
+ assert.match(DLENS_PANEL_CSS,/transition-property:\s*opacity, transform\s*!important/);
+ assert.match(DLENS_PANEL_CSS,/\[data-dlens-react-error-boundary\][^{}]*:focus-visible/);
+ assert.ok(DLENS_PANEL_CSS.includes(tokens.panel.focusRing));
+ assert.match(DLENS_PANEL_CSS,/scale\(0\.98\)/);
+ const reduce=DLENS_PANEL_CSS.slice(DLENS_PANEL_CSS.indexOf("@media (prefers-reduced-motion: reduce)"));
+ assert.match(reduce,/animation:\s*none\s*!important/);
+ assert.match(reduce,/transition:\s*none\s*!important/);
+ assert.match(reduce,/transform:\s*none\s*!important/);
 });

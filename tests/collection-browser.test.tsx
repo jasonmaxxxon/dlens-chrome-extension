@@ -26,7 +26,7 @@ async function mount(props: Partial<CollectionBrowserProps> = {}) {
     const [query, setQuery] = useState(props.query ?? "");
     const [sort, setSort] = useState(props.sort ?? "saved");
     const [selectedKey, setSelectedKey] = useState<string | null>(props.selectedKey ?? null);
-    return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} onRecrawl={props.onRecrawl} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
+    return <CollectionBrowser readerBackLabel={props.readerBackLabel} onReaderBack={props.onReaderBack} settings={props.settings} productAnalyses={props.productAnalyses} productSignals={props.productSignals} productHasContext={props.productHasContext} requestedLens={props.requestedLens} topics={props.topics} signals={props.signals} readings={props.readings} onAssignTopic={props.onAssignTopic} onRecrawl={props.onRecrawl} openedError={props.openedError} sessions={props.sessions ?? [session("one", [item("one")])]} isLoading={props.isLoading}
       sort={sort} onSortChange={setSort} nowMs={props.nowMs ?? 0} query={query} onQueryChange={(value) => { queries.push(value); setQuery(value); }}
       selectedKey={selectedKey} onSelect={(value) => { selected.push(value); setSelectedKey(value); }}
       onOpenWorkspace={(id) => opened.push(id)} />;
@@ -96,7 +96,7 @@ test("collection empty, loading and no-results states keep search", async () => 
       assert.ok(view.container.querySelector('input[type="search"]'));
       assert.equal(view.container.querySelectorAll('[data-collection-action="collect"]').length, 0);
       assert.equal(view.container.querySelectorAll("[data-collection-post]").length, 0);
-      assert.match(view.container.textContent ?? "", props.isLoading ? /載入/ : props.query ? /找不到/ : /尚未收藏/);
+      assert.match(view.container.textContent ?? "", props.isLoading ? /載入緊收藏…/ : props.query ? /搵唔到「不存在」/ : /未有收藏/);
     } finally { await view.close(); }
   }
 });
@@ -378,4 +378,52 @@ test("reader separates the full-text action from source metadata and details lab
     assert.match(details.textContent!, /會用一次抓取同 AI 額度/);
     assert.equal(details.querySelectorAll('[data-reader-detail="分析"]').length, 1);
   } finally { await h.close(); }
+});
+
+
+test("collection loading reserves four real card geometries and exposes one hidden loading message", async () => {
+  const h = await mount({ sessions: [], isLoading: true });
+  try {
+    assert.equal(h.container.querySelector('[data-collection-browser="list"]')!.getAttribute("aria-busy"), "true");
+    const cards = [...h.container.querySelectorAll<HTMLElement>('[data-collection-loading-card]')];
+    assert.equal(cards.length, 4);
+    for (const card of cards) {
+      const bars = [...card.querySelectorAll<HTMLElement>('[data-panel-skeleton]')];
+      assert.deepEqual(bars.map(bar => bar.style.width), ["40%", "90%", "60%"]);
+      assert.deepEqual(bars.map(bar => bar.style.height), ["12px", "10px", "10px"]);
+      assert.equal(card.querySelectorAll("button, a, input").length, 0);
+    }
+    assert.equal(h.container.querySelector('[role="status"]')!.textContent, "載入緊收藏…");
+    assert.equal(h.container.querySelector('[data-collection-empty]'), null);
+  } finally { await h.close(); }
+});
+
+test("empty filters and searches recover through their existing callbacks", async () => {
+  const h = await mount({ sessions: [session("archive", [item("one")], "archive")] });
+  try {
+    await h.click('[data-collection-filter="product"]');
+    assert.match(h.container.querySelector('[data-collection-empty]')!.textContent!, /呢個分類未有帖文/);
+    await h.click('[data-collection-clear-filter]');
+    assert.equal(h.container.querySelector('[data-collection-filter="all"]')!.getAttribute("aria-pressed"), "true");
+    assert.equal(h.container.querySelectorAll('[data-collection-post]').length, 1);
+    await h.type("合成搜尋冇結果");
+    assert.match(h.container.querySelector('[data-collection-empty]')!.textContent!, /搵唔到「合成搜尋冇結果」/);
+    await h.click('[data-collection-clear-query]');
+    assert.equal(h.queries.at(-1), "");
+    assert.equal(h.container.querySelector<HTMLInputElement>('input[type="search"]')!.value, "");
+    assert.equal(h.container.querySelectorAll('[data-collection-post]').length, 1);
+  } finally { await h.close(); }
+});
+
+test("opened reading errors use the same readable alert on list and reader", async () => {
+  const sessions = [session("archive", [item("one")], "archive")];
+  for (const selectedKey of [null, buildCollectionPosts(sessions)[0].key]) {
+    const h = await mount({ sessions, selectedKey, openedError: "合成讀取錯誤" });
+    try {
+      const banner = h.container.querySelector<HTMLElement>('[data-panel-error-banner]')!;
+      assert.ok(banner);
+      assert.equal(banner.getAttribute("role"), "alert");
+      assert.equal(banner.textContent, "合成讀取錯誤");
+    } finally { await h.close(); }
+  }
 });

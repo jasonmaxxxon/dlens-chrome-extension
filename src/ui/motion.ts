@@ -15,10 +15,8 @@ export const DLENS_KEYFRAMES_CSS = `
 @keyframes dlens-lens-swap { 0% { opacity: 0; transform: translateY(${tokens.motion.lens.risePx}px); } 60% { opacity: 1; transform: translateY(${tokens.motion.lens.overshootPx}px); } 100% { opacity: 1; transform: none; } }
 @keyframes dlens-lens-ink { 0% { opacity: .5; transform: scaleX(${tokens.motion.lens.inkFrom}); } 60% { opacity: 1; transform: scaleX(${tokens.motion.lens.inkOver}); } 100% { transform: scaleX(1); } }
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
-@keyframes dlens-collection-fold { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
 @keyframes dlens-collection-glide { from { transform: translateY(var(--collection-delta)); } to { transform: none; } }
 @keyframes dlens-collection-image { from { opacity: 0; } to { opacity: 1; } }
-@keyframes dlens-collection-mist { to { transform: translate(${tokens.motion.collection.mistX}px, ${tokens.motion.collection.mistY}px); } }
 
 @keyframes dlens-collect-topic-fan { from { opacity: 0; transform: scale(${tokens.motion.collectWheel.topicScale}); } to { opacity: 1; transform: scale(1); } }
 @keyframes dlens-collect-topic-label { from { opacity: 0; } to { opacity: 1; } }
@@ -117,6 +115,86 @@ export function ensureDlensKeyframes(doc: Document = document): void {
   doc.head.appendChild(style);
 }
 
+/** Last-in-cascade panel rules leave the shared Threads controls untouched. */
+export const DLENS_PANEL_CSS = `
+[data-collection-workspace-shell] [data-reader-noise] > summary::-webkit-details-marker { display: none; }
+[data-collection-workspace-shell] [data-reader-noise] > summary::marker { content: ""; }
+[data-collection-workspace-shell] [data-reader-noise-chevron] { transform: rotate(0deg); }
+[data-collection-workspace-shell] [data-reader-noise][open] > summary [data-reader-noise-chevron] { transform: rotate(90deg); }
+@media (prefers-reduced-motion: no-preference) {
+  [data-collection-workspace-shell] [data-reader-noise-chevron] { transition: transform ${tokens.panel.motion.base} ${tokens.panel.motion.standard}; }
+}
+[data-collection-workspace-shell] {
+  --dlens-mode-accent: ${tokens.panel.accent};
+  --dlens-mode-accent-mid: ${tokens.panel.accentHover};
+  --dlens-mode-accent-soft: ${tokens.panel.accentSoft};
+  --dlens-mode-accent-glow: ${tokens.panel.accentSoft};
+  --dlens-mode-accent-button-shadow: none;
+  --dlens-mode-hover-border-strong: ${tokens.panel.borderStrong};
+  --dlens-mode-hover-border-soft: ${tokens.panel.border};
+  --dlens-mode-hover-surface-strong: ${tokens.panel.surfaceSubtle};
+  --dlens-mode-hover-surface-soft: ${tokens.panel.surfaceSubtle};
+  --dlens-mode-hover-shadow-strong: ${tokens.panel.ink4};
+  --dlens-mode-hover-shadow-soft: ${tokens.panel.border};
+}
+[data-collection-workspace-shell] *,
+[data-collection-workspace-shell] *::before,
+[data-collection-workspace-shell] *::after {
+  transition-property: opacity, transform !important;
+  transition-timing-function: ${tokens.panel.motion.standard} !important;
+}
+[data-collection-workspace-shell] :is(.dlens-card-lift, .dlens-tactile-row) { transform: none; }
+[data-collection-workspace-shell] :is(.dlens-card-lift, .dlens-tactile-row):is(:hover, :focus-within) {
+  transform: none;
+  box-shadow: ${tokens.panel.shadow.raised} !important;
+  border-color: ${tokens.panel.borderStrong} !important;
+}
+[data-collection-workspace-shell] [data-attention-beam] { border-radius: ${tokens.panel.radius.sm}px; }
+[data-collection-workspace-shell] [data-attention-beam="generating"] {
+  background: ${tokens.panel.accentSoft};
+  box-shadow: inset 0 0 0 1px ${tokens.panel.border};
+}
+[data-collection-workspace-shell] [data-attention-beam="actionable"] {
+  background: ${tokens.panel.surface};
+  box-shadow: inset ${tokens.panel.space.xxs}px 0 ${tokens.panel.accent};
+}
+[data-collection-workspace-shell] [data-attention-beam-sweep="true"]::before {
+  background: linear-gradient(90deg, transparent, ${tokens.panel.accentSoft}, transparent);
+}
+[data-collection-workspace-shell] [data-searching-orb="true"] { box-shadow: none; }
+[data-collection-workspace-shell] :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible,
+[data-dlens-react-error-boundary] :is(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: ${tokens.panel.focusRing} !important;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-collection-workspace-shell] *,
+  [data-collection-workspace-shell] *::before,
+  [data-collection-workspace-shell] *::after { transition-duration: ${tokens.panel.motion.base} !important; }
+  [data-collection-workspace-shell] :is(button, a, input, select, textarea, summary, .dlens-card-lift, .dlens-tactile-row, [data-attention-button-beam]) {
+    transition-duration: ${tokens.panel.motion.fast} !important;
+  }
+  [data-collection-workspace-shell] :is(button, a, summary, .dlens-card-lift, .dlens-tactile-row, [data-attention-button-beam]):active {
+    transform: scale(${tokens.panel.motion.press});
+    transition-duration: ${tokens.panel.motion.fast} !important;
+  }
+  [data-collection-workspace-shell] [data-attention-button-beam="true"] > [data-attention-button-content="true"]:is(:hover, :active) { transform: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-collection-workspace-shell],
+  [data-collection-workspace-shell] *,
+  [data-collection-workspace-shell] *::before,
+  [data-collection-workspace-shell] *::after,
+  [data-dlens-react-error-boundary],
+  [data-dlens-react-error-boundary] * {
+    animation: none !important;
+    transition: none !important;
+  }
+  [data-collection-workspace-shell] :is(button, a, summary, .dlens-card-lift, .dlens-tactile-row, [data-attention-button-beam]):is(:hover, :focus-within, :active),
+  [data-dlens-react-error-boundary] :is(button, a, summary):active { transform: none !important; }
+}
+`;
+
 /* Shared motion layer — injected globally by the threads content script.
  * Applies across every workspace mode; classes are opt-in so unstyled
  * elements are unaffected. `prefers-reduced-motion` neutralises all of it. */
@@ -147,7 +225,6 @@ export const DLENS_MOTION_CSS = `
   [data-collection-workspace-shell] [data-collection-post]:hover, [data-collection-workspace-shell] [data-workspace-card]:hover { box-shadow: ${tokens.panel.shadow.raised}; }
   [data-collection-workspace-shell] [data-collection-image-loaded="false"] { opacity: 0; }
   [data-collection-workspace-shell] [data-collection-image-loaded="true"] { animation: dlens-collection-image ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
-  [data-collection-workspace-shell] [data-collection-mist] { animation: none; }
   [data-collection-workspace-shell] [data-collection-menu][open] > [data-collection-popover] { animation: dlens-panel-popover ${tokens.panel.motion.slow} ${tokens.panel.motion.standard} both; }
   [data-collection-workspace-shell] [data-panel-skeleton],
   [data-collection-workspace-shell] [data-deep-skeleton],
@@ -209,4 +286,4 @@ export const DLENS_MOTION_CSS = `
   }
 
 }
-`;
+${DLENS_PANEL_CSS}`;

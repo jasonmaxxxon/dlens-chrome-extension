@@ -2,7 +2,7 @@ import { inlineCollectPostKey } from "../state/inline-collect";
 import { providerKeyFromSettings } from "../state/ai-key";
 import { productReadingFinishedAt, PRODUCT_VERDICT_LABELS, buildProductReaderModel } from "./product-reader";
 import type { TargetDescriptor } from "../contracts/target-descriptor";
-import type { ProductSignalAnalysis, Signal, ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
+import type { ProductContext, ProductSignalAnalysis, Signal, ExtensionSettings, SessionItem, SessionRecord } from "../state/types";
 import { stripThreadsTranslationChrome } from "../state/source-text";
 import { buildInlineCardViewModel, buildInlineSaveLine, inlineReadingFinishedAt } from "./inline-card";
 import type { InlineReadingRecord } from "../compare/inline-reading-storage";
@@ -11,7 +11,7 @@ import type { OpenedReadings } from "../state/opened-readings-storage";
 import { postedAt } from "./topic-discourse";
 import { collectionReadingSource, readerNeedsReading } from "./collection-reader";
 import { readCommentEligibility } from "../compare/comment-eligibility";
-import { PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../compare/product-signal-analysis";
+import { buildProductContextHash, PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION } from "../compare/product-signal-analysis";
 import { INLINE_CARD_MIN_COMMENTS, type InlineCardPeekInput } from "./inline-card";
 /** AND-combined local search tokens; leading @ matches stored author handles. */
 export function parseLibrarySearchTokens(rawQuery: string): string[] {
@@ -272,7 +272,7 @@ export function buildCollectionArrivalModel(posts: CollectionPost[], readings: R
     posts: finishedOnly ? unique.map(r => r.post) : posts, states, finished };
 }
 
-export interface CollectionProductInputs {analyses?: Record<string,ProductSignalAnalysis>; signals?:Signal[]; settings?:ExtensionSettings; hasContext?:boolean; loaded?:boolean}
+export interface CollectionProductInputs {analyses?: Record<string,ProductSignalAnalysis>; signals?:Signal[]; settings?:ExtensionSettings; hasContext?:boolean; loaded?:boolean; context?:ProductContext|null}
 export type CollectionFilter='all'|'topic'|'product'|'archive'|'reading'|'finished';
 export function buildCollectionFilters(posts: CollectionPost[], arrival: ReturnType<typeof buildCollectionArrivalModel>, selected: CollectionFilter, sessions: SessionRecord[] = []) {
   const matches = (post: CollectionPost, key: CollectionFilter) => {
@@ -294,6 +294,7 @@ export function buildCollectionInView(posts:CollectionPost[], inView:string|null
 
 /** Side-panel-only summary; the Threads card and existing projections keep their contracts. */
 export interface CollectionRowStatus {
+  clusterIndex?: number;
   summary: string | null;
   chip: { label: string; tone: "neutral" | "success" | "warning" | "running" | "danger" | "accent" } | null;
   mode: SessionRecord["mode"];
@@ -322,10 +323,14 @@ export function buildCollectionRowStatus(post: CollectionPost, sessions: Session
     const signal = product.signals?.find(current => current.sessionId === session.id && current.itemId === item.id);
     const candidate = product.analyses?.[signal?.id ?? ""];
     const captured = Math.max(timestamp(item.completedAt), timestamp(item.latestCapture?.captured_at), timestamp(item.latestCapture?.result?.fetched_at));
-    // These inputs have no current ProductContext or SignalReading packet. Fence
-    // every identity they do carry; never upgrade a known stale result to current.
+    // Only the already-loaded compiled context can certify a current list verdict.
+    // A presence flag cannot prove identity or whether analysis predates compilation.
+    const compiledAt = product.context ? Date.parse(product.context.compiledAt) : NaN;
+    const contextHash = product.context ? buildProductContextHash(product.context) : null;
     const current = candidate?.status === "complete" && candidate.signalId === signal?.id
-      && candidate.promptVersion === PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION && !!candidate.productContextHash
+      && candidate.promptVersion === PRODUCT_SIGNAL_ANALYSIS_PROMPT_VERSION
+      && contextHash !== null && candidate.productContextHash === contextHash && Number.isFinite(compiledAt) && compiledAt > 0 && compiledAt <= now
+      && timestamp(candidate.analyzedAt) >= compiledAt
       && timestamp(candidate.analyzedAt) >= captured && timestamp(candidate.analyzedAt) > 0 && timestamp(candidate.analyzedAt) <= now
       && (!(candidate.verdict === "try" || candidate.verdict === "watch") || !!candidate.productReading) ? candidate : undefined;
     const reader = product.settings ? buildProductReaderModel(item, session.id, signal?.id ?? null, current, product.settings, !!product.hasContext) : null;
@@ -338,8 +343,14 @@ export function buildCollectionRowStatus(post: CollectionPost, sessions: Session
   if (count < INLINE_CARD_MIN_COMMENTS) return { ...base, summary: `${countLine} · 未夠歸納`, chip: { label: "讀完", tone: "success" } };
   if (card.analysisPending) return { ...base, summary: countLine, chip: { label: "分群整理中", tone: "running" } };
   if (card.ai?.state === "running") return { ...base, summary: countLine, chip: { label: "AI 整理中", tone: "running" } };
+  const answer = card.answers.stance;
+  if (answer?.kind === "clusters" && answer.segments.length > 0 && answer.segments.every(segment => segment.noise)) {
+    return { ...base, summary: countLine, chip: { label: "讀完", tone: "success" } };
+  }
   const stance = card.entries.find(entry => entry.key === "stance");
-  return { ...base, summary: stance?.finding ? `「${stance.finding}」${stance.mark ? ` ${stance.mark}` : ""} · ${countLine}` : countLine,
+  const clusterIndex = answer?.kind === "clusters" && stance?.finding
+    ? answer.segments.findIndex(segment => !segment.noise && segment.label === stance.finding) : -1;
+  return { ...base, ...(clusterIndex >= 0 ? { clusterIndex } : {}), summary: stance?.finding ? `「${stance.finding}」${stance.mark ? ` ${stance.mark}` : ""} · ${countLine}` : countLine,
     chip: { label: "讀完", tone: "success" } };
 }
 

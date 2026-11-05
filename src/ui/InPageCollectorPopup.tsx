@@ -23,6 +23,7 @@ import { buildTopicReadingModel } from "../viewmodel/topic-reading";
 import { workspaceCollectionDestination } from "../viewmodel/workspace-destination";
 import { CollectionBrowser } from "./CollectionBrowser";
 import { CollectionSignalPacketExport } from "./CollectionSignalPacketExport";
+import { PanelErrorBanner } from "./PanelErrorBanner";
 import { CollectionWorkspaceShell,type CollectionTab } from "./CollectionWorkspaceShell";
 import { PrEvidenceView } from "./PrEvidenceViews";
 import { SettingsView } from "./SettingsView";
@@ -155,7 +156,7 @@ function OpenInPageCollectorPopup({
   const [copyStatus,setCopyStatus]=useState<string>('');
   useEffect(()=>setCopyStatus(''),[readingNavigation.selectedKey]);
   const collectionPosts=useMemo(()=>buildCollectionPosts(snapshot?.global.sessions ?? []),[snapshot?.global.sessions]);
-  const inView=useMemo(()=>IS_PR_ONLY_BUILD ? null : buildCollectionInViewStatus(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null,snapshot?.global.sessions ?? [],discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded},nowMs),[collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab,domainPage,readingNavigation.selectedKey,snapshot?.global.sessions,discourseFeeds.readings,products.analyses,products.signals,snapshot?.global.settings,productHasContext,products.loaded,nowMs]);
+  const inView=useMemo(()=>IS_PR_ONLY_BUILD ? null : buildCollectionInViewStatus(collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab==='collection' && !domainPage ? readingNavigation.selectedKey : null,snapshot?.global.sessions ?? [],discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded,context:app.compiledProductContext},nowMs),[collectionPosts,discourseFeeds.inViewPostKey,readingNavigation.tab,domainPage,readingNavigation.selectedKey,snapshot?.global.sessions,discourseFeeds.readings,products.analyses,products.signals,snapshot?.global.settings,productHasContext,products.loaded,app.compiledProductContext,nowMs]);
   const openedReadings = useOpenedReadings(true, !domainPage && readingNavigation.tab === "collection" ? readingNavigation.selectedKey : null, snapshot?.global.sessions ?? [], discourseFeeds.readings,{analyses:products.analyses,signals:products.signals,settings:snapshot?.global.settings,hasContext:productHasContext,loaded:products.loaded});
   const readerSource = !domainPage && readingNavigation.tab === "collection"
     ? collectionReadingSource(buildCollectionPosts(snapshot?.global.sessions ?? []).find(p => p.key === readingNavigation.selectedKey), snapshot?.global.sessions ?? []) : null;
@@ -412,7 +413,7 @@ function OpenInPageCollectorPopup({
           overflowX: "hidden",
           overscrollBehaviorY: "contain",
           borderRadius: 0,
-          padding: `0 ${tokens.spacing.section}px`,
+          padding: `0 ${tokens.panel.space.lg}px`,
           paddingBottom: 0,
           display: "flex",
           flexDirection: "column",
@@ -430,7 +431,7 @@ function OpenInPageCollectorPopup({
             flex: "1 0 auto",
             display: "flex",
             flexDirection: "column",
-            gap: tokens.spacing.md
+            gap: tokens.panel.space.md
           }}
         >
           <CollectionWorkspaceShell
@@ -450,10 +451,10 @@ function OpenInPageCollectorPopup({
             onInView={()=>inView && setReadingNavigation(current=>({...current,tab:'collection',workspaceOpen:false,settingsOpen:false,selectedKey:inView.key,requestedLens:null,discourseReturn:undefined}))}
             diagnostics={<StatusRail scopeLabel="資料夾" ingestBaseUrl={snapshot?.global.settings.ingestBaseUrl} backendReachability={app.backendReachability} backendWorkUiState={app.backendWorkUiState} workerStatus={app.workerStatus} ready={app.processingSummary.ready} total={app.processingSummary.total} />}
           >
-            {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <p role="alert" style={{ color: tokens.color.failed }}>{readerTopics.error}</p> : null}
-            {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <p role="alert" style={{ color: tokens.color.failed }}>{navigationError}</p> : null}
+            {readerSource?.session.mode === "topic" && readerTopics.error && !domainPage && readingNavigation.tab === "collection" ? <PanelErrorBanner>{readerTopics.error}</PanelErrorBanner> : null}
+            {navigationError && (domainPage || readingNavigation.tab !== "workspaces") ? <PanelErrorBanner>{navigationError}</PanelErrorBanner> : null}
             {!domainPage && readingNavigation.tab === "collection" ? (
-              <CollectionBrowser filter={readingNavigation.filter} onFilterChange={filter => setReadingNavigation(current => ({ ...current, filter }))} exportRow={readingNavigation.filter === "product" ? <CollectionSignalPacketExport key={activeFolder?.id} sessions={snapshot?.global.sessions ?? []} defaultSessionId={activeFolder?.id} onExport={app.onExportSignalPackets} /> : undefined} readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} onRecrawl={app.onRecrawlItem} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
+              <CollectionBrowser filter={readingNavigation.filter} onFilterChange={filter => setReadingNavigation(current => ({ ...current, filter }))} exportRow={readingNavigation.filter === "product" ? <CollectionSignalPacketExport key={activeFolder?.id} sessions={snapshot?.global.sessions ?? []} defaultSessionId={activeFolder?.id} onExport={app.onExportSignalPackets} /> : undefined} readerBackLabel={readingNavigation.discourseReturn?.label} onReaderBack={()=>void readerBack()} productAnalyses={products.analyses} productSignals={products.signals} productHasContext={productHasContext} productContext={app.compiledProductContext} productLoaded={products.loaded} productPending={products.pending} productErrors={products.errors} onProductAnalyze={id=>void products.analyze(id)} requestedLens={readingNavigation.requestedLens} readerRequest={readingNavigation.readerRequest} onSettings={()=>{setReadingNavigation(current=>({...current,settingsOpen:true}));void app.onNavigate("settings");}} onCopy={text=>{setCopyStatus('');if(!navigator.clipboard){setCopyStatus('未能複製，請再試。');return;}void navigator.clipboard.writeText(text).then(()=>setCopyStatus('已複製'),()=>setCopyStatus('未能複製，請再試。'));}} copyStatus={copyStatus} settings={snapshot?.global.settings} deepReadings={deepReadings.records} deepPending={deepReadings.pending} deepErrors={deepReadings.errors} onDeepRun={(id) => void deepReadings.run(id)} onRecrawl={app.onRecrawlItem} opened={openedReadings.opened} openedError={openedReadings.error} assignmentPending={readerTopics.pending} topics={readerTopics.topics} signals={readerTopics.signals} readings={discourseFeeds.readings} onAssignTopic={(id, topicId) => void readerTopics.onAssign(id, topicId)} nowMs={nowMs} sort={readingNavigation.sort} onSortChange={(sort) => setReadingNavigation((current) => ({ ...current, sort }))} sessions={snapshot?.global.sessions ?? []} query={readingNavigation.query}
                 onQueryChange={(query) => setReadingNavigation((current) => ({ ...current, query }))}
                 selectedKey={readingNavigation.selectedKey}
                 onSelect={(selectedKey) => setReadingNavigation((current) => ({ ...current, selectedKey, requestedLens:null, discourseReturn:undefined }))}
@@ -541,12 +542,9 @@ function OpenInPageCollectorPopup({
           </CollectionWorkspaceShell>
 
           {domainPage && snapshot?.tab.error ? (
-            <div style={{ marginTop: 12, color: tokens.color.failed, fontSize: 12 }}>
-              <strong>Error:</strong> {getProcessingFailureMessage(snapshot.tab.error)}
-            </div>
+            <PanelErrorBanner><strong style={{ fontWeight: tokens.panel.type.cardTitle.fontWeight }}>錯誤：</strong> {getProcessingFailureMessage(snapshot.tab.error)}</PanelErrorBanner>
           ) : null}
 
-          <div aria-hidden="true" style={{ height: tokens.spacing.xl, flexShrink: 0 }} />
         </div>
       </div>
     </div>
