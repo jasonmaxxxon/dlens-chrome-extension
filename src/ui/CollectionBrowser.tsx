@@ -155,7 +155,7 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
         <div data-reader-source-meta="" style={{ ...p.type.meta, color: p.ink3, display: "flex", alignItems: "center", flexWrap: "wrap", gap: p.space.xs, fontVariantNumeric: "tabular-nums" }}>
           <Heart size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{post.descriptor.engagement.likes ?? "—"}<span>·</span><MessageCircle size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /><span>{post.descriptor.engagement.comments ?? "—"} 則留言</span><span>· 讀咗 {source ? readInlineCardThread(source.item).comments.length : 0}</span>
         </div>
-        {reading ? <CollectionAudienceReading deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} onMore={key => setGroupLimits(current => expandReaderEvidenceGroup(current, key))} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
+        {reading ? <CollectionAudienceReading onCopy={onCopy} copyStatus={copyStatus} deepReading={deepReading} onDeepCommand={onDeepCommand} assignmentPending={assignmentPending} model={reading} onMore={key => setGroupLimits(current => expandReaderEvidenceGroup(current, key))} onLens={setLens} onAssign={(id, topicId) => onAssignTopic?.(id, topicId)} /> : null}
         {product ? <CollectionProductReading model={product} onLens={setLens} onSettings={onSettings} onAnalyze={onProductAnalyze} onCopy={onCopy} copyStatus={copyStatus} /> : null}
         {!reading && deepReading ? <DeepReadingView model={deepReading} onCommand={onDeepCommand} /> : null}
         {post.captureLimit ? <p style={{ ...p.type.meta, color: p.ink3, marginTop: p.space.lg }}>{post.captureLimit}</p> : null}

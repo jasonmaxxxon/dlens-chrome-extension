@@ -11,7 +11,7 @@ export function RunButton({ label, onClick, data }: { label: string; onClick: ()
 export interface RefLink { key: string; label: string; href?: string | null; source?: () => ReactNode }
 
 /** Captured sources stay on their point, with repeated authors numbered. */
-export function RefLinks({ items }: { items: RefLink[] }) {
+export function RefLinks({ items, siteLabel = "原站 ↗" }: { items: RefLink[]; siteLabel?: string }) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   if (!items.length) return null;
@@ -23,7 +23,7 @@ export function RefLinks({ items }: { items: RefLink[] }) {
   return <div data-reading-refs="" style={{ ...p.type.meta, marginTop: p.space.xs, color: p.ink3, overflowWrap: "anywhere" }}>
     {shown.map((item, i) => <span key={item.key} style={{ whiteSpace: "nowrap" }}>{i ? " · " : ""}{item.source
       ? <button type="button" data-reading-ref={item.key} aria-expanded={open === item.key} onClick={() => setOpen(item.key)} style={{ ...link, fontWeight: open === item.key ? 600 : undefined }}>{labels[i]}</button>
-      : <span data-reading-ref={item.key}>{labels[i]}</span>}{item.href ? <> <a data-reading-ref-site={item.key} href={item.href} target="_blank" rel="noopener noreferrer" style={link}>原站 ↗</a></> : null}</span>)}
+      : <span data-reading-ref={item.key}>{labels[i]}</span>}{item.href ? <> <a data-reading-ref-site={item.key} href={item.href} target="_blank" rel="noopener noreferrer" style={link}>{siteLabel}</a></> : null}</span>)}
     {items.length > shown.length ? <button type="button" data-reading-refs-more="" onClick={() => setAll(true)} style={{ ...link, marginLeft: p.space.xs }}>+{items.length - shown.length}</button> : null}
     {opened?.source ? <>{opened.source()}<button type="button" data-reading-source-close="" onClick={() => setOpen(null)} style={{ ...link, display: "block", marginTop: p.space.xs }}>收起原文 ▴</button></> : null}
   </div>;

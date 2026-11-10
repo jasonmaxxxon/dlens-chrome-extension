@@ -195,6 +195,55 @@ export interface AnalysisSnapshot {
   last_error: string | null;
   created_at: string | null;
   updated_at: string | null;
+  /** blocks-v1 (additive): present only on new crawls; older analyses have none of these keys. */
+  blocks_version?: string;
+  post_type?: AnalysisPostTypeSnapshot;
+  noise?: AnalysisNoiseSnapshot;
+  blocks?: AnalysisBlockSnapshot[];
+  blocks_omitted?: { type: string; reason: string }[];
+  blocks_error?: string;
+}
+
+export interface AnalysisPostTypeSnapshot {
+  version?: string;
+  type?: "discussion" | "resource" | "help" | "news" | "entertainment" | "unknown" | string;
+  confidence?: number;
+  best_guess?: string;
+  unknown_reason?: string | null;
+  scores?: Record<string, number>;
+  signals?: unknown;
+  classifier?: string;
+}
+
+export interface AnalysisNoiseSnapshot {
+  version?: string;
+  audience_count?: number;
+  noise_count?: number;
+  noise_share?: number;
+  by_flag?: Record<string, number>;
+}
+
+export interface AnalysisBlockEvidenceSnapshot {
+  comment_id: string;
+  author?: string;
+  like_count?: number;
+  /** fetcher v16+ only. */
+  permalink?: string;
+  is_op?: boolean;
+}
+
+export interface AnalysisBlockSnapshot {
+  id?: string;
+  type: string;
+  title_key?: string;
+  order?: number;
+  priority?: "primary" | "secondary";
+  item_count?: number;
+  total_count?: number;
+  truncated?: boolean;
+  items?: Array<Record<string, unknown> & { evidence?: AnalysisBlockEvidenceSnapshot[] }>;
+  evidence_comment_ids?: string[];
+  meta?: Record<string, unknown>;
 }
 
 export interface CaptureSnapshot {

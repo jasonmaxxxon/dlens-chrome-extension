@@ -3,9 +3,11 @@ import { ReaderReply } from "./ReaderReply";
 export { ReaderReply } from "./ReaderReply";
 import { ReaderLensBar } from "./ReaderLensBar";
 import { DeepReadingView } from "./DeepReadingView";
+import { AiSupplement, AnalysisBlocksView, BlocksNotice, PostTypeTag } from "./AnalysisBlocks";
 import type { DeepReadingModel, DeepCommand } from "../viewmodel/deep-reading";
 import { type CSSProperties, type ReactNode } from "react";
 import type { CollectionReaderModel } from "../viewmodel/collection-reader";
+import type { AnalysisBlocksModel } from "../viewmodel/analysis-blocks";
 import type { InlineCardAnswer, InlineCardEntryKey, InlineCardQuote, InlineEvidenceGroup } from "../viewmodel/inline-card";
 import { tokens } from "./tokens";
 
@@ -44,7 +46,8 @@ function AskStatus({ status }: { status: "none" | "author" | "other" | "unknown"
   return <span style={{ ...p.type.micro, color: status === "none" ? p.warning : status === "unknown" ? p.ink3 : p.success }}>{label}</span>;
 }
 
-type PresentedGroup = InlineEvidenceGroup & { representative?: InlineCardQuote | null };
+const LEGACY_BLOCKS: AnalysisBlocksModel = { mode: "legacy", postType: null, error: false, blocks: [], omitted: [], skipped: [] };
+type PresentedGroup =InlineEvidenceGroup & { representative?: InlineCardQuote | null };
 /** Reposition current presentation data only. The stored reading and evidence limits do not change. */
 function readingGroups(model: CollectionReaderModel): PresentedGroup[] {
   const groups: PresentedGroup[] = (model.evidence?.groups ?? []).map(group => ({ ...group }));
@@ -63,11 +66,14 @@ function readingGroups(model: CollectionReaderModel): PresentedGroup[] {
   return groups.filter(group => group.representative || group.chains.length || group.more || group.context).sort((a, b) => Number(a.tone === "noise") - Number(b.tone === "noise"));
 }
 
-export function CollectionAudienceReading({ model, onMore, onLens, onAssign, assignmentPending, deepReading, onDeepCommand }: {
+export function CollectionAudienceReading({ model, onMore, onLens, onAssign, assignmentPending, deepReading, onDeepCommand, onCopy, copyStatus }: {
   deepReading?: DeepReadingModel | null; onDeepCommand?: (command: DeepCommand) => void;
+  onCopy?: (text: string) => void; copyStatus?: string;
   assignmentPending?: boolean; model: CollectionReaderModel; onMore: (key: string) => void; onLens: (key: InlineCardEntryKey) => void;
   onAssign: (signalId: string, topicId: string | null) => void;
 }) {
+  // A model built before blocks-v1 (no `blocks`) reads as the legacy four-cell layout.
+  const blocks = model.blocks ?? LEGACY_BLOCKS;
   const few = model.selected === "stance" ? model.card.few : null;
   const groups = few ? [] : readingGroups(model);
   const tabs = onlyNoiseClusters(model.card.answers.stance)
@@ -78,6 +84,10 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
     : { color: p.accentInk, background: p.accentSoft };
   return <section data-collection-reading="" style={{ marginTop: p.space.lg, borderTop: `1px solid ${p.border}`, ...p.type.body, fontFamily: tokens.font.sans, overflowWrap: "anywhere" }}>
     {model.stateLine ? <p role="status" data-reader-state="" style={{ ...p.type.meta, ...stateTone, borderRadius: p.radius.xs, padding: `${p.space.xs}px ${p.space.sm}px`, margin: `${p.space.lg}px 0 0` }}>{stateLine}</p> : null}
+    {blocks.postType ? <div style={{ marginTop: p.space.md }}><PostTypeTag type={blocks.postType} /></div> : null}
+    <BlocksNotice model={blocks} />
+    {blocks.mode === "blocks" ? <AnalysisBlocksView model={blocks} onCopy={onCopy} copyStatus={copyStatus} supplement={<AiSupplement methods={model.card.answers.method} split={model.card.answers.split} />} /> : null}
+    {blocks.mode === "legacy" ? <>
     <ReaderLensBar tabs={tabs} selected={model.selected} onSelect={onLens} accent={() => p.accent} />
     <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{ color: p.ink2 }}>{model.card.phase !== "done" ? null : few ? <div data-reader-few=""><h3 style={h3}>留言未夠歸納，先睇原句。</h3>{model.answer?.kind === "clusters" && model.answer.segments[0]?.measurementLabel && model.answer.segments[0].measurementLabel !== "未能確認則數" ? <p style={{ ...p.type.meta, color: p.ink3 }}>{model.answer.segments[0].measurementLabel}</p> : null}{few.map((row, i) => <div key={i}>{quote(row)}</div>)}</div> : model.answer ? <Answer answer={model.answer} /> : null}</div>
     {!few && (model.evidence || groups.length) ? <div data-reader-evidence="" style={{ marginTop: p.space.md }}>
@@ -96,6 +106,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
       })}
       {!groups.length ? <p style={{ ...p.type.bodySm, color: p.ink3 }}>支持原句已喺上面顯示，呢度唔重複。</p> : null}
     </div> : null}
+    </> : null}
     <p data-reading-coverage="" style={{ ...p.type.micro, margin: `${p.space.md}px 0 0`, color: p.ink3 }}>{model.coverageLabel}</p>
     {model.aiNote ? <p style={{ ...p.type.bodySm, color: p.ink3, margin: `${p.space.sm}px 0 0` }}>{model.aiNote}</p> : null}
     {deepReading && onDeepCommand ? <DeepReadingView model={deepReading} onCommand={onDeepCommand} /> : null}
