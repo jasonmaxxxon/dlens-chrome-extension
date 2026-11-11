@@ -17,6 +17,13 @@ export const tokens = {
       skeletonCount: 4, skeletonWidths: ["40%", "90%", "60%"], skeletonHeights: [12, 10, 10], emptyTop: 48, emptyIcon: 24,
       card: { padding: 12, columnGap: 12, contentGap: 4, titleLines: 2, metaLine: 17, titleLine: 40, summaryLine: 19, statusLine: 19 }
     },
+    /* Reading-first blocks area: one sheet of paper, hairlines between rows, no per-item boxes. */
+    blocks: {
+      lead: { fontSize: 20, lineHeight: "28px", fontWeight: 600 },
+      leadSub: { fontSize: 15, lineHeight: "22px", fontWeight: 500 },
+      rowName: { fontSize: 15, lineHeight: "22px", fontWeight: 600 },
+      firstItems: 3, clampLines: 2, hairline: 1, quoteBar: 2, menuWidth: 200, riseMs: 180, risePx: 4
+    },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",
     scrollMask: "linear-gradient(to right, #000 calc(100% - 24px), transparent)",

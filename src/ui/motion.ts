@@ -15,6 +15,7 @@ export const DLENS_KEYFRAMES_CSS = `
 @keyframes dlens-lens-swap { 0% { opacity: 0; transform: translateY(${tokens.motion.lens.risePx}px); } 60% { opacity: 1; transform: translateY(${tokens.motion.lens.overshootPx}px); } 100% { opacity: 1; transform: none; } }
 @keyframes dlens-lens-ink { 0% { opacity: .5; transform: scaleX(${tokens.motion.lens.inkFrom}); } 60% { opacity: 1; transform: scaleX(${tokens.motion.lens.inkOver}); } 100% { transform: scaleX(1); } }
 @keyframes dlens-collection-rise { from { opacity: 0; transform: translateY(${tokens.motion.collection.risePx}px); } to { opacity: 1; transform: none; } }
+@keyframes dlens-block-rise { from { opacity: 0; transform: translateY(${tokens.panel.blocks.risePx}px); } to { opacity: 1; transform: none; } }
 @keyframes dlens-collection-glide { from { transform: translateY(var(--collection-delta)); } to { transform: none; } }
 @keyframes dlens-collection-image { from { opacity: 0; } to { opacity: 1; } }
 
@@ -215,6 +216,7 @@ export const DLENS_MOTION_CSS = `
   [data-collection-workspace-shell] [data-collection-arrival] { animation: dlens-collection-rise ${tokens.panel.motion.base} ${tokens.panel.motion.standard} var(--collection-delay, 0ms) backwards; }
   [data-collection-workspace-shell] [data-reader-ink] { transition: transform ${tokens.panel.motion.base} ${tokens.panel.motion.standard}; }
   [data-collection-workspace-shell] [data-reader-answer-swap] { animation: dlens-lens-swap ${tokens.panel.motion.base} ${tokens.panel.motion.standard} both; }
+  [data-collection-workspace-shell] [data-block-arrival] { animation: dlens-block-rise ${tokens.panel.blocks.riseMs}ms ${tokens.panel.motion.standard} backwards; }
   [data-collection-workspace-shell] [data-reading-arrival] { animation: dlens-collection-rise ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }
   [data-collection-workspace-shell] [data-collection-state="arc"], [data-collection-workspace-shell] [data-discourse-arc], [data-collection-workspace-shell] [data-panel-spinner] { animation: dlens-collect-spin ${tokens.motion.collectWheel.spinMs}ms linear infinite; }
   [data-collection-workspace-shell] [data-collection-row][data-collection-glide] { animation: dlens-collection-glide ${tokens.panel.motion.base} ${tokens.panel.motion.standard} backwards; }

@@ -46,7 +46,7 @@ function AskStatus({ status }: { status: "none" | "author" | "other" | "unknown"
   return <span style={{ ...p.type.micro, color: status === "none" ? p.warning : status === "unknown" ? p.ink3 : p.success }}>{label}</span>;
 }
 
-const LEGACY_BLOCKS: AnalysisBlocksModel = { mode: "legacy", postType: null, error: false, blocks: [], omitted: [], skipped: [] };
+const LEGACY_BLOCKS: AnalysisBlocksModel = { mode: "legacy", postType: null, error: false, blocks: [], omitted: [], skipped: [], lead: null, source: null };
 type PresentedGroup = InlineEvidenceGroup & { representative?: InlineCardQuote | null };
 /** Reposition current presentation data only. The stored reading and evidence limits do not change. */
 function readingGroups(model: CollectionReaderModel): PresentedGroup[] {
@@ -84,7 +84,7 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
     : { color: p.accentInk, background: p.accentSoft };
   return <section data-collection-reading="" style={{ marginTop: p.space.lg, borderTop: `1px solid ${p.border}`, ...p.type.body, fontFamily: tokens.font.sans, overflowWrap: "anywhere" }}>
     {model.stateLine ? <p role="status" data-reader-state="" style={{ ...p.type.meta, ...stateTone, borderRadius: p.radius.xs, padding: `${p.space.xs}px ${p.space.sm}px`, margin: `${p.space.lg}px 0 0` }}>{stateLine}</p> : null}
-    {blocks.postType ? <div style={{ marginTop: p.space.md }}><PostTypeTag type={blocks.postType} /></div> : null}
+    {blocks.postType && blocks.mode !== "blocks" ? <div style={{ marginTop: p.space.md }}><PostTypeTag type={blocks.postType} /></div> : null}
     <BlocksNotice model={blocks} />
     {blocks.mode === "blocks" ? <AnalysisBlocksView model={blocks} onCopy={onCopy} copyStatus={copyStatus} supplement={<AiSupplement methods={model.card.answers.method} split={model.card.answers.split} />} /> : null}
     {blocks.mode === "legacy" ? <>

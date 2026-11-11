@@ -57,7 +57,7 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   return { coverageLabel:readingCoverageLabel(card.ai?.state==='complete' && ai?.status==='complete'?ai.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
     answer: selected ? card.answers[selected] : undefined, stateLine, aiNote,
     evidence: buildInlineCardEvidence(item, card, selected, ai, groupLimits),
-    blocks: buildAnalysisBlocks(item, ai?.status === "complete" ? ai.reading.clusterNames : {}) };
+    blocks: buildAnalysisBlocks(item, ai?.status === "complete" ? ai.reading.clusterNames : {}, ai?.status === "complete" ? ai.reading.gist : "") };
 }
 export type CollectionReaderModel = NonNullable<ReturnType<typeof buildCollectionReaderModel>>;
 
