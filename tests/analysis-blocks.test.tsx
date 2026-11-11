@@ -349,7 +349,7 @@ test("rev 2 opinion: AI name by cluster_key (items reordered), backend label, ke
   }, { blocks: model });
 });
 
-test("top comments never repeat a comment shown as a tool context (ids, backend exclusions, rev 1 inference)", () => {
+test("top comments keep tool context, featured and evidence ids in rev 1 and rev 2", () => {
   const top = (...ids: string[]) => blk("top_comments", { priority: "secondary", order: 2, item_count: ids.length, total_count: ids.length, items: ids.map(id => ({ comment_id: id, author: "u", like_count: 1, text: `text ${id}`, reply_count: 0, evidence: [ref(id, "u")] })) });
   const rev2 = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
     blk("entity_list", { items: [{ ...entity("t", "https://github.com/a/t", 1, 1, "github_repo", [ref("E2", "x")]), context_comment_id: "E2" }], meta: { featured_comment_ids: ["E1"] } }),
@@ -357,22 +357,20 @@ test("top comments never repeat a comment shown as a tool context (ids, backend 
   ] }));
   const t2 = rev2.blocks.find(b => b.type === "top_comments");
   assert.ok(t2?.type === "top_comments");
-  assert.deepEqual(t2.items.map(i => i.id), ["T1"]);
-  // Everything duplicated: the block is dropped and the reason is honest.
+  assert.deepEqual(t2.items.map(i => i.id), ["E1", "E2", "X9", "T1"], "backend duplicate metadata never removes a received top row");
   const all = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
     blk("entity_list", { items: [entity("t", "https://github.com/a/t", 1, 1, "github_repo", [ref("E1", "x")])], meta: { featured_comment_ids: ["E1"] } }),
     top("E1"),
   ] }));
-  assert.deepEqual(all.blocks.map(b => b.type), ["entity_list"]);
-  assert.deepEqual(all.omitted, [{ type: "top_comments", reason: "all_duplicate" }]);
-  // Rev 1: the context is the top-liked mention, so that comment is not quoted again.
+  assert.deepEqual(all.blocks.map(b => b.type), ["entity_list", "top_comments"]);
+  assert.deepEqual(all.omitted, [], "the frontend never invents an all_duplicate note for top comments");
   const rev1 = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks: [
     blk("entity_list", { items: [entity("t", "https://github.com/a/t", 2, 1, "github_repo", [ref("L1", "x", 3), ref("H1", "y", 40)])] }),
     top("H1", "L1", "UNRELATED"),
   ] }));
   const t1 = rev1.blocks.find(b => b.type === "top_comments");
   assert.ok(t1?.type === "top_comments");
-  assert.deepEqual(t1.items.map(i => i.id), ["UNRELATED"], "both the context and extra entity mention are excluded; an unrelated top comment stays");
+  assert.deepEqual(t1.items.map(i => i.id), ["H1", "L1", "UNRELATED"], "rev 1 context inference changes tool quoting, never the top rows");
 });
 
 test("omitted reasons and the placeholder flag read honestly", async () => {
@@ -475,7 +473,7 @@ const topBlock = (ids: string[], extra: Record<string, unknown> = {}) => blk("to
   ...extra,
 });
 
-test("regression 3.2: lead quotes the first kept top comment once without cascading to the next", () => {
+test("top priority: the second lead sentence quotes the first top row and the same row stays in the block", () => {
   for (const revision of [undefined, 2]) {
     const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
       blk("entity_list", { items: [entity("tool", "https://github.com/a/tool", 1, 1, "github_repo", [ref("ENTITY", "dev")])] }),
@@ -484,40 +482,69 @@ test("regression 3.2: lead quotes the first kept top comment once without cascad
     const before = JSON.stringify(source);
     const model = buildAnalysisBlocks(source);
     assert.equal(JSON.stringify(source), before, "lead and dedup projection never mutate the captured input");
-    assert.deepEqual(model.lead?.sub, { kind: "top", author: "reader", text: "完整留言 LEAD", likes: 1 });
+    assert.deepEqual(model.lead?.sub, { kind: "top", author: "reader", text: "完整留言 ENTITY", likes: 1 });
     const top = model.blocks.find(b => b.type === "top_comments");
     assert.ok(top?.type === "top_comments");
-    assert.deepEqual(top.items.map(i => i.id), ["KEPT"], "entity quote and the actual lead quote are removed, and the next comment remains");
+    assert.deepEqual(top.items.map(i => i.id), ["ENTITY", "LEAD", "KEPT"], "the lead deliberately repeats the first top row");
+    assert.equal(model.omitted.some(o => o.type === "top_comments" && o.reason === "all_duplicate"), false);
+    const dom = new JSDOM(renderToStaticMarkup(<AnalysisBlocksView model={model} />));
+    try {
+      assert.match(dom.window.document.querySelector("[data-block-lead-sub]")!.textContent!, /完整留言 ENTITY/);
+      assert.match(dom.window.document.querySelector('[data-block-top="ENTITY"]')!.textContent!, /完整留言 ENTITY/);
+      assert.equal(dom.window.document.querySelector('[data-block-omitted="top_comments"]'), null);
+    } finally { dom.window.close(); }
   }
 });
 
-test("regression 3.2: every entity detail evidence and standalone context link excludes the same top comment", () => {
+test("top priority: entity extra evidence excludes every shown top id while its original context link remains", async () => {
   for (const revision of [undefined, 2]) {
     const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
-      blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 3, 6, "github_repo", [ref("MAIN", "dev", 5), ref("EXTRA", "extra", 1)]), context_comment_id: "LINK_ONLY" }] }),
+      blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 3, 6, "github_repo", [
+        { ...ref("MAIN", "dev", 5), text: "主要推介內容" },
+        { ...ref("EXTRA", "extra", 1), text: "熱門補充內容" },
+        { ...ref("PRIVATE", "private", 0), text: "尚未顯示嘅補充內容" },
+      ]), ...(revision ? { context_comment_id: "LINK_ONLY" } : {}) }] }),
       topBlock(["MAIN", "EXTRA", "LINK_ONLY", "KEPT"], { order: 2, priority: "secondary" }),
     ] });
+    source.latestCapture!.result!.comments = [...comments, { comment_id: "LINK_ONLY", author: "linker", text: "只有 context id 嘅留言", like_count: 2, parent_comment_id: "ROOT", reply_count: 0, url: "https://www.threads.com/@linker/post/LINK_ONLY" }];
     const before = JSON.stringify(source);
     const model = buildAnalysisBlocks(source);
     assert.equal(JSON.stringify(source), before, "entity evidence projection never mutates the captured input");
     const top = model.blocks.find(b => b.type === "top_comments");
     assert.ok(top?.type === "top_comments");
-    assert.deepEqual(top.items.map(i => i.id), ["KEPT"], "all entity evidence ids and context link id are excluded in rev1 and rev2");
+    assert.deepEqual(top.items.map(i => i.id), ["MAIN", "EXTRA", "LINK_ONLY", "KEPT"]);
+    const tools = model.blocks.find(b => b.type === "entity_list");
+    assert.ok(tools?.type === "entity_list");
+    assert.deepEqual(tools.items[0].extra.map(e => e.commentId), ["PRIVATE"], "the VM owns extra evidence suppression");
+    const contextId = revision ? "LINK_ONLY" : "MAIN";
+    assert.equal(tools.items[0].link?.commentId, contextId);
+    await withReader(source, async ({ doc, click }) => {
+      const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
+      assert.ok(tool.querySelector(`[data-reading-ref-site="${contextId}"]`), "a context source link is kept even when its quote yields");
+      await click(tool.querySelector("[data-block-row-toggle]")!);
+      const detail = tool.querySelector("[data-block-detail]")!;
+      assert.deepEqual([...detail.querySelectorAll("[data-reading-ref-site]")].map(e => e.getAttribute("data-reading-ref-site")), ["PRIVATE"]);
+      assert.doesNotMatch(detail.textContent!, /主要推介內容|熱門補充內容|只有 context id 嘅留言/);
+    }, { blocks: model });
   }
 });
 
-test("regression 3.2: consuming the only top row keeps the rendered lead and adds an all_duplicate note", () => {
+test("top priority: the only top row stays beside its lead and creates no all_duplicate note", () => {
   const model = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks: [topBlock(["ONLY"])] }));
-  assert.equal(model.mode, "blocks", "the lead remains renderable when it is the only content");
+  assert.equal(model.mode, "blocks", "the lead and its top comment remain renderable together");
   assert.equal(model.lead?.main?.kind, "top");
-  assert.deepEqual(model.blocks, []);
-  assert.deepEqual(model.omitted, [{ type: "top_comments", reason: "all_duplicate" }]);
-  const doc = new JSDOM(renderToStaticMarkup(<AnalysisBlocksView model={model} />)).window.document;
-  assert.match(doc.querySelector("[data-block-lead]")!.textContent!, /完整留言 ONLY/);
-  assert.equal(doc.querySelector('[data-block-omitted="top_comments"]')?.textContent, "熱門留言：留言已喺上面顯示，唔重複");
+  assert.deepEqual(model.blocks.map(b => b.type), ["top_comments"]);
+  assert.deepEqual(model.omitted, []);
+  const dom = new JSDOM(renderToStaticMarkup(<AnalysisBlocksView model={model} />));
+  try {
+    const doc = dom.window.document;
+    assert.match(doc.querySelector("[data-block-lead]")!.textContent!, /完整留言 ONLY/);
+    assert.match(doc.querySelector('[data-block-top="ONLY"]')!.textContent!, /完整留言 ONLY/);
+    assert.equal(doc.querySelector('[data-block-omitted="top_comments"]'), null);
+  } finally { dom.window.close(); }
 });
 
-test("regression 3.2: a top gist replaced by AI is kept unless the actual sub lead quotes it", () => {
+test("top priority: an AI gist keeps all top rows too", () => {
   const model = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks: [topBlock(["VISIBLE", "NEXT"])] }), {}, "AI 一句話");
   assert.equal(model.lead?.ai, "AI 一句話");
   const top = model.blocks[0];
@@ -525,26 +552,204 @@ test("regression 3.2: a top gist replaced by AI is kept unless the actual sub le
   assert.deepEqual(top.items.map(i => i.id), ["VISIBLE", "NEXT"]);
 });
 
-for (const type of ["entity_list", "opinion_overview", "qa_pairs"] as const) {
+test("rev 2 excluded top comments are restored from capture, sorted stably by likes with null last, and missing ids are skipped", () => {
+  const received = [
+    { ...ref("TIE_B", "reader", 20), text: "後端同讚 B", reply_count: 0, evidence: [ref("TIE_B", "reader", 20)] },
+    { ...ref("TIE_A", "reader", 20), text: "後端同讚 A", reply_count: 0, evidence: [ref("TIE_A", "reader", 20)] },
+    { ...ref("UNKNOWN", "reader"), like_count: null, text: "後端未知讚", evidence: [{ ...ref("UNKNOWN", "reader"), like_count: null }] },
+    { ...ref("ZERO", "reader", 0), text: "零讚", reply_count: 0, evidence: [ref("ZERO", "reader", 0)] },
+  ];
+  const excluded = ["DQa1tapF0w1", "SOURCE00001", "DQa3ytdlp01", "c-unknown", "missing", "TIE_B"];
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [blk("top_comments", {
+    item_count: received.length, total_count: received.length, items: received,
+    meta: { excluded_as_duplicate: excluded.map(comment_id => ({ comment_id, block: "entity_list", entity_key: "tool" })) },
+  })] });
+  source.latestCapture!.result!.comments = [
+    { comment_id: "DQa1tapF0w1", author: "@dev_a", text: "capture 熱門甲", like_count: 40, reply_count: 0, is_op: true, permalink: "https://www.threads.com/@permalink/post/PERMALINK01", url: "https://www.threads.com/@ignored/post/IGNORED0001" },
+    { comment_id: "c-source-alias", source_comment_id: "SOURCE00001", author: "@alias", text: "由 source id 找到", like_count: 31, url: "https://www.threads.net/@captured/post/CAPTURED02" },
+    { comment_id: "DQa3ytdlp01", author: "@kenji.tw", text: "重建短碼網址", like_count: 31, reply_count: 3, is_op: false },
+    { comment_id: "c-unknown", author: "@unknown", text: "未知讚嘅補回留言", like_count: null, is_op: "true" },
+  ] as never;
+  const before = JSON.stringify(source);
+  const model = buildAnalysisBlocks(source);
+  assert.equal(JSON.stringify(source), before, "restoring and sorting never mutate capture comments or backend items");
+  const top = model.blocks[0];
+  assert.ok(top?.type === "top_comments");
+  assert.deepEqual(top.items.map(i => i.id), ["DQa1tapF0w1", "SOURCE00001", "DQa3ytdlp01", "TIE_B", "TIE_A", "ZERO", "UNKNOWN", "c-unknown"]);
+  assert.deepEqual([top.shown, top.total, top.truncated], [8, 8, false], "only successfully restored, previously absent rows count");
+  const restored = top.items.filter(i => excluded.includes(i.id) && i.id !== "TIE_B");
+  assert.deepEqual(restored.map(i => [i.text, i.author, i.likes, i.replies, i.isOp, i.links]), [
+    ["capture 熱門甲", "dev_a", 40, 0, true, []],
+    ["由 source id 找到", "alias", 31, null, false, []],
+    ["重建短碼網址", "kenji.tw", 31, 3, false, []],
+    ["未知讚嘅補回留言", "unknown", null, null, false, []],
+  ]);
+  assert.deepEqual(restored.map(i => i.evidence.map(e => [e.commentId, e.href])), [
+    [["DQa1tapF0w1", "https://www.threads.com/@permalink/post/PERMALINK01"]],
+    [["SOURCE00001", "https://www.threads.com/@captured/post/CAPTURED02"]],
+    [["DQa3ytdlp01", "https://www.threads.com/@kenji.tw/post/DQa3ytdlp01"]],
+    [["c-unknown", null]],
+  ]);
+  assert.deepEqual(model.lead?.main, { kind: "top", author: "dev_a", text: "capture 熱門甲", likes: 40 }, "the gist uses the first merged and sorted row");
+});
+
+test("a restored top row clears a stale backend all_duplicate note; an unrecoverable backend note remains", () => {
+  for (const found of [true, false]) {
+    const model = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks_revision: 2,
+      blocks: [topBlock([], { meta: { excluded_as_duplicate: [{ comment_id: found ? "DQa1tapF0w1" : "missing", block: "entity_list", entity_key: "tool" }] } })],
+      blocks_omitted: [{ type: "top_comments", reason: "all_duplicate" }],
+    }));
+    assert.deepEqual(model.omitted, found ? [] : [{ type: "top_comments", reason: "all_duplicate" }]);
+    assert.equal(model.blocks.some(b => b.type === "top_comments"), found);
+  }
+});
+
+test("rev 2 tools keep their own description and original source link while top comments suppress the context quote", async () => {
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
+    blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 40, "github_repo", [ref("DQa1tapF0w1", "dev_a", 40)]), context: "熱門留言嘅推介原句", context_comment_id: "DQa1tapF0w1", enrichment: { source: "github_api", status: "ok", description: "工具本身嘅描述", stars: 120, language: "Go" } }] }),
+    topBlock(["DQa1tapF0w1"], { order: 2 }),
+  ] });
+  const model = buildAnalysisBlocks(source);
+  const tools = model.blocks[0];
+  assert.ok(tools.type === "entity_list");
+  const row = tools.items[0];
+  assert.deepEqual([row.summary, row.quote], ["工具本身嘅描述", ""]);
+  assert.equal(row.link?.commentId, "DQa1tapF0w1");
+  assert.equal(row.link?.href, "https://www.threads.com/@dev_a/post/DQa1tapF0w1");
+  await withReader(source, async ({ doc, click }) => {
+    const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
+    assert.equal(tool.querySelector("p")?.textContent, "工具本身嘅描述");
+    assert.equal(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')?.textContent, "睇原留言 ↗");
+    await click(tool.querySelector("[data-block-row-toggle]")!);
+    assert.doesNotMatch(tool.querySelector("[data-block-detail]")!.textContent!, /推介原句|熱門留言嘅推介原句/);
+  }, { blocks: model });
+});
+
+for (const revision of [undefined, 2]) {
+  test(`rev ${revision ?? 1} context summaries yield to top comments and use the next non-shown evidence text`, () => {
+    const alternative = revision ? ref("R7", "carol", 5) : { ...ref("R7", "carol", 5), text: "證據內嘅另一段文字" };
+    const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
+      blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 2, 45, "github_repo", [alternative, ref("DQa1tapF0w1", "dev_a", 40)]), context: "原本引用熱門留言", ...(revision ? { context_comment_id: "DQa1tapF0w1", enrichment: { status: "ok", source: "github_api", description: null, description_dropped: "same_as_context" } } : {}) }] }),
+      topBlock(["DQa1tapF0w1"], { order: 2 }),
+    ] });
+    const tools = buildAnalysisBlocks(source).blocks[0];
+    assert.ok(tools.type === "entity_list");
+    assert.deepEqual([tools.items[0].summary, tools.items[0].quote], [revision ? "點樣確定資料未過時？" : "證據內嘅另一段文字", ""]);
+    assert.equal(tools.items[0].link?.commentId, "DQa1tapF0w1", "rev 1 uses the most-liked evidence, rev 2 uses context_comment_id, even when the evidence order differs");
+  });
+
+  test(`rev ${revision ?? 1} context summaries become empty without an alternative and render no empty secondary paragraph`, async () => {
+    const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
+      blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 40, "github_repo", [ref("DQa1tapF0w1", "dev_a", 40)]), context: "原本引用熱門留言", ...(revision ? { context_comment_id: "DQa1tapF0w1", enrichment: { status: "ok", source: "github_api", description: null, stars: 12 } } : {}) }] }),
+      topBlock(["DQa1tapF0w1"], { order: 2 }),
+    ] });
+    const model = buildAnalysisBlocks(source);
+    const tools = model.blocks[0];
+    assert.ok(tools.type === "entity_list");
+    assert.deepEqual([tools.items[0].summary, tools.items[0].quote], ["", ""]);
+    await withReader(source, async ({ doc, click }) => {
+      const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
+      assert.equal(tool.querySelector("p"), null, "there is no empty secondary p while collapsed");
+      assert.match(tool.textContent!, /tool|@dev_a/);
+      assert.equal(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')?.textContent, "睇原留言 ↗");
+      if (revision) assert.match(tool.querySelector("[data-block-entity-facts]")!.textContent!, /12 星/);
+      await click(tool.querySelector("[data-block-row-toggle]")!);
+      assert.equal(tool.querySelector("p"), null, "opening detail does not restore a suppressed context quote");
+    }, { blocks: model });
+  });
+}
+
+test("top priority recognizes comment_id and source_comment_id as aliases when suppressing a tool quote", () => {
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
+    blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 9, "github_repo", [{ ...ref("c-alias", "alias", 9), text: "同一則留言" }]), context: "同一則留言", context_comment_id: "c-alias", enrichment: { status: "ok", source: "github_api", description: "工具描述" } }] }),
+    topBlock(["SOURCE00001"], { order: 2 }),
+  ] });
+  source.latestCapture!.result!.comments = [{ comment_id: "c-alias", source_comment_id: "SOURCE00001", author: "alias", text: "同一則留言", like_count: 9 }] as never;
+  const tools = buildAnalysisBlocks(source).blocks[0];
+  assert.ok(tools.type === "entity_list");
+  assert.equal(tools.items[0].quote, "");
+  assert.deepEqual(tools.items[0].extra, []);
+  assert.equal(tools.items[0].link?.commentId, "c-alias", "the original source link id is preserved");
+});
+
+const opinionItem = (key: number, evidence: unknown[], extra: Record<string, unknown> = {}) => ({ cluster_key: key, label: `意見 ${key}`, keywords: ["關鍵字"], quant_keywords: ["備用關鍵字"], comment_count: 2, substantive_count: 2, noise_count: 0, size_share: 0.5, evidence, ...extra });
+
+test("opinion representatives prefer a non-shown quote with text, then keep a quote even when every candidate is repeated", async () => {
+  const missing = ref("NO_TEXT", "missing");
+  const top = { ...ref("TOP", "top"), text: "熱門內容" };
+  const tool = { ...ref("TOOL", "tool"), text: "工具推介內容" };
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
+    blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 1, "github_repo", [tool]), context: "工具推介內容", context_comment_id: "TOOL", enrichment: { source: "github_api", status: "ok", description: "工具描述" } }] }),
+    topBlock(["TOP"], { order: 2 }),
+    blk("opinion_overview", { order: 3, item_count: 2, total_count: 2, items: [
+      opinionItem(0, [missing, top, tool, ref("R7", "carol", 5)]),
+      opinionItem(1, [missing, top, tool]),
+    ] }),
+  ] });
+  const model = buildAnalysisBlocks(source);
+  const opinions = model.blocks.find(b => b.type === "opinion_overview");
+  assert.ok(opinions?.type === "opinion_overview");
+  assert.deepEqual(opinions.items.map(row => [row.rep?.commentId, row.repText]), [["R7", "點樣確定資料未過時？"], ["TOP", "熱門內容"]]);
+  await withReader(source, async ({ doc }) => {
+    assert.deepEqual([...doc.querySelectorAll("[data-block-opinion] > p")].map(e => e.textContent), ["「點樣確定資料未過時？」", "「熱門內容」"]);
+  }, { blocks: model });
+});
+
+test("an unquoted tool context link does not exclude an opinion candidate that has text", () => {
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
+    blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 1, "github_repo", [ref("LINK_ONLY", "linked")]), context: "", context_comment_id: "LINK_ONLY", enrichment: { status: "ok", source: "github_api", description: "工具描述" } }] }),
+    blk("opinion_overview", { order: 2, items: [opinionItem(0, [{ ...ref("LINK_ONLY", "linked"), text: "意見裡先有嘅實際文字" }, { ...ref("OTHER", "other"), text: "另一則意見" }])] }),
+  ] });
+  const opinions = buildAnalysisBlocks(source).blocks[1];
+  assert.ok(opinions.type === "opinion_overview");
+  assert.deepEqual([opinions.items[0].rep?.commentId, opinions.items[0].repText], ["LINK_ONLY", "意見裡先有嘅實際文字"]);
+});
+
+test("an opinion without any evidence text keeps its first source link and keyword secondary line", async () => {
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [blk("opinion_overview", { items: [opinionItem(0, [ref("LINK_ONLY", "linked"), ref("ALSO_EMPTY", "empty")])] })] });
+  const model = buildAnalysisBlocks(source);
+  const opinions = model.blocks[0];
+  assert.ok(opinions.type === "opinion_overview");
+  assert.deepEqual([opinions.items[0].rep?.commentId, opinions.items[0].repText], ["LINK_ONLY", null]);
+  await withReader(source, async ({ doc }) => {
+    const row = doc.querySelector("[data-block-opinion]")!;
+    assert.equal(row.querySelector("p")?.textContent, "關鍵字、備用關鍵字");
+    assert.equal(row.querySelector('[data-reading-ref-site="LINK_ONLY"]')?.textContent, "睇原留言 ↗");
+  }, { blocks: model });
+});
+
+for (const type of ["entity_list", "opinion_overview", "qa_pairs", "top_comments"] as const) {
   test(`regression 3.1: ${type} offers one honest count while received rows are folded`, async () => {
     const received = type === "entity_list" ? 8 : 5;
     const rows = Array.from({ length: received }, (_, i) => type === "entity_list"
       ? entity(`tool-${i}`, `https://github.com/a/tool-${i}`, received - i, 1)
       : type === "opinion_overview"
         ? { cluster_key: i, label: `意見 ${i}`, keywords: ["詞"], comment_count: 1, substantive_count: 1, noise_count: 0, size_share: 1 / received, evidence: [] }
-        : { question: { ...ref(`Q${i}`, "asker"), text: `問題 ${i}？` }, status: "unanswered", answers: [], answer_count: 0, evidence: [] });
+        : type === "top_comments"
+          ? { ...ref(`TOP${i}`, "reader"), text: `熱門留言 ${i}`, reply_count: 0, evidence: [ref(`TOP${i}`, "reader")] }
+          : { question: { ...ref(`Q${i}`, "asker"), text: `問題 ${i}？` }, status: "unanswered", answers: [], answer_count: 0, evidence: [] });
     const block = blk(type, { items: rows, item_count: received, total_count: received + 2, truncated: true });
     await withReader(fixture({ blocks_version: "v1", blocks: [block] }), async ({ doc, click }) => {
       const section = doc.querySelector(`[data-analysis-block="${type}"]`)!;
       const fold = section.querySelector("[data-block-fold]");
       if (fold) await click(fold);
-      const more = section.querySelector<HTMLElement>("[data-block-more]")!;
+      const more = section.querySelector<HTMLElement>("[data-block-more]");
+      assert.ok(more, "every row block exposes its local fold button");
       assert.equal(more.textContent, `再睇 ${received - 3} 個`);
+      if (type === "top_comments") {
+        assert.equal(section.querySelectorAll("[data-block-top]").length, tokens.panel.blocks.firstItems);
+        assert.equal(section.querySelector("header > span")?.textContent, String(received + 2));
+      }
       assert.equal(section.querySelector("[data-block-truncated]")?.textContent, undefined, "a local more button owns the only hidden count");
       await click(more);
       assert.equal(more.textContent, "收起");
       assert.equal(section.querySelector("[data-block-truncated]")?.textContent, `仲有 2 項未列出（共 ${received + 2} 項）`);
+      if (type === "top_comments") {
+        assert.equal(section.querySelectorAll("[data-block-top]").length, received);
+        assert.equal(section.querySelectorAll("[data-block-truncated]").length, 1, "only Rows renders the backend hidden count");
+      }
       await click(more);
+      if (type === "top_comments") assert.equal(section.querySelectorAll("[data-block-top]").length, tokens.panel.blocks.firstItems);
       assert.equal(section.querySelector("[data-block-truncated]")?.textContent, undefined, "folding restores a single local hidden count");
     });
   });

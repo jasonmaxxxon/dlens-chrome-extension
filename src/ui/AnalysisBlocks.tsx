@@ -129,7 +129,6 @@ function EntityItem({ row, first, revealed, t }: { row: EntityRow; first: boolea
   const facts = row.repo ? [row.repo.stars ? t("blocks.entity.stars", { n: row.repo.stars }) : "", row.repo.language, row.repo.archived ? t("blocks.entity.archived") : "", row.repo.pushed ? t("blocks.entity.pushed", { date: row.repo.pushed }) : ""].filter(Boolean) : row.site ? [row.site] : [];
   const name = row.href ? <a data-block-entity-name="" href={row.href} target="_blank" rel="noopener noreferrer" style={{ color: p.accent, textDecoration: "none" }}>{row.name}</a> : row.name;
   const flags = [row.inPost && !postOnly ? t("blocks.entity.in_post") : "", row.byOp ? t("blocks.entity.by_op") : ""].filter(Boolean);
-  const more = row.evidence.filter(e => e.commentId !== row.link?.commentId);
   return <Row first={first} label={row.name} attrs={{ "data-block-entity": row.key, ...arrive(revealed) }} name={name} aside={postOnly ? t("blocks.entity.in_post") : t("blocks.entity.mentions", { n: row.mentions })} secondary={row.summary}
     meta={<>
       {facts.length ? <div data-block-entity-facts="" style={{ ...meta, marginTop: p.space.xxs }}>{facts.join(" · ")}</div> : null}
@@ -144,7 +143,7 @@ function EntityItem({ row, first, revealed, t }: { row: EntityRow; first: boolea
         : <span data-block-entity-url="" style={{ ...p.type.bodySm, color: p.ink2, overflowWrap: "anywhere", wordBreak: "break-all" }}>{row.url}</span>}
       {flags.length ? <span style={meta}>{flags.join(" · ")}</span> : null}
       {row.quote ? <div><div style={{ ...p.type.micro, color: p.ink3 }}>{t("blocks.entity.quote")}</div><p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.xxs}px 0 0`, overflowWrap: "anywhere" }}>{row.quote}</p></div> : null}
-      {more.map(e => <Quoted key={e.commentId} e={e} t={t} />)}
+      {row.extra.map(e => <Quoted key={e.commentId} e={e} t={t} />)}
     </>} />;
 }
 
@@ -239,9 +238,9 @@ function QaBlock({ block, t }: { block: Extract<AnalysisBlockView, { type: "qa_p
   </>;
 }
 
-function TopComment({ item, first, t }: { item: Extract<AnalysisBlockView, { type: "top_comments" }>["items"][number]; first: boolean; t: T }) {
+function TopComment({ item, first, revealed, t }: { item: Extract<AnalysisBlockView, { type: "top_comments" }>["items"][number]; first: boolean; revealed: boolean; t: T }) {
   const [open, setOpen] = useState(false);
-  return <li data-block-top={item.id} onClick={e => { if (!(e.target as HTMLElement).closest("a, button")) setOpen(v => !v); }} style={{ listStyle: "none", padding: `${p.space.md}px 0`, borderTop: first ? 0 : hairline, minWidth: 0, cursor: "pointer" }}>
+  return <li data-block-top={item.id} {...arrive(revealed)} onClick={e => { if (!(e.target as HTMLElement).closest("a, button")) setOpen(v => !v); }} style={{ listStyle: "none", padding: `${p.space.md}px 0`, borderTop: first ? 0 : hairline, minWidth: 0, cursor: "pointer" }}>
     <p style={{ ...p.type.bodySm, color: p.ink, margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", ...(open ? {} : clamp) }}>{item.text ?? t("blocks.top.no_text")}</p>
     <MetaLine>
       {item.author ? <b style={{ color: p.ink2, fontWeight: 600 }}>@{item.author}</b> : null}
@@ -265,7 +264,7 @@ function BlockBody({ block, title, heading, t, onCopy, copyStatus }: { block: An
   if (block.type === "entity_list") return <EntityBlock block={block} title={title} heading={heading} t={t} onCopy={onCopy} copyStatus={copyStatus} />;
   if (block.type === "opinion_overview") return <OpinionBlock block={block} t={t} />;
   if (block.type === "qa_pairs") return <QaBlock block={block} t={t} />;
-  if (block.type === "top_comments") return <ul style={{ margin: 0, padding: 0 }}>{block.items.map((item, i) => <TopComment key={item.id || i} item={item} first={i === 0} t={t} />)}</ul>;
+  if (block.type === "top_comments") return <Rows rows={block.items} block={block} render={(item, i, revealed) => <TopComment key={item.id || i} item={item} first={i === 0} revealed={revealed} t={t} />} />;
   return <NoiseBlock block={block} t={t} />;
 }
 
@@ -302,7 +301,7 @@ export function AnalysisBlocksView({ model, onCopy, copyStatus, supplement }: { 
       const title = t(block.titleKey) || t(`blocks.${block.type}.title`);
       const attrs = { "data-analysis-block": block.type, "data-block-priority": block.primary ? "primary" : "secondary" };
       const body = <><BlockBody block={block} title={title} heading={block.primary} t={t} onCopy={onCopy} copyStatus={copyStatus} />
-        {block.type === "top_comments" || block.type === "noise_summary" ? <Truncated block={block} t={t} /> : null}</>;
+        {block.type === "noise_summary" ? <Truncated block={block} t={t} /> : null}</>;
       if (!block.primary) return <section key={block.id} {...attrs} aria-label={title} style={{ marginTop: p.space.md, borderTop: hairline, minWidth: 0 }}><Folded block={block} title={title} t={t}>{body}</Folded></section>;
       return <section key={block.id} {...attrs} aria-label={title} style={{ marginTop: p.space.xl, minWidth: 0 }}>
         {block.type !== "entity_list" ? <header style={{ display: "flex", alignItems: "baseline", gap: p.space.sm }}><h3 style={{ ...p.type.heading, color: p.ink, margin: 0, flex: 1, minWidth: 0 }}>{title}</h3><span style={meta}>{block.total}</span></header> : null}

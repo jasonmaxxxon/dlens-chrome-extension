@@ -33,15 +33,17 @@ export interface EntityRow {
   summary: string;
   /** The context quote, kept apart only when `summary` is the tool's own description. */
   quote: string;
-  /** The comment the context quotes (`context_comment_id`), else the first evidence. */
+  /** The context comment (`context_comment_id`), inferred from the most-liked evidence in rev 1. */
   link: BlockEvidenceLink | null;
+  /** Extra mentions whose quotes are not already shown in top comments or the lead. */
+  extra: BlockEvidenceLink[];
   repo: { stars: string; language: string; archived: boolean; pushed: string } | null;
   site: string;
 }
 export interface OpinionRow {
   label: string; generic: boolean; keywords: string[]; count: number | null; pct: number | null; substantive: number | null; noise: number | null;
   lowSignal: boolean; evidence: BlockEvidenceLink[];
-  /** Representative comment: the first evidence not already quoted elsewhere; link-only when every candidate was. */
+  /** Prefer an unquoted comment, but repeat a quote before falling back to a link-only row. */
   rep: BlockEvidenceLink | null; repText: string | null;
 }
 interface BlockBase { id: string; titleKey: string; primary: boolean; shown: number; total: number; truncated: boolean }
@@ -84,6 +86,14 @@ const SHORTCODE = /^[A-Za-z0-9_-]{11}$/;
 
 function rawComment(item: SessionItem | null, commentId: string) {
   return (item?.latestCapture?.result?.comments ?? []).find(c => str(c.comment_id) === commentId || str(c.source_comment_id) === commentId);
+}
+
+/** A capture can use an internal id and a source id for the same comment. */
+function includeCommentIds(ids: Set<string>, commentId: string, item: SessionItem | null) {
+  if (!commentId) return;
+  ids.add(commentId);
+  const raw = rawComment(item, commentId);
+  for (const id of [raw?.comment_id, raw?.source_comment_id]) if (str(id)) ids.add(str(id));
 }
 
 /** Link order: own permalink → the captured comment's own Threads URL → @author/post/<shortcode> → none (plain id). */
@@ -133,7 +143,7 @@ function compactCount(n: number): string {
   return k >= 1000 ? `${Math.round(k / 100) / 10}M` : `${k}k`;
 }
 
-function entityRow(i: Record<string, unknown>, item: SessionItem | null): EntityRow | null {
+function entityRow(i: Record<string, unknown>, item: SessionItem | null, shown: ReadonlySet<string>, quoted: Set<string>): EntityRow | null {
   const url = str(i.url);
   if (!url) return null;
   const domain = str(i.domain);
@@ -145,7 +155,21 @@ function entityRow(i: Record<string, unknown>, item: SessionItem | null): Entity
   const evidence = evidenceLinks(i.evidence, item);
   const context = str(i.context);
   const contextId = str(i.context_comment_id);
-  const contextLink = contextId ? evidence.find(e => e.commentId === contextId) ?? evidenceLinks([{ comment_id: contextId, author: rawComment(item, contextId)?.author }], item)[0] ?? null : null;
+  const contextLink = contextId ? evidence.find(e => e.commentId === contextId) ?? evidenceLinks([{ comment_id: contextId, author: rawComment(item, contextId)?.author }], item)[0] ?? null
+    : evidence.reduce<BlockEvidenceLink | null>((best, e) => !best || (e.likes ?? 0) > (best.likes ?? 0) ? e : best, null);
+  let summary = description || context, quote = description && description !== context ? context : "";
+  let summaryLink = contextLink;
+  if (contextLink && shown.has(contextLink.commentId)) {
+    quote = "";
+    if (!description) {
+      summaryLink = evidence.find(e => e.text && !shown.has(e.commentId)) ?? null;
+      summary = summaryLink?.text ?? "";
+    }
+  }
+  const extra = evidence.filter(e => e.commentId !== contextLink?.commentId && !shown.has(e.commentId));
+  if (!description && summary && summaryLink) includeCommentIds(quoted, summaryLink.commentId, item);
+  if (quote && contextLink) includeCommentIds(quoted, contextLink.commentId, item);
+  for (const e of extra) if (e.text) includeCommentIds(quoted, e.commentId, item);
   const github = i.kind === "github_repo" || domain === "github.com";
   const stars = num(enr.stars), language = str(enr.language), pushed = str(enr.pushed_at).slice(0, 10);
   const repo = ok && str(enr.source) === "github_api" && (stars !== null || language || enr.archived === true || pushed)
@@ -155,7 +179,7 @@ function entityRow(i: Record<string, unknown>, item: SessionItem | null): Entity
   return { key: str(i.key) || url, name: !name || name === domain ? title || domain || url : name, url, href: safeHref(url), domain, github,
     mentions: num(i.mention_count) ?? 0, likes: num(i.total_likes) ?? 0, recommenders: list(i.recommenders).map(handle).filter(Boolean),
     context, inPost: i.in_post === true, byOp: i.mentioned_by_op === true, evidence,
-    summary: description || context, quote: description && description !== context ? context : "", link: contextLink ?? evidence[0] ?? null, repo,
+    summary, quote, link: contextLink, extra, repo,
     site: ok && str(enr.source) === "og_meta" ? str(enr.site_name) : "" };
 }
 
@@ -190,11 +214,11 @@ function opinionRows(items: Record<string, unknown>[], item: SessionItem | null,
   return { rows: rows.flatMap((r, at) => !r.generic ? [r] : at === rows.indexOf(generics[0]) ? [merged] : []), noiseOnly };
 }
 
-function project(block: AnalysisBlockSnapshot, type: BlockType, item: SessionItem | null, aiNames: Record<string, string>, noise: Record<string, unknown>): AnalysisBlockView {
+function project(block: AnalysisBlockSnapshot, type: BlockType, item: SessionItem | null, aiNames: Record<string, string>, noise: Record<string, unknown>, shownCommentIds: ReadonlySet<string> = new Set(), quoted: Set<string> = new Set()): AnalysisBlockView {
   const items = list(block.items).map(obj);
   const shown = num(block.item_count) ?? items.length, total = num(block.total_count) ?? shown;
   const base: BlockBase = { id: str(block.id) || type, titleKey: str(block.title_key) || `blocks.${type}.title`, primary: block.priority === "primary", shown, total, truncated: block.truncated === true && total > shown };
-  if (type === "entity_list") return { ...base, type, items: items.flatMap(i => entityRow(i, item) ?? []) };
+  if (type === "entity_list") return { ...base, type, items: items.flatMap(i => entityRow(i, item, shownCommentIds, quoted) ?? []) };
   if (type === "opinion_overview") {
     const { rows, noiseOnly } = opinionRows(items, item, aiNames);
     // Rev 2 drops noise-only clusters itself and lists their keys; rev 1 sends them flagged. Either way no empty group is drawn.
@@ -214,12 +238,26 @@ function project(block: AnalysisBlockSnapshot, type: BlockType, item: SessionIte
     // The backend sorts a post-as-question first; keep that even if a payload does not.
     return { ...base, type, items: [...pairs.filter(x => x.question.isPost), ...pairs.filter(x => !x.question.isPost)], statusCounts, replyStructureKnown: typeof meta.reply_structure_known === "boolean" ? meta.reply_structure_known : null };
   }
-  if (type === "top_comments") return { ...base, type, items: items.map(i => {
-    const evidence = evidenceLinks(i.evidence, item);
-    const id = str(i.comment_id) || evidence[0]?.commentId || "";
-    const links = list(i.links).flatMap(l => { const url = str(obj(l).url); return url ? [{ url, href: safeHref(url), kind: str(obj(l).kind) }] : []; });
-    return { id, author: handle(i.author) || evidence[0]?.author || "", text: str(i.text) || (id ? capturedText(item, id) : null), likes: num(i.like_count) ?? evidence[0]?.likes ?? null, replies: num(i.reply_count), isOp: i.is_op === true || evidence.some(e => e.isOp), links, evidence };
-  }) };
+  if (type === "top_comments") {
+    const seen = new Set<string>();
+    for (const i of items) includeCommentIds(seen, str(i.comment_id) || str(obj(list(i.evidence)[0]).comment_id), item);
+    const restored = list(obj(block.meta).excluded_as_duplicate).flatMap<Record<string, unknown>>(value => {
+      const id = str(obj(value).comment_id);
+      if (!id || seen.has(id)) return [];
+      const captured = rawComment(item, id);
+      if (!captured) return [];
+      includeCommentIds(seen, id, item);
+      return [{ ...captured, comment_id: id, links: [], evidence: [{ ...captured, comment_id: id }] }];
+    });
+    const rows = [...items, ...restored].map(i => {
+      const evidence = evidenceLinks(i.evidence, item);
+      const id = str(i.comment_id) || evidence[0]?.commentId || "";
+      const links = list(i.links).flatMap(l => { const url = str(obj(l).url); return url ? [{ url, href: safeHref(url), kind: str(obj(l).kind) }] : []; });
+      return { id, author: handle(i.author) || evidence[0]?.author || "", text: str(i.text) || (id ? capturedText(item, id) : null), likes: num(i.like_count) ?? evidence[0]?.likes ?? null, replies: num(i.reply_count), isOp: i.is_op === true || evidence.some(e => e.isOp), links, evidence };
+    }).sort((a, b) => a.likes === null ? (b.likes === null ? 0 : 1) : b.likes === null ? -1 : b.likes - a.likes);
+    const mergedTotal = Math.max(rows.length, total + restored.length);
+    return { ...base, type, items: rows, shown: rows.length, total: mergedTotal, truncated: block.truncated === true && mergedTotal > rows.length };
+  }
   // noise_summary: numbers only; items are {flag, count, comment_ids} and the noise comments never become body rows.
   const meta = obj(block.meta);
   const audience = num(noise.audience_count) ?? num(meta.audience_count);
@@ -271,44 +309,20 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
     .flatMap(({ block }) => {
       const type = str(block.type);
       if (!(BLOCK_TYPES as readonly string[]).includes(type)) { skipped.push(type || "(none)"); return []; }
-      return [{ type: type as BlockType, raw: block, view: project(block, type as BlockType, item ?? null, aiNames, obj(analysis.noise)) }];
+      return [{ type: type as BlockType, block, view: type === "top_comments" ? project(block, "top_comments", item ?? null, aiNames, obj(analysis.noise)) : null }];
     });
 
-  // Tool context and expanded evidence (including rev 1 mentions) and the backend's own duplicate list win over top comments.
-  const quoted = new Set<string>();
-  for (const { type, raw: block, view } of raw) {
-    if (type === "entity_list") {
-      list(obj(block.meta).featured_comment_ids).forEach(id => str(id) && quoted.add(str(id)));
-      list(block.items).map(obj).forEach(i => {
-        const id = str(i.context_comment_id);
-        if (id) quoted.add(id);
-        else if (str(i.context) && view.type === "entity_list") {
-          const top = evidenceLinks(i.evidence, item ?? null).reduce<BlockEvidenceLink | null>((best, e) => !best || (e.likes ?? 0) > (best.likes ?? 0) ? e : best, null);
-          if (top) quoted.add(top.commentId);
-        }
-      });
-      if (view.type === "entity_list") for (const row of view.items) {
-        if (row.link) quoted.add(row.link.commentId);
-        row.evidence.forEach(e => quoted.add(e.commentId));
-      }
-    }
-    if (type === "top_comments") list(obj(block.meta).excluded_as_duplicate).forEach(d => { const id = str(obj(d).comment_id); if (id) quoted.add(id); });
-  }
+  // Top comments win regardless of block order. Their first row can also supply the lead;
+  // folded rows still reserve their quotes so opening a tool never repeats them.
+  const shown = new Set<string>();
+  for (const { view } of raw) if (view?.type === "top_comments") for (const row of view.items) includeCommentIds(shown, row.id, item ?? null);
+  const quoted = new Set(shown);
+  const blocks = raw.map(({ type, block, view }) => view ?? project(block, type, item ?? null, aiNames, obj(analysis.noise), shown, quoted));
   const dedupOmitted: { type: string; reason: OmittedReason }[] = [];
-  const blocks = raw.flatMap(({ type, view }): AnalysisBlockView[] => {
-    if (view.type === "top_comments") {
-      const kept = view.items.filter(i => !i.id || !quoted.has(i.id));
-      if (view.items.length && !kept.length) { dedupOmitted.push({ type, reason: "all_duplicate" }); return []; }
-      kept.forEach(i => i.id && quoted.add(i.id));
-      return [{ ...view, items: kept }];
-    }
-    return [view];
-  });
-  // Opinion groups quote a representative comment that no tool or top comment has already shown, when there is one.
+  // Opinion groups always keep a quote when evidence has text, even when every candidate repeats.
   for (const block of blocks) if (block.type === "opinion_overview") for (const row of block.items) {
-    const fresh = row.evidence.find(e => e.text && !quoted.has(e.commentId));
-    row.rep = fresh ?? row.evidence[0] ?? null;
-    row.repText = fresh?.text ?? null;
+    row.rep = row.evidence.find(e => e.text && !quoted.has(e.commentId)) ?? row.evidence.find(e => e.text) ?? row.evidence[0] ?? null;
+    row.repText = row.rep?.text ?? null;
   }
   const visible = blocks.filter(b => b.type === "noise_summary" ? b.flags.length > 0 || !!b.noise : b.items.length > 0);
   for (const b of blocks) if (b.type === "opinion_overview" && !b.items.length && b.noiseOnlyGroups) dedupOmitted.push({ type: b.type, reason: "noise_only" });
@@ -320,23 +334,12 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
   const main = leading[0] ? blockGist(leading[0]) : null, sub = leading[1] ? blockGist(leading[1]) : null;
   const ai = aiGist.trim();
   const lead = ai || main ? { ai, main, sub } : null;
-  // Snapshot the first kept top comment before removing it: the next row must not become a new lead and cascade away.
-  const leadCommentIds = new Set<string>();
-  if (lead) leading.slice(0, 2).forEach((block, index) => {
-    const gist = index === 0 ? (ai ? null : main) : sub;
-    if (gist?.kind === "top" && block.type === "top_comments" && block.items[0]?.id) leadCommentIds.add(block.items[0].id);
-  });
-  const rendered = primary.flatMap((block): AnalysisBlockView[] => {
-    if (block.type !== "top_comments") return [block];
-    const kept = block.items.filter(i => !leadCommentIds.has(i.id));
-    if (block.items.length && !kept.length) { dedupOmitted.push({ type: block.type, reason: "all_duplicate" }); return []; }
-    return [{ ...block, items: kept }];
-  });
-  const allOmitted = [...omitted.filter(o => !dedupOmitted.some(d => d.type === o.type)), ...dedupOmitted];
+  const hasTopComments = visible.some(b => b.type === "top_comments");
+  const allOmitted = [...omitted.filter(o => !(hasTopComments && o.type === "top_comments" && o.reason === "all_duplicate") && !dedupOmitted.some(d => d.type === o.type)), ...dedupOmitted];
   if (!visible.length) return { ...empty, mode: "empty", omitted: allOmitted, skipped };
   const noise = obj(analysis.noise);
   const audience = num(noise.audience_count), noiseShare = num(noise.noise_share);
-  return { ...empty, mode: "blocks", blocks: rendered, omitted: allOmitted, skipped, lead,
+  return { ...empty, mode: "blocks", blocks: primary, omitted: allOmitted, skipped, lead,
     source: audience !== null || noiseShare !== null ? { audience, noiseShare } : null };
 }
 
