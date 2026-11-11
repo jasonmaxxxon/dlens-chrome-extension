@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, Heart } from "lucide-react";
-import type { AnalysisBlocksModel, AnalysisBlockView, BlockEvidenceLink, EntityRow, EntitySort, PostTypeKey } from "../viewmodel/analysis-blocks";
-import { ENTITY_SORTS, entityCsv, entityMarkdown, sortEntityRows, type EntityExportLabels } from "../viewmodel/analysis-blocks";
+import type { AnalysisBlocksModel, AnalysisBlockView, BlockEvidenceLink, EntityRow, EntitySort, PostTypeKey, QaPerson } from "../viewmodel/analysis-blocks";
+import { ENTITY_SORTS, QA_STATUSES, entityCsv, entityMarkdown, sortEntityRows, type EntityExportLabels } from "../viewmodel/analysis-blocks";
 import type { InlineCardAnswer, InlineCardQuote } from "../viewmodel/inline-card";
 import { useBlockText } from "./i18n";
 import { ReaderReply } from "./ReaderReply";
@@ -18,10 +18,10 @@ const pct = (share: number) => Math.round(share * 100);
 const quote = (value: InlineCardQuote) => <ReaderReply row={{ ...value, isAuthor: !!value.isAuthor, replies: null, time: null }} />;
 
 /** Every item links back to its own comments; an unrecoverable link shows the plain comment id instead of an empty button. */
-function Evidence({ items, t }: { items: BlockEvidenceLink[]; t: T }) {
+function Evidence({ items, t, label = "blocks.action.evidence" }: { items: BlockEvidenceLink[]; t: T; label?: string }) {
   const missing = items.filter(e => !e.href);
   return <>
-    <RefLinks siteLabel={t("blocks.action.evidence")} items={items.filter(e => e.href).map(e => ({ key: e.commentId, label: e.author || e.commentId, href: e.href }))} />
+    <RefLinks siteLabel={t(label)}items={items.filter(e => e.href).map(e => ({ key: e.commentId, label: e.author || e.commentId, href: e.href }))} />
     {missing.map(e => <p key={e.commentId} data-block-evidence-id={e.commentId} style={{ ...p.type.micro, color: p.ink3, margin: `${p.space.xxs}px 0 0`, overflowWrap: "anywhere" }}>{e.author ? `@${e.author} · ` : ""}{t("blocks.action.evidence_missing", { id: e.commentId })}</p>)}
   </>;
 }
@@ -40,19 +40,36 @@ export function BlocksNotice({ model }: { model: AnalysisBlocksModel }) {
       : <p style={{ ...p.type.bodySm, color: p.ink3, margin: `${p.space.xs}px 0 0` }}>{t("blocks.empty.none")}</p>}
   </div>;
   if (!model.error) return null;
-  return <p data-blocks-error="" role="status" style={{ ...p.type.bodySm, margin: `${p.space.md}px 0 0`, padding: `${p.space.xs}px ${p.space.sm}px`, borderRadius: p.radius.xs, background: p.warningSoft, color: p.warning }}>{t(model.mode === "blocks" ? "blocks.error.partial" : "blocks.error.fallback")}</p>;
+  return <p data-blocks-error="" role="status" style={{ ...p.type.bodySm, margin: `${p.space.md}px 0 0`, padding: `${p.space.xs}px ${p.space.sm}px`, borderRadius: p.radius.xs, background: p.warningSoft, color: p.warning }}>{t("blocks.error.fallback")}</p>;
+}
+
+/** A qa question or answer. The post itself is labelled as the original post, never as a comment. */
+function Person({ person, t, role }: { person: QaPerson; t: T; role: "question" | "answer" }) {
+  const evidence: BlockEvidenceLink = { commentId: person.commentId ?? "post", author: person.author, likes: person.likes, isOp: person.isOp, href: person.href, text: person.text };
+  return <div data-block-qa-person={role} {...(person.isPost ? { "data-block-qa-post": "" } : {})} style={role === "answer" ? { marginTop: p.space.sm, paddingLeft: p.space.sm, borderLeft: `2px solid ${p.border}`, minWidth: 0 } : { minWidth: 0 }}>
+    <div style={{ ...p.type.meta, color: p.ink3, display: "flex", alignItems: "center", gap: p.space.xs, flexWrap: "wrap" }}>
+      {person.isPost ? <b style={{ color: p.accentInk, fontWeight: 600 }}>{t("blocks.qa.post_question")}</b> : null}
+      {person.author ? <b style={{ color: p.ink, fontWeight: 600 }}>@{person.author}</b> : null}
+      {person.isOp ? <span style={{ ...p.type.micro, padding: `0 ${p.space.xs}px`, borderRadius: p.radius.xs, background: p.accentSoft, color: p.accentInk }}>{t("blocks.qa.op")}</span> : null}
+      {person.likes !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: p.space.xxs, fontVariantNumeric: "tabular-nums" }}><Heart size={p.size.chipIcon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{person.likes}</span> : null}
+    </div>
+    <p style={{ ...p.type.bodySm, color: role === "question" ? p.ink : p.ink2, margin: `${p.space.xxs}px 0 0`, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{person.text}</p>
+    <Evidence items={[evidence]} t={t} label={person.isPost ? "blocks.action.evidence_post" : "blocks.action.evidence"} />
+  </div>;
 }
 
 function EntityCard({ row, t }: { row: EntityRow; t: T }) {
   const [open, setOpen] = useState(false);
-  const flags = [row.inPost ? t("blocks.entity.in_post") : "", row.byOp ? t("blocks.entity.by_op") : ""].filter(Boolean);
+  // A link only in the post has no comment mentions: say so instead of "0 mentions".
+  const postOnly = row.mentions === 0 && row.inPost;
+  const flags = [row.inPost && !postOnly ? t("blocks.entity.in_post") : "", row.byOp ? t("blocks.entity.by_op") : ""].filter(Boolean);
   return <li data-block-entity={row.key} style={{ ...card, listStyle: "none" }}>
     <div style={{ display: "flex", alignItems: "baseline", gap: p.space.sm, minWidth: 0 }}>
       <b style={{ ...p.type.cardTitle, color: p.ink, flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{row.name}</b>
-      <span style={{ ...meta, whiteSpace: "nowrap" }}>{t("blocks.entity.mentions", { n: row.mentions })}</span>
-      <button type="button" data-block-entity-toggle={row.key} aria-expanded={open} aria-label={`${t(open ? "blocks.action.collapse" : "blocks.action.expand")} ${row.name}`} onClick={() => setOpen(v => !v)} style={{ ...textButton, alignSelf: "center", display: "inline-grid", placeItems: "center", minWidth: p.size.buttonSm, color: p.ink3 }}>
+      <span style={{ ...meta, whiteSpace: "nowrap" }}>{postOnly ? t("blocks.entity.in_post") : t("blocks.entity.mentions", { n: row.mentions })}</span>
+      {row.evidence.length ? <button type="button" data-block-entity-toggle={row.key} aria-expanded={open} aria-label={`${t(open ? "blocks.action.collapse" : "blocks.action.expand")} ${row.name}`} onClick={() => setOpen(v => !v)} style={{ ...textButton, alignSelf: "center", display: "inline-grid", placeItems: "center", minWidth: p.size.buttonSm, color: p.ink3 }}>
         {open ? <ChevronUp size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /> : <ChevronDown size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />}
-      </button>
+      </button> : null}
     </div>
     {row.context ? <p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.xxs}px 0 0` }}>{row.context}</p> : null}
     {row.href ? <a data-block-entity-url="" href={row.href} target="_blank" rel="noopener noreferrer" style={{ ...p.type.bodySm, display: "block", marginTop: p.space.xxs, color: p.accent, textDecoration: "none", overflowWrap: "anywhere", wordBreak: "break-all" }}>{row.url}</a>
@@ -102,17 +119,24 @@ const QA_TONE = { answered_by_op: { color: p.success, background: p.successSoft 
 function BlockBody({ block, title, t, onCopy, copyStatus }: { block: AnalysisBlockView; title: string; t: T; onCopy?: (text: string) => void; copyStatus?: string }) {
   if (block.type === "entity_list") return <EntityBlock block={block} title={title} t={t} onCopy={onCopy} copyStatus={copyStatus} />;
   if (block.type === "opinion_overview") return <>{block.items.map((item, i) => <div key={i} data-block-opinion={i} style={{ marginTop: p.space.md, paddingLeft: p.space.md, borderLeft: `${p.reader.clusterBar}px solid ${c.clusterColors[i % c.clusterColors.length]}`, minWidth: 0 }}>
-    <div style={{ display: "flex", alignItems: "baseline", gap: p.space.sm }}><b style={{ ...p.type.bodySm, fontWeight: 600, color: p.ink, flex: 1, minWidth: 0 }}>{item.label}</b><span style={{ ...meta, whiteSpace: "nowrap" }}>{[item.count !== null ? t("blocks.opinion.count", { n: item.count }) : "", item.pct !== null ? `${item.pct}%` : ""].filter(Boolean).join(" · ")}</span></div>
+    <div style={{ display: "flex", alignItems: "baseline", gap: p.space.sm }}><b style={{ ...p.type.bodySm, fontWeight: 600, color: p.ink, flex: 1, minWidth: 0 }}>{item.generic ? t("blocks.opinion.generic") : item.label}</b><span style={{ ...meta, whiteSpace: "nowrap" }}>{[item.count !== null ? t("blocks.opinion.count", { n: item.count }) : "", item.pct !== null ? `${item.pct}%` : ""].filter(Boolean).join(" · ")}</span></div>
+    {item.substantive !== null || item.noise ? <p data-block-opinion-split="" style={{ ...meta, margin: `${p.space.xxs}px 0 0` }}>{[item.substantive !== null ? t("blocks.opinion.substantive", { n: item.substantive }) : "", item.noise ? t("blocks.opinion.noise", { n: item.noise }) : ""].filter(Boolean).join(" · ")}</p> : null}
+    {item.noiseOnly ? <p data-block-opinion-noise-only="" style={{ ...p.type.bodySm, color: p.ink3, margin: `${p.space.xxs}px 0 0` }}>{t("blocks.opinion.noise_only")}</p> : null}
     {item.evidence[0]?.text ? <p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.xxs}px 0 0`, overflowWrap: "anywhere" }}>「{item.evidence[0].text}」</p> : null}
     <Evidence items={item.evidence} t={t} />
   </div>)}</>;
-  if (block.type === "qa_pairs") return <>{block.items.map((item, i) => <div key={i} data-block-qa={item.status} style={card}>
-    <p style={{ ...p.type.bodySm, color: p.ink, margin: 0, overflowWrap: "anywhere" }}>{item.question}</p>
-    <span data-block-qa-status={item.status} style={{ ...p.type.micro, display: "inline-block", marginTop: p.space.xs, padding: `0 ${p.space.xs}px`, borderRadius: p.radius.xs, ...QA_TONE[item.status] }}>{t(`blocks.qa.status.${item.status}`)}</span>
-    {item.answer ? <p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.xs}px 0 0`, paddingLeft: p.space.sm, borderLeft: `2px solid ${p.border}`, overflowWrap: "anywhere" }}>{item.answer}</p> : null}
+  if (block.type === "qa_pairs") return <>
+    {block.statusCounts ? <p data-block-qa-summary="" style={{ ...meta, margin: `${p.space.xs}px 0 0` }}>{QA_STATUSES.filter(s => block.statusCounts![s] > 0).map(s => `${t(`blocks.qa.status.${s}`)} ${block.statusCounts![s]}`).join(" · ")}</p> : null}
+    {block.items.map((item, i) => <div key={i} data-block-qa={item.status} style={card}>
+      <Person person={item.question} t={t} role="question" />
+      <span data-block-qa-status={item.status} style={{ ...p.type.micro, display: "inline-block", marginTop: p.space.xs, padding: `0 ${p.space.xs}px`, borderRadius: p.radius.xs, ...QA_TONE[item.status] }}>{t(`blocks.qa.status.${item.status}`)}</span>
+      {item.answers.map((answer, j) => <Person key={j} person={answer} t={t} role="answer" />)}
+      {item.answerCount > item.answers.length ? <p data-block-qa-more="" style={{ ...meta, margin: `${p.space.xs}px 0 0` }}>{t("blocks.qa.answers_more", { n: item.answerCount - item.answers.length })}</p> : null}
+    </div>)}</>;
+  if (block.type === "top_comments") return <>{block.items.map((item, i) => <ReaderReply key={i} row={{ text: item.text ?? t("blocks.top.no_text"), author: item.author, likes: item.likes, isAuthor: item.isOp, replies: item.replies, time: null }} footer={<>
+    {item.links.length ? <ul data-block-comment-links="" aria-label={t("blocks.top.links")} style={{ flexBasis: "100%", listStyle: "none", margin: 0, padding: 0, ...p.type.bodySm }}>{item.links.map((link, j) => <li key={j} style={{ overflowWrap: "anywhere", wordBreak: "break-all" }}>{link.href ? <a data-block-comment-link={link.kind || "external"} href={link.href} target="_blank" rel="noopener noreferrer" style={{ color: p.accent, textDecoration: "none" }}>{link.url}</a> : <span data-block-comment-link={link.kind || "external"} style={{ color: p.ink2 }}>{link.url}</span>}</li>)}</ul> : null}
     <Evidence items={item.evidence} t={t} />
-  </div>)}</>;
-  if (block.type === "top_comments") return <>{block.items.map((item, i) => <ReaderReply key={i} row={{ text: item.text ?? t("blocks.top.no_text"), author: item.author, likes: item.likes, isAuthor: item.evidence.some(e => e.isOp), replies: null, time: null }} footer={<Evidence items={item.evidence} t={t} />} />)}</>;
+  </>} />)}</>;
   // noise_summary: numbers only.
   return <div data-block-noise="" style={{ marginTop: p.space.xs }}>
     {block.noise !== null && block.audience ? <p style={{ ...p.type.bodySm, color: p.ink3, margin: 0 }}>{t("blocks.noise.summary", { noise: block.noise, audience: block.audience, pct: pct(block.share ?? block.noise / block.audience) })}</p> : null}

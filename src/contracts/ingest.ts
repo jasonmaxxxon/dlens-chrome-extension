@@ -200,7 +200,8 @@ export interface AnalysisSnapshot {
   post_type?: AnalysisPostTypeSnapshot;
   noise?: AnalysisNoiseSnapshot;
   blocks?: AnalysisBlockSnapshot[];
-  blocks_omitted?: { type: string; reason: string }[];
+  blocks_omitted?: { type: string; reason: "empty" | string }[];
+  /** Exception class name; when present blocks / blocks_version / post_type / noise / blocks_omitted are all absent. */
   blocks_error?: string;
 }
 
@@ -209,7 +210,7 @@ export interface AnalysisPostTypeSnapshot {
   type?: "discussion" | "resource" | "help" | "news" | "entertainment" | "unknown" | string;
   confidence?: number;
   best_guess?: string;
-  unknown_reason?: string | null;
+  unknown_reason?: "too_few_audience_comments" | "no_type_scored_high_enough" | null;
   scores?: Record<string, number>;
   signals?: unknown;
   classifier?: string;
@@ -225,11 +226,12 @@ export interface AnalysisNoiseSnapshot {
 
 export interface AnalysisBlockEvidenceSnapshot {
   comment_id: string;
-  author?: string;
+  author?: string | null;
   like_count?: number;
-  /** fetcher v16+ only. */
+  /** fetcher v16+ only; the key is omitted when absent. */
   permalink?: string;
-  is_op?: boolean;
+  /** Only ever true; omitted otherwise. */
+  is_op?: true;
 }
 
 export interface AnalysisBlockSnapshot {

@@ -47,7 +47,7 @@ function AskStatus({ status }: { status: "none" | "author" | "other" | "unknown"
 }
 
 const LEGACY_BLOCKS: AnalysisBlocksModel = { mode: "legacy", postType: null, error: false, blocks: [], omitted: [], skipped: [] };
-type PresentedGroup =InlineEvidenceGroup & { representative?: InlineCardQuote | null };
+type PresentedGroup = InlineEvidenceGroup & { representative?: InlineCardQuote | null };
 /** Reposition current presentation data only. The stored reading and evidence limits do not change. */
 function readingGroups(model: CollectionReaderModel): PresentedGroup[] {
   const groups: PresentedGroup[] = (model.evidence?.groups ?? []).map(group => ({ ...group }));
