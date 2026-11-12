@@ -35,7 +35,7 @@ export function CollectionPostCard({ post, status, postedRelative, comments, arr
         display: "flex", alignItems: "center", gap: panel.space.xs, minWidth: 0, minHeight: panel.list.card.summaryLine }}>
         {row.clusterIndex !== undefined && row.summary ? <span data-collection-summary-cluster={row.clusterIndex} aria-hidden="true"
           style={{ width: panel.reader.clusterBar, height: panel.list.card.summaryLine, flexShrink: 0, borderRadius: panel.radius.xs,
-            background: tokens.collectCard.clusterColors[row.clusterIndex % tokens.collectCard.clusterColors.length] }} /> : null}
+            background: panel.data[row.clusterIndex % panel.data.length] }} /> : null}
         <span style={{ minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{row.summary}</span>
       </span>
       <span style={{ display: "flex", gap: panel.space.sm, alignItems: "center", minHeight: panel.list.card.statusLine, minWidth: 0 }}>

@@ -4,25 +4,27 @@
 export const tokens = {
   /* Side-panel replacement system. Shared Threads controls retain their existing tokens. */
   panel: {
-    bg: "#FAFAF9", surface: "#FFFFFF", surfaceSubtle: "#F4F4F2", surfaceSunken: "#EFEEEB",
-    border: "#E7E5E1", borderStrong: "#D6D3CD",
-    ink: "#1C1B19", ink2: "#44423D", ink3: "#6E6B64", ink4: "#A19D95",
-    accent: "#2952CC", accentHover: "#2246B3", accentSoft: "#EBF0FC", accentInk: "#1E3E9E",
-    success: "#1F7A4D", successSoft: "#E7F4EC", warning: "#A15C07", warningSoft: "#FBF1E2",
-    danger: "#B42318", dangerSoft: "#FDECEA", running: "#2952CC", runningSoft: "#EBF0FC",
+    bg: "#F1F3F6", surface: "#FFFFFF", surfaceSubtle: "#F4F6F9", surfaceSunken: "#E9EDF2",
+    border: "#E3E7EC", borderStrong: "#CBD2DB",
+    ink: "#10243B", ink2: "#3C4F66", ink3: "#66778C", ink4: "#9AA7B6",
+    accent: "#2952CC", accentHover: "#2246B3", accentSoft: "#E6EDF6", accentInk: "#1E3E9E",
+    success: "#17794F", successSoft: "#E1F2E9", warning: "#97580A", warningSoft: "#FBEFD9",
+    danger: "#B3261E", dangerSoft: "#FCE9E7", running: "#2952CC", runningSoft: "#E6EDF6",
     focusRing: "0 0 0 2px #FFFFFF, 0 0 0 4px #2952CC",
+    /* Audience-group colours for share bars, dots and quote bars; `dataRest` is the unassigned remainder. */
+    data: ["#E0533C", "#0E8A8C", "#D79A1E", "#7C8BA1"], dataRest: "#DDE3EA",
     iconStrokeWidth: 1.75,
     reader: { sourceLines: 6, replyClampChars: 180, replyClampLines: 6, refsShown: 3, clusterBar: 3, lensHeight: 44, shareHeight: 8, skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10 },
     list: {
       skeletonCount: 4, skeletonWidths: ["40%", "90%", "60%"], skeletonHeights: [12, 10, 10], emptyTop: 48, emptyIcon: 24,
       card: { padding: 12, columnGap: 12, contentGap: 4, titleLines: 2, metaLine: 17, titleLine: 40, summaryLine: 19, statusLine: 19 }
     },
-    /* Reading-first blocks area: one sheet of paper, hairlines between rows, no per-item boxes. */
+    /* Reading-first blocks area: one answer tile, then few tiles; rows share one grammar, no per-item boxes. */
     blocks: {
-      lead: { fontSize: 20, lineHeight: "28px", fontWeight: 600 },
-      leadSub: { fontSize: 15, lineHeight: "22px", fontWeight: 500 },
-      rowName: { fontSize: 15, lineHeight: "22px", fontWeight: 600 },
-      firstItems: 3, clampLines: 2, hairline: 1, quoteBar: 2, menuWidth: 200, riseMs: 180, risePx: 4
+      lead: { fontSize: 20, lineHeight: "28px", fontWeight: 700 },
+      label: { fontSize: 12, lineHeight: "16px", fontWeight: 600 },
+      rowName: { fontSize: 14, lineHeight: "20px", fontWeight: 600 },
+      firstItems: 3, clampLines: 2, quoteLines: 3, hairline: 1, quoteBar: 3, shareHeight: 10, foldHeight: 40, sourceIcon: 12, menuWidth: 200, riseMs: 180, risePx: 4
     },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",
@@ -39,9 +41,9 @@ export const tokens = {
     space: { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, section: 32 },
     radius: { xs: 6, sm: 8, md: 12, lg: 16, pill: 999 },
     shadow: {
-      card: "0 1px 2px rgba(20,18,15,.05), 0 0 0 1px rgba(20,18,15,.06)",
-      raised: "0 2px 6px rgba(20,18,15,.06), 0 0 0 1px rgba(20,18,15,.07)",
-      popover: "0 12px 32px -8px rgba(20,18,15,.20), 0 0 0 1px rgba(20,18,15,.08)"
+      card: "0 1px 2px rgba(16,36,59,.05), 0 0 0 1px rgba(16,36,59,.05)",
+      raised: "0 2px 6px rgba(16,36,59,.07), 0 0 0 1px rgba(16,36,59,.07)",
+      popover: "0 12px 32px -8px rgba(16,36,59,.22), 0 0 0 1px rgba(16,36,59,.08)"
     },
     size: {
       menu: 280, header: 44, banner: 52, chip: 28, button: 32, buttonSm: 28, input: 36,

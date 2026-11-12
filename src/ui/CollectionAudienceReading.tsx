@@ -3,7 +3,7 @@ import { ReaderReply } from "./ReaderReply";
 export { ReaderReply } from "./ReaderReply";
 import { ReaderLensBar } from "./ReaderLensBar";
 import { DeepReadingView } from "./DeepReadingView";
-import { AiSupplement, AnalysisBlocksView, BlocksNotice, PostTypeTag } from "./AnalysisBlocks";
+import { AiSupplement, AnalysisBlocksView, BlocksNotice, PostTypeTag, hasAiSupplement } from "./AnalysisBlocks";
 import type { DeepReadingModel, DeepCommand } from "../viewmodel/deep-reading";
 import { type CSSProperties, type ReactNode } from "react";
 import type { CollectionReaderModel } from "../viewmodel/collection-reader";
@@ -18,7 +18,7 @@ const quote = (value: InlineCardQuote, footer?: ReactNode) => <ReaderReply row={
 
 /** Shares retain the captured cluster colours; labels and measurements stay together. */
 function ShareBar({ segments }: { segments: { label: string; measurementLabel: string; pct?: number; noise: boolean }[] }) {
-  const colour = (s: { noise: boolean }, i: number) => s.noise ? p.ink4 : c.clusterColors[i % c.clusterColors.length];
+  const colour = (s: { noise: boolean }, i: number) => s.noise ? p.ink4 : p.data[i % p.data.length];
   return <div data-reader-share="">
     <div aria-hidden="true" style={{ display: "flex", gap: p.space.xxs, height: p.reader.shareHeight }}>{segments.map((s, i) => <i key={i} style={{ flex: Math.max(s.pct ?? 1, 1), borderRadius: p.radius.xs, background: colour(s, i) }} />)}</div>
     <div style={{ ...p.type.micro, display: "flex", flexWrap: "wrap", gap: `${p.space.xs}px ${p.space.md}px`, marginTop: p.space.sm, color: p.ink3, fontVariantNumeric: "tabular-nums" }}>
@@ -82,17 +82,17 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
   const stateTone = model.card.phase === "failed" ? { color: p.danger, background: p.dangerSoft }
     : model.card.phase === "queued" || stateLine.includes("比平常久") ? { color: p.warning, background: p.warningSoft }
     : { color: p.accentInk, background: p.accentSoft };
-  return <section data-collection-reading="" style={{ marginTop: p.space.lg, borderTop: `1px solid ${p.border}`, ...p.type.body, fontFamily: tokens.font.sans, overflowWrap: "anywhere" }}>
+  return <section data-collection-reading="" style={{ marginTop: p.space.lg, borderTop: blocks.mode === "blocks" ? 0 : `1px solid ${p.border}`, ...p.type.body, fontFamily: tokens.font.sans, overflowWrap: "anywhere" }}>
     {model.stateLine ? <p role="status" data-reader-state="" style={{ ...p.type.meta, ...stateTone, borderRadius: p.radius.xs, padding: `${p.space.xs}px ${p.space.sm}px`, margin: `${p.space.lg}px 0 0` }}>{stateLine}</p> : null}
     {blocks.postType && blocks.mode !== "blocks" ? <div style={{ marginTop: p.space.md }}><PostTypeTag type={blocks.postType} /></div> : null}
     <BlocksNotice model={blocks} />
-    {blocks.mode === "blocks" ? <AnalysisBlocksView model={blocks} onCopy={onCopy} copyStatus={copyStatus} supplement={<AiSupplement methods={model.card.answers.method} split={model.card.answers.split} />} /> : null}
+    {blocks.mode === "blocks" ? <AnalysisBlocksView model={blocks} onCopy={onCopy} copyStatus={copyStatus} supplement={hasAiSupplement(model.card.answers.method, model.card.answers.split) ? <AiSupplement methods={model.card.answers.method} split={model.card.answers.split} /> : undefined} /> : null}
     {blocks.mode === "legacy" ? <>
     <ReaderLensBar tabs={tabs} selected={model.selected} onSelect={onLens} accent={() => p.accent} />
     <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{ color: p.ink2 }}>{model.card.phase !== "done" ? null : few ? <div data-reader-few=""><h3 style={h3}>留言未夠歸納，先睇原句。</h3>{model.answer?.kind === "clusters" && model.answer.segments[0]?.measurementLabel && model.answer.segments[0].measurementLabel !== "未能確認則數" ? <p style={{ ...p.type.meta, color: p.ink3 }}>{model.answer.segments[0].measurementLabel}</p> : null}{few.map((row, i) => <div key={i}>{quote(row)}</div>)}</div> : model.answer ? <Answer answer={model.answer} /> : null}</div>
     {!few && (model.evidence || groups.length) ? <div data-reader-evidence="" style={{ marginTop: p.space.md }}>
       {groups.map(group => {
-        const color = group.tone === "noise" ? p.borderStrong : group.tone === "side" ? c.sideColors[group.index % c.sideColors.length] : c.clusterColors[group.index % c.clusterColors.length];
+        const color = group.tone === "noise" ? p.borderStrong : group.tone === "side" ? c.sideColors[group.index % c.sideColors.length] : p.data[group.index % p.data.length];
         const header = <span data-reader-evidence-header="" data-reader-lead={group.tone === "method" || group.tone === "side" ? "" : undefined} style={{ display: "grid", flex: 1, gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "baseline", gap: `0 ${p.space.sm}px`, minWidth: 0 }}><b style={{ ...p.type.bodySm, fontWeight: 600, color: group.tone === "noise" ? p.ink3 : p.ink }}>{group.title}</b><span style={{ ...p.type.meta, whiteSpace: "nowrap", color: p.ink3, fontVariantNumeric: "tabular-nums" }}>{group.meta}</span></span>;
         const body = <>
           {group.context ? <p style={{ ...p.type.bodySm, color: p.ink3, margin: `${p.space.xs}px 0` }}>{group.context}</p> : null}

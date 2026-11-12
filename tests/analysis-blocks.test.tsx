@@ -164,7 +164,8 @@ test("every block-v1 title, group, sort, post-type, omitted and noise label is t
   for (const key of ["blocks.omitted.all_duplicate", "blocks.omitted.noise_only", "blocks.noise.flag.placeholder", "blocks.fold.more"]) assert.ok(blockText("zh", key) && blockText("en", key));
   for (const sort of ["mentions", "likes", "github"]) assert.ok(blockText("zh", `blocks.sort.${sort}`) && blockText("en", `blocks.sort.${sort}`));
   assert.equal(blockText("zh", "blocks.truncated", { n: 2, total: 5 }), "仲有 2 項未列出（共 5 項）");
-  assert.equal(blockText("zh", "blocks.fold.more", { n: 3 }), "再睇 3 個");
+  for (const key of ["opinion_overview", "entity_list", "qa_pairs", "top_comments", "noise_summary"]) assert.ok(blockText("zh", `blocks.unit.${key}`, { n: 3 }) && blockText("en", `blocks.unit.${key}`, { n: 3 }));
+  assert.equal(blockText("zh", "blocks.fold.more", { what: blockText("zh", "blocks.unit.entity_list", { n: 3 }) }), "再睇 3 個");
   assert.equal(blockText("zh", "blocks.no.such.key"), "");
 });
 
@@ -191,6 +192,8 @@ async function withReader(source: SessionItem, run: (r: Awaited<ReturnType<typeo
   const r = await mount(source, props);
   try { await run(r); } finally { await r.done(); }
 }
+/** A source link reads as the author's handle; what it does is in its accessible name. */
+const said = (el: Element | null | undefined) => el ? [el.textContent, el.getAttribute("aria-label")] : null;
 const blk = (type: string, extra: Record<string, unknown>) => ({ id: type, type, title_key: `blocks.${type}.title`, order: 1, priority: "primary", item_count: 1, total_count: 1, truncated: false, evidence_comment_ids: [], meta: {}, items: [], ...extra });
 const ref = (comment_id: string, author: string, like_count = 1) => ({ comment_id, author, like_count, permalink: `https://www.threads.com/@${author}/post/${comment_id}` });
 
@@ -203,7 +206,7 @@ test("the reader renders blocks in order: primary open, secondary folded, with e
     // Secondary blocks are one line until opened: nothing of their body is mounted yet.
     const fold = doc.querySelector<HTMLElement>('[data-analysis-block="top_comments"] [data-block-fold]')!;
     assert.equal(fold.getAttribute("aria-expanded"), "false");
-    assert.match(fold.querySelector("[data-block-fold-line]")!.textContent!, /最高讚/);
+    assert.equal(fold.querySelector("[data-block-fold-line]")!.textContent, "最高 40 讚", "a folded block says what it holds without quoting a comment a second time");
     assert.equal(Boolean(doc.querySelector("[data-block-top]")), false);
     assert.ok(doc.querySelector("[data-block-lead]"), "a lead sentence is derived from the first primary block");
     assert.match(doc.querySelector("[data-block-lead]")!.textContent!, /最多人推介「jo-duchan\/tapflow」（3 人提）/);
@@ -220,7 +223,7 @@ test("the reader renders blocks in order: primary open, secondary folded, with e
     assert.doesNotMatch(bad.textContent!, /0 人提/);
     assert.ok(bad.querySelector("[data-block-row-toggle]"), "the full plain URL remains available in the row detail even without evidence");
     const link = doc.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')!;
-    assert.equal(link.textContent, "睇原留言 ↗");
+    assert.deepEqual(said(link), ["@dev_a", "睇原留言 @dev_a"]);
     assert.equal(link.getAttribute("target"), "_blank");
     assert.equal(doc.querySelector('[data-reading-ref-site="R7"]')?.getAttribute("href"), "https://www.threads.com/@carol/post/CAPTURED01");
     assert.match(doc.querySelector('[data-block-evidence-id="c-internal-88"]')!.textContent!, /c-internal-88/);
@@ -234,20 +237,20 @@ test("the reader renders blocks in order: primary open, secondary folded, with e
     assert.equal(postQa.getAttribute("data-block-qa"), "answered", "the post-as-question comes first");
     assert.match(postQa.textContent!, /原帖提問/);
     const postLink = postQa.querySelector('[data-reading-ref-site="post"]')!;
-    assert.equal(postLink.textContent, "睇原帖 ↗");
+    assert.deepEqual(said(postLink), ["@op", "睇原帖 @op"]);
     assert.equal(postLink.getAttribute("href"), "https://www.threads.net/@op/post/RootCode2");
     assert.equal(postQa.querySelector("[data-block-qa-more]")?.textContent, "+1 則答案未列出");
     assert.equal(postQa.querySelectorAll('[data-block-qa-person="answer"]').length, 3);
-    assert.equal(doc.querySelector('[data-block-qa="answered_by_op"] [data-reading-ref-site="R12"]')?.textContent, "睇原留言 ↗");
+    assert.deepEqual(said(doc.querySelector('[data-block-qa="answered_by_op"] [data-reading-ref-site="R12"]')), ["@plush74", "睇原留言 @plush74"]);
     const comment = doc.querySelector('[data-block-comment-link="external"]')!;
     assert.equal(comment.textContent, "https://github.com/jo-duchan/tapflow", "the full URL, not the crawler's truncated text");
     assert.equal(comment.getAttribute("href"), "https://github.com/jo-duchan/tapflow");
     const opinions = [...doc.querySelectorAll("[data-block-opinion]")];
     assert.equal(opinions.length, 2, "the noise-only cluster is not drawn as a group");
     assert.match(opinions[0].textContent!, /四日、工作、作量、哈哈/);
-    assert.match(opinions[0].textContent!, /4 則有內容 · 1 則標記/);
+    assert.match(opinions[0].textContent!, /4 則有內容 · 1 則留名類/);
     assert.match(opinions[1].textContent!, /其他留言/);
-    assert.match(doc.querySelector("[data-block-opinion-noise-groups]")!.textContent!, /另有 1 組只有標記類留言/);
+    assert.match(doc.querySelector("[data-block-opinion-noise-groups]")!.textContent!, /另有 1 組只有留名類留言/);
     assert.doesNotMatch(doc.textContent!, /replies_not_captured|weird_status|tag_friend|future_widget|blocks\.|general/);
     assert.equal(doc.querySelectorAll("[data-block-noise] [data-reader-reply]").length, 0, "noise stays numbers only");
   });
@@ -284,7 +287,10 @@ test("rev 2 entity rows show the summary, repo facts and site, and never a raw e
   await withReader(src, async ({ doc, click }) => {
     const text = () => doc.textContent!;
     assert.match(text(), /官方描述 A/);
-    assert.match(doc.querySelector('[data-block-entity="https://github.com/a/own"] [data-block-entity-facts]')!.textContent!, /12\.4k 星 · TypeScript · 2026-10-30 更新/);
+    const own = doc.querySelector('[data-block-entity="https://github.com/a/own"]')!;
+    assert.equal(own.querySelector("[data-block-entity-facts]")!.textContent, "12.4k 星 · TypeScript", "the collapsed row keeps two facts; the update date waits in its detail");
+    await click(own.querySelector("[data-block-row-toggle]")!);
+    assert.match(own.querySelector("[data-block-entity-flags]")!.textContent!, /2026-10-30 更新/);
     assert.equal(doc.querySelectorAll("[data-block-entity]").length, 3, "first three rows");
     await click(doc.querySelector("[data-block-more]")!);
     assert.equal(doc.querySelectorAll("[data-block-entity]").length, 4, "「再睇 1 個」 reveals the rest in place");
@@ -377,7 +383,7 @@ test("omitted reasons and the placeholder flag read honestly", async () => {
   const empty = fixture({ blocks_version: "v1", blocks: [], blocks_omitted: [{ type: "qa_pairs", reason: "all_duplicate" }, { type: "entity_list", reason: "noise_only" }, { type: "top_comments", reason: "empty" }, { type: "opinion_overview", reason: "something_new" }] });
   await withReader(empty, async ({ doc }) => {
     assert.equal(doc.querySelector('[data-block-omitted="qa_pairs"]')?.textContent, "大家問咩：留言已喺上面顯示，唔重複");
-    assert.equal(doc.querySelector('[data-block-omitted="entity_list"]')?.textContent, "推介工具：只有標記類留言，冇內容可引用");
+    assert.equal(doc.querySelector('[data-block-omitted="entity_list"]')?.textContent, "推介工具：只有留名類留言，冇內容可引用");
     assert.equal(doc.querySelector('[data-block-omitted="top_comments"]')?.textContent, "熱門留言：未有內容");
     assert.equal(doc.querySelector('[data-block-omitted="opinion_overview"]')?.textContent, "大家點睇：未有內容", "unknown reasons read as empty");
     assert.doesNotMatch(doc.textContent!, /all_duplicate|noise_only|something_new/);
@@ -387,8 +393,9 @@ test("omitted reasons and the placeholder flag read honestly", async () => {
   blocks_omitted: [{ type: "opinion_overview", reason: "noise_only" }, { type: "qa_pairs", reason: "empty" }] });
   await withReader(withNotes, async ({ doc }) => {
     assert.equal(doc.querySelectorAll("[data-block-omitted-notes] li").length, 1, "only the informative reasons are listed next to blocks");
-    assert.equal(doc.querySelector("[data-block-omitted-notes] li")?.textContent, "大家點睇：只有標記類留言，冇內容可引用");
-    assert.match(doc.querySelector('[data-block-fold-line]')!.textContent!, /引用帖佔位 2/);
+    assert.equal(doc.querySelector("[data-block-omitted-notes] li")?.textContent, "大家點睇：只有留名類留言，冇內容可引用");
+    assert.equal(doc.querySelector('[data-block-noise] [data-block-noise-flag="placeholder"]')!.textContent, "引用帖佔位 2", "marker comments are one static line of numbers");
+    assert.equal(Boolean(doc.querySelector('[data-analysis-block="noise_summary"] [data-block-fold]')), false);
   });
 });
 
@@ -421,7 +428,7 @@ test("the lead sentence prefers the stored AI gist, else a template over the fir
   assert.equal(templated.lead?.sub?.kind, "qa");
   assert.equal(templated.lead?.ai, "");
   assert.equal(buildAnalysisBlocks(src, {}, " 先拆細任務。 ").lead?.ai, "先拆細任務。");
-  assert.deepEqual(templated.source, { audience: 13, noiseShare: 0.4615 });
+  assert.deepEqual(templated.source, { audience: 13, noiseShare: 0.4615, noise: 6 });
   // No data, no lead.
   assert.equal(buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks: [] })).lead, null);
   assert.equal(buildAnalysisBlocks(fixture(null)).lead, null);
@@ -473,7 +480,7 @@ const topBlock = (ids: string[], extra: Record<string, unknown> = {}) => blk("to
   ...extra,
 });
 
-test("top priority: the second lead sentence quotes the first top row and the same row stays in the block", () => {
+test("top priority: the model keeps a second gist for the first top row, the reader shows that comment once in its block", () => {
   for (const revision of [undefined, 2]) {
     const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
       blk("entity_list", { items: [entity("tool", "https://github.com/a/tool", 1, 1, "github_repo", [ref("ENTITY", "dev")])] }),
@@ -489,7 +496,8 @@ test("top priority: the second lead sentence quotes the first top row and the sa
     assert.equal(model.omitted.some(o => o.type === "top_comments" && o.reason === "all_duplicate"), false);
     const dom = new JSDOM(renderToStaticMarkup(<AnalysisBlocksView model={model} />));
     try {
-      assert.match(dom.window.document.querySelector("[data-block-lead-sub]")!.textContent!, /完整留言 ENTITY/);
+      assert.equal(dom.window.document.querySelector("[data-block-lead-sub]"), null, "no second headline repeats a comment shown right below");
+      assert.equal(dom.window.document.body.textContent!.split("完整留言 ENTITY").length - 1, 1);
       assert.match(dom.window.document.querySelector('[data-block-top="ENTITY"]')!.textContent!, /完整留言 ENTITY/);
       assert.equal(dom.window.document.querySelector('[data-block-omitted="top_comments"]'), null);
     } finally { dom.window.close(); }
@@ -620,7 +628,7 @@ test("rev 2 tools keep their own description and original source link while top 
   await withReader(source, async ({ doc, click }) => {
     const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
     assert.equal(tool.querySelector("p")?.textContent, "工具本身嘅描述");
-    assert.equal(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')?.textContent, "睇原留言 ↗");
+    assert.deepEqual(said(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')), ["@dev_a", "睇原留言 @dev_a"]);
     await click(tool.querySelector("[data-block-row-toggle]")!);
     assert.doesNotMatch(tool.querySelector("[data-block-detail]")!.textContent!, /推介原句|熱門留言嘅推介原句/);
   }, { blocks: model });
@@ -649,10 +657,13 @@ for (const revision of [undefined, 2]) {
     assert.ok(tools.type === "entity_list");
     assert.deepEqual([tools.items[0].summary, tools.items[0].quote], ["", ""]);
     await withReader(source, async ({ doc, click }) => {
+      // A single link mentioned once is one line until opened.
+      const fold = doc.querySelector('[data-analysis-block="entity_list"] [data-block-fold]');
+      if (fold) await click(fold);
       const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
       assert.equal(tool.querySelector("p"), null, "there is no empty secondary p while collapsed");
       assert.match(tool.textContent!, /tool|@dev_a/);
-      assert.equal(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')?.textContent, "睇原留言 ↗");
+      assert.deepEqual(said(tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')), ["@dev_a", "睇原留言 @dev_a"]);
       if (revision) assert.match(tool.querySelector("[data-block-entity-facts]")!.textContent!, /12 星/);
       await click(tool.querySelector("[data-block-row-toggle]")!);
       assert.equal(tool.querySelector("p"), null, "opening detail does not restore a suppressed context quote");
@@ -694,7 +705,7 @@ test("rev 2 fallback tool summaries are not quoted again in expanded evidence", 
   await withReader(source, async ({ doc, click }) => {
     const tool = doc.querySelector('[data-block-entity="https://github.com/Stirling-Tools/Stirling-PDF"]')!;
     const originalLink = tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')!;
-    assert.equal(originalLink.textContent, "睇原留言 ↗");
+    assert.deepEqual(said(originalLink), ["@dev_a", "睇原留言 @dev_a"]);
     assert.equal(originalLink.getAttribute("href"), "https://www.threads.com/@dev_a/post/DQa1tapF0w1");
     await click(tool.querySelector("[data-block-row-toggle]")!);
     assert.equal(tool.textContent!.split(summary).length - 1, 1);
@@ -768,7 +779,9 @@ test("opinion representatives prefer a non-shown quote with text, then keep a qu
   assert.ok(opinions?.type === "opinion_overview");
   assert.deepEqual(opinions.items.map(row => [row.rep?.commentId, row.repText]), [["R7", "點樣確定資料未過時？"], ["TOP", "熱門內容"]]);
   await withReader(source, async ({ doc }) => {
-    assert.deepEqual([...doc.querySelectorAll("[data-block-opinion] > p")].map(e => e.textContent), ["「點樣確定資料未過時？」", "「熱門內容」"]);
+    assert.deepEqual([...doc.querySelectorAll("[data-block-opinion] p")].map(e => e.textContent), ["點樣確定資料未過時？", "熱門內容"]);
+    const bar = doc.querySelector<HTMLElement>("[data-block-opinion] p")!.parentElement!;
+    assert.equal(bar.style.borderLeftWidth, `${tokens.panel.blocks.quoteBar}px`, "a quote hangs on its group's colour bar");
   }, { blocks: model });
 });
 
@@ -791,7 +804,7 @@ test("an opinion without any evidence text keeps its first source link and keywo
   await withReader(source, async ({ doc }) => {
     const row = doc.querySelector("[data-block-opinion]")!;
     assert.equal(row.querySelector("p")?.textContent, "關鍵字、備用關鍵字");
-    assert.equal(row.querySelector('[data-reading-ref-site="LINK_ONLY"]')?.textContent, "睇原留言 ↗");
+    assert.deepEqual(said(row.querySelector('[data-reading-ref-site="LINK_ONLY"]')), ["@linked", "睇原留言 @linked"]);
   }, { blocks: model });
 });
 
@@ -812,10 +825,10 @@ for (const type of ["entity_list", "opinion_overview", "qa_pairs", "top_comments
       if (fold) await click(fold);
       const more = section.querySelector<HTMLElement>("[data-block-more]");
       assert.ok(more, "every row block exposes its local fold button");
-      assert.equal(more.textContent, `再睇 ${received - 3} 個`);
+      assert.equal(more.textContent, `再睇 ${received - 3} ${{ entity_list: "個", opinion_overview: "組", qa_pairs: "條", top_comments: "則" }[type]}`);
       if (type === "top_comments") {
         assert.equal(section.querySelectorAll("[data-block-top]").length, tokens.panel.blocks.firstItems);
-        assert.equal(section.querySelector("header > span")?.textContent, String(received + 2));
+        assert.equal(section.querySelector("header > span")?.textContent, `${received + 2} 則`);
       }
       assert.equal(section.querySelector("[data-block-truncated]")?.textContent, undefined, "a local more button owns the only hidden count");
       await click(more);
@@ -855,7 +868,7 @@ test("regression 3.1: a GitHub filter cannot imply every received entity is visi
   });
 });
 
-test("regression 3.3: full-width parentheses and their immediate comma stay in nowrap spans in both lead lines", () => {
+test("regression 3.3: full-width parentheses and their immediate comma stay in nowrap spans in the lead", () => {
   const model = buildAnalysisBlocks(fixture({ blocks_version: "v1", blocks: [
     blk("entity_list", { items: [entity("tool", "https://github.com/a/tool", 3, 1)] }),
     blk("entity_list", { id: "second-entity", order: 2, items: [entity("other", "https://github.com/a/other", 2, 1)] }),
@@ -865,7 +878,7 @@ test("regression 3.3: full-width parentheses and their immediate comma stay in n
   const main = lead.querySelector("p")!;
   assert.equal(main.textContent, "先睇（完整一句），再睇（第二句）及（第三句），");
   assert.deepEqual([...main.querySelectorAll("span")].map(s => [s.textContent, s.style.whiteSpace]), [["（完整一句），", "nowrap"], ["（第二句）", "nowrap"], ["（第三句），", "nowrap"]]);
-  assert.deepEqual([...lead.querySelectorAll("[data-block-lead-sub] span")].map(s => [s.textContent, (s as HTMLElement).style.whiteSpace]), [["（2 人提），", "nowrap"]]);
+  assert.equal(lead.querySelectorAll("p").length, 1, "one lead sentence, no second headline");
 });
 
 test("rev 2 null and same_as_context descriptions fall back once; every non-ok status hides enrichment facts and enums", async () => {
@@ -893,13 +906,15 @@ test("rev 2 null and same_as_context descriptions fall back once; every non-ok s
   });
 });
 
-test("rows clamp at two lines, expand full text with a token quote bar, and secondary blocks expand in place", async () => {
+test("rows clamp at two lines, expand full text in place, and one-line blocks expand in place", async () => {
   const ownSummary = "工具本身嘅完整描述，展開後同樣保留。".repeat(5);
   const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
     blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 1, 1, "github_repo", [ref("DQa1tapF0w1", "dev_a")]), enrichment: { status: "ok", source: "github_api", description: ownSummary } }] }),
     topBlock(["TOP"], { order: 2, priority: "secondary" }),
   ] });
   await withReader(source, async ({ doc, click }) => {
+    // A single link mentioned once is one line until opened.
+    await click(doc.querySelector('[data-analysis-block="entity_list"] [data-block-fold]')!);
     const row = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
     const summary = row.querySelector<HTMLParagraphElement>("p")!;
     assert.equal(summary.textContent, ownSummary);
@@ -908,7 +923,6 @@ test("rows clamp at two lines, expand full text with a token quote bar, and seco
     await click(row.querySelector("[data-block-row-toggle]")!);
     assert.equal(summary.style.webkitLineClamp, "", "expanded summary is not clamped");
     const detail = row.querySelector<HTMLElement>("[data-block-detail]")!;
-    assert.equal(detail.style.borderLeftWidth, `${tokens.panel.blocks.quoteBar}px`);
     assert.match(detail.textContent!, /https:\/\/github.com\/a\/tool/);
     const secondary = doc.querySelector('[data-analysis-block="top_comments"]')!;
     const fold = secondary.querySelector("[data-block-fold]")!;
@@ -919,5 +933,60 @@ test("rows clamp at two lines, expand full text with a token quote bar, and seco
     assert.ok(secondary.querySelector("[data-block-arrival]"));
     await click(fold);
     assert.equal(Boolean(secondary.querySelector("[data-block-top]")), false);
+  });
+});
+
+test("a label cut from a comment is shown once as that comment; a condensed label stays a name over its quote", async () => {
+  const cut = { ...ref("CUT", "ervat", 219), text: "冇架啦 ，香港地 ，列左入邪惡軸心系列，只會越嚟越多野ban。" };
+  const named = { ...ref("NAMED", "kelly", 26), text: "訂閱費用係最大限制，要計清楚。" };
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, noise: { ...noise, audience_count: 57, noise_count: 2, noise_share: 0.035 }, blocks: [
+    blk("opinion_overview", { item_count: 2, total_count: 2, items: [
+      opinionItem(0, [cut], { label: "冇架啦，香港地，列左入邪惡軸心系列，只會越...", label_source: "representative_comment", label_comment_id: "CUT", comment_count: 21, size_share: 0.38 }),
+      opinionItem(1, [named], { label: "訂閱費用太貴", label_source: "representative_comment", label_comment_id: "NAMED", comment_count: 6, size_share: 0.3 }),
+    ] }),
+    // The comment is also the top comment: the group still quotes its own label comment.
+    topBlock(["CUT"], { order: 2, priority: "secondary" }),
+  ] });
+  const model = buildAnalysisBlocks(source);
+  const opinions = model.blocks[0];
+  assert.ok(opinions.type === "opinion_overview");
+  assert.deepEqual(opinions.items.map(r => [r.quoteLabel, r.rep?.commentId]), [[true, "CUT"], [false, "NAMED"]]);
+  assert.deepEqual(model.lead?.main, { kind: "opinion", label: "冇架啦，香港地，列左入邪惡軸心系列，只會越...", generic: false, pct: 38, quote: true });
+  await withReader(source, async ({ doc }) => {
+    assert.equal(doc.querySelector("[data-block-lead]")!.textContent, "最大一群留言佔 38%");
+    assert.equal(doc.querySelector("[data-block-source]")!.textContent, "57 則留言 · 55 則有內容");
+    const rows = [...doc.querySelectorAll("[data-block-opinion]")];
+    assert.ok(rows[0].hasAttribute("data-block-opinion-quote"));
+    assert.match(rows[0].textContent!, /約 21 則類似留言/);
+    assert.doesNotMatch(rows[0].textContent!, /只會越\.\.\./, "the clipped label is not printed above its own comment");
+    assert.equal(rows[0].textContent!.split("列左入邪惡軸心系列").length - 1, 1);
+    assert.equal(rows[1].hasAttribute("data-block-opinion-quote"), false);
+    assert.match(rows[1].textContent!, /訂閱費用太貴.*訂閱費用係最大限制/s);
+    assert.equal(doc.querySelector("[data-block-share]")!.children.length, 3, "two groups and the unassigned remainder");
+  }, { blocks: model });
+});
+
+test("a primary block opens only when it has something to read; order and priority never change", async () => {
+  const ask = (id: string) => ({ question: { ...ref(id, "asker", 0), text: `問題 ${id}？` }, status: "unanswered", answers: [], answer_count: 0, evidence: [] });
+  const source = fixture({ blocks_version: "v1", blocks: [
+    blk("qa_pairs", { item_count: 2, total_count: 2, items: [ask("Q1"), ask("Q2")], meta: { status_counts: { answered_by_op: 0, answered: 0, unanswered: 2, replies_not_captured: 0, unknown: 0 } } }),
+    blk("entity_list", { order: 2, items: [{ ...entity("ip.example/check", "https://ip.example/check", 1, 0, "web", [ref("DQa3ytdlp01", "kenji.tw", 0)]) }] }),
+    topBlock(["TOP"], { order: 3 }),
+  ] });
+  await withReader(source, async ({ doc, click }) => {
+    const sections = [...doc.querySelectorAll("[data-analysis-block]")];
+    assert.deepEqual(sections.map(e => [e.getAttribute("data-analysis-block"), e.getAttribute("data-block-priority"), e.hasAttribute("data-block-open")]),
+      [["qa_pairs", "primary", false], ["entity_list", "primary", false], ["top_comments", "primary", true]]);
+    assert.equal(sections[0].querySelector("[data-block-fold-line]")!.textContent, "未答 2");
+    assert.equal(sections[1].querySelector("[data-block-fold-line]")!.textContent, "ip.example/check");
+    assert.equal(Boolean(doc.querySelector("[data-block-qa]")), false);
+    await click(sections[0].querySelector("[data-block-fold]")!);
+    assert.equal(doc.querySelectorAll("[data-block-qa]").length, 2);
+    assert.equal(doc.querySelector("[data-block-qa] [data-block-count]"), null, "zero likes are not printed");
+  });
+  const answered = fixture({ blocks_version: "v1", blocks: [blk("qa_pairs", { items: [{ ...ask("Q1"), status: "answered", answers: [{ ...ref("A1", "helper", 3), text: "有，喺設定入面。" }], answer_count: 1 }] })] });
+  await withReader(answered, async ({ doc }) => {
+    assert.ok(doc.querySelector('[data-analysis-block="qa_pairs"]')!.hasAttribute("data-block-open"));
+    assert.equal(doc.querySelector("[data-block-qa-answer]")!.textContent, "@helper：有，喺設定入面。", "the answer under the question is its status");
   });
 });

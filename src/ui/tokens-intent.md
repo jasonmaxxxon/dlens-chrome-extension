@@ -13,7 +13,7 @@ Threads 頁面只保留每帖收藏按鈕、輪盤與帖下卡，工作區由 Ch
 
 - `tokens.panel` 取代側欄原有的玻璃、淡霧與紋理。這是側欄系統的替換；
   共享的 Threads 輪盤與帖下卡保留原有設計值與行為。
-- `tokens.panel.bg` 是安靜的暖中性色地面，`tokens.panel.surface` 承載內容，
+- `tokens.panel.bg` 是安靜的冷灰地面，`tokens.panel.surface` 以白色磚塊承載內容，
   `tokens.panel.surfaceSubtle` 與 `tokens.panel.surfaceSunken` 區分工具與內嵌資訊。
 - `tokens.panel.ink`、`tokens.panel.ink2`、`tokens.panel.ink3` 依序承載正文、補充與中繼資料；
   `tokens.panel.ink4` 只用於裝飾、placeholder 與停用外觀，不承載必要資訊。
@@ -37,6 +37,10 @@ Threads 頁面只保留每帖收藏按鈕、輪盤與帖下卡，工作區由 Ch
   閱讀摘要只佔一個欄位，最近讀完列表只交代作者與時間。
 - 收藏篩選與閱讀頁話題 chips 保持單行橫向瀏覽；可捲動時用 `tokens.panel.scrollMask` 提示後續內容。
 - 引用留言維持 Threads 小卡形狀，DLens 自己的歸納寫在卡外；群組用來源色標聯繫原句與比例。
+- 閱讀區塊先給一個答案磚：一句主句，加第一個有內容的區塊。其後每個展開的區塊各佔一磚，
+  內容單薄的區塊（沒有人回答的提問、只被提過一次的連結）收成一行，標記類留言只留一行數字。
+- 閱讀區塊只用三層文字：主句、留言與名稱、安靜的中繼資料。同一則留言只出現一次；
+  作者 handle 就是回到原留言的連結，不另設重複的文字連結。區塊小標沿用 `tokens.panel.blocks.label`。
 - `畫面上` 條以穩定地面橫跨整個面板，內容不可透出。
 - 深入解讀與話題解讀保持緊密入口、安靜出處與可展開詳情。
 
@@ -44,7 +48,8 @@ Threads 頁面只保留每帖收藏按鈕、輪盤與帖下卡，工作區由 Ch
 
 - `tokens.panel.motion` 只確認操作、切換與真實進度；側欄以透明度和位移維持穩定閱讀。
 - `tokens.panel.list.card` 讓原文標題、摘要與狀態共用穩定行框；骨架沿用相同幾何，不以高度動畫移動列表。
-- 收藏摘要的群組色標來自目前閱讀的同一個分群，沿用 `tokens.collectCard.clusterColors`；沒有群組時不造色標。
+- 側欄的群組色（比例條、色點、引文色條、收藏摘要色標）統一用 `tokens.panel.data`，未歸入任何群組的部分用 `tokens.panel.dataRest`；
+  沒有群組時不造色標。Threads 帖下卡保留 `tokens.collectCard.clusterColors`。
 - 頁籤底線與排序滑塊延續既有移動關係，浮層從觸發點附近輕微進入。
 - 輪盤保留接受過的手勢、彈性、充能與落點序列；帖下卡保留既有結果到達回饋。
 - 抓取等待只顯示估計時間；超時以文字說明，不承諾後端完成時間。

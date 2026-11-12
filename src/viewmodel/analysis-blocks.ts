@@ -43,6 +43,9 @@ export interface EntityRow {
 export interface OpinionRow {
   label: string; generic: boolean; keywords: string[]; count: number | null; pct: number | null; substantive: number | null; noise: number | null;
   lowSignal: boolean; evidence: BlockEvidenceLink[];
+  /** The backend label is the opening words of one comment (`label_source: representative_comment`, text starts with the label)
+   *  and `rep` is that same comment: the reader shows the comment once, as the quote, instead of a clipped title above its own text. */
+  quoteLabel: boolean; labelId: string;
   /** Prefer an unquoted comment, but repeat a quote before falling back to a link-only row. */
   rep: BlockEvidenceLink | null; repText: string | null;
 }
@@ -57,7 +60,7 @@ export type AnalysisBlockView = BlockBase & (
 /** Structured one-line gist of a block; the view turns it into copy. */
 export type BlockGist =
   | { kind: "entity"; name: string; mentions: number; total: number }
-  | { kind: "opinion"; label: string; generic: boolean; pct: number | null }
+  | { kind: "opinion"; label: string; generic: boolean; pct: number | null; quote?: true }
   | { kind: "qa"; total: number; unanswered: number }
   | { kind: "top"; author: string; text: string; likes: number | null }
   | { kind: "noise"; noise: number; audience: number };
@@ -73,7 +76,7 @@ export interface AnalysisBlocksModel {
   skipped: string[];
   /** Lead: the stored AI gist when there is one, else a template over the first primary block; `sub` comes from the second primary block. */
   lead: { ai: string; main: BlockGist | null; sub: BlockGist | null } | null;
-  source: { audience: number | null; noiseShare: number | null } | null;
+  source: { audience: number | null; noiseShare: number | null; noise: number | null } | null;
 }
 
 const obj = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
@@ -196,21 +199,23 @@ function opinionRows(items: Record<string, unknown>[], item: SessionItem | null,
     const quant = list(i.quant_keywords).map(str).filter(Boolean);
     const share = num(i.size_share);
     // The AI name wins when it matches this cluster's own key (never by position: backend order is by substantive count); then the backend label.
-    const named = (key !== null ? str(aiNames[String(key)]) : "") || str(i.label);
+    const ai = key !== null ? str(aiNames[String(key)]) : "";
+    const named = ai || str(i.label);
     const generic = !named && GENERIC(keywords);
     const topical = [...new Set([...keywords, ...quant])].filter(k => k !== "general");
     const evidence = evidenceLinks(i.evidence, item);
     const label = named || (generic ? "" : keywords.join("、"));
     if (!label && !generic && !evidence.length) continue;
     rows.push({ label, generic, keywords: named ? topical.slice(0, 6) : quant.filter(k => k !== "general" && !keywords.includes(k)).slice(0, 6), count: num(i.comment_count), pct: share === null ? null : Math.round(share * 100),
-      substantive: num(i.substantive_count), noise: num(i.noise_count), lowSignal: i.low_signal === true, evidence, rep: null, repText: null });
+      substantive: num(i.substantive_count), noise: num(i.noise_count), lowSignal: i.low_signal === true, evidence, rep: null, repText: null,
+      quoteLabel: !ai && !!str(i.label) && str(i.label_source) === "representative_comment", labelId: str(i.label_comment_id) });
   }
   // Several catch-all groups read as one 「其他留言」.
   const generics = rows.filter(r => r.generic);
   if (generics.length < 2) return { rows, noiseOnly };
   const sum = (pick: (r: OpinionRow) => number | null) => generics.some(r => pick(r) !== null) ? generics.reduce((n, r) => n + (pick(r) ?? 0), 0) : null;
   const seen = new Set<string>();
-  const merged: OpinionRow = { ...generics[0], count: sum(r => r.count), pct: sum(r => r.pct), substantive: sum(r => r.substantive), noise: sum(r => r.noise), lowSignal: generics.every(r => r.lowSignal),
+  const merged: OpinionRow = { ...generics[0], quoteLabel: false, labelId: "", count: sum(r => r.count), pct: sum(r => r.pct), substantive: sum(r => r.substantive), noise: sum(r => r.noise), lowSignal: generics.every(r => r.lowSignal),
     evidence: generics.flatMap(r => r.evidence).filter(e => !seen.has(e.commentId) && !!seen.add(e.commentId)) };
   return { rows: rows.flatMap((r, at) => !r.generic ? [r] : at === rows.indexOf(generics[0]) ? [merged] : []), noiseOnly };
 }
@@ -280,7 +285,7 @@ export function blockGist(block: AnalysisBlockView): BlockGist | null {
   }
   if (block.type === "opinion_overview") {
     const top = block.items.find(r => !r.lowSignal) ?? block.items[0];
-    return top ? { kind: "opinion", label: top.label, generic: top.generic, pct: top.pct } : null;
+    return top ? { kind: "opinion", label: top.label, generic: top.generic, pct: top.pct, ...(top.quoteLabel ? { quote: true as const } : {}) } : null;
   }
   if (block.type === "qa_pairs") {
     const unanswered = block.items.filter(i => i.status === "unanswered").length;
@@ -291,6 +296,15 @@ export function blockGist(block: AnalysisBlockView): BlockGist | null {
     return top && text ? { kind: "top", author: top.author, text, likes: top.likes } : null;
   }
   return block.noise !== null && block.audience ? { kind: "noise", noise: block.noise, audience: block.audience } : null;
+}
+
+/** A block is laid open only when the backend ranks it primary and it has something to read: questions nobody answered,
+ *  or a single link mentioned once, stay one line. Order and priority are never changed, only how much room a block takes. */
+export function blockOpensFirst(block: AnalysisBlockView): boolean {
+  if (!block.primary || block.type === "noise_summary") return false;
+  if (block.type === "qa_pairs") return block.items.some(i => i.question.isPost || i.answers.length > 0 || i.answerCount > 0);
+  if (block.type === "entity_list") return block.items.length > 1 || block.items.some(r => r.mentions > 1 || !!r.repo);
+  return block.items.length > 0;
 }
 
 /** Old analyses have no `blocks` key: they keep the four-cell reading. `aiNames` reuses the AI cluster renames by cluster key; `aiGist` is the stored AI one-liner, if any. */
@@ -322,7 +336,14 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
   const dedupOmitted: { type: string; reason: OmittedReason }[] = [];
   // Opinion groups always keep a quote when evidence has text, even when every candidate repeats.
   for (const block of blocks) if (block.type === "opinion_overview") for (const row of block.items) {
-    row.rep = row.evidence.find(e => e.text && !quoted.has(e.commentId)) ?? row.evidence.find(e => e.text) ?? row.evidence[0] ?? null;
+    // A label cut from a comment is shown as that comment itself, whether or not it is also a top comment.
+    const own = row.quoteLabel && row.labelId ? row.evidence.find(e => e.commentId === row.labelId && e.text)
+      ?? evidenceLinks([{ comment_id: row.labelId, author: rawComment(item ?? null, row.labelId)?.author, like_count: rawComment(item ?? null, row.labelId)?.like_count }], item ?? null).find(e => e.text) ?? null : null;
+    // Only a label that really is the comment's opening counts; a condensed name stays a name over its quote.
+    const flat = (text: string) => text.replace(/\s+/g, "").replace(/(\.{3}|…)+$/, "");
+    const cut = !!own?.text && flat(own.text).startsWith(flat(row.label));
+    row.quoteLabel = cut;
+    row.rep = (cut ? own : null) ?? row.evidence.find(e => e.text && !quoted.has(e.commentId)) ?? row.evidence.find(e => e.text) ?? row.evidence[0] ?? null;
     row.repText = row.rep?.text ?? null;
   }
   const visible = blocks.filter(b => b.type === "noise_summary" ? b.flags.length > 0 || !!b.noise : b.items.length > 0);
@@ -341,7 +362,7 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
   const noise = obj(analysis.noise);
   const audience = num(noise.audience_count), noiseShare = num(noise.noise_share);
   return { ...empty, mode: "blocks", blocks: primary, omitted: allOmitted, skipped, lead,
-    source: audience !== null || noiseShare !== null ? { audience, noiseShare } : null };
+    source: audience !== null || noiseShare !== null ? { audience, noiseShare, noise: num(noise.noise_count) } : null };
 }
 
 export type EntitySort = "mentions" | "likes" | "github";
