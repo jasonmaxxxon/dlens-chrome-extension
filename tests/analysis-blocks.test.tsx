@@ -502,6 +502,7 @@ test("top priority: entity extra evidence excludes every shown top id while its 
       blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 3, 6, "github_repo", [
         { ...ref("MAIN", "dev", 5), text: "主要推介內容" },
         { ...ref("EXTRA", "extra", 1), text: "熱門補充內容" },
+        { ...ref("SUMMARY", "summary", 0), text: "摘要使用嘅內容" },
         { ...ref("PRIVATE", "private", 0), text: "尚未顯示嘅補充內容" },
       ]), ...(revision ? { context_comment_id: "LINK_ONLY" } : {}) }] }),
       topBlock(["MAIN", "EXTRA", "LINK_ONLY", "KEPT"], { order: 2, priority: "secondary" }),
@@ -671,6 +672,82 @@ test("top priority recognizes comment_id and source_comment_id as aliases when s
   assert.deepEqual(tools.items[0].extra, []);
   assert.equal(tools.items[0].link?.commentId, "c-alias", "the original source link id is preserved");
 });
+
+test("rev 2 fallback tool summaries are not quoted again in expanded evidence", async () => {
+  const summary = "Stirling-PDF 可以批次合併同壓縮 PDF，毋須上傳文件。";
+  const source = fixture({ blocks_version: "v1", blocks_revision: 2, blocks: [
+    blk("entity_list", { items: [{ ...entity("Stirling-PDF", "https://github.com/Stirling-Tools/Stirling-PDF", 5, 49, "github_repo", [
+      ref("DQa1tapF0w1", "dev_a", 40),
+      { ...ref("SUMMARY", "pdf.celia", 5), text: summary },
+      { ...ref("SUMMARY_COPY", "another", 2), text: `  ${summary}\n` },
+      { ...ref("UNIQUE", "reader", 1), text: "另外仲可以分拆頁面。" },
+      ref("LINK_EXTRA", "linker", 1),
+    ]), context: "熱門留言嘅工具推介", context_comment_id: "DQa1tapF0w1", enrichment: { source: "github_api", status: "ok", description: null } }] }),
+    topBlock(["DQa1tapF0w1"], { order: 2 }),
+  ] });
+  const model = buildAnalysisBlocks(source);
+  const tools = model.blocks[0];
+  assert.ok(tools.type === "entity_list");
+  assert.deepEqual([tools.items[0].summary, tools.items[0].quote], [summary, ""]);
+  assert.deepEqual(tools.items[0].extra.map(e => e.commentId), ["UNIQUE", "LINK_EXTRA"], "summary evidence and matching text are excluded; link-only evidence remains");
+  assert.equal(tools.items[0].link?.commentId, "DQa1tapF0w1");
+  await withReader(source, async ({ doc, click }) => {
+    const tool = doc.querySelector('[data-block-entity="https://github.com/Stirling-Tools/Stirling-PDF"]')!;
+    const originalLink = tool.querySelector('[data-reading-ref-site="DQa1tapF0w1"]')!;
+    assert.equal(originalLink.textContent, "睇原留言 ↗");
+    assert.equal(originalLink.getAttribute("href"), "https://www.threads.com/@dev_a/post/DQa1tapF0w1");
+    await click(tool.querySelector("[data-block-row-toggle]")!);
+    assert.equal(tool.textContent!.split(summary).length - 1, 1);
+    assert.match(tool.querySelector("[data-block-detail]")!.textContent!, /另外仲可以分拆頁面。/);
+    assert.equal(tool.querySelectorAll('[data-reading-ref-site="SUMMARY"], [data-reading-ref-site="SUMMARY_COPY"]').length, 0);
+  }, { blocks: model });
+});
+
+for (const revision of [undefined, 2]) {
+  test(`rev ${revision ?? 1} tool extra evidence excludes text matching the summary or context quote`, async () => {
+    const context = "留言內嘅工具用法";
+    const description = "工具本身嘅用途";
+    const source = fixture({ blocks_version: "v1", ...(revision ? { blocks_revision: revision } : {}), blocks: [
+      blk("entity_list", { items: [{ ...entity("tool", "https://github.com/a/tool", 4, 48, "github_repo", [
+        { ...ref("CONTEXT", "dev", 40), text: context },
+        { ...ref("CONTEXT_COPY", "copy", 5), text: `  ${context}\n` },
+        ...(revision ? [{ ...ref("DESCRIPTION_COPY", "description", 2), text: `\n${description}  ` }] : []),
+        { ...ref("UNIQUE", "reader", 1), text: "另一段有用嘅補充" },
+      ]), context, ...(revision ? { context_comment_id: "CONTEXT", enrichment: { source: "github_api", status: "ok", description } } : {}) }] }),
+    ] });
+    const model = buildAnalysisBlocks(source);
+    const tools = model.blocks[0];
+    assert.ok(tools.type === "entity_list");
+    assert.deepEqual([tools.items[0].summary, tools.items[0].quote], revision ? [description, context] : [context, ""]);
+    assert.deepEqual(tools.items[0].extra.map(e => e.commentId), ["UNIQUE"]);
+    assert.equal(tools.items[0].link?.commentId, "CONTEXT");
+    await withReader(source, async ({ doc, click }) => {
+      const tool = doc.querySelector('[data-block-entity="https://github.com/a/tool"]')!;
+      await click(tool.querySelector("[data-block-row-toggle]")!);
+      assert.equal(tool.textContent!.split(context).length - 1, 1);
+      if (revision) assert.equal(tool.textContent!.split(description).length - 1, 1);
+      assert.match(tool.querySelector("[data-block-detail]")!.textContent!, /另一段有用嘅補充/);
+    }, { blocks: model });
+  });
+}
+
+for (const replies of [0, null, 3]) {
+  test(`top comments render a reply count only for positive numbers: ${replies}`, async () => {
+    const source = fixture({ blocks_version: "v1", blocks: [topBlock(["REPLY_COUNT"], {
+      items: [{ comment_id: "REPLY_COUNT", author: "reader", text: "一則熱門留言", like_count: 1, reply_count: replies, evidence: [ref("REPLY_COUNT", "reader")] }],
+    })] });
+    const model = buildAnalysisBlocks(source);
+    const top = model.blocks[0];
+    assert.ok(top.type === "top_comments");
+    assert.equal(top.items[0].replies, replies, "the VM keeps zero and unknown values unchanged");
+    await withReader(source, async ({ doc }) => {
+      const row = doc.querySelector('[data-block-top="REPLY_COUNT"]')!;
+      const count = row.querySelector(".lucide-message-circle")?.parentElement;
+      assert.equal(Boolean(count), replies === 3);
+      if (replies === 3) assert.equal(count?.textContent, "3");
+    }, { blocks: model });
+  });
+}
 
 const opinionItem = (key: number, evidence: unknown[], extra: Record<string, unknown> = {}) => ({ cluster_key: key, label: `意見 ${key}`, keywords: ["關鍵字"], quant_keywords: ["備用關鍵字"], comment_count: 2, substantive_count: 2, noise_count: 0, size_share: 0.5, evidence, ...extra });
 

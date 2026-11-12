@@ -246,7 +246,7 @@ function TopComment({ item, first, revealed, t }: { item: Extract<AnalysisBlockV
       {item.author ? <b style={{ color: p.ink2, fontWeight: 600 }}>@{item.author}</b> : null}
       {item.isOp ? <span style={{ ...p.type.micro, padding: `0 ${p.space.xs}px`, borderRadius: p.radius.xs, background: p.accentSoft, color: p.accentInk }}>{t("blocks.qa.op")}</span> : null}
       <Likes n={item.likes} />
-      {item.replies !== null ? <span style={{ display: "inline-flex", alignItems: "center", gap: p.space.xxs }}><MessageCircle size={p.size.chipIcon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{item.replies}</span> : null}
+      {typeof item.replies === "number" && item.replies > 0 ? <span style={{ display: "inline-flex", alignItems: "center", gap: p.space.xxs }}><MessageCircle size={p.size.chipIcon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{item.replies}</span> : null}
       <Source link={item.evidence[0] ?? null} t={t} />
     </MetaLine>
     {item.links.length ? <ul data-block-comment-links="" aria-label={t("blocks.top.links")} style={{ listStyle: "none", margin: `${p.space.xs}px 0 0`, padding: 0, ...p.type.bodySm }}>{item.links.map((link, j) => <li key={j} style={{ overflowWrap: "anywhere", wordBreak: "break-all" }}>{link.href ? <a data-block-comment-link={link.kind || "external"} href={link.href} target="_blank" rel="noopener noreferrer" style={{ color: p.accent, textDecoration: "none" }}>{link.url}</a> : <span data-block-comment-link={link.kind || "external"} style={{ color: p.ink2 }}>{link.url}</span>}</li>)}</ul> : null}

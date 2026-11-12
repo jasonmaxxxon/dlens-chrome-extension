@@ -166,7 +166,8 @@ function entityRow(i: Record<string, unknown>, item: SessionItem | null, shown: 
       summary = summaryLink?.text ?? "";
     }
   }
-  const extra = evidence.filter(e => e.commentId !== contextLink?.commentId && !shown.has(e.commentId));
+  const extra = evidence.filter(e => e.commentId !== contextLink?.commentId && e.commentId !== summaryLink?.commentId
+    && !shown.has(e.commentId) && e.text?.trim() !== summary.trim() && e.text?.trim() !== quote.trim());
   if (!description && summary && summaryLink) includeCommentIds(quoted, summaryLink.commentId, item);
   if (quote && contextLink) includeCommentIds(quoted, contextLink.commentId, item);
   for (const e of extra) if (e.text) includeCommentIds(quoted, e.commentId, item);
