@@ -31,8 +31,8 @@ test("manifest grants unlimited local storage for the long-lived collection libr
   );
 });
 
-test("release target is 0.5.91", () => {
-  assert.equal(packageJson.version, "0.5.91");
+test("release target is 0.5.92", () => {
+  assert.equal(packageJson.version, "0.5.92");
 });
 
 test("manifest keeps loopback required and remote ingest optional, without a hardcoded Tailscale address", () => {
@@ -51,6 +51,6 @@ test("extension version is synchronized across package lock, manifest, and UI", 
   assert.equal(packageLockJson.version, packageJson.version);
   assert.equal(packageLockJson.packages[""]?.version, packageJson.version);
   assert.equal(config.manifest?.version, packageJson.version);
-  assert.equal(config.manifest?.version_name, "0.5.91-ui");
+  assert.equal(config.manifest?.version_name, "0.5.92-wheel");
   assert.equal(BUILD_VERSION, packageJson.version);
 });
