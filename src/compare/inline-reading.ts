@@ -12,7 +12,7 @@ import type { CommentQualityAssessment } from "./comment-quality.ts";
  * the model only names clusters, words methods and disagreements, and points at real replies.
  */
 // v3: author context, reply links, character-budget selection and deterministic technical terms.
-export const INLINE_READING_PROMPT_VERSION = "v5";
+export const INLINE_READING_PROMPT_VERSION = "v6";
 
 export interface CrawlComment {
   id: string;
@@ -39,13 +39,16 @@ export interface InlineReading {
   model: string;
   generatedAt: string;
   gist: string;
+  /** Comment ids of the audience replies the gist rests on; empty when the model grounded none. */
+  gistRefs?: string[];
   find: { method: string; split: string; ask: string };
   /** cluster_key → short name; clusters without a name keep their keywords. */
   clusterNames: Record<string, string>;
   /** cluster_keys the model judged spam, ads or off-topic; they never lead 大家點睇. */
   noiseClusters: string[];
-  methods: { name: string; fit: string; quote: InlineReadingQuote }[];
-  split: { agree: string; sides: { claim: string; why: string; quote: InlineReadingQuote }[] };
+  /** `quote` is the representative comment; `refs` lists every supporting comment id, the quote's first. */
+  methods: { name: string; fit: string; quote: InlineReadingQuote; refs?: string[] }[];
+  split: { agree: string; sides: { claim: string; why: string; quote: InlineReadingQuote; refs?: string[] }[] };
 }
 export interface InlineReadingInput {
   inputHash?: string;
@@ -148,9 +151,10 @@ export const INLINE_READING_SYSTEM_PROMPT =
 export const INLINE_READING_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["gist", "find", "cluster_names", "methods", "split"],
+  required: ["gist", "gist_refs", "find", "cluster_names", "methods", "split"],
   properties: {
     gist: { type: "string" },
+    gist_refs: { type: "array", items: { type: "string" } },
     find: {
       type: "object", additionalProperties: false, required: ["method", "split", "ask"],
       properties: { method: { type: "string" }, split: { type: "string" }, ask: { type: "string" } }
@@ -161,7 +165,7 @@ export const INLINE_READING_JSON_SCHEMA = {
     },
     methods: {
       type: "array",
-      items: { type: "object", additionalProperties: false, required: ["name", "fit", "ref"], properties: { name: { type: "string" }, fit: { type: "string" }, ref: { type: "string" } } }
+      items: { type: "object", additionalProperties: false, required: ["name", "fit", "ref", "refs"], properties: { name: { type: "string" }, fit: { type: "string" }, ref: { type: "string" }, refs: { type: "array", items: { type: "string" } } } }
     },
     split: {
       type: "object", additionalProperties: false, required: ["agree", "sides"],
@@ -169,7 +173,7 @@ export const INLINE_READING_JSON_SCHEMA = {
         agree: { type: "string" },
         sides: {
           type: "array",
-          items: { type: "object", additionalProperties: false, required: ["claim", "why", "ref"], properties: { claim: { type: "string" }, why: { type: "string" }, ref: { type: "string" } } }
+          items: { type: "object", additionalProperties: false, required: ["claim", "why", "ref", "refs"], properties: { claim: { type: "string" }, why: { type: "string" }, ref: { type: "string" }, refs: { type: "array", items: { type: "string" } } } }
         }
       }
     }
@@ -196,12 +200,13 @@ export function buildInlineReadingPrompt(input: InlineReadingInput): string {
     "要求：",
     "- [作者] 回覆用來解釋帖子、辨認哪些問題有人回覆，不是觀眾意見；不得主導 gist、find.split、split.agree 或 split.sides 的觀眾立場摘要。分群樣本已排除作者；沒有完整成員的群組只供原句參考，不能推算比例或共識。相鄰推定不是確定回覆關係；有人回覆也不代表問題已解決。",
     `- gist：一句（${input.postKind === "technical" ? 60 : 40} 字內）說出觀眾整體反應，要具體，不要空話；如果大量留言是廣告或洗版，要直接講出來。`,
+    "- gist_refs：2 至 6 個最能支持 gist 的非作者留言 ref；gist 提到的每個重點都要有留言支持。找不到就給空陣列，不要湊數。",
     "- find.method：14 字內，最常被提的做法；沒有就寫「未見可照做的方法」。",
     "- find.split：14 字內，主要分歧；沒有明顯分歧就寫「暫未見明顯分歧」。find.ask：16 字內，最值得注意的提問，優先選未獲回覆的問題；如選已有人回答的問題，明說已回答（相鄰推定只能說可能有人回覆）；沒有就寫「未見提問」。",
     "- cluster_names：根據每群的樣本留言（不是關鍵詞）起一個 6 字內的名稱，描述那些留言實際在講甚麼；樣本留言意思不一致時，名稱要反映出來（例如「玩笑與閒聊」），不要硬套帖子主題。noise：該群主要是廣告、洗版、機械人或與帖子無關時為 true。",
-    "- methods：0 至 3 個留言裡真的提到、可以照做的做法；name 16 字內，fit 寫適用情境（20 字內），ref 指向提出它的留言。作者回覆中的做法也可採用，ref 可指向作者。不要把抱怨或意見當做法。",
-    "- split.agree：一句說大家大致同意甚麼或主要態度。split.sides：每邊必須有非作者留言支持；只有觀眾留言真的分成兩邊時才給兩項（claim 10 字內、why 24 字內、ref），否則給空陣列。",
-    "- 不要寫任何人數、則數或百分比。每個 ref 必須來自上面的留言清單。",
+    "- methods：0 至 3 個留言裡真的提到、可以照做的做法；name 16 字內，fit 寫適用情境（20 字內），ref 指向提出它的留言，refs 列出 1 至 4 個提到這個做法的留言（包括 ref）。作者回覆中的做法也可採用，ref 可指向作者。不要把抱怨或意見當做法。",
+    "- split.agree：一句說大家大致同意甚麼或主要態度。split.sides：每邊必須有非作者留言支持；只有觀眾留言真的分成兩邊時才給兩項（claim 10 字內、why 24 字內、ref、refs），否則給空陣列；refs 列出 1 至 4 個支持這一邊的非作者留言（包括 ref）。",
+    "- 不要寫任何人數、則數或百分比。每個 ref 和 refs 內的值都必須來自上面的留言清單。",
     "",
     "JSON schema:",
     JSON.stringify(INLINE_READING_JSON_SCHEMA)
@@ -214,10 +219,12 @@ const list = (value: unknown) => (Array.isArray(value) ? value.filter((entry): e
 /** Reapply the audience boundary to cached results; prompt version never authorizes an author side. */
 export function guardInlineAudienceReading(reading: InlineReading, catalog: Pick<ThreadReply, "id" | "role">[]): InlineReading {
   const roles = new Map(catalog.map(c => [c.id, c.role]));
-  const sides = reading.split.sides.filter(side => roles.get(side.quote.commentId) === "reply");
+  const audienceIds = (ids: string[]) => ids.filter(id => roles.get(id) === "reply");
+  const sides = reading.split.sides.filter(side => roles.get(side.quote.commentId) === "reply").map(side => side.refs ? { ...side, refs: audienceIds(side.refs) } : side);
   const insufficient = sides.length !== reading.split.sides.length && sides.length < 2;
   return { ...reading,
-    methods: reading.methods.filter(method => roles.get(method.quote.commentId) === "op" || roles.get(method.quote.commentId) === "reply").map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" } })),
+    methods: reading.methods.filter(method => roles.get(method.quote.commentId) === "op" || roles.get(method.quote.commentId) === "reply").map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" }, ...(method.refs ? { refs: method.refs.filter(id => roles.has(id)) } : {}) })),
+    ...(reading.gistRefs ? { gistRefs: audienceIds(reading.gistRefs) } : {}),
     gist: insufficient && /一致|共識|全都|所有觀眾/.test(reading.gist) ? "未見足夠觀眾分歧" : reading.gist,
     find: insufficient ? { ...reading.find, split: "未見足夠觀眾分歧" } : reading.find,
     split: { agree: insufficient ? "未見足夠觀眾分歧" : reading.split.agree, sides: sides.length === 2 ? sides : [] }
@@ -241,6 +248,9 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
     const c = byRef.get(str(ref).trim());
     return c ? { commentId: c.id, text: c.text, author: c.author, likes: c.likes, isAuthor: c.role === "op" } : null;
   };
+  // Supporting refs: only ids from the catalog survive; the representative quote always comes first.
+  const idsOf = (refs: unknown, limit: number, first?: string): string[] =>
+    [...new Set([...(first ? [first] : []), ...(Array.isArray(refs) ? refs : []).flatMap(ref => quoteOf(ref)?.commentId ?? [])])].slice(0, limit);
   const known = new Set(input.clusters.map((c) => c.key));
   const clusterNames: Record<string, string> = {};
   const noiseClusters: string[] = [];
@@ -254,13 +264,13 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
   const methods = list(parsed.methods).slice(0, 3).flatMap((m) => {
     const quote = quoteOf(m.ref);
     const name = clip(m.name, 20);
-    return quote && name ? [{ name, fit: clip(m.fit, 26), quote }] : [];
+    return quote && name ? [{ name, fit: clip(m.fit, 26), quote, refs: idsOf(m.refs, 4, quote.commentId) }] : [];
   });
   const splitRaw = (parsed.split && typeof parsed.split === "object" ? parsed.split : {}) as Record<string, unknown>;
   const sides = list(splitRaw.sides).slice(0, 2).flatMap((s) => {
     const quote = quoteOf(s.ref);
     const claim = clip(s.claim, 14);
-    return quote && claim ? [{ claim, why: clip(s.why, 30), quote }] : [];
+    return quote && claim ? [{ claim, why: clip(s.why, 30), quote, refs: idsOf(s.refs, 4, quote.commentId) }] : [];
   });
   const droppedSide = list(splitRaw.sides).slice(0, 2).length > sides.length;
   const insufficientSplit = droppedSide && sides.length < 2;
@@ -275,6 +285,7 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
     model,
     generatedAt,
     gist,
+    gistRefs: idsOf(parsed.gist_refs, 6),
     find: {
       method: clip(find.method, 18) || (methods.length ? methods[0].name : "未見可照做的方法"),
       split: insufficientSplit ? "未見足夠觀眾分歧" : clip(find.split, 18) || "暫未見明顯分歧",

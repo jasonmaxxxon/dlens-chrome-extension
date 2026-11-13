@@ -74,7 +74,7 @@ test("react is counted, picks biggest and loudest and most-liked audience eviden
   const wheel = model(fixture(), reading()), react = wheel.observations[0];
   assert.equal(react.key, "react");
   assert.ok(react.key === "react");
-  assert.deepEqual(react, { key: "react", ai: false, kind: "apart", big: "1", loud: "2", rows: [{ sector: "1", top: "a" }, { sector: "2", top: "b" }], loudTopLikeShare: .8, aiGist: "Invented gist" });
+  assert.deepEqual(react, { key: "react", ai: false, kind: "apart", big: "1", loud: "2", rows: [{ sector: "1", top: "a" }, { sector: "2", top: "b" }], loudTopLikeShare: .8, aiGist: "Invented gist", refs: [] });
   const source = fixture();
   source.latestCapture!.analysis!.clusters[0].like_share = .1;
   const same = model(source).observations[0]; assert.ok(same.key === "react");
@@ -82,6 +82,27 @@ test("react is counted, picks biggest and loudest and most-liked audience eviden
   source.latestCapture!.analysis!.clusters.splice(0, 1);
   const single = model(source).observations[0]; assert.ok(single.key === "react");
   assert.equal(single.kind, "single");
+});
+test("a gist that cites captured comments leads the reaction; supporting refs widen sides and methods", () => {
+  const ai = reading();
+  ai.gistRefs = ["source_b", "absent", "a", "b"];
+  ai.split.sides[0].refs = ["a", "c", "absent"];
+  ai.methods[0].refs = ["source_b", "a"];
+  const wheel = model(fixture(), ai), react = wheel.observations[0];
+  assert.ok(react.key === "react");
+  assert.equal(react.ai, true);
+  assert.deepEqual(react.refs, ["b", "a"]);
+  assert.deepEqual(observationRefs(wheel, "react"), ["b", "a"]);
+  assert.deepEqual(dotsBySector(wheel, "react"), { "2": 1, "1": 1 });
+  const split = wheel.observations.find(o => o.key === "split"); assert.ok(split?.key === "split");
+  assert.deepEqual(split.sides[0].refs, ["a", "c"]);
+  const how = wheel.observations.find(o => o.key === "how"); assert.ok(how?.key === "how");
+  assert.deepEqual(how.methods[0].refs, ["b", "a"]);
+  // A gist whose refs resolve to nothing stays under the counted sentence.
+  const bare = reading(); bare.gistRefs = ["absent"];
+  const counted = model(fixture(), bare).observations[0]; assert.ok(counted.key === "react");
+  assert.equal(counted.ai, false);
+  assert.deepEqual(counted.refs, []);
 });
 test("AI observations resolve source/internal ids and drop missing quotes, with fixed observation order", () => {
   const wheel = model(fixture({ entities: [entity(2)] }), reading());

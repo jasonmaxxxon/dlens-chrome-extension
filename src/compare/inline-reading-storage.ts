@@ -18,6 +18,8 @@ export interface StorageAreaLike {
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const obj = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null);
 
+const ids = (value: unknown): string[] | null => Array.isArray(value) ? value.filter((id): id is string => typeof id === "string" && !!id) : null;
+
 function normalizeQuote(value: unknown): InlineReadingQuote | null {
   const raw = obj(value);
   if (!raw || !str(raw.commentId) || !str(raw.text)) return null;
@@ -36,18 +38,19 @@ function normalizeReading(value: unknown): InlineReading | null {
     ...(str(raw.inputHash) ? { inputHash: str(raw.inputHash) } : {}),
     ...(str(raw.eligibilityVersion) ? { eligibilityVersion: str(raw.eligibilityVersion) } : {}),
     gist: str(raw.gist),
+    ...(ids(raw.gistRefs) ? { gistRefs: ids(raw.gistRefs)! } : {}),
     find: { method: str(find.method), split: str(find.split), ask: str(find.ask) },
     clusterNames: Object.fromEntries(Object.entries(names).filter(([, name]) => typeof name === "string" && name)) as Record<string, string>,
     noiseClusters: (Array.isArray(raw.noiseClusters) ? raw.noiseClusters : []).filter((key): key is string => typeof key === "string"),
     methods: (Array.isArray(raw.methods) ? raw.methods : []).flatMap((m) => {
       const entry = obj(m); const quote = normalizeQuote(entry?.quote);
-      return entry && quote && str(entry.name) ? [{ name: str(entry.name), fit: str(entry.fit), quote }] : [];
+      return entry && quote && str(entry.name) ? [{ name: str(entry.name), fit: str(entry.fit), quote, ...(ids(entry.refs) ? { refs: ids(entry.refs)! } : {}) }] : [];
     }),
     split: {
       agree: str(split.agree),
       sides: (Array.isArray(split.sides) ? split.sides : []).flatMap((s) => {
         const entry = obj(s); const quote = normalizeQuote(entry?.quote);
-        return entry && quote && str(entry.claim) ? [{ claim: str(entry.claim), why: str(entry.why), quote }] : [];
+        return entry && quote && str(entry.claim) ? [{ claim: str(entry.claim), why: str(entry.why), quote, ...(ids(entry.refs) ? { refs: ids(entry.refs)! } : {}) }] : [];
       })
     }
   };

@@ -118,3 +118,14 @@ test("wheel has bilingual copy and reduced motion guard, while legacy keeps its 
   assert.match(legacy, /data-reader-answer/); assert.doesNotMatch(legacy, /data-reader-wheel/);
   assert.doesNotMatch(readFileSync("src/ui/CollectionAudienceReading.tsx", "utf8"), /AnalysisBlocksView|AiSupplement/);
 });
+test("a grounded AI gist is the reaction sentence, with dots and the counted line beneath", () => {
+  const source = fixture();
+  const grounded = buildReaderWheel(source, { gist: "AI 摘要", gistRefs: ["c0", "c7"], clusterNames: {}, methods: [], split: { agree: "", sides: [] } } as never, buildAnalysisBlocks(source))!;
+  const doc = new JSDOM(renderToStaticMarkup(<ReaderWheel model={grounded} />)).window.document;
+  assert.match(doc.querySelector('[data-wheel-observation="react"]')!.textContent!, /AI 摘要/);
+  assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 2);
+  const evidence = doc.querySelector("[data-wheel-evidence]")!;
+  assert.match(evidence.textContent!, /根據以下 2 則留言.*計數所見：/s);
+  assert.doesNotMatch(evidence.textContent!, /未連留言出處/);
+  assert.deepEqual([...evidence.querySelectorAll("[data-wheel-comment]")].map(e => e.getAttribute("data-wheel-comment")), ["c0", "c7"]);
+});

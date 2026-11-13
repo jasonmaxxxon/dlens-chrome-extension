@@ -13,8 +13,9 @@ export interface WheelComment {
   noiseFlag: string | null; href: string | null; qa: QaStatus | null;
 }
 export type WheelObservation =
-  | { key: "react"; ai: false; kind: "apart" | "same" | "single"; big: string; loud: string;
-      rows: { sector: string; top: string | null }[]; loudTopLikeShare: number | null; aiGist: string }
+  /** Counted by default. With an AI gist that cites comments (`refs`), the gist is the sentence and `ai` is true. */
+  | { key: "react"; ai: boolean; kind: "apart" | "same" | "single"; big: string; loud: string;
+      rows: { sector: string; top: string | null }[]; loudTopLikeShare: number | null; aiGist: string; refs: string[] }
   | { key: "split"; ai: true; agree: string; sides: { claim: string; why: string; refs: string[] }[] }
   | { key: "topic"; ai: boolean }
   | { key: "how"; ai: true; methods: { name: string; fit: string; refs: string[] }[] }
@@ -83,19 +84,20 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
   const observations: WheelObservation[] = [];
   if (sectors.length) {
     const big = sectors[0], loud = sectors.reduce((a, b) => b.likeShare > a.likeShare ? b : a);
-    observations.push({ key: "react", ai: false, kind: sectors.length === 1 ? "single" : big.key === loud.key ? "same" : "apart",
+    const gist = text(reading?.gist), gistRefs = gist ? resolveIds(reading?.gistRefs ?? []) : [];
+    observations.push({ key: "react", ai: gistRefs.length > 0, refs: gistRefs, kind: sectors.length === 1 ? "single" : big.key === loud.key ? "same" : "apart",
       big: big.key, loud: loud.key, rows: sectors.map(s => ({ sector: s.key, top: s.topId })),
-      loudTopLikeShare: loud.topId && likeTotal > 0 ? comments[loud.topId].likes / likeTotal : null, aiGist: reading?.gist ?? "" });
+      loudTopLikeShare: loud.topId && likeTotal > 0 ? comments[loud.topId].likes / likeTotal : null, aiGist: gist });
   }
   const sides = reading?.split.sides.flatMap(side => {
-    const id = resolve(side.quote.commentId);
-    return id ? [{ claim: side.claim, why: side.why, refs: [id] }] : [];
+    const refs = resolveIds([side.quote.commentId, ...(side.refs ?? [])]);
+    return refs.length ? [{ claim: side.claim, why: side.why, refs }] : [];
   }) ?? [];
   if (sides.length >= 2) observations.push({ key: "split", ai: true, agree: reading!.split.agree, sides });
   if (sectors.length) observations.push({ key: "topic", ai: sectors.some(s => s.aiName !== null) });
   const methods = reading?.methods.flatMap(method => {
-    const id = resolve(method.quote.commentId);
-    return id ? [{ name: method.name, fit: method.fit, refs: [id] }] : [];
+    const refs = resolveIds([method.quote.commentId, ...(method.refs ?? [])]);
+    return refs.length ? [{ name: method.name, fit: method.fit, refs }] : [];
   }) ?? [];
   if (methods.length) observations.push({ key: "how", ai: true, methods });
   const entities = blocks.blocks.flatMap(b => b.type === "entity_list" ? b.items : []);
@@ -135,7 +137,7 @@ export function observationRefs(model: ReaderWheelModel, key: WheelObservation["
   if (!observation) return [];
   let refs: string[];
   switch (observation.key) {
-    case "react": refs = observation.rows.flatMap(r => r.top ?? []); break;
+    case "react": refs = observation.ai ? observation.refs : observation.rows.flatMap(r => r.top ?? []); break;
     case "topic": refs = model.sectors.flatMap(s => model.audience.filter(id => model.comments[id].sector === s.key)); break;
     case "split": refs = observation.sides.flatMap(s => s.refs); break;
     case "how": refs = observation.methods.flatMap(m => m.refs); break;

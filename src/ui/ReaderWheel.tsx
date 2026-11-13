@@ -18,9 +18,15 @@ const motion = `@media (prefers-reduced-motion: no-preference) { [data-reader-wh
 [data-reader-wheel] [data-wheel-sector]:focus-visible { outline: ${w.hairline}px solid ${p.accent}; }
 [data-reader-wheel] button:focus-visible, [data-reader-wheel] a:focus-visible { box-shadow: ${p.focusRing}; }`;
 
+/** The counted reaction: where the likes went compared with where the comments went. Needs no AI. */
+function countedReact(o: Extract<WheelObservation, { key: "react" }>, model: ReaderWheelModel, t: Text): string {
+  const loud = model.sectors.find(s => s.key === o.loud)!;
+  return t(`wheel.react.${o.kind}`, { n: model.audience.length, share: pct(loud.share), likes: pct(loud.likeShare) });
+}
 function sentence(o: WheelObservation, model: ReaderWheelModel, t: Text): string {
   const selection = wheelSelection(model, o.key, null);
-  if (o.key === "react") return t(`wheel.react.${o.kind}`, { n: model.audience.length, share: pct(selection.loud!.share), likes: pct(selection.loud!.likeShare) });
+  // An AI gist leads only when it cites comments; otherwise the counted sentence does.
+  if (o.key === "react") return o.ai ? o.aiGist : countedReact(o, model, t);
   if (o.key === "split") return t("wheel.split.sentence", { a: o.sides[0].claim, b: o.sides[1].claim });
   if (o.key === "topic") return t(o.ai ? "wheel.topic.named" : "wheel.topic.unnamed", { n: model.sectors.length, names: model.sectors.map(s => name(s, t)).join(t("wheel.list.separator")), share: pct(model.sectors[0].share) });
   if (o.key === "how") return t("wheel.how.sentence", { n: o.methods.length, names: o.methods.map(m => m.name).join(t("wheel.list.separator")) });
@@ -59,8 +65,9 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
   const [raw, setRaw] = useState<WheelRawKey | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const view = wheelSelection(model, current, selected), o = view.observation;
-  // 反應 and 話題 read the sectors themselves (labels, one lit sector); evidence dots are for the observations that cite comments.
-  const geometry = wheelGeometry(model.sectors, w), dots = current && current !== "react" && current !== "topic" ? dotsBySector(model, current) : {};
+  // The counted 反應 and 話題 read the sectors themselves (labels, one lit sector); evidence dots are for the observations that cite comments.
+  const counted = o?.key === "react" && !o.ai;
+  const geometry = wheelGeometry(model.sectors, w), dots = current && current !== "topic" && !counted ? dotsBySector(model, current) : {};
   // A raw pane temporarily takes over the comment surface, preserving the selected observation.
   // This makes overlap between raw audience, questions, author replies and evidence impossible.
   const seen = new Set<string>();
@@ -92,9 +99,9 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
   </>;
   const pickSector = (key: string) => { if (current === "topic") setSelected(key); else if (dots[key]) setSelected(old => old === key ? null : key); };
   const level = (key: string, aside?: string) => <div style={{ ...meta, display: "flex", justifyContent: "space-between", gap: p.space.sm, margin: `${p.space.lg}px 0 ${p.space.sm}px` }}><span>{t(`wheel.level.${key}`)}</span>{aside ? <span>{aside}</span> : null}</div>;
-  const hubSector = current === "topic" ? view.sector : current === "react" ? view.loud : null;
+  const hubSector = current === "topic" ? view.sector : counted ? view.loud : null;
   const hubValue = hubSector ? t("wheel.percent", { n: pct(current === "topic" ? hubSector.share : hubSector.likeShare) }) : String(current === "qa" ? view.questionCount : view.refs.length);
-  const hubLabel = t(current === "topic" ? "wheel.hub.comments" : current === "react" ? "wheel.hub.likes" : current === "qa" ? "wheel.hub.questions" : "wheel.hub.evidence");
+  const hubLabel = t(current === "topic" ? "wheel.hub.comments" : counted ? "wheel.hub.likes" : current === "qa" ? "wheel.hub.questions" : "wheel.hub.evidence");
   return <div data-reader-wheel="" style={{ fontFamily: tokens.font.sans, color: p.ink, minWidth: 0, fontVariantNumeric: "tabular-nums" }}>
     <style>{motion}</style>
     {level("observations")}
@@ -108,17 +115,20 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
         {view.coverage !== null ? <><circle cx={w.cx} cy={w.cy} r={w.coverageRadius} fill="none" stroke={p.border} strokeWidth={w.coverageStroke} /><circle cx={w.cx} cy={w.cy} r={w.coverageRadius} pathLength={1} strokeDasharray={`${view.coverage} 1`} transform={`rotate(-90 ${w.cx} ${w.cy})`} fill="none" stroke={p.ink} strokeWidth={w.coverageStroke} /></> : null}
         <circle cx={w.cx} cy={w.cy} r={w.rmin} fill="none" stroke={p.border} strokeWidth={w.hairline} />
         {geometry.map(g => { const sector = model.sectors.find(s => s.key === g.key)!, on = selected === g.key;
-          const offset = wheelOffset(g.midAngle, on ? w.shift : 0), dim = selected ? !on : current === "react" ? view.loud?.key !== g.key : !dots[g.key];
+          const offset = wheelOffset(g.midAngle, on ? w.shift : 0), dim = selected ? !on : counted ? view.loud?.key !== g.key : !dots[g.key];
           return <g key={g.key} data-wheel-sector={g.key} role="button" tabIndex={0} aria-pressed={on} aria-label={t("wheel.sector.label", { name: name(sector, t), share: pct(sector.share), likes: pct(sector.likeShare) })} onClick={() => pickSector(g.key)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pickSector(g.key); } }} style={{ cursor: "pointer", opacity: dim ? w.dimOpacity : w.fullOpacity, transform: `translate(${offset.x}px, ${offset.y}px)` }}>
             <path d={g.d} fill={color(sector)} stroke={color(sector)} strokeWidth={w.sectorStroke} strokeLinejoin="round" />
-            {(current === "topic" || current === "react") && g.label ? <text x={g.label.x} y={g.label.y} fill={p.surface} textAnchor="middle" dominantBaseline="central" style={{ ...p.type.meta, pointerEvents: "none" }}>{share(sector.share, t)}</text> : null}
+            {(current === "topic" || counted) && g.label ? <text x={g.label.x} y={g.label.y} fill={p.surface} textAnchor="middle" dominantBaseline="central" style={{ ...p.type.meta, pointerEvents: "none" }}>{share(sector.share, t)}</text> : null}
             {g.dots(dots[g.key] ?? 0).map((dot, i) => <circle key={i} cx={dot.x} cy={dot.y} r={w.dotRadius} fill={p.surface} stroke={p.ink} strokeWidth={w.dotStroke} style={{ pointerEvents: "none" }} />)}
           </g>; })}
         <g style={{ pointerEvents: "none" }}><circle cx={w.cx} cy={w.cy} r={w.hubRadius} fill={p.surface} style={{ filter: `drop-shadow(0 ${p.space.xxs}px ${p.space.xs}px ${p.borderStrong})` }} /><text x={w.cx} y={w.hubValueY} textAnchor="middle" fill={p.ink} style={p.type.title}>{hubValue}</text><text x={w.cx} y={w.hubLabelY} textAnchor="middle" fill={p.ink3} style={p.type.micro}>{hubLabel}</text>{hubSector ? <text x={w.cx} y={w.hubMetaY} textAnchor="middle" fill={p.ink2} style={p.type.micro}>{t(current === "topic" ? "wheel.hub.likeshare" : "wheel.hub.commentshare", { n: pct(current === "topic" ? hubSector.likeShare : hubSector.share) })}</text> : null}</g>
       </svg>
       {!raw ? <section data-wheel-evidence="" style={pane}>
         {selected && current !== "topic" ? <button type="button" data-wheel-clear="" style={button} onClick={() => setSelected(null)}>{t("wheel.filter", { name: name(view.sector!, t) })}</button> : null}
-        {o.key === "react" ? <><p style={{ ...meta, marginTop: 0 }}>{t("wheel.counted")}</p>{o.aiGist ? <p style={p.type.bodySm}><b>{t("wheel.ai")}</b> {o.aiGist} <small style={p.type.micro}>{t("wheel.ungrounded")}</small></p> : null}
+        {o.key === "react" && o.ai ? <><p style={{ ...meta, marginTop: 0 }}>{t("wheel.grounded", { n: view.refs.length })}</p>
+          <p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.sm}px 0 0` }}>{t("wheel.react.also", { text: countedReact(o, model, t) })}</p>
+          {view.refs.map(id => comment(id, { tags: true }))}</> : null}
+        {o.key === "react" && !o.ai ? <><p style={{ ...meta, marginTop: 0 }}>{t("wheel.counted")}</p>{o.aiGist ? <p style={p.type.bodySm}><b>{t("wheel.ai")}</b> {o.aiGist} <small style={p.type.micro}>{t("wheel.ungrounded")}</small></p> : null}
           {view.react.map(row => <div key={row.sector.key} style={{ marginTop: p.space.lg }}>
             <div style={{ display: "grid", gridTemplateColumns: w.barColumns, alignItems: "center", gap: p.space.xs, ...meta }}>{(["comments", "likes"] as const).map((kind, i) => { const n = i ? row.sector.likeShare : row.sector.share; return <div key={kind} style={{ display: "contents" }}><span>{t(`wheel.${kind}`)}</span><span style={{ height: w.barHeight, background: p.surfaceSubtle, borderRadius: p.radius.pill }}><i style={{ display: "block", width: `${n * 100}%`, minWidth: n ? w.barMin : 0, height: "100%", background: color(row.sector), borderRadius: p.radius.pill }} /></span><b>{share(n, t)}</b></div>; })}</div>
             {row.top ? comment(row.top, { bar: color(row.sector), extra:row.sector.key === o.loud && o.loudTopLikeShare !== null ? <span>{t("wheel.topshare", { n: pct(o.loudTopLikeShare) })}</span> : null }) : null}

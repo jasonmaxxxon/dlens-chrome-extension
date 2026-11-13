@@ -92,8 +92,32 @@ test("the 1-second peek fetches the saved path through the page's own origin", a
 });
 
 
-test("v5 renders validated author threads and only technical prompts include terms; author refs stay grounded", () => {
-  assert.equal(INLINE_READING_PROMPT_VERSION, "v5");
+test("supporting refs keep catalog ids only, quote first; the gist and sides cite audience replies, never the author", () => {
+  const input = buildInlineReadingInput(item())!;
+  const ref = (id: string) => input.catalog.find(c => c.id === id)!.ref;
+  const raw = JSON.stringify({ gist: "多數人有共鳴", gist_refs: [ref("d"), "e99", ref("a"), ref("d"), ref("b")],
+    find: { method: "", split: "", ask: "" }, cluster_names: [],
+    methods: [{ name: "大量投遞", fit: "冇人脈", ref: ref("a"), refs: [ref("c"), ref("a"), "e99", ref("b")] }],
+    split: { agree: "門檻太高", sides: [{ claim: "應該計", why: "做正職嘢", ref: ref("c"), refs: [ref("d"), ref("b")] }, { claim: "唔應該計", why: "年資唔同", ref: ref("d"), refs: [] }] } });
+  const reading = parseInlineReadingResponse(raw, input, "google:test", "2026-11-13T00:00:00Z")!;
+  assert.deepEqual(reading.gistRefs, ["d", "a"]);
+  assert.deepEqual(reading.methods[0].refs, ["a", "c", "b"]);
+  assert.deepEqual(reading.split.sides.map(s => s.refs), [["c", "d"], ["d"]]);
+  const stored = normalizeInlineReadingRecords({ i1: { status: "complete", itemId: "i1", captureId: "cap-1", reading } }).i1;
+  assert.ok(stored.status === "complete");
+  assert.deepEqual([stored.reading.gistRefs, stored.reading.methods[0].refs, stored.reading.split.sides[0].refs], [["d", "a"], ["a", "c", "b"], ["c", "d"]]);
+  // A reading stored before refs existed loads without them.
+  const old = JSON.parse(JSON.stringify(reading)); delete old.gistRefs; delete old.methods[0].refs;
+  const loaded = normalizeInlineReadingRecords({ i1: { status: "complete", itemId: "i1", captureId: "cap-1", reading: old } }).i1;
+  assert.ok(loaded.status === "complete");
+  assert.equal(loaded.reading.gistRefs, undefined);
+  assert.equal(loaded.reading.methods[0].refs, undefined);
+});
+
+test("v6 renders validated author threads and only technical prompts include terms; author refs stay grounded", () => {
+  assert.equal(INLINE_READING_PROMPT_VERSION, "v6");
+  assert.match(buildInlineReadingPrompt(buildInlineReadingInput(item())!), /gist_refs：2 至 6 個/);
+  assert.match(buildInlineReadingPrompt(buildInlineReadingInput(item())!), /refs 列出 1 至 4 個/);
   const technical = item();
   technical.latestCapture!.result!.canonical_post!.text = "RAG KG BM25 MCP embedding rerank F1";
   const input = buildInlineReadingInput(technical)!;

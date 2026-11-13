@@ -53,6 +53,8 @@ const BLOCK_TEXT: Record<string, readonly [string, string]> = {
   "wheel.next": ["下一個話題", "Next topic"],
   "wheel.counted": ["由留言數同讚數計出，唔使 AI。", "Calculated from comment and like counts; no AI needed."],
   "wheel.ungrounded": ["未連留言出處", "Not linked to comment sources"],
+  "wheel.grounded": ["AI 寫嘅句子，根據以下 {n} 則留言；白點係佢哋落喺邊個話題。", "Written by AI from the {n} comments below; dots show the topic each one sits in."],
+  "wheel.react.also": ["計數所見：{text}", "By count: {text}"],
   "wheel.comments": ["留言", "Comments"],
   "wheel.likes": ["讚", "Likes"],
   "wheel.hub.comments": ["嘅留言", "of comments"],
