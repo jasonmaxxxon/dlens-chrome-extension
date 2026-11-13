@@ -4,13 +4,13 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-13 15:09:02 HKT
+2026-11-13 15:18:47 HKT
 
 ## Branch
 `feature/blocks-v1`
 
 ## Note from Max
-AI 閱讀改成每句帶留言出處（prompt v6：gist_refs 同做法／分歧 refs），輪閱讀頁用嚟畫白點，gate 全綠 1276/0 fail；下一步：Max 真機 QA 並睇真模型有冇回 refs、舊分析接輪
+升版本到 0.5.92（版本名 0.5.92-wheel），方便分辨輪閱讀頁 build；gate 全綠 1276/0 fail；下一步：Max 喺 Chrome 載入 output/chrome-mv3 做真機 QA、睇真模型有冇回 refs
 
 ## Working tree at handoff (`git status --short`, 1 entries)
 ```
@@ -18,13 +18,15 @@ AI 閱讀改成每句帶留言出處（prompt v6：gist_refs 同做法／分歧 
 ```
 
 ## Last 5 commits (before this handoff)
+- e3013a8 feature: version 0.5.92 (0.5.92-wheel) for the wheel reader build (Your Name, 2026-11-13 15:18)
+- 77a1ba7 handoff: AI 閱讀改成每句帶留言出處（prompt v6：gist_refs 同做法／分歧 refs），輪閱讀頁用嚟畫白點，gate 全綠 1276/0 fail；下一步：Max 真機 QA 並睇真模型有冇回 refs、舊分析接輪 (Your Name, 2026-11-13 15:09)
 - 0ea2cb1 feature: AI reading cites the comments behind each sentence (Your Name, 2026-11-13 15:09)
 - 75f3b00 handoff: 閱讀頁換成輪閱讀頁（觀察→理據→原文三層，用真抓取資料核對），gate 全綠 1273/0 fail；下一步：真機 QA、AI 句子帶出處（要批 API 額度）、舊分析接輪 (Your Name, 2026-11-13 15:02)
 - 6c55f41 feature: wheel reader with observations, evidence and raw material (Your Name, 2026-11-13 15:01)
-- 4e9aeec handoff: 閱讀頁按真資料重排（答案磚、單薄區塊收一行、留言只出一次）並換 dir-C 冷色，gate 全綠 1275/0 fail；下一步：真機 QA、原帖頂部同收藏列表重排 (Your Name, 2026-11-12 17:34)
-- d216ac3 feature: calmer blocks reader with one answer tile and cool panel palette (Your Name, 2026-11-12 17:34)
 
 ## Next steps
+
+- 版本：呢個分支而家係 `0.5.92`，版本名 `0.5.92-wheel`（`chrome://extensions` 顯示版本名，側欄 ⋯ 選單顯示「DLens 0.5.92」）。Chrome 要載入 `~/developer/dlens-ui-redesign/output/chrome-mv3`；reload 後仍見 0.5.91 即係 Chrome 載緊另一個資料夾。
 
 - 2026-11-13：閱讀頁（blocks 模式）換成「輪閱讀頁」，commit `6c55f41`；AI 閱讀帶出處喺下一個 feature commit。三層：觀察（一句結論）→ 理據（輪顯示理據落喺邊個話題，下面係留言）→ 原文（全部留言、連結、作者回應、留名）。gate 全綠（1276 tests / 1271 pass / 5 skip / 0 fail）。未做真機 QA。
 - 檔案：
