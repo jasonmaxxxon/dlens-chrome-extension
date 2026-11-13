@@ -4,13 +4,13 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-13 15:02:10 HKT
+2026-11-13 15:09:02 HKT
 
 ## Branch
 `feature/blocks-v1`
 
 ## Note from Max
-閱讀頁換成輪閱讀頁（觀察→理據→原文三層，用真抓取資料核對），gate 全綠 1273/0 fail；下一步：真機 QA、AI 句子帶出處（要批 API 額度）、舊分析接輪
+AI 閱讀改成每句帶留言出處（prompt v6：gist_refs 同做法／分歧 refs），輪閱讀頁用嚟畫白點，gate 全綠 1276/0 fail；下一步：Max 真機 QA 並睇真模型有冇回 refs、舊分析接輪
 
 ## Working tree at handoff (`git status --short`, 1 entries)
 ```
@@ -18,15 +18,15 @@ NewJeans-Comeback (NewJeans Comeback)
 ```
 
 ## Last 5 commits (before this handoff)
+- 0ea2cb1 feature: AI reading cites the comments behind each sentence (Your Name, 2026-11-13 15:09)
+- 75f3b00 handoff: 閱讀頁換成輪閱讀頁（觀察→理據→原文三層，用真抓取資料核對），gate 全綠 1273/0 fail；下一步：真機 QA、AI 句子帶出處（要批 API 額度）、舊分析接輪 (Your Name, 2026-11-13 15:02)
 - 6c55f41 feature: wheel reader with observations, evidence and raw material (Your Name, 2026-11-13 15:01)
 - 4e9aeec handoff: 閱讀頁按真資料重排（答案磚、單薄區塊收一行、留言只出一次）並換 dir-C 冷色，gate 全綠 1275/0 fail；下一步：真機 QA、原帖頂部同收藏列表重排 (Your Name, 2026-11-12 17:34)
 - d216ac3 feature: calmer blocks reader with one answer tile and cool panel palette (Your Name, 2026-11-12 17:34)
-- f559dad fix: no repeated summary quote in tools, hide zero reply counts (Your Name, 2026-11-12 10:31)
-- 07ef081 fix: keep top comments and suppress duplicate quotes inside tools (Your Name, 2026-11-11 18:02)
 
 ## Next steps
 
-- 2026-11-13：閱讀頁（blocks 模式）換成「輪閱讀頁」，commit `6c55f41`。三層：觀察（一句結論）→ 理據（輪顯示理據落喺邊個話題，下面係留言）→ 原文（全部留言、連結、作者回應、留名）。gate 全綠（1273 tests / 1268 pass / 5 skip / 0 fail）。未做真機 QA。
+- 2026-11-13：閱讀頁（blocks 模式）換成「輪閱讀頁」，commit `6c55f41`；AI 閱讀帶出處喺下一個 feature commit。三層：觀察（一句結論）→ 理據（輪顯示理據落喺邊個話題，下面係留言）→ 原文（全部留言、連結、作者回應、留名）。gate 全綠（1276 tests / 1271 pass / 5 skip / 0 fail）。未做真機 QA。
 - 檔案：
   - `src/viewmodel/reader-wheel.ts`：`buildReaderWheel`（扇區、觀察、出處 id）、`observationRefs`、`dotsBySector`、`wheelGeometry`、`wheelSelection`。觀眾同作者回應用 `readCommentEligibility`，唔好寫第二套規則。
   - `src/ui/ReaderWheel.tsx`：畫面。數值全部喺 `tokens.panel.wheel`，文案喺 `i18n.ts` 嘅 `wheel.*`。
@@ -40,7 +40,7 @@ NewJeans-Comeback (NewJeans Comeback)
   - 舊分析（冇 blocks）仍然用舊四格閱讀，未接輪。
 - 未做（按次序）：
   - 真機 QA：Max reload 呢個分支嘅 `output/chrome-mv3`，睇 `@dafake_phoenix`（有 blocks）同一篇資源帖。
-  - AI 句子帶出處：`gist` 而家冇出處（畫面標「未連留言出處」），做法同分歧每項得一則。要改 `src/compare/inline-reading.ts` 個 prompt 同解析令每句回 `refs[]`；`reader-wheel.ts` 已經用 `refs: string[]`，畫面唔使改。會用 Max 嘅 API 額度，要佢批先做。
+  - AI 句子帶出處：已做（prompt v6）。`gist_refs` 同每個做法／分歧邊嘅 `refs` 經 `parseInlineReadingResponse` 驗證，`reader-wheel.ts` 用嚟畫白點；gist 有出處先升做「反應」句，冇就留喺計數句下面並標「未連留言出處」。**未用真模型驗證**：呢部機冇 provider key，只測咗解析、儲存同畫面。Max reload 之後開一篇帖，睇模型有冇回 refs、白點落得啱唔啱。版本升咗，舊 v5 閱讀會喺開帖時重新生成（用 API 額度）。
   - 舊分析接輪：`buildReaderWheel` 對冇 blocks 嘅 capture 都出到模型，只係 `CollectionAudienceReading.tsx` 未掛。
   - 閱讀頁頂部原帖區（`src/ui/CollectionBrowser.tsx`）仲佔約 300px；收藏列表卡未重排；列表細輪要後端喺 `list_summary` 加每群佔比（另一條線）。
   - 「覆蓋：未知」同「尚未有已存 AI 閱讀」兩行仲喺輪下面，屬舊頁元素，未整理。
