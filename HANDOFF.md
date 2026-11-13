@@ -4,13 +4,13 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-13 16:09:50 HKT
+2026-11-13 16:16:22 HKT
 
 ## Branch
 `feature/blocks-v1`
 
 ## Note from Max
-接手完成 0.5.93 wheel 驗證及統計補修；1279 tests、0 fail，build與守門全綠；下一步：Lam拉取 feature/blocks-v1、重建及真Chrome側欄QA，prompt v6湊欄位問題留待下一個slice
+修正 Jason Chrome 實際載入路徑；既有 combo 原地同步 0.5.93 並比對一致；下一步：Jason 再按 DLens reload 確認版本及側欄，後續 build 須同步 combo
 
 ## Working tree at handoff (`git status --short`, 1 entries)
 ```
@@ -18,13 +18,16 @@ NewJeans-Comeback (NewJeans Comeback)
 ```
 
 ## Last 5 commits (before this handoff)
+- a654524 handoff: 接手完成 0.5.93 wheel 驗證及統計補修；1279 tests、0 fail，build與守門全綠；下一步：Lam拉取 feature/blocks-v1、重建及真Chrome側欄QA，prompt v6湊欄位問題留待下一個slice (Your Name, 2026-11-13 16:09)
 - d6cd2d0 bug fix: show wheel totals only when membership and likes are known (Your Name, 2026-11-13 16:09)
 - 3cdf3e6 feature: version 0.5.93 (0.5.93-wheel) for the reworked wheel reader (Your Name, 2026-11-13 15:56)
 - ec10305 feature: wheel reader gives each observation its own job and sets split sides next to each other (Your Name, 2026-11-13 15:56)
 - 1546cb2 handoff: 升版本到 0.5.92（版本名 0.5.92-wheel），方便分辨輪閱讀頁 build；gate 全綠 1276/0 fail；下一步：Max 喺 Chrome 載入 output/chrome-mv3 做真機 QA、睇真模型有冇回 refs (Your Name, 2026-11-13 15:18)
-- e3013a8 feature: version 0.5.92 (0.5.92-wheel) for the wheel reader build (Your Name, 2026-11-13 15:18)
 
 ## Next steps
+
+- **NewJeans-Comeback 的實際載入路徑（2026-11-13 更正）：** Jason（brandonproject.co）的 Chrome 使用既有 extension `kkneicpialmfdooklcjkbcabmkoogmad`，載入 `~/developer/dlens-combo-0.5.90/`，不是本 repo 的 `output/chrome-mv3`。資料夾名稱保留舊版號，但 manifest 現已原地同步成 `0.5.93-wheel`。單獨 `npm run build` 不會更新 combo；本機後續修改必須在 build／驗證後執行 `rsync -ac --delete output/chrome-mv3/ ../dlens-combo-0.5.90/`，再在 Jason profile 重新載入同一個 extension。不要用另一個 profile 或新增另一個 extension 條目作驗收。
+- **這次安裝同步已做：** 先備份舊 combo 至本機 `~/developer/dlens-ui-redesign-review/backup-combo-before-0593.h7hR6C/`，再同步生成檔；`diff -qr` 已確認新 build 與載入目錄一致，manifest 為 `0.5.93`／`0.5.93-wheel`。原 Chrome 條目、ID、profile、收藏與設定儲存位置未變。瀏覽器工具未能成功代按內部頁的 reload（原生控制回報無可用視窗）；需由使用者在 Jason profile 再按一次 DLens 的重新載入，再開側欄確認版本。此同步不代表實機 UI 已驗收。
 
 - **目前版本：`0.5.93`／`0.5.93-wheel`，分支 `feature/blocks-v1`。** Claude 已完成 UI commit `ec10305` 及版本 commit `3cdf3e6`；Codex 接手確認遠端仍在 `1546cb2`（0.5.92），補驗證，並以 `d6cd2d0` 修正兩項統計誤報後完成 handoff 推送。沒有合併或推送 main。
 - **另一部 Mac 接手：** 若未有遠端追蹤分支，先執行 `git fetch origin refs/heads/feature/blocks-v1:refs/remotes/origin/feature/blocks-v1`，再執行 `handoff --pull feature/blocks-v1`；重建 `npm run build`。Chrome 載入該 checkout 的 `output/chrome-mv3`，重新載入後確認版本名 `0.5.93-wheel`。
