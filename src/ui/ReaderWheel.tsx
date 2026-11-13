@@ -1,5 +1,5 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
-import { dotsBySector, wheelEntityDescription, wheelGeometry, wheelOffset, wheelSelection, type ReaderWheelModel, type WheelObservation, type WheelRawKey, type WheelSector } from "../viewmodel/reader-wheel";
+import { useState, type CSSProperties } from "react";
+import { dotSides, wheelEntityDescription, wheelGeometry, wheelOffset, wheelSelection, type ReaderWheelModel, type WheelObservation, type WheelRawKey, type WheelSector } from "../viewmodel/reader-wheel";
 import { ENTITY_SORTS, entityCsv, entityMarkdown, sortEntityRows, type EntityExportLabels, type EntityRow, type EntitySort } from "../viewmodel/analysis-blocks";
 import { useBlockText } from "./i18n";
 import { tokens } from "./tokens";
@@ -15,20 +15,15 @@ const color = (s: WheelSector) => p.data[s.rank % p.data.length];
 const name = (s: WheelSector, t: Text) => s.aiName || t("wheel.similar", { n: s.count });
 const share = (n: number, t: Text) => t(n > 0 && n < .005 ? "wheel.tiny" : "wheel.percent", { n: pct(n) });
 const motion = `@media (prefers-reduced-motion: no-preference) { [data-reader-wheel] [data-wheel-sector] { transition: transform ${p.motion.slow} ${p.motion.standard}, opacity ${p.motion.base} ${p.motion.standard}; } }
-[data-reader-wheel] [data-wheel-sector]:focus-visible { outline: ${w.hairline}px solid ${p.accent}; }
+[data-reader-wheel] [data-wheel-sector] { outline: none; }
+[data-reader-wheel] [data-wheel-sector]:focus-visible path { stroke: ${p.ink}; }
 [data-reader-wheel] button:focus-visible, [data-reader-wheel] a:focus-visible { box-shadow: ${p.focusRing}; }`;
 
-/** The counted reaction: where the likes went compared with where the comments went. Needs no AI. */
-function countedReact(o: Extract<WheelObservation, { key: "react" }>, model: ReaderWheelModel, t: Text): string {
-  const loud = model.sectors.find(s => s.key === o.loud)!;
-  return t(`wheel.react.${o.kind}`, { n: model.audience.length, share: pct(loud.share), likes: pct(loud.likeShare) });
-}
 function sentence(o: WheelObservation, model: ReaderWheelModel, t: Text): string {
   const selection = wheelSelection(model, o.key, null);
-  // An AI gist leads only when it cites comments; otherwise the counted sentence does.
-  if (o.key === "react") return o.ai ? o.aiGist : countedReact(o, model, t);
   if (o.key === "split") return t("wheel.split.sentence", { a: o.sides[0].claim, b: o.sides[1].claim });
-  if (o.key === "topic") return t(o.ai ? "wheel.topic.named" : "wheel.topic.unnamed", { n: model.sectors.length, names: model.sectors.map(s => name(s, t)).join(t("wheel.list.separator")), share: pct(model.sectors[0].share) });
+  if (o.key === "topic") return t(o.ai ? "wheel.topic.named" : "wheel.topic.unnamed", { n: model.sectors.length, names: model.sectors.map(s => name(s, t)).join(t("wheel.list.separator")), share: pct(model.sectors[0].share) })
+    + (selection.loud ? t("wheel.topic.loud", { name: name(selection.loud, t), share: pct(selection.loud.share), likes: pct(selection.loud.likeShare) }) : "");
   if (o.key === "how") return t("wheel.how.sentence", { n: o.methods.length, names: o.methods.map(m => m.name).join(t("wheel.list.separator")) });
   if (o.key === "link") return t("wheel.link.sentence", { n: o.entities.length, name: selection.link?.name ?? "", m: selection.link?.mentions ?? 0 });
   return t("wheel.qa.sentence", { n: o.total, open: o.unanswered ? t("wheel.qa.open", { n: o.unanswered }) : t("wheel.qa.all") }) + (o.unseen ? t("wheel.qa.unseen", { n: o.unseen }) : "");
@@ -65,13 +60,12 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
   const [raw, setRaw] = useState<WheelRawKey | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const view = wheelSelection(model, current, selected), o = view.observation;
-  // The counted 反應 and 話題 read the sectors themselves (labels, one lit sector); evidence dots are for the observations that cite comments.
-  const counted = o?.key === "react" && !o.ai;
-  const geometry = wheelGeometry(model.sectors, w), dots = current && current !== "topic" && !counted ? dotsBySector(model, current) : {};
+  // 話題 reads the sectors themselves (labels, one lit sector); evidence dots are for the observations that cite comments.
+  const geometry = wheelGeometry(model.sectors, w), sides = current && current !== "topic" ? dotSides(model, current) : {};
   // A raw pane temporarily takes over the comment surface, preserving the selected observation.
   // This makes overlap between raw audience, questions, author replies and evidence impossible.
   const seen = new Set<string>();
-  const comment = (id: string, options: { lead?: boolean; all?: boolean; op?: boolean; extra?: ReactNode; tags?: boolean; bar?: string } = {}) => {
+  const comment = (id: string, options: { lead?: boolean; all?: boolean; op?: boolean; tags?: boolean; bar?: string } = {}) => {
     const c = model.comments[id]; if (!c || seen.has(id)) return null;
     // The first row of a plain list sits directly under the pane edge: no divider above it.
     const first = !seen.size && (!!raw || current === "qa"); seen.add(id);
@@ -88,7 +82,6 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
         {c.replyTo && !options.op ? <span>{t("wheel.replyto", { author: c.replyTo })}</span> : null}
         {c.qa ? <span style={{ color: c.qa.startsWith("answered") ? p.success : p.warning }}>{t(`wheel.status.${c.qa}`)}</span> : null}
         {raw === "noise" && c.noiseFlag ? <span>{t(`blocks.noise.flag.${c.noiseFlag}`) || t("blocks.noise.flag.other")}</span> : null}
-        {options.extra}
         {options.tags && view.spread && !selected && sector ? <span style={{ display: "inline-flex", alignItems: "center", gap: p.space.xs }}><i aria-hidden="true" style={{ width: p.size.modeDot, height: p.size.modeDot, borderRadius: p.radius.pill, background: color(sector) }} />{sector.aiName ?? t("wheel.tag", { n: sector.count })}</span> : null}
       </div>
     </article>;
@@ -97,14 +90,20 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
     {(expanded.has(key) ? ids : ids.slice(0, first)).map((id, i) => { const lead = current === "topic" && !raw && i === 0; return comment(id, { ...options, lead, bar: lead && view.sector ? color(view.sector) : undefined }); })}
     {!expanded.has(key) && ids.length > first ? <button type="button" data-wheel-more={key} style={{ ...button, marginTop: p.space.md, width: "100%" }} onClick={() => setExpanded(old => new Set(old).add(key))}>{t(key === "all" ? "wheel.more.all" : "wheel.more", { n: ids.length - first })}</button> : null}
   </>;
-  const pickSector = (key: string) => { if (current === "topic") setSelected(key); else if (dots[key]) setSelected(old => old === key ? null : key); };
+  // Only a sector that reveals something is a control; the rest of the wheel is a picture.
+  const interactive = (key: string) => current === "topic" || !!sides[key]?.length;
+  const pickSector = (key: string) => { if (current === "topic") setSelected(key); else if (interactive(key)) setSelected(old => old === key ? null : key); };
   const level = (key: string, aside?: string) => <div style={{ ...meta, display: "flex", justifyContent: "space-between", gap: p.space.sm, margin: `${p.space.lg}px 0 ${p.space.sm}px` }}><span>{t(`wheel.level.${key}`)}</span>{aside ? <span>{aside}</span> : null}</div>;
-  const hubSector = current === "topic" ? view.sector : counted ? view.loud : null;
-  const hubValue = hubSector ? t("wheel.percent", { n: pct(current === "topic" ? hubSector.share : hubSector.likeShare) }) : String(current === "qa" ? view.questionCount : view.refs.length);
-  const hubLabel = t(current === "topic" ? "wheel.hub.comments" : counted ? "wheel.hub.likes" : current === "qa" ? "wheel.hub.questions" : "wheel.hub.evidence");
+  const hubSector = current === "topic" ? view.sector : null;
+  const hubValue = hubSector ? t("wheel.percent", { n: pct(hubSector.share) }) : String(current === "qa" ? view.questionCount : view.refs.length);
+  const hubLabel = t(current === "topic" ? "wheel.hub.comments" : current === "qa" ? "wheel.hub.questions" : "wheel.hub.evidence");
   return <div data-reader-wheel="" style={{ fontFamily: tokens.font.sans, color: p.ink, minWidth: 0, fontVariantNumeric: "tabular-nums" }}>
     <style>{motion}</style>
     {level("observations")}
+    {model.headline ? <div data-wheel-headline="" style={{ padding: `0 ${p.space.md}px ${p.space.md}px` }}>
+      <span style={{ ...p.type.micro, color: p.ink3 }}>{t("wheel.react")}<sup style={p.type.micro}>{t("wheel.ai")}</sup>{model.headline.grounded ? "" : ` · ${t("wheel.ungrounded")}`}</span>
+      <p style={{ ...p.type.title, margin: `${p.space.xxs}px 0 0`, color: p.ink }}>{model.headline.text}</p>
+    </div> : null}
     <div style={{ display: "grid", gap: p.space.xxs }}>{model.observations.map(observation => <button key={observation.key} type="button" data-wheel-observation={observation.key} aria-pressed={current === observation.key} onClick={() => { setCurrent(observation.key); setSelected(observation.key === "topic" ? model.sectors[0]?.key ?? null : null); setRaw(null); }} style={{ ...button, display: "grid", gridTemplateColumns: w.observationColumns, gap: p.space.sm, textAlign: "left", background: current === observation.key ? p.surface : "transparent", boxShadow: current === observation.key ? p.shadow.card : undefined, padding: p.space.md }}>
       <span style={p.type.micro}>{t(`wheel.${observation.key}`)}{observation.ai ? <sup style={p.type.micro}>{t("wheel.ai")}</sup> : null}</span>
       <span style={{ ...(current === observation.key ? p.type.title : p.type.body), color: current === observation.key ? p.ink : p.ink2, ...(current === observation.key ? {} : { display: "-webkit-box", WebkitLineClamp: w.observationLines, WebkitBoxOrient: "vertical", overflow: "hidden" }) }}>{sentence(observation, model, t)}</span>
@@ -115,28 +114,29 @@ export function ReaderWheel({ model, onCopy, copyStatus }: { model: ReaderWheelM
         {view.coverage !== null ? <><circle cx={w.cx} cy={w.cy} r={w.coverageRadius} fill="none" stroke={p.border} strokeWidth={w.coverageStroke} /><circle cx={w.cx} cy={w.cy} r={w.coverageRadius} pathLength={1} strokeDasharray={`${view.coverage} 1`} transform={`rotate(-90 ${w.cx} ${w.cy})`} fill="none" stroke={p.ink} strokeWidth={w.coverageStroke} /></> : null}
         <circle cx={w.cx} cy={w.cy} r={w.rmin} fill="none" stroke={p.border} strokeWidth={w.hairline} />
         {geometry.map(g => { const sector = model.sectors.find(s => s.key === g.key)!, on = selected === g.key;
-          const offset = wheelOffset(g.midAngle, on ? w.shift : 0), dim = selected ? !on : counted ? view.loud?.key !== g.key : !dots[g.key];
-          return <g key={g.key} data-wheel-sector={g.key} role="button" tabIndex={0} aria-pressed={on} aria-label={t("wheel.sector.label", { name: name(sector, t), share: pct(sector.share), likes: pct(sector.likeShare) })} onClick={() => pickSector(g.key)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pickSector(g.key); } }} style={{ cursor: "pointer", opacity: dim ? w.dimOpacity : w.fullOpacity, transform: `translate(${offset.x}px, ${offset.y}px)` }}>
+          const offset = wheelOffset(g.midAngle, on ? w.shift : 0), dim = selected ? !on : !sides[g.key]?.length, live = interactive(g.key);
+          // Mouse presses do not take focus, so a click never leaves a focus box; keyboard focus outlines the sector itself.
+          return <g key={g.key} data-wheel-sector={g.key} {...live ? { role: "button", tabIndex: 0, "aria-pressed": on, onClick: () => pickSector(g.key), onMouseDown: (event: { preventDefault(): void }) => event.preventDefault(), onKeyDown: (event: { key: string; preventDefault(): void }) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pickSector(g.key); } } } : {}} aria-label={t("wheel.sector.label", { name: name(sector, t), share: pct(sector.share), likes: pct(sector.likeShare) })} style={{ cursor: live ? "pointer" : "default", opacity: dim ? w.dimOpacity : w.fullOpacity, transform: `translate(${offset.x}px, ${offset.y}px)` }}>
             <path d={g.d} fill={color(sector)} stroke={color(sector)} strokeWidth={w.sectorStroke} strokeLinejoin="round" />
-            {(current === "topic" || counted) && g.label ? <text x={g.label.x} y={g.label.y} fill={p.surface} textAnchor="middle" dominantBaseline="central" style={{ ...p.type.meta, pointerEvents: "none" }}>{share(sector.share, t)}</text> : null}
-            {g.dots(dots[g.key] ?? 0).map((dot, i) => <circle key={i} cx={dot.x} cy={dot.y} r={w.dotRadius} fill={p.surface} stroke={p.ink} strokeWidth={w.dotStroke} style={{ pointerEvents: "none" }} />)}
+            {current === "topic" && g.label ? <text x={g.label.x} y={g.label.y} fill={p.surface} textAnchor="middle" dominantBaseline="central" style={{ ...p.type.meta, pointerEvents: "none" }}>{share(sector.share, t)}</text> : null}
+            {/* In 分歧 the first side's dots are filled, matching its card marker. */}
+            {g.dots(sides[g.key]?.length ?? 0).map((dot, i) => <circle key={i} cx={dot.x} cy={dot.y} r={w.dotRadius} fill={o?.key === "split" && sides[g.key][i] === 0 ? p.ink : p.surface} stroke={p.ink} strokeWidth={w.dotStroke} style={{ pointerEvents: "none" }} />)}
           </g>; })}
-        <g style={{ pointerEvents: "none" }}><circle cx={w.cx} cy={w.cy} r={w.hubRadius} fill={p.surface} style={{ filter: `drop-shadow(0 ${p.space.xxs}px ${p.space.xs}px ${p.borderStrong})` }} /><text x={w.cx} y={w.hubValueY} textAnchor="middle" fill={p.ink} style={p.type.title}>{hubValue}</text><text x={w.cx} y={w.hubLabelY} textAnchor="middle" fill={p.ink3} style={p.type.micro}>{hubLabel}</text>{hubSector ? <text x={w.cx} y={w.hubMetaY} textAnchor="middle" fill={p.ink2} style={p.type.micro}>{t(current === "topic" ? "wheel.hub.likeshare" : "wheel.hub.commentshare", { n: pct(current === "topic" ? hubSector.likeShare : hubSector.share) })}</text> : null}</g>
+        <g style={{ pointerEvents: "none" }}><circle cx={w.cx} cy={w.cy} r={w.hubRadius} fill={p.surface} style={{ filter: `drop-shadow(0 ${p.space.xxs}px ${p.space.xs}px ${p.borderStrong})` }} /><text x={w.cx} y={w.hubValueY} textAnchor="middle" fill={p.ink} style={p.type.title}>{hubValue}</text><text x={w.cx} y={w.hubLabelY} textAnchor="middle" fill={p.ink3} style={p.type.micro}>{hubLabel}</text>{hubSector ? <text x={w.cx} y={w.hubMetaY} textAnchor="middle" fill={p.ink2} style={p.type.micro}>{t("wheel.hub.likeshare", { n: pct(hubSector.likeShare) })}</text> : null}</g>
       </svg>
       {!raw ? <section data-wheel-evidence="" style={pane}>
         {selected && current !== "topic" ? <button type="button" data-wheel-clear="" style={button} onClick={() => setSelected(null)}>{t("wheel.filter", { name: name(view.sector!, t) })}</button> : null}
-        {o.key === "react" && o.ai ? <><p style={{ ...meta, marginTop: 0 }}>{t("wheel.grounded", { n: view.refs.length })}</p>
-          <p style={{ ...p.type.bodySm, color: p.ink2, margin: `${p.space.sm}px 0 0` }}>{t("wheel.react.also", { text: countedReact(o, model, t) })}</p>
-          {view.refs.map(id => comment(id, { tags: true }))}</> : null}
-        {o.key === "react" && !o.ai ? <><p style={{ ...meta, marginTop: 0 }}>{t("wheel.counted")}</p>{o.aiGist ? <p style={p.type.bodySm}><b>{t("wheel.ai")}</b> {o.aiGist} <small style={p.type.micro}>{t("wheel.ungrounded")}</small></p> : null}
-          {view.react.map(row => <div key={row.sector.key} style={{ marginTop: p.space.lg }}>
-            <div style={{ display: "grid", gridTemplateColumns: w.barColumns, alignItems: "center", gap: p.space.xs, ...meta }}>{(["comments", "likes"] as const).map((kind, i) => { const n = i ? row.sector.likeShare : row.sector.share; return <div key={kind} style={{ display: "contents" }}><span>{t(`wheel.${kind}`)}</span><span style={{ height: w.barHeight, background: p.surfaceSubtle, borderRadius: p.radius.pill }}><i style={{ display: "block", width: `${n * 100}%`, minWidth: n ? w.barMin : 0, height: "100%", background: color(row.sector), borderRadius: p.radius.pill }} /></span><b>{share(n, t)}</b></div>; })}</div>
-            {row.top ? comment(row.top, { bar: color(row.sector), extra:row.sector.key === o.loud && o.loudTopLikeShare !== null ? <span>{t("wheel.topshare", { n: pct(o.loudTopLikeShare) })}</span> : null }) : null}
-          </div>)}</> : null}
         {o.key === "topic" && view.sector ? <><div style={{ display: "flex", justifyContent: "space-between", gap: p.space.sm }}><h2 style={heading}><i aria-hidden="true" style={{ display: "inline-block", width: p.size.modeDot, height: p.size.modeDot, borderRadius: p.radius.pill, background: color(view.sector), marginRight: p.space.sm }} />{view.sector.aiName || t("wheel.similar", { n: view.sector.count })}</h2><div style={{ display: "flex", gap: p.space.xs }}>{([-1, 1] as const).map(step => <button key={step} type="button" data-wheel-step={step} aria-label={t(step < 0 ? "wheel.previous" : "wheel.next")} style={button} onClick={() => setSelected(model.sectors[(view.sector!.rank + step + model.sectors.length) % model.sectors.length].key)}>{step < 0 ? "‹" : "›"}</button>)}</div></div>
-          <p style={meta}>{t("wheel.stats", { share: pct(view.sector.share), likes: pct(view.sector.likeShare) })} · {t(`wheel.verdict.${view.verdict}`)}{view.sector.noise ? ` · ${t("wheel.noise.count", { n: view.sector.noise })}` : ""}</p>
+          <p style={meta}>{t("wheel.stats", { n: view.sector.count, likes: view.topicLikes })}{view.verdict ? ` · ${t(`wheel.verdict.${view.verdict}`)}` : ""}{view.sector.noise ? ` · ${t("wheel.noise.count", { n: view.sector.noise })}` : ""}</p>
           {list(view.topic, `topic:${view.sector.key}`, w.firstTopic)}</> : null}
-        {o.key === "split" || o.key === "how" ? <>{o.key === "split" ? <p style={p.type.bodySm}>{o.agree}</p> : null}{view.groups.map((group, i) => group.refs.length ? <div key={i} style={{ marginTop: p.space.lg }}><h2 style={heading}>{group.title}</h2><p style={meta}>{o.key === "how" ? t("wheel.fit", { text: group.detail }) : group.detail}</p>{group.refs.map(id => comment(id, { tags: true }))}</div> : null)}</> : null}
+        {/* 分歧 sets the two sides next to each other; each card's marker matches its dots on the wheel. */}
+        {o.key === "split" ? <>{o.agree ? <p style={{ ...p.type.bodySm, color: p.ink2, margin: 0 }}>{o.agree}</p> : null}
+          <div data-wheel-sides="" style={{ display: "grid", gridTemplateColumns: w.sideColumns, gap: p.space.sm, marginTop: p.space.md }}>{view.groups.map((group, i) => <div key={i} data-wheel-side={i} style={{ minWidth: 0, padding: p.space.md, borderRadius: p.radius.md, background: i ? p.surface : p.surfaceSunken, boxShadow: i ? p.shadow.card : undefined }}>
+            <h2 style={{ ...p.type.cardTitle, margin: 0, color: p.ink, display: "flex", alignItems: "flex-start", gap: p.space.xs }}><i aria-hidden="true" style={{ flex: "none", boxSizing: "border-box", width: w.dotRadius * 2, height: w.dotRadius * 2, marginTop: p.space.xs, borderRadius: p.radius.pill, background: i ? p.surface : p.ink, border: `${w.dotStroke}px solid ${p.ink}` }} /><span style={{ minWidth: 0 }}>{group.title}</span></h2>
+            <p style={{ ...meta, margin: `${p.space.xs}px 0 0` }}>{group.detail}</p>
+            {group.refs.length ? list(group.refs, `side:${i}`, w.firstSide) : <p style={{ ...meta, marginBottom: 0 }}>{t("wheel.side.none")}</p>}
+          </div>)}</div></> : null}
+        {o.key === "how" ? view.groups.map((group, i) => group.refs.length ? <div key={i} style={{ marginTop: p.space.lg }}><h2 style={heading}>{group.title}</h2><p style={meta}>{t("wheel.fit", { text: group.detail })}</p>{group.refs.map(id => comment(id, { tags: true }))}</div> : null) : null}
         {o.key === "qa" ? view.questions.map((q, i) => <div key={i}>{q.showQuestion ? q.id ? comment(q.id, { tags: true }) : <div><p style={p.type.body}>{q.question.text}</p><span style={meta}>{t(`wheel.status.${q.status}`)}</span></div> : null}{q.answers.map(id => comment(id, { tags: true }))}</div>) : null}
         {o.key === "link" ? <><Links model={model} rows={o.entities} onCopy={onCopy} copyStatus={copyStatus} t={t} />{list(view.refs, "link", w.firstTopic, { tags: true })}</> : null}
       </section> : null}

@@ -13,11 +13,9 @@ export interface WheelComment {
   noiseFlag: string | null; href: string | null; qa: QaStatus | null;
 }
 export type WheelObservation =
-  /** Counted by default. With an AI gist that cites comments (`refs`), the gist is the sentence and `ai` is true. */
-  | { key: "react"; ai: boolean; kind: "apart" | "same" | "single"; big: string; loud: string;
-      rows: { sector: string; top: string | null }[]; loudTopLikeShare: number | null; aiGist: string; refs: string[] }
   | { key: "split"; ai: true; agree: string; sides: { claim: string; why: string; refs: string[] }[] }
-  | { key: "topic"; ai: boolean }
+  /** `loud` names the most liked topic only when it is not the most discussed one. */
+  | { key: "topic"; ai: boolean; loud: string | null }
   | { key: "how"; ai: true; methods: { name: string; fit: string; refs: string[] }[] }
   | { key: "link"; ai: false; entities: EntityRow[]; refs: string[] }
   | { key: "qa"; ai: false; total: number; unanswered: number; unseen: number;
@@ -25,12 +23,14 @@ export type WheelObservation =
       items: { id: string | null; question: QaPerson; status: QaStatus; answers: string[] }[] };
 export interface ReaderWheelModel {
   sectors: WheelSector[]; comments: Record<string, WheelComment>; audience: string[];
+  /** The AI gist sums up the other observations, so it heads them instead of sitting beside them with its own evidence. */
+  headline: { text: string; grounded: boolean } | null;
   observations: WheelObservation[];
   /** A succeeded capture may have neither sectors nor usable blocks. */
   initial: WheelObservation["key"] | null;
   entityRefs: Record<string, string[]>;
   raw: { links: EntityRow[] | null; op: string[]; noise: string[] };
-  coverage: { got: number; replies: number } | null; likeTotal: number;
+  coverage: { got: number; replies: number } | null;
 }
 
 const object = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
@@ -80,21 +80,18 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
       quote: text(opinion?.label) || (topId ? comments[topId].text.slice(0, 24) : ""), topId,
       noise: typeof opinion?.noise_count === "number" ? nonnegative(opinion.noise_count) : members.filter(id => comments[id].noiseFlag).length };
   });
-  const likeTotal = audience.reduce((n, id) => n + comments[id].likes, 0);
+  const gist = text(reading?.gist);
+  const headline = gist ? { text: gist, grounded: resolveIds(reading?.gistRefs ?? []).length > 0 } : null;
   const observations: WheelObservation[] = [];
-  if (sectors.length) {
-    const big = sectors[0], loud = sectors.reduce((a, b) => b.likeShare > a.likeShare ? b : a);
-    const gist = text(reading?.gist), gistRefs = gist ? resolveIds(reading?.gistRefs ?? []) : [];
-    observations.push({ key: "react", ai: gistRefs.length > 0, refs: gistRefs, kind: sectors.length === 1 ? "single" : big.key === loud.key ? "same" : "apart",
-      big: big.key, loud: loud.key, rows: sectors.map(s => ({ sector: s.key, top: s.topId })),
-      loudTopLikeShare: loud.topId && likeTotal > 0 ? comments[loud.topId].likes / likeTotal : null, aiGist: gist });
-  }
   const sides = reading?.split.sides.flatMap(side => {
     const refs = resolveIds([side.quote.commentId, ...(side.refs ?? [])]);
     return refs.length ? [{ claim: side.claim, why: side.why, refs }] : [];
   }) ?? [];
   if (sides.length >= 2) observations.push({ key: "split", ai: true, agree: reading!.split.agree, sides });
-  if (sectors.length) observations.push({ key: "topic", ai: sectors.some(s => s.aiName !== null) });
+  if (sectors.length) {
+    const loud = sectors.reduce((a, b) => b.likeShare > a.likeShare ? b : a);
+    observations.push({ key: "topic", ai: sectors.some(s => s.aiName !== null), loud: loud.key !== sectors[0].key ? loud.key : null });
+  }
   const methods = reading?.methods.flatMap(method => {
     const refs = resolveIds([method.quote.commentId, ...(method.refs ?? [])]);
     return refs.length ? [{ name: method.name, fit: method.fit, refs }] : [];
@@ -122,13 +119,13 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
       unseen: items.filter(q => q.status === "replies_not_captured").length, items });
   }
   const has = (key: WheelObservation["key"]) => observations.some(o => o.key === key);
-  const preferred = blocks.postType === "help" ? "qa" : blocks.postType === "resource" ? has("link") ? "link" : "how" : "react";
+  const preferred = blocks.postType === "help" ? "qa" : blocks.postType === "resource" ? has("link") ? "link" : "how" : "topic";
   const replies = item.descriptor.engagement?.comments;
-  return { sectors, comments, audience, observations, initial: has(preferred) ? preferred : observations[0]?.key ?? null,
+  return { sectors, comments, audience, headline, observations, initial: has(preferred) ? preferred : observations[0]?.key ?? null,
     entityRefs, raw: { links: !linkObservation && entities.length ? entities : null,
       op: [...eligibility.authorReplies].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0)).map(c => c.id),
       noise: audience.filter(id => comments[id].noiseFlag !== null) },
-    coverage: typeof replies === "number" && Number.isFinite(replies) && replies > 0 ? { got: captured.length, replies } : null, likeTotal };
+    coverage: typeof replies === "number" && Number.isFinite(replies) && replies > 0 ? { got: captured.length, replies } : null };
 }
 
 /** Evidence order matches the pane: sector order for topics; question then answers for QA. */
@@ -137,7 +134,6 @@ export function observationRefs(model: ReaderWheelModel, key: WheelObservation["
   if (!observation) return [];
   let refs: string[];
   switch (observation.key) {
-    case "react": refs = observation.ai ? observation.refs : observation.rows.flatMap(r => r.top ?? []); break;
     case "topic": refs = model.sectors.flatMap(s => model.audience.filter(id => model.comments[id].sector === s.key)); break;
     case "split": refs = observation.sides.flatMap(s => s.refs); break;
     case "how": refs = observation.methods.flatMap(m => m.refs); break;
@@ -147,12 +143,18 @@ export function observationRefs(model: ReaderWheelModel, key: WheelObservation["
   return unique(refs).filter(id => Object.hasOwn(model.comments, id));
 }
 export function dotsBySector(model: ReaderWheelModel, key: WheelObservation["key"]): Record<string, number> {
-  const counts = new Map<string, number>();
+  return Object.fromEntries(Object.entries(dotSides(model, key)).map(([sector, sides]) => [sector, sides.length]));
+}
+/** One entry per evidence dot: the split side it backs (0 or 1), else 0. A comment cited by both sides counts for the first, as in the pane. */
+export function dotSides(model: ReaderWheelModel, key: WheelObservation["key"]): Record<string, number[]> {
+  const observation = model.observations.find(o => o.key === key);
+  const side = (id: string) => observation?.key === "split" ? Math.max(0, observation.sides.findIndex(s => s.refs.includes(id))) : 0;
+  const dots = new Map<string, number[]>();
   for (const id of observationRefs(model, key)) {
     const sector = model.comments[id].sector;
-    if (sector !== null) counts.set(sector, (counts.get(sector) ?? 0) + 1);
+    if (sector !== null) dots.set(sector, [...dots.get(sector) ?? [], side(id)].sort((a, b) => a - b));
   }
-  return Object.fromEntries(counts);
+  return Object.fromEntries(dots);
 }
 
 export interface WheelPoint { x: number; y: number }
@@ -201,9 +203,8 @@ export function wheelSelection(model: ReaderWheelModel, key: WheelObservation["k
   const topic = sector ? model.audience.filter(id => model.comments[id].sector === sector.key) : [];
   const groups = observation?.key === "split" ? observation.sides.map(s => ({ title: s.claim, detail: s.why, refs: s.refs.filter(accepts) }))
     : observation?.key === "how" ? observation.methods.map(m => ({ title: m.name, detail: m.fit, refs: m.refs.filter(accepts) })) : [];
-  const react = observation?.key === "react" ? observation.rows.filter(r => !selected || r.sector === selected).map(r => ({ ...r, sector: model.sectors.find(s => s.key === r.sector)! })) : [];
   const questions = observation?.key === "qa" ? observation.items.filter(q => !selected || (q.id && accepts(q.id)) || q.answers.some(accepts)).map(q => ({ ...q, answers: q.answers.filter(accepts), showQuestion: !selected || !q.id || accepts(q.id) })) : [];
-  const loud = observation?.key === "react" ? model.sectors.find(s => s.key === observation.loud) ?? null : null;
+  const loud = observation?.key === "topic" ? model.sectors.find(s => s.key === observation.loud) ?? null : null;
   const link = observation?.key === "link" ? sortEntityRows(observation.entities, "mentions")[0] : null;
   const parentSeen = new Set<string>();
   const parents: Record<string, string> = {};
@@ -213,11 +214,13 @@ export function wheelSelection(model: ReaderWheelModel, key: WheelObservation["k
       parents[id] = c.parentContext; parentSeen.add(c.parentId);
     }
   }
-  return { observation, sector, refs: filtered, topic, groups, react, questions, loud, link,
+  return { observation, sector, refs: filtered, topic, groups, questions, loud, link,
     spread: new Set(filtered.map(id => model.comments[id].sector).filter(s => s !== null)).size > 1,
     questionCount: questions.length,
     dots: key ? dotsBySector(model, key) : {},
-    verdict: sector ? sector.likeShare > sector.share * 1.25 ? "more" : sector.likeShare < sector.share * .6 ? "less" : "same" : "same",
+    topicLikes: topic.reduce((n, id) => n + model.comments[id].likes, 0),
+    /** Only a clear gap between like share and comment share is worth a sentence. */
+    verdict: !sector ? null : sector.likeShare > sector.share * 1.25 ? "more" as const : sector.likeShare < sector.share * .6 ? "less" as const : null,
     raw: { all: model.audience, op: model.raw.op, noise: model.raw.noise },
     rawChips: ([{ key: "all", n: model.audience.length }, { key: "link", n: model.raw.links?.length ?? 0 }, { key: "op", n: model.raw.op.length }, { key: "noise", n: model.raw.noise.length }] as { key: WheelRawKey; n: number }[]).filter(r => r.key === "all" || r.n > 0),
     rawLinkRefs: unique((model.raw.links ?? []).flatMap(e => model.entityRefs[e.key] ?? [])),

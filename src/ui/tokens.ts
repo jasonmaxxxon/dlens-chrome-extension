@@ -24,8 +24,8 @@ export const tokens = {
       width: 368, height: 296, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
       coverageRadius: 142, coverageStroke: 2.5, sectorStroke: 5, dotRadius: 5.5, dotStroke: 1.5,
       shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49, hubValueY: 146, hubLabelY: 164, hubMetaY: 181,
-      observationColumns: "46px minmax(0, 1fr)", barColumns: "30px minmax(0, 1fr) 38px",
-      barHeight: 6, barMin: 3, firstTopic: 4, firstRaw: 10, clampLines: 4, menuWidth: 200,
+      observationColumns: "46px minmax(0, 1fr)", sideColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+      barHeight: 6, barMin: 3, firstTopic: 4, firstSide: 2, firstRaw: 10, clampLines: 4, menuWidth: 200,
       hairline: 1, leadBar: 3, observationLines: 2
     },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },

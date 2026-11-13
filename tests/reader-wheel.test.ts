@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAnalysisBlocks } from "../src/viewmodel/analysis-blocks.ts";
-import { buildReaderWheel, observationRefs, dotsBySector, wheelGeometry, type WheelSector } from "../src/viewmodel/reader-wheel.ts";
+import { buildReaderWheel, observationRefs, dotsBySector, dotSides, wheelGeometry, type WheelSector } from "../src/viewmodel/reader-wheel.ts";
 import type { InlineReading } from "../src/compare/inline-reading.ts";
 import { buildCollectionPosts } from "../src/viewmodel/collection-browser.ts";
 import { buildCollectionReaderModel } from "../src/viewmodel/collection-reader.ts";
@@ -68,55 +68,44 @@ test("sectors normalise, rank, resolve membership and retain noise; audience use
   assert.equal(wheel.comments.a.href, null);
   assert.equal(wheel.comments.continuation.sector, null);
   assert.deepEqual(wheel.coverage, { got: 10, replies: 142 });
-  assert.equal(wheel.likeTotal, 75);
 });
-test("react is counted, picks biggest and loudest and most-liked audience evidence", () => {
-  const wheel = model(fixture(), reading()), react = wheel.observations[0];
-  assert.equal(react.key, "react");
-  assert.ok(react.key === "react");
-  assert.deepEqual(react, { key: "react", ai: false, kind: "apart", big: "1", loud: "2", rows: [{ sector: "1", top: "a" }, { sector: "2", top: "b" }], loudTopLikeShare: .8, aiGist: "Invented gist", refs: [] });
+test("topic names the most liked topic only when it is not the most discussed", () => {
+  assert.deepEqual(model().observations.find(o => o.key === "topic"), { key: "topic", ai: false, loud: "2" });
   const source = fixture();
   source.latestCapture!.analysis!.clusters[0].like_share = .1;
-  const same = model(source).observations[0]; assert.ok(same.key === "react");
-  assert.equal(same.kind, "same");
+  assert.deepEqual(model(source).observations.find(o => o.key === "topic"), { key: "topic", ai: false, loud: null });
   source.latestCapture!.analysis!.clusters.splice(0, 1);
-  const single = model(source).observations[0]; assert.ok(single.key === "react");
-  assert.equal(single.kind, "single");
+  assert.deepEqual(model(source).observations.find(o => o.key === "topic"), { key: "topic", ai: false, loud: null });
 });
-test("a gist that cites captured comments leads the reaction; supporting refs widen sides and methods", () => {
+test("the gist heads the observations instead of being one; supporting refs widen sides and methods", () => {
   const ai = reading();
   ai.gistRefs = ["source_b", "absent", "a", "b"];
   ai.split.sides[0].refs = ["a", "c", "absent"];
   ai.methods[0].refs = ["source_b", "a"];
-  const wheel = model(fixture(), ai), react = wheel.observations[0];
-  assert.ok(react.key === "react");
-  assert.equal(react.ai, true);
-  assert.deepEqual(react.refs, ["b", "a"]);
-  assert.deepEqual(observationRefs(wheel, "react"), ["b", "a"]);
-  assert.deepEqual(dotsBySector(wheel, "react"), { "2": 1, "1": 1 });
+  const wheel = model(fixture(), ai);
+  assert.deepEqual(wheel.headline, { text: "Invented gist", grounded: true });
+  assert.equal(wheel.observations.some(o => (o.key as string) === "react"), false);
   const split = wheel.observations.find(o => o.key === "split"); assert.ok(split?.key === "split");
   assert.deepEqual(split.sides[0].refs, ["a", "c"]);
   const how = wheel.observations.find(o => o.key === "how"); assert.ok(how?.key === "how");
   assert.deepEqual(how.methods[0].refs, ["b", "a"]);
-  // A gist whose refs resolve to nothing stays under the counted sentence.
+  // A gist whose refs resolve to nothing still heads the page, marked as not linked to comments.
   const bare = reading(); bare.gistRefs = ["absent"];
-  const counted = model(fixture(), bare).observations[0]; assert.ok(counted.key === "react");
-  assert.equal(counted.ai, false);
-  assert.deepEqual(counted.refs, []);
+  assert.deepEqual(model(fixture(), bare).headline, { text: "Invented gist", grounded: false });
+  assert.equal(model().headline, null);
 });
 test("AI observations resolve source/internal ids and drop missing quotes, with fixed observation order", () => {
   const wheel = model(fixture({ entities: [entity(2)] }), reading());
-  assert.deepEqual(wheel.observations.map(o => o.key), ["react", "split", "topic", "how", "link", "qa"]);
+  assert.deepEqual(wheel.observations.map(o => o.key), ["split", "topic", "how", "link", "qa"]);
   const split = wheel.observations.find(o => o.key === "split")!;
   assert.ok(split.key === "split");
   assert.deepEqual(split.sides.map(s => s.refs), [["a"], ["b"]]);
   const how = wheel.observations.find(o => o.key === "how")!;
   assert.ok(how.key === "how");
   assert.deepEqual(how.methods.map(m => m.refs), [["b"]]);
-  assert.deepEqual(wheel.observations.find(o => o.key === "topic"), { key: "topic", ai: true });
+  assert.deepEqual(wheel.observations.find(o => o.key === "topic"), { key: "topic", ai: true, loud: "2" });
   const ai = reading(); ai.split.sides.splice(1); ai.methods = [ai.methods[1]];
-  assert.deepEqual(model(fixture(), ai).observations.map(o => o.key), ["react", "topic", "qa"]);
-  assert.deepEqual(model().observations.find(o => o.key === "topic"), { key: "topic", ai: false });
+  assert.deepEqual(model(fixture(), ai).observations.map(o => o.key), ["topic", "qa"]);
 });
 test("links switch between observation and raw by substance, including an unenriched repo", () => {
   assert.equal(model().raw.links?.length, 1);
@@ -140,12 +129,12 @@ test("questions reuse statuses and captured answers; post questions retain their
   assert.equal(postQa.items[0].id, null);
   assert.equal(postQa.items[0].question.isPost, true);
 });
-test("initial respects help, resource link then how, other types react and first-existing fallback", () => {
+test("initial respects help, resource link then how, other types topic and first-existing fallback", () => {
   assert.equal(model(fixture({ type: "help" })).initial, "qa");
   assert.equal(model(fixture({ type: "resource", entities: [entity(2)] })).initial, "link");
   assert.equal(model(fixture({ type: "resource" }), reading()).initial, "how");
-  for (const type of ["discussion", "news", "entertainment", "unknown"]) assert.equal(model(fixture({ type })).initial, "react");
-  assert.equal(model(fixture({ type: "help", questions: false })).initial, "react");
+  for (const type of ["discussion", "news", "entertainment", "unknown"]) assert.equal(model(fixture({ type })).initial, "topic");
+  assert.equal(model(fixture({ type: "help", questions: false })).initial, "topic");
   assert.equal(model(fixture({ clusters: false })).initial, "qa");
   const empty = model(fixture({ clusters: false, questions: false }));
   assert.deepEqual(empty.observations, []);
@@ -153,7 +142,6 @@ test("initial respects help, resource link then how, other types react and first
 });
 test("refs are unique in evidence display order, dots count captured evidence by sector", () => {
   const wheel = model(fixture({ entities: [entity(2)] }), reading());
-  assert.deepEqual(observationRefs(wheel, "react"), ["a", "b"]);
   assert.deepEqual(observationRefs(wheel, "topic"), ["a", "n", "b", "c"]);
   assert.deepEqual(observationRefs(wheel, "split"), ["a", "b"]);
   assert.deepEqual(observationRefs(wheel, "how"), ["b"]);
@@ -162,19 +150,26 @@ test("refs are unique in evidence display order, dots count captured evidence by
   assert.deepEqual(observationRefs(model(), "split"), []);
   assert.deepEqual(dotsBySector(model(), "split"), {});
 });
+test("split dots carry the side they back, first side first within a sector", () => {
+  const ai = reading();
+  ai.split.sides[0].refs = ["a", "source_n", "b"];
+  ai.split.sides[1].refs = ["source_b", "c"];
+  const wheel = model(fixture(), ai);
+  // b backs both sides and counts once, for the first.
+  assert.deepEqual(dotSides(wheel, "split"), { "1": [0, 0], "2": [0, 1] });
+  assert.deepEqual(dotsBySector(wheel, "split"), { "1": 2, "2": 2 });
+  assert.deepEqual(dotSides(wheel, "qa"), { "1": [0], "2": [0, 0, 0] });
+});
 test("missing coverage, zero likes/shares and no sectors remain finite", () => {
   const source = fixture(); source.descriptor.engagement.comments = null;
   for (const c of source.latestCapture!.result!.comments) c.like_count = 0;
   for (const c of source.latestCapture!.analysis!.clusters) { c.size_share = 0; c.like_share = 0; }
   const wheel = model(source);
   assert.equal(wheel.coverage, null);
-  assert.equal(wheel.likeTotal, 0);
-  const react = wheel.observations[0]; assert.ok(react.key === "react");
-  assert.equal(react.loudTopLikeShare, null);
   assert.deepEqual(wheel.sectors.map(s => s.share), [.5, .5]);
   assert.ok(wheelGeometry(wheel.sectors, { cx: 0, cy: 0, r0: 5, rmin: 10, rmax: 20, pad: 2 }).every(s => s.outerRadius === 10));
   const noSectors = model(fixture({ clusters: false }));
-  assert.equal(noSectors.observations.some(o => o.key === "react" || o.key === "topic"), false);
+  assert.equal(noSectors.observations.some(o => o.key === "topic"), false);
 });
 test("geometry ports clockwise arcs, padding, sqrt radius, labels and up to seven interior dots", () => {
   const sectors = [.7, .25, .05].map((share, i) => ({ key: String(i), share, likeShare: [1, .25, 0][i] } as WheelSector));
@@ -229,6 +224,9 @@ test("wheel selection projects filters, repeated refs, verdicts, raw counts and 
   assert.equal(selected.spread, false);
   assert.equal(selected.parents.o, "Invented material a");
   assert.equal(selected.verdict, "more");
+  assert.equal(wheelSelection(wheel, "topic", "1").verdict, "less");
+  assert.equal(wheelSelection(wheel, "topic", "2").topicLikes, 65);
+  assert.equal(wheelSelection(wheel, "topic", "2").loud?.key, "2");
   assert.deepEqual(selected.rawChips.map(c => c.key), ["all", "link", "op", "noise"]);
   assert.deepEqual(wheelSelection(wheel, "topic", "1").topic, ["a", "n"]);
   assert.equal(wheelSelection(wheel, "qa", "1").questions.length, 1);

@@ -46,22 +46,35 @@ function unique(doc: Element) {
 }
 test("observations switch evidence; sector keyboard selection, filtering and clearing work", async () => {
   await mounted(async (doc, click, key) => {
-    assert.equal(doc.querySelector('[data-wheel-observation="react"]')!.getAttribute("aria-pressed"), "true");
-    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /唔使 AI.*未連留言出處/s);
-    // 反應 reads the sectors themselves: the most liked topic stays lit, no evidence dots cover the percentage labels.
+    // The AI gist heads the observations; it is not one of them and opens no evidence of its own.
+    assert.equal(doc.querySelector('[data-wheel-observation="react"]'), null);
+    assert.match(doc.querySelector("[data-wheel-headline]")!.textContent!, /AI 摘要.*|未連留言出處.*AI 摘要/s);
+    assert.equal(doc.querySelector('[data-wheel-observation="topic"]')!.getAttribute("aria-pressed"), "true");
     assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
-    assert.equal((doc.querySelector('[data-wheel-sector="1"]') as HTMLElement).style.opacity, "1");
-    assert.notEqual((doc.querySelector('[data-wheel-sector="0"]') as HTMLElement).style.opacity, "1");
-    await click('[data-wheel-observation="topic"]');
-    assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
+    // The topic stats give counts the wheel cannot show; the verdict appears only for a clear gap.
+    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /7 則留言 · 共 \d+ 讚 · 留言多，但讚唔多/);
+    assert.doesNotMatch(doc.textContent!, /佔比相若/);
     await click('[data-wheel-observation="split"]');
     assert.ok(doc.querySelectorAll("[data-wheel-sector] circle").length > 0);
+    // 分歧: two cards side by side, the first side's marker and dots filled, the second's hollow.
+    const sides = [...doc.querySelectorAll("[data-wheel-sides] > [data-wheel-side]")] as HTMLElement[];
+    assert.equal(sides.length, 2);
+    assert.match(sides[0].textContent!, /甲.*甲原因/s); assert.match(sides[1].textContent!, /乙.*乙原因/s);
+    assert.ok(sides[0].querySelector('[data-wheel-comment="c0"]')); assert.ok(sides[1].querySelector('[data-wheel-comment="c7"]'));
+    assert.equal(doc.querySelector('[data-wheel-sector="0"] circle')!.getAttribute("fill"), "#10243B");
+    assert.equal(doc.querySelector('[data-wheel-sector="1"] circle')!.getAttribute("fill"), "#FFFFFF");
     for (const o of doc.querySelectorAll('[data-wheel-observation][aria-pressed="false"] span:last-child')) assert.notEqual((o as HTMLElement).style.whiteSpace, "nowrap");
-    for (const o of ["split", "topic", "how", "link", "qa", "react"]) { await click(`[data-wheel-observation="${o}"]`); unique(doc); }
+    for (const o of ["split", "topic", "how", "link", "qa"]) { await click(`[data-wheel-observation="${o}"]`); unique(doc); }
+    // A sector with no evidence is not a control: no button role, no tab stop, no pointer.
+    await click('[data-wheel-observation="how"]');
+    const bare = doc.querySelector('[data-wheel-sector="1"]') as HTMLElement;
+    assert.equal(bare.getAttribute("role"), null); assert.equal(bare.getAttribute("tabindex"), null); assert.equal(bare.style.cursor, "default");
+    assert.equal(doc.querySelector('[data-wheel-sector="0"]')!.getAttribute("tabindex"), "0");
     await click('[data-wheel-observation="split"]');
     await key('[data-wheel-sector="0"]', "Enter");
     assert.ok(doc.querySelector("[data-wheel-clear]"));
     assert.equal(doc.querySelector('[data-wheel-comment="c7"]'), null);
+    assert.match(doc.querySelector('[data-wheel-side="1"]')!.textContent!, /呢個話題入面冇/);
     await click("[data-wheel-clear]");
     assert.ok(doc.querySelector('[data-wheel-comment="c7"]'));
     await key('[data-wheel-sector="1"]', " ");
@@ -118,14 +131,15 @@ test("wheel has bilingual copy and reduced motion guard, while legacy keeps its 
   assert.match(legacy, /data-reader-answer/); assert.doesNotMatch(legacy, /data-reader-wheel/);
   assert.doesNotMatch(readFileSync("src/ui/CollectionAudienceReading.tsx", "utf8"), /AnalysisBlocksView|AiSupplement/);
 });
-test("a grounded AI gist is the reaction sentence, with dots and the counted line beneath", () => {
+test("a grounded AI gist heads the page without an ungrounded mark or a second evidence list", () => {
   const source = fixture();
   const grounded = buildReaderWheel(source, { gist: "AI 摘要", gistRefs: ["c0", "c7"], clusterNames: {}, methods: [], split: { agree: "", sides: [] } } as never, buildAnalysisBlocks(source))!;
   const doc = new JSDOM(renderToStaticMarkup(<ReaderWheel model={grounded} />)).window.document;
-  assert.match(doc.querySelector('[data-wheel-observation="react"]')!.textContent!, /AI 摘要/);
-  assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 2);
-  const evidence = doc.querySelector("[data-wheel-evidence]")!;
-  assert.match(evidence.textContent!, /根據以下 2 則留言.*計數所見：/s);
-  assert.doesNotMatch(evidence.textContent!, /未連留言出處/);
-  assert.deepEqual([...evidence.querySelectorAll("[data-wheel-comment]")].map(e => e.getAttribute("data-wheel-comment")), ["c0", "c7"]);
+  const headline = doc.querySelector("[data-wheel-headline]")!;
+  assert.match(headline.textContent!, /AI 摘要/);
+  assert.doesNotMatch(headline.textContent!, /未連留言出處/);
+  assert.equal(headline.querySelector("button, [role=button]"), null);
+  assert.deepEqual([...doc.querySelectorAll("[data-wheel-observation]")].map(e => e.getAttribute("data-wheel-observation")), ["topic", "link", "qa"]);
+  // Only the topic list renders comments: the gist's sources are not repeated as a separate reaction list.
+  assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
 });
