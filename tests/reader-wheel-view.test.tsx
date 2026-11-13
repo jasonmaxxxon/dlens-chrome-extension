@@ -52,7 +52,7 @@ test("observations switch evidence; sector keyboard selection, filtering and cle
     assert.equal(doc.querySelector('[data-wheel-observation="topic"]')!.getAttribute("aria-pressed"), "true");
     assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
     // The topic stats give counts the wheel cannot show; the verdict appears only for a clear gap.
-    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /7 則留言 · 共 \d+ 讚 · 留言多，但讚唔多/);
+    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /7 則留言 · 共 \d+ 讚 · 讚數佔比低於留言佔比/);
     assert.doesNotMatch(doc.textContent!, /佔比相若/);
     await click('[data-wheel-observation="split"]');
     assert.ok(doc.querySelectorAll("[data-wheel-sector] circle").length > 0);
@@ -142,4 +142,28 @@ test("a grounded AI gist heads the page without an ungrounded mark or a second e
   assert.deepEqual([...doc.querySelectorAll("[data-wheel-observation]")].map(e => e.getAttribute("data-wheel-observation")), ["topic", "link", "qa"]);
   // Only the topic list renders comments: the gist's sources are not repeated as a separate reaction list.
   assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
+});
+
+test("topic totals are shown only when the full membership can be verified", () => {
+  for (const members of [undefined, ["c0"], ["c0", "c1", "c2", "c3", "c4", "c5", "c6"]]) {
+    const source = fixture();
+    source.latestCapture!.analysis!.clusters[0].member_comment_ids = members;
+    const wheel = buildReaderWheel(source, null, buildAnalysisBlocks(source))!;
+    const doc = new JSDOM(renderToStaticMarkup(<ReaderWheel model={wheel} />)).window.document;
+    const evidence = doc.querySelector("[data-wheel-evidence]")!.textContent!;
+    if (members?.length === 7) assert.match(evidence, /7 則留言 · 共 189 讚/);
+    else assert.doesNotMatch(evidence, /\d+ 則留言 · 共 \d+ 讚/);
+  }
+});
+
+test("a complete topic distinguishes unknown likes from a known zero total", () => {
+  for (const likes of [undefined, null, 0]) {
+    const source = fixture();
+    for (const row of source.latestCapture!.result!.comments!.slice(0, 7)) row.like_count = likes;
+    const wheel = buildReaderWheel(source, null, buildAnalysisBlocks(source))!;
+    const doc = new JSDOM(renderToStaticMarkup(<ReaderWheel model={wheel} />)).window.document;
+    const evidence = doc.querySelector("[data-wheel-evidence]")!.textContent!;
+    if (likes === 0) assert.match(evidence, /7 則留言 · 共 0 讚/);
+    else assert.doesNotMatch(evidence, /共 \d+ 讚/);
+  }
 });

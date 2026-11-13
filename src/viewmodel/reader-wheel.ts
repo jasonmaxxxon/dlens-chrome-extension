@@ -1,11 +1,14 @@
 import type { SessionItem } from "../state/types";
 import type { InlineReading } from "../compare/inline-reading";
 import { readCommentEligibility } from "../compare/comment-eligibility";
+import { readClusterReadings } from "../compare/cluster-reading";
 import { blockEvidenceHref, sortEntityRows, type AnalysisBlocksModel, type EntityRow, type QaPerson, type QaStatus } from "./analysis-blocks";
 
 export interface WheelSector {
   key: string; rank: number; count: number; share: number; likeShare: number;
   aiName: string | null; quote: string; topId: string | null; noise: number;
+  /** Null when membership or any member's captured like count is incomplete. */
+  likeTotal: number | null;
 }
 export interface WheelComment {
   id: string; author: string; text: string; likes: number; replies: number;
@@ -65,6 +68,7 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
   }
   const opinions = rawBlocks.filter(b => b.type === "opinion_overview").flatMap(b => list(b.items).map(object));
   const clusters = [...analysis.clusters].sort((a, b) => nonnegative(b.size_share) - nonnegative(a.size_share));
+  const membership = new Map(readClusterReadings(item).map(cluster => [cluster.clusterKey, cluster.membership === "complete"]));
   const totalShare = clusters.reduce((n, c) => n + nonnegative(c.size_share), 0);
   // First sector wins if malformed membership repeats an identity across clusters.
   for (const cluster of clusters) for (const id of resolveIds(cluster.member_comment_ids ?? [])) {
@@ -74,7 +78,13 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
     const key = String(cluster.cluster_key), members = audience.filter(id => comments[id].sector === key);
     const topId = members[0] ?? null;
     const opinion = opinions.find(row => String(row.cluster_key) === key);
-    return { key, rank, count: cluster.comment_count ?? members.length,
+    const count = cluster.comment_count ?? members.length;
+    const complete = membership.get(cluster.cluster_key) === true && count === members.length;
+    const likesKnown = members.every(id => {
+      const likes = eligibility.byId.get(id)?.likes;
+      return typeof likes === "number" && Number.isFinite(likes) && likes >= 0;
+    });
+    return { key, rank, count, likeTotal: complete && likesKnown ? members.reduce((n, id) => n + comments[id].likes, 0) : null,
       share: totalShare > 0 ? nonnegative(cluster.size_share) / totalShare : 1 / clusters.length,
       likeShare: nonnegative(cluster.like_share), aiName: text(reading?.clusterNames[key]) || null,
       quote: text(opinion?.label) || (topId ? comments[topId].text.slice(0, 24) : ""), topId,
@@ -218,7 +228,7 @@ export function wheelSelection(model: ReaderWheelModel, key: WheelObservation["k
     spread: new Set(filtered.map(id => model.comments[id].sector).filter(s => s !== null)).size > 1,
     questionCount: questions.length,
     dots: key ? dotsBySector(model, key) : {},
-    topicLikes: topic.reduce((n, id) => n + model.comments[id].likes, 0),
+    topicLikes: sector?.likeTotal ?? null,
     /** Only a clear gap between like share and comment share is worth a sentence. */
     verdict: !sector ? null : sector.likeShare > sector.share * 1.25 ? "more" as const : sector.likeShare < sector.share * .6 ? "less" as const : null,
     raw: { all: model.audience, op: model.raw.op, noise: model.raw.noise },

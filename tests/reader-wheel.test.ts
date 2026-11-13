@@ -225,7 +225,7 @@ test("wheel selection projects filters, repeated refs, verdicts, raw counts and 
   assert.equal(selected.parents.o, "Invented material a");
   assert.equal(selected.verdict, "more");
   assert.equal(wheelSelection(wheel, "topic", "1").verdict, "less");
-  assert.equal(wheelSelection(wheel, "topic", "2").topicLikes, 65);
+  assert.equal(wheelSelection(wheel, "topic", "2").topicLikes, null, "inconsistent membership cannot establish a total");
   assert.equal(wheelSelection(wheel, "topic", "2").loud?.key, "2");
   assert.deepEqual(selected.rawChips.map(c => c.key), ["all", "link", "op", "noise"]);
   assert.deepEqual(wheelSelection(wheel, "topic", "1").topic, ["a", "n"]);
