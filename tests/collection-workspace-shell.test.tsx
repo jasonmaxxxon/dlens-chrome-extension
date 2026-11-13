@@ -90,6 +90,6 @@ test("menu shows connection details immediately with the release label", () => {
  assert.equal(popover.style.width,"280px");
  assert.match(popover.textContent!,/連線/);
  assert.match(popover.textContent!,/12\/14 篇讀完/);
- assert.match(popover.textContent!,/DLens 0.5.92/);
+ assert.match(popover.textContent!,/DLens 0.5.93/);
  assert.equal(popover.querySelector("button")!.textContent,"設定");
 });
