@@ -12,10 +12,6 @@ export const POST_TYPES = ["discussion", "resource", "help", "news", "entertainm
 export type PostTypeKey = typeof POST_TYPES[number];
 export const QA_STATUSES = ["answered_by_op", "answered", "unanswered", "replies_not_captured", "unknown"] as const;
 export type QaStatus = typeof QA_STATUSES[number];
-/** The data layer keeps five statuses; the reader shows three groups. */
-export const QA_GROUPS = ["answered", "unanswered", "unseen"] as const;
-export type QaGroup = typeof QA_GROUPS[number];
-export const qaGroup = (status: QaStatus): QaGroup => status === "answered_by_op" || status === "answered" ? "answered" : status === "unanswered" ? "unanswered" : "unseen";
 export const OMITTED_REASONS = ["empty", "all_duplicate", "noise_only"] as const;
 export type OmittedReason = typeof OMITTED_REASONS[number];
 
@@ -57,14 +53,6 @@ export type AnalysisBlockView = BlockBase & (
   | { type: "top_comments"; items: { id: string; author: string; text: string | null; likes: number | null; replies: number | null; isOp: boolean; links: CommentLink[]; evidence: BlockEvidenceLink[] }[] }
   | { type: "noise_summary"; audience: number | null; noise: number | null; share: number | null; flags: { flag: string; count: number; share: number | null }[] });
 
-/** Structured one-line gist of a block; the view turns it into copy. */
-export type BlockGist =
-  | { kind: "entity"; name: string; mentions: number; total: number }
-  | { kind: "opinion"; label: string; generic: boolean; pct: number | null; quote?: true }
-  | { kind: "qa"; total: number; unanswered: number }
-  | { kind: "top"; author: string; text: string; likes: number | null }
-  | { kind: "noise"; noise: number; audience: number };
-
 export interface AnalysisBlocksModel {
   /** legacy: no usable `blocks` (old four-cell reading); blocks: render `blocks`; empty: `blocks` present but nothing to render. */
   mode: "legacy" | "blocks" | "empty";
@@ -74,9 +62,6 @@ export interface AnalysisBlocksModel {
   omitted: { type: string; reason: OmittedReason }[];
   /** Unknown block types, skipped instead of rendered. */
   skipped: string[];
-  /** Lead: the stored AI gist when there is one, else a template over the first primary block; `sub` comes from the second primary block. */
-  lead: { ai: string; main: BlockGist | null; sub: BlockGist | null } | null;
-  source: { audience: number | null; noiseShare: number | null; noise: number | null } | null;
 }
 
 const obj = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
@@ -275,47 +260,15 @@ function project(block: AnalysisBlockSnapshot, type: BlockType, item: SessionIte
   return { ...base, type: "noise_summary", audience, noise: num(noise.noise_count) ?? num(meta.noise_count), share: num(noise.noise_share) ?? num(meta.noise_share), flags };
 }
 
-const clip = (text: string, max: number) => { const flat = text.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim(); return flat.length > max ? `${flat.slice(0, max)}…` : flat; };
-
-/** Gist of one block, derived only from fields it already carries; null when there is nothing honest to say. */
-export function blockGist(block: AnalysisBlockView): BlockGist | null {
-  if (block.type === "entity_list") {
-    const top = block.items.filter(r => r.mentions > 0).sort((a, b) => b.mentions - a.mentions || b.likes - a.likes)[0];
-    return top ? { kind: "entity", name: top.name, mentions: top.mentions, total: block.total } : null;
-  }
-  if (block.type === "opinion_overview") {
-    const top = block.items.find(r => !r.lowSignal) ?? block.items[0];
-    return top ? { kind: "opinion", label: top.label, generic: top.generic, pct: top.pct, ...(top.quoteLabel ? { quote: true as const } : {}) } : null;
-  }
-  if (block.type === "qa_pairs") {
-    const unanswered = block.items.filter(i => i.status === "unanswered").length;
-    return block.items.length ? { kind: "qa", total: block.total, unanswered } : null;
-  }
-  if (block.type === "top_comments") {
-    const top = block.items[0], text = top?.text ? clip(top.text, 80) : "";
-    return top && text ? { kind: "top", author: top.author, text, likes: top.likes } : null;
-  }
-  return block.noise !== null && block.audience ? { kind: "noise", noise: block.noise, audience: block.audience } : null;
-}
-
-/** A block is laid open only when the backend ranks it primary and it has something to read: questions nobody answered,
- *  or a single link mentioned once, stay one line. Order and priority are never changed, only how much room a block takes. */
-export function blockOpensFirst(block: AnalysisBlockView): boolean {
-  if (!block.primary || block.type === "noise_summary") return false;
-  if (block.type === "qa_pairs") return block.items.some(i => i.question.isPost || i.answers.length > 0 || i.answerCount > 0);
-  if (block.type === "entity_list") return block.items.length > 1 || block.items.some(r => r.mentions > 1 || !!r.repo);
-  return block.items.length > 0;
-}
-
 /** Old analyses have no `blocks` key: they keep the four-cell reading. `aiNames` reuses the AI cluster renames by cluster key; `aiGist` is the stored AI one-liner, if any. */
-export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiNames: Record<string, string> = {}, aiGist = ""): AnalysisBlocksModel {
+export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiNames: Record<string, string> = {}): AnalysisBlocksModel {
   const analysis = item?.latestCapture?.analysis;
   const rawType = str(obj(analysis?.post_type).type);
   const postType = analysis?.post_type ? ((POST_TYPES as readonly string[]).includes(rawType) ? rawType as PostTypeKey : "unknown") : null;
   const error = !!analysis?.blocks_error;
   const reason = (value: unknown): OmittedReason => (OMITTED_REASONS as readonly string[]).includes(str(value)) ? str(value) as OmittedReason : "empty";
   const omitted = list(analysis?.blocks_omitted).map(obj).map(o => ({ type: str(o.type), reason: reason(o.reason) })).filter(o => (BLOCK_TYPES as readonly string[]).includes(o.type));
-  const empty: AnalysisBlocksModel = { mode: "legacy", postType, error, blocks: [], omitted, skipped: [], lead: null, source: null };
+  const empty: AnalysisBlocksModel = { mode: "legacy", postType, error, blocks: [], omitted, skipped: [] };
   // `blocks_error` means the backend sent no blocks at all: a notice over the old four-cell reading.
   if (!analysis || error || !Array.isArray(analysis.blocks)) return empty;
   const skipped: string[] = [];
@@ -327,7 +280,7 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
       return [{ type: type as BlockType, block, view: type === "top_comments" ? project(block, "top_comments", item ?? null, aiNames, obj(analysis.noise)) : null }];
     });
 
-  // Top comments win regardless of block order. Their first row can also supply the lead;
+  // Top comments reserve their quotes regardless of block order;
   // folded rows still reserve their quotes so opening a tool never repeats them.
   const shown = new Set<string>();
   for (const { view } of raw) if (view?.type === "top_comments") for (const row of view.items) includeCommentIds(shown, row.id, item ?? null);
@@ -352,17 +305,10 @@ export function buildAnalysisBlocks(item: SessionItem | null | undefined, aiName
   // Without any priority flag, the first two non-noise blocks lead (the backend's own rule).
   const primary = visible.some(b => b.primary) ? visible : visible.map(b => ({ ...b }));
   if (!visible.some(b => b.primary)) primary.filter(b => b.type !== "noise_summary").slice(0, 2).forEach(b => { b.primary = true; });
-  const leading = primary.filter(b => b.primary && b.type !== "noise_summary");
-  const main = leading[0] ? blockGist(leading[0]) : null, sub = leading[1] ? blockGist(leading[1]) : null;
-  const ai = aiGist.trim();
-  const lead = ai || main ? { ai, main, sub } : null;
   const hasTopComments = visible.some(b => b.type === "top_comments");
   const allOmitted = [...omitted.filter(o => !(hasTopComments && o.type === "top_comments" && o.reason === "all_duplicate") && !dedupOmitted.some(d => d.type === o.type)), ...dedupOmitted];
   if (!visible.length) return { ...empty, mode: "empty", omitted: allOmitted, skipped };
-  const noise = obj(analysis.noise);
-  const audience = num(noise.audience_count), noiseShare = num(noise.noise_share);
-  return { ...empty, mode: "blocks", blocks: primary, omitted: allOmitted, skipped, lead,
-    source: audience !== null || noiseShare !== null ? { audience, noiseShare, noise: num(noise.noise_count) } : null };
+  return { ...empty, mode: "blocks", blocks: primary, omitted: allOmitted, skipped };
 }
 
 export type EntitySort = "mentions" | "likes" | "github";

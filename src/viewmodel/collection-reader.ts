@@ -6,6 +6,7 @@ import { COMMENT_ELIGIBILITY_VERSION } from "../compare/comment-eligibility";
 import type { CollectionPost } from "./collection-browser";
 import { buildInlineCardViewModel, buildInlineCardEvidence, type InlineCardEntryKey } from "./inline-card";
 import { buildAnalysisBlocks } from "./analysis-blocks";
+import { buildReaderWheel } from "./reader-wheel";
 
 export function collectionAudienceSource(post: CollectionPost | undefined, sessions: SessionRecord[]) {
   const membership = post?.memberships.find(m => m.mode === "topic");
@@ -54,10 +55,11 @@ export function buildCollectionReaderModel(post: CollectionPost, sessions: Sessi
   else if (card.phase === "done") stateLine = "";
   const aiNote = card.ai?.state === "failed" ? `AI 整理失敗：${card.ai.error}`
     : card.entries.length && !card.ai && !card.analysisPending ? "尚未有已存 AI 閱讀 · 觀眾原句同回覆" : null;
-  return { coverageLabel:readingCoverageLabel(card.ai?.state==='complete' && ai?.status==='complete'?ai.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
+  const blocks = buildAnalysisBlocks(item, ai?.status === "complete" ? ai.reading.clusterNames : {});
+  return { wheelKey: `${item.id}:${item.latestCapture?.id ?? ""}`, coverageLabel:readingCoverageLabel(card.ai?.state==='complete' && ai?.status==='complete'?ai.reading.coverage:undefined), sessionId: session.id, sessionName: session.name, signalId: signal?.id ?? null, chips, card, selected,
     answer: selected ? card.answers[selected] : undefined, stateLine, aiNote,
     evidence: buildInlineCardEvidence(item, card, selected, ai, groupLimits),
-    blocks: buildAnalysisBlocks(item, ai?.status === "complete" ? ai.reading.clusterNames : {}, ai?.status === "complete" ? ai.reading.gist : "") };
+    blocks, wheel: buildReaderWheel(item, ai?.status === "complete" ? ai.reading : null, blocks) };
 }
 export type CollectionReaderModel = NonNullable<ReturnType<typeof buildCollectionReaderModel>>;
 

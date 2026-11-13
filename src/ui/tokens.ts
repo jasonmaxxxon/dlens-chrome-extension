@@ -19,12 +19,14 @@ export const tokens = {
       skeletonCount: 4, skeletonWidths: ["40%", "90%", "60%"], skeletonHeights: [12, 10, 10], emptyTop: 48, emptyIcon: 24,
       card: { padding: 12, columnGap: 12, contentGap: 4, titleLines: 2, metaLine: 17, titleLine: 40, summaryLine: 19, statusLine: 19 }
     },
-    /* Reading-first blocks area: one answer tile, then few tiles; rows share one grammar, no per-item boxes. */
-    blocks: {
-      lead: { fontSize: 20, lineHeight: "28px", fontWeight: 700 },
-      label: { fontSize: 12, lineHeight: "16px", fontWeight: 600 },
-      rowName: { fontSize: 14, lineHeight: "20px", fontWeight: 600 },
-      firstItems: 3, clampLines: 2, quoteLines: 3, hairline: 1, quoteBar: 3, shareHeight: 10, foldHeight: 40, sourceIcon: 12, menuWidth: 200, riseMs: 180, risePx: 4
+    /* Wheel geometry shares the existing panel palette, typography and spacing. */
+    wheel: {
+      width: 368, height: 296, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
+      coverageRadius: 142, coverageStroke: 2.5, sectorStroke: 5, dotRadius: 5.5, dotStroke: 1.5,
+      shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49, hubValueY: 146, hubLabelY: 164, hubMetaY: 181,
+      observationColumns: "46px minmax(0, 1fr)", barColumns: "30px minmax(0, 1fr) 38px",
+      barHeight: 6, barMin: 3, firstTopic: 4, firstRaw: 10, clampLines: 4, menuWidth: 200,
+      hairline: 1, leadBar: 3, observationLines: 2
     },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",
