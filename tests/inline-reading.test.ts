@@ -114,8 +114,8 @@ test("supporting refs keep catalog ids only, quote first; the gist and sides cit
   assert.equal(loaded.reading.methods[0].refs, undefined);
 });
 
-test("v6 renders validated author threads and only technical prompts include terms; author refs stay grounded", () => {
-  assert.equal(INLINE_READING_PROMPT_VERSION, "v6");
+test("v7 renders validated author threads and only technical prompts include terms; author refs stay grounded", () => {
+  assert.equal(INLINE_READING_PROMPT_VERSION, "v7");
   assert.match(buildInlineReadingPrompt(buildInlineReadingInput(item())!), /gist_refs：2 至 6 個/);
   assert.match(buildInlineReadingPrompt(buildInlineReadingInput(item())!), /refs 列出 1 至 4 個/);
   const technical = item();
@@ -138,6 +138,49 @@ test("v6 renders validated author threads and only technical prompts include ter
   assert.equal(reading.methods[0].quote.commentId, "b");
   assert.deepEqual(reading.split.sides, [], "author-only side is explanation, not audience disagreement");
   assert.equal(parseInlineReadingResponse(raw, general, "test", "now")!.gist, "觀眾關心實際用法。");
+});
+
+test("a split requires distinct audience representatives and different nonempty normalized claims", () => {
+  const input = buildInlineReadingInput(item())!;
+  for (const sides of [
+    [{ claim: "應該計", ref: "e1" }, { claim: "唔應該計", ref: "e1" }],
+    [{ claim: "應該計。", ref: "e1" }, { claim: " 應該 計！ ", ref: "e3" }],
+    [{ claim: "！", ref: "e1" }, { claim: "唔應該計", ref: "e3" }],
+    [{ claim: "", ref: "e1" }, { claim: "唔應該計", ref: "e3" }],
+  ]) {
+    const reading = parseInlineReadingResponse(JSON.stringify({ gist: "觀眾討論年資要求。", split: { agree: "", sides } }), input, "test", "now")!;
+    assert.deepEqual(reading.split.sides, [], JSON.stringify(sides));
+    assert.equal(reading.split.agree, "");
+  }
+});
+
+test("find.method can only name a retained grounded method", () => {
+  const input = buildInlineReadingInput(item())!;
+  const parse = (methods: unknown[], method: string) => parseInlineReadingResponse(JSON.stringify({ gist: "觀眾分享求職經驗。", find: { method }, methods }), input, "test", "now")!;
+  assert.equal(parse([], "睇節目學投資").find.method, "未見可照做的方法");
+  assert.equal(parse([{ name: "睇節目學投資", ref: "e99" }], "睇節目學投資").find.method, "未見可照做的方法");
+  const methods = [{ name: "申請培訓計劃", ref: "e3" }, { name: "記錄投遞進度", ref: "e1" }];
+  assert.equal(parse(methods, "虛構方法").find.method, "申請培訓計劃");
+  assert.equal(parse(methods, "記錄投遞進度").find.method, "記錄投遞進度");
+});
+
+test("claim normalization preserves operators that change the position", () => {
+  const input = buildInlineReadingInput(item())!;
+  const reading = parseInlineReadingResponse(JSON.stringify({ gist: "觀眾有不同判斷。", split: { agree: "", sides: [{ claim: "x > 0", ref: "e1" }, { claim: "x < 0", ref: "e3" }] } }), input, "test", "now")!;
+  assert.deepEqual(reading.split.sides.map(side => side.claim), ["x > 0", "x < 0"]);
+});
+
+test("claim normalization preserves trailing factorial notation", () => {
+  const input = buildInlineReadingInput(item())!;
+  const reading = parseInlineReadingResponse(JSON.stringify({ gist: "觀眾有不同判斷。", split: { agree: "", sides: [{ claim: "回傳 n!", ref: "e1" }, { claim: "回傳 n", ref: "e3" }] } }), input, "test", "now")!;
+  assert.deepEqual(reading.split.sides.map(side => side.claim), ["回傳 n!", "回傳 n"]);
+});
+
+test("v7 instructions separate overall reaction, discussion contents, explicit actions and exclusive positions", () => {
+  const prompt = buildInlineReadingPrompt(buildInlineReadingInput(item())!);
+  for (const instruction of ["不要逐一枚舉話題", "同群異義", "明確提出或實際執行", "純粹提及節目或工具", "同一問題的互斥立場", "親切與尷尬可以同時成立", "只寫雙方共同前提", "高讚不代表採納或可行"])
+    assert.ok(prompt.includes(instruction), instruction);
+  assert.doesNotMatch(prompt, /大致同意甚麼或主要態度/);
 });
 
 test("input normalizes parent_source_comment_id and resolves a source alias", () => {

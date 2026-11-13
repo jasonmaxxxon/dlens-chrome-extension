@@ -12,7 +12,7 @@ import type { CommentQualityAssessment } from "./comment-quality.ts";
  * the model only names clusters, words methods and disagreements, and points at real replies.
  */
 // v3: author context, reply links, character-budget selection and deterministic technical terms.
-export const INLINE_READING_PROMPT_VERSION = "v6";
+export const INLINE_READING_PROMPT_VERSION = "v7";
 
 export interface CrawlComment {
   id: string;
@@ -199,13 +199,15 @@ export function buildInlineReadingPrompt(input: InlineReadingInput): string {
     "",
     "要求：",
     "- [作者] 回覆用來解釋帖子、辨認哪些問題有人回覆，不是觀眾意見；不得主導 gist、find.split、split.agree 或 split.sides 的觀眾立場摘要。分群樣本已排除作者；沒有完整成員的群組只供原句參考，不能推算比例或共識。相鄰推定不是確定回覆關係；有人回覆也不代表問題已解決。",
-    `- gist：一句（${input.postKind === "technical" ? 60 : 40} 字內）說出觀眾整體反應，要具體，不要空話；如果大量留言是廣告或洗版，要直接講出來。`,
+    `- gist：一句（${input.postKind === "technical" ? 60 : 40} 字內）歸納有留言支持的觀眾整體反應與關注；不要逐一枚舉話題，也不要重述 split 的雙方立場。不要用一則留言代表整體；若樣本不足以概括，明說反應分散或僅見個別看法。如果大量留言是廣告或洗版，要直接講出來。`,
     "- gist_refs：2 至 6 個最能支持 gist 的非作者留言 ref；gist 提到的每個重點都要有留言支持。找不到就給空陣列，不要湊數。",
-    "- find.method：14 字內，最常被提的做法；沒有就寫「未見可照做的方法」。",
+    "- find.method：直接選用一個有效 methods.name（14 字內），不能另造做法填欄；methods 為空時必須寫「未見可照做的方法」。",
     "- find.split：14 字內，主要分歧；沒有明顯分歧就寫「暫未見明顯分歧」。find.ask：16 字內，最值得注意的提問，優先選未獲回覆的問題；如選已有人回答的問題，明說已回答（相鄰推定只能說可能有人回覆）；沒有就寫「未見提問」。",
-    "- cluster_names：根據每群的樣本留言（不是關鍵詞）起一個 6 字內的名稱，描述那些留言實際在講甚麼；樣本留言意思不一致時，名稱要反映出來（例如「玩笑與閒聊」），不要硬套帖子主題。noise：該群主要是廣告、洗版、機械人或與帖子無關時為 true。",
-    "- methods：0 至 3 個留言裡真的提到、可以照做的做法；name 16 字內，fit 寫適用情境（20 字內），ref 指向提出它的留言，refs 列出 1 至 4 個提到這個做法的留言（包括 ref）。作者回覆中的做法也可採用，ref 可指向作者。不要把抱怨或意見當做法。",
-    "- split.agree：一句說大家大致同意甚麼或主要態度。split.sides：每邊必須有非作者留言支持；只有觀眾留言真的分成兩邊時才給兩項（claim 10 字內、why 24 字內、ref、refs），否則給空陣列；refs 列出 1 至 4 個支持這一邊的非作者留言（包括 ref）。",
+    "- cluster_names：根據每群真實樣本（不是關鍵詞）起一個 6 字內名稱，概括不同的討論內容。不可把一則留言或同群異義寫成一致批評；樣本意思不一致時，以中性名稱反映（例如「親切與尷尬」），不能替整群選邊或硬套帖子主題。noise：該群主要是廣告、洗版、機械人或與帖子無關時為 true。",
+    "- methods：0 至 3 個留言明確提出或實際執行、讀者可以照做的行動。純粹提及節目或工具、感受、偏好、抱怨或評價不算行動，不可擴寫成建議；沒有符合的行動就給 []。name 14 字內，fit 只寫來源支持的適用情境（20 字內），不清楚就留空；ref 指向提出或執行該行動的留言，refs 列出 1 至 4 個支持同一行動的留言（包括 ref）。作者回覆中的明確行動也可採用。",
+    "- split.sides：只有同一問題的互斥立場才給兩項；親切與尷尬可以同時成立，不同話題、不同感受或不同關注不等於分歧。每邊須有不同的有效非作者代表留言，claim 10 字內、why 24 字內、ref、refs；refs 列出 1 至 4 個支持該立場的非作者留言（包括 ref）。不能用同一則代表留言製造兩邊；不足就給 []。",
+    "- split.agree：只寫雙方共同前提，須有雙方留言支持；沒有就空字串。不得兼任主要態度或再重述 gist；沒有分歧也不能憑空寫成共識。",
+    "- 不得由同群、個別留言或高讚推斷共識、多數、因果或普遍效果；高讚不代表採納或可行。僅描述來源實際支持的內容。",
     "- 不要寫任何人數、則數或百分比。每個 ref 和 refs 內的值都必須來自上面的留言清單。",
     "",
     "JSON schema:",
@@ -215,19 +217,24 @@ export function buildInlineReadingPrompt(input: InlineReadingInput): string {
 
 const clip = clipReadingCopy;
 const list = (value: unknown) => (Array.isArray(value) ? value.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object") : []);
+// Formatting equality only; this does not decide whether two different claims are semantically opposed.
+const normalizedClaim = (value: string) => value.replace(/\s+/gu, "").replace(/[。！？]+$/u, "").normalize("NFKC").toLowerCase();
 
 /** Reapply the audience boundary to cached results; prompt version never authorizes an author side. */
 export function guardInlineAudienceReading(reading: InlineReading, catalog: Pick<ThreadReply, "id" | "role">[]): InlineReading {
   const roles = new Map(catalog.map(c => [c.id, c.role]));
   const audienceIds = (ids: string[]) => ids.filter(id => roles.get(id) === "reply");
   const sides = reading.split.sides.filter(side => roles.get(side.quote.commentId) === "reply").map(side => side.refs ? { ...side, refs: audienceIds(side.refs) } : side);
-  const insufficient = sides.length !== reading.split.sides.length && sides.length < 2;
+  const validPair = sides.length === 2 && sides.every(side => normalizedClaim(side.claim)) &&
+    normalizedClaim(sides[0].claim) !== normalizedClaim(sides[1].claim) && sides[0].quote.commentId !== sides[1].quote.commentId;
+  const insufficient = (sides.length !== reading.split.sides.length && sides.length < 2) || (sides.length === 2 && !validPair);
+  const methods = reading.methods.filter(method => roles.get(method.quote.commentId) === "op" || roles.get(method.quote.commentId) === "reply").map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" }, ...(method.refs ? { refs: method.refs.filter(id => roles.has(id)) } : {}) }));
   return { ...reading,
-    methods: reading.methods.filter(method => roles.get(method.quote.commentId) === "op" || roles.get(method.quote.commentId) === "reply").map(method => ({ ...method, quote: { ...method.quote, isAuthor: roles.get(method.quote.commentId) === "op" }, ...(method.refs ? { refs: method.refs.filter(id => roles.has(id)) } : {}) })),
+    methods,
     ...(reading.gistRefs ? { gistRefs: audienceIds(reading.gistRefs) } : {}),
     gist: insufficient && /一致|共識|全都|所有觀眾/.test(reading.gist) ? "未見足夠觀眾分歧" : reading.gist,
-    find: insufficient ? { ...reading.find, split: "未見足夠觀眾分歧" } : reading.find,
-    split: { agree: insufficient ? "未見足夠觀眾分歧" : reading.split.agree, sides: sides.length === 2 ? sides : [] }
+    find: { ...reading.find, method: methods.find(method => method.name === reading.find.method)?.name ?? methods[0]?.name ?? "未見可照做的方法", ...(insufficient ? { split: "未見足夠觀眾分歧" } : {}) },
+    split: { agree: insufficient ? "" : reading.split.agree, sides: validPair ? sides : [] }
   };
 }
 
@@ -294,6 +301,6 @@ export function parseInlineReadingResponse(raw: string, input: InlineReadingInpu
     clusterNames,
     noiseClusters,
     methods,
-    split: { agree: insufficientSplit ? "未見足夠觀眾分歧" : clip(splitRaw.agree, 60), sides }
+    split: { agree: insufficientSplit ? "" : clip(splitRaw.agree, 60), sides }
   }, input.catalog);
 }

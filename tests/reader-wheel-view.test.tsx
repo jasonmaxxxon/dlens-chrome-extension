@@ -51,8 +51,8 @@ test("observations switch evidence; sector keyboard selection, filtering and cle
     assert.match(doc.querySelector("[data-wheel-headline]")!.textContent!, /AI 摘要.*|未連留言出處.*AI 摘要/s);
     assert.equal(doc.querySelector('[data-wheel-observation="topic"]')!.getAttribute("aria-pressed"), "true");
     assert.equal(doc.querySelectorAll("[data-wheel-sector] circle").length, 0);
-    // The topic stats give counts the wheel cannot show; the verdict appears only for a clear gap.
-    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /7 則留言 · 共 \d+ 讚 · 讚數佔比低於留言佔比/);
+    // Incomplete global membership cannot establish a denominator; local verified totals still render.
+    assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /7 則留言 · 共 \d+ 讚/);
     assert.doesNotMatch(doc.textContent!, /佔比相若/);
     await click('[data-wheel-observation="split"]');
     assert.ok(doc.querySelectorAll("[data-wheel-sector] circle").length > 0);
@@ -166,4 +166,27 @@ test("a complete topic distinguishes unknown likes from a known zero total", () 
     if (likes === 0) assert.match(evidence, /7 則留言 · 共 0 讚/);
     else assert.doesNotMatch(evidence, /共 \d+ 讚/);
   }
+});
+
+test("dominant topics show one percentage and verified denominators without a coverage ring", () => {
+  const source = fixture();
+  const latest = source.latestCapture!;
+  latest.result!.comments = latest.result!.comments!.filter(row => row.comment_id !== "c13");
+  for (const row of latest.result!.comments!) {
+    const n = Number(String(row.comment_id).slice(1));
+    row.like_count = n === 0 ? 8 : n >= 1 && n <= 4 || n === 11 ? 1 : 0;
+  }
+  latest.analysis!.source_comment_count = 13;
+  latest.analysis!.clusters = [11, 1, 1].map((count, k) => ({
+    cluster_key: k, size_share: count / 13, like_share: [12 / 13, 1 / 13, 0][k],
+    comment_count: count, member_comment_ids: k === 0 ? Array.from({ length: 11 }, (_, i) => `c${i}`) : [`c${k + 10}`], keywords: [],
+  }));
+  const ai = { gist: "示例摘要", clusterNames: { "0": "代理商服務", "1": "費用", "2": "修圖" }, methods: [], split: { agree: "", sides: [] } };
+  const wheel = buildReaderWheel(source, ai as never, buildAnalysisBlocks(source))!;
+  const doc = new JSDOM(renderToStaticMarkup(<ReaderWheel model={wheel} />)).window.document;
+  assert.equal((doc.body.textContent!.match(/85%/g) ?? []).length, 1);
+  assert.equal(doc.querySelectorAll("svg circle[stroke-dasharray]").length, 0);
+  assert.match(doc.querySelector("[data-wheel-hub]")!.textContent!, /85%.*留言佔比/);
+  assert.notEqual(doc.querySelector("[data-wheel-hub]")!.getAttribute("aria-hidden"), "true");
+  assert.match(doc.querySelector("[data-wheel-evidence]")!.textContent!, /11／13 則已讀留言 · 12／13 讚/);
 });

@@ -26,6 +26,8 @@ export type WheelObservation =
       items: { id: string | null; question: QaPerson; status: QaStatus; answers: string[] }[] };
 export interface ReaderWheelModel {
   sectors: WheelSector[]; comments: Record<string, WheelComment>; audience: string[];
+  /** Only comparable complete clusters establish denominators for this captured audience. */
+  totals: { comments: number; likes: number | null } | null;
   /** The AI gist sums up the other observations, so it heads them instead of sitting beside them with its own evidence. */
   headline: { text: string; grounded: boolean } | null;
   observations: WheelObservation[];
@@ -68,7 +70,12 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
   }
   const opinions = rawBlocks.filter(b => b.type === "opinion_overview").flatMap(b => list(b.items).map(object));
   const clusters = [...analysis.clusters].sort((a, b) => nonnegative(b.size_share) - nonnegative(a.size_share));
-  const membership = new Map(readClusterReadings(item).map(cluster => [cluster.clusterKey, cluster.membership === "complete"]));
+  const clusterReadings = readClusterReadings(item);
+  const membership = new Map(clusterReadings.map(cluster => [cluster.clusterKey, cluster.membership === "complete"]));
+  const totals = clusterReadings.length > 0 && clusterReadings.every(cluster => cluster.pct !== undefined)
+    ? { comments: eligibility.audience.length, likes: eligibility.audience.reduce<number | null>((sum, comment) =>
+      sum !== null && typeof comment.likes === "number" && Number.isFinite(comment.likes) && comment.likes >= 0 ? sum + comment.likes : null, 0) }
+    : null;
   const totalShare = clusters.reduce((n, c) => n + nonnegative(c.size_share), 0);
   // First sector wins if malformed membership repeats an identity across clusters.
   for (const cluster of clusters) for (const id of resolveIds(cluster.member_comment_ids ?? [])) {
@@ -131,7 +138,7 @@ export function buildReaderWheel(item: SessionItem | null | undefined, reading: 
   const has = (key: WheelObservation["key"]) => observations.some(o => o.key === key);
   const preferred = blocks.postType === "help" ? "qa" : blocks.postType === "resource" ? has("link") ? "link" : "how" : "topic";
   const replies = item.descriptor.engagement?.comments;
-  return { sectors, comments, audience, headline, observations, initial: has(preferred) ? preferred : observations[0]?.key ?? null,
+  return { sectors, comments, audience, totals, headline, observations, initial: has(preferred) ? preferred : observations[0]?.key ?? null,
     entityRefs, raw: { links: !linkObservation && entities.length ? entities : null,
       op: [...eligibility.authorReplies].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0)).map(c => c.id),
       noise: audience.filter(id => comments[id].noiseFlag !== null) },
@@ -203,7 +210,7 @@ export function wheelGeometry(sectors: readonly WheelSector[], { cx, cy, r0, rmi
 }
 
 export type WheelRawKey = "all" | "link" | "op" | "noise";
-/** UI selection projection: data filtering, ordering, counts and verdicts stay outside React. */
+/** UI selection projection: data filtering, ordering and counts stay outside React. */
 export function wheelSelection(model: ReaderWheelModel, key: WheelObservation["key"] | null, selected: string | null) {
   const observation = model.observations.find(o => o.key === key) ?? null;
   const sector = model.sectors.find(s => s.key === selected) ?? model.sectors[0] ?? null;
@@ -229,8 +236,6 @@ export function wheelSelection(model: ReaderWheelModel, key: WheelObservation["k
     questionCount: questions.length,
     dots: key ? dotsBySector(model, key) : {},
     topicLikes: sector?.likeTotal ?? null,
-    /** Only a clear gap between like share and comment share is worth a sentence. */
-    verdict: !sector ? null : sector.likeShare > sector.share * 1.25 ? "more" as const : sector.likeShare < sector.share * .6 ? "less" as const : null,
     raw: { all: model.audience, op: model.raw.op, noise: model.raw.noise },
     rawChips: ([{ key: "all", n: model.audience.length }, { key: "link", n: model.raw.links?.length ?? 0 }, { key: "op", n: model.raw.op.length }, { key: "noise", n: model.raw.noise.length }] as { key: WheelRawKey; n: number }[]).filter(r => r.key === "all" || r.n > 0),
     rawLinkRefs: unique((model.raw.links ?? []).flatMap(e => model.entityRefs[e.key] ?? [])),

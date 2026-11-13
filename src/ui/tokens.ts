@@ -21,9 +21,9 @@ export const tokens = {
     },
     /* Wheel geometry shares the existing panel palette, typography and spacing. */
     wheel: {
-      width: 368, height: 296, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
-      coverageRadius: 142, coverageStroke: 2.5, sectorStroke: 5, dotRadius: 5.5, dotStroke: 1.5,
-      shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49, hubValueY: 146, hubLabelY: 164, hubMetaY: 181,
+      width: 368, height: 296, plotMaxWidth: 288, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
+      sectorStroke: 5, dotRadius: 5.5, dotStroke: 1.5,
+      shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49,
       observationColumns: "46px minmax(0, 1fr)", sideColumns: "minmax(0, 1fr) minmax(0, 1fr)",
       barHeight: 6, barMin: 3, firstTopic: 4, firstSide: 2, firstRaw: 10, clampLines: 4, menuWidth: 200,
       hairline: 1, leadBar: 3, observationLines: 2

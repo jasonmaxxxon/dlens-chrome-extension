@@ -40,6 +40,48 @@ const reading = (): InlineReading => ({ itemId: "wheel", captureId: "capture-1",
   split: { agree: "Invented agreement", sides: [{ claim: "Side one", why: "Reason one", quote: quote("a") },
     { claim: "Side two", why: "Reason two", quote: quote("source_b") }, { claim: "Missing", why: "", quote: quote("absent") }] } });
 const model = (source = fixture(), ai: InlineReading | null = null) => buildReaderWheel(source, ai, buildAnalysisBlocks(source))!;
+function completeFixture() {
+  const source = fixture({ entities: [], questions: false });
+  source.latestCapture!.result!.comments = Array.from({ length: 13 }, (_, index) => comment(`member_${index}`, index === 0 ? 2 : index === 12 ? 0 : 1));
+  source.latestCapture!.analysis!.source_comment_count = 13;
+  source.latestCapture!.analysis!.clusters = [
+    { cluster_key: 1, size_share: 11 / 13, like_share: 12 / 13, keywords: [], member_comment_ids: Array.from({ length: 11 }, (_, index) => `member_${index}`), comment_count: 11 },
+    { cluster_key: 2, size_share: 2 / 13, like_share: 1 / 13, keywords: [], member_comment_ids: ["member_11", "member_12"], comment_count: 2 }
+  ];
+  source.latestCapture!.analysis!.blocks = [];
+  return source;
+}
+
+test("complete comparable clusters expose the audience and captured like totals", async () => {
+  const { wheelSelection } = await import("../src/viewmodel/reader-wheel.ts");
+  const wheel = model(completeFixture());
+  assert.deepEqual(wheel.totals, { comments: 13, likes: 13 });
+  assert.equal(wheel.sectors[0].count, 11);
+  assert.equal(wheelSelection(wheel, "topic", "1").topicLikes, 12);
+});
+test("incomplete or incompatible clusters do not expose audience totals", () => {
+  const partial = completeFixture();
+  partial.latestCapture!.analysis!.clusters[0].member_comment_ids!.pop();
+  const missing = completeFixture();
+  delete missing.latestCapture!.analysis!.clusters[0].member_comment_ids;
+  const incompatible = completeFixture();
+  incompatible.latestCapture!.analysis!.source_comment_count = 14;
+  const absent = completeFixture();
+  absent.latestCapture!.analysis!.clusters = [];
+  for (const source of [partial, missing, incompatible, absent, fixture()]) assert.equal(model(source).totals, null);
+});
+test("known zero likes remain zero in the audience total", () => {
+  const source = completeFixture();
+  for (const row of source.latestCapture!.result!.comments) row.like_count = 0;
+  assert.deepEqual(model(source).totals, { comments: 13, likes: 0 });
+});
+test("any unknown or invalid captured like count makes the audience like total unknown", () => {
+  for (const likes of [null, undefined, -1, Number.POSITIVE_INFINITY, Number.NaN]) {
+    const source = completeFixture();
+    source.latestCapture!.result!.comments[0].like_count = likes;
+    assert.deepEqual(model(source).totals, { comments: 13, likes: null });
+  }
+});
 
 test("requires succeeded analysis and captured comments", () => {
   const source = fixture();
@@ -215,7 +257,7 @@ test("collection reader wires the wheel next to unchanged blocks without a store
   assert.deepEqual(reader.wheel, model(source));
 });
 
-test("wheel selection projects filters, repeated refs, verdicts, raw counts and parent context", async () => {
+test("wheel selection projects filters, repeated refs, raw counts and parent context", async () => {
   const { wheelSelection, wheelOffset } = await import("../src/viewmodel/reader-wheel.ts");
   const wheel = model(fixture(), reading());
   const selected = wheelSelection(wheel, "split", "2");
@@ -223,8 +265,7 @@ test("wheel selection projects filters, repeated refs, verdicts, raw counts and 
   assert.deepEqual(selected.groups.map(g => g.refs), [[], ["b"]]);
   assert.equal(selected.spread, false);
   assert.equal(selected.parents.o, "Invented material a");
-  assert.equal(selected.verdict, "more");
-  assert.equal(wheelSelection(wheel, "topic", "1").verdict, "less");
+  assert.equal(Object.hasOwn(selected, "verdict"), false);
   assert.equal(wheelSelection(wheel, "topic", "2").topicLikes, null, "inconsistent membership cannot establish a total");
   assert.equal(wheelSelection(wheel, "topic", "2").loud?.key, "2");
   assert.deepEqual(selected.rawChips.map(c => c.key), ["all", "link", "op", "noise"]);
