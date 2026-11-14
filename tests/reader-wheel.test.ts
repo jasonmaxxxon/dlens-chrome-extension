@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAnalysisBlocks } from "../src/viewmodel/analysis-blocks.ts";
-import { buildReaderWheel, observationRefs, dotsBySector, dotSides, wheelGeometry, type WheelSector } from "../src/viewmodel/reader-wheel.ts";
+import { buildReaderWheel, readerOverview, readerRaw, readerTabs, wheelEntityDescription, wheelGeometry, wheelOffset, withoutAi, type WheelSector } from "../src/viewmodel/reader-wheel.ts";
+import { tokens } from "../src/ui/tokens.ts";
 import type { InlineReading } from "../src/compare/inline-reading.ts";
 import { buildCollectionPosts } from "../src/viewmodel/collection-browser.ts";
 import { buildCollectionReaderModel } from "../src/viewmodel/collection-reader.ts";
@@ -52,12 +53,13 @@ function completeFixture() {
   return source;
 }
 
-test("complete comparable clusters expose the audience and captured like totals", async () => {
-  const { wheelSelection } = await import("../src/viewmodel/reader-wheel.ts");
+test("complete comparable clusters expose the audience and captured like totals", () => {
   const wheel = model(completeFixture());
   assert.deepEqual(wheel.totals, { comments: 13, likes: 13 });
   assert.equal(wheel.sectors[0].count, 11);
-  assert.equal(wheelSelection(wheel, "topic", "1").topicLikes, 12);
+  assert.equal(wheel.sectors.find(s => s.key === "1")!.likeTotal, 12);
+  // Verified numerator and denominator are what allow a like percentage to be printed.
+  assert.equal(readerOverview(wheel, "1")!.likes, 12 / 13);
 });
 test("incomplete or incompatible clusters do not expose audience totals", () => {
   const partial = completeFixture();
@@ -154,7 +156,8 @@ test("links switch between observation and raw by substance, including an unenri
   for (const entities of [[entity(2)], [entity(), { ...entity(), key: "other" }], [entity(1, "github_repo")]]) {
     const wheel = model(fixture({ entities }));
     assert.equal(wheel.raw.links, null);
-    assert.deepEqual(observationRefs(wheel, "link"), ["b"]);
+    const link = wheel.observations.find(o => o.key === "link"); assert.ok(link?.key === "link");
+    assert.deepEqual(link.refs, ["b"]);
   }
   assert.equal(model(fixture({ entities: [] })).raw.links, null);
 });
@@ -182,25 +185,62 @@ test("initial respects help, resource link then how, other types topic and first
   assert.deepEqual(empty.observations, []);
   assert.equal(empty.initial, null);
 });
-test("refs are unique in evidence display order, dots count captured evidence by sector", () => {
-  const wheel = model(fixture({ entities: [entity(2)] }), reading());
-  assert.deepEqual(observationRefs(wheel, "topic"), ["a", "n", "b", "c"]);
-  assert.deepEqual(observationRefs(wheel, "split"), ["a", "b"]);
-  assert.deepEqual(observationRefs(wheel, "how"), ["b"]);
-  assert.deepEqual(observationRefs(wheel, "qa"), ["a", "o", "b", "c"]);
-  assert.deepEqual(dotsBySector(wheel, "qa"), { "1": 1, "2": 3 });
-  assert.deepEqual(observationRefs(model(), "split"), []);
-  assert.deepEqual(dotsBySector(model(), "split"), {});
+test("an entry exists only for content that exists; the post type's own entry leads and the comments close", () => {
+  const rich = model(fixture({ entities: [entity(2)] }), reading());
+  assert.deepEqual(readerTabs(rich).map(t => [t.key, t.ai, t.count]), [["overview", false, null], ["split", true, null], ["how", true, 1], ["qa", false, 3], ["link", false, 1], ["raw", false, 4]]);
+  assert.deepEqual(readerTabs(model(fixture({ type: "help" }), reading())).map(t => t.key), ["qa", "overview", "split", "how", "raw"]);
+  assert.deepEqual(readerTabs(model(fixture({ type: "resource", entities: [entity(2)] }))).map(t => t.key), ["link", "overview", "qa", "raw"]);
+  assert.deepEqual(readerTabs(model(fixture({ clusters: false, questions: false }))).map(t => t.key), ["raw"]);
 });
-test("split dots carry the side they back, first side first within a sector", () => {
-  const ai = reading();
-  ai.split.sides[0].refs = ["a", "source_n", "b"];
-  ai.split.sides[1].refs = ["source_b", "c"];
-  const wheel = model(fixture(), ai);
-  // b backs both sides and counts once, for the first.
-  assert.deepEqual(dotSides(wheel, "split"), { "1": [0, 0], "2": [0, 1] });
-  assert.deepEqual(dotsBySector(wheel, "split"), { "1": 2, "2": 2 });
-  assert.deepEqual(dotSides(wheel, "qa"), { "1": [0], "2": [0, 0, 0] });
+test("counts-only removes every AI-written part and keeps the counted ones", () => {
+  const full = model(fixture({ entities: [entity(2)] }), reading()), before = JSON.stringify(full);
+  assert.equal(full.ai, true);
+  assert.equal(model().ai, false);
+  const plain = withoutAi(full);
+  assert.equal(plain.ai, false);
+  assert.equal(plain.headline, null);
+  assert.deepEqual(plain.observations.map(o => o.key), ["topic", "link", "qa"]);
+  assert.deepEqual(plain.observations.find(o => o.key === "topic"), { key: "topic", ai: false, loud: "2" });
+  assert.ok(plain.sectors.every(s => s.aiName === null));
+  assert.deepEqual(readerTabs(plain).map(t => t.key), ["overview", "qa", "link", "raw"]);
+  // A resource post read for its methods falls back to the topics once the methods are gone.
+  assert.equal(model(fixture({ type: "resource" }), reading()).initial, "how");
+  assert.equal(withoutAi(model(fixture({ type: "resource" }), reading())).initial, "topic");
+  assert.equal(JSON.stringify(full), before);
+});
+test("overview names the counted finding, its topic and the topic in focus", () => {
+  const wheel = model(fixture(), reading()), apart = readerOverview(wheel, null)!;
+  assert.deepEqual([apart.state, apart.subject.key, apart.sector.key, apart.members], ["apart", "2", "2", ["b", "c"]]);
+  assert.deepEqual([apart.liked, apart.discussed], [true, false]);
+  assert.equal(apart.subjectLikes, null, "membership here is not verified, so no like percentage is offered");
+  const other = readerOverview(wheel, "1")!;
+  assert.deepEqual([other.sector.key, other.subject.key, other.members, other.liked, other.discussed], ["1", "2", ["a", "n"], false, true]);
+  assert.equal(readerOverview(wheel, "absent")!.sector.key, "2");
+  const source = fixture();
+  source.latestCapture!.analysis!.clusters[0].like_share = .1;
+  const same = readerOverview(model(source), null)!;
+  assert.deepEqual([same.state, same.subject.key, same.liked, same.discussed], ["same", "1", true, true]);
+  source.latestCapture!.analysis!.clusters.splice(0, 1);
+  const single = readerOverview(model(source), null)!;
+  assert.deepEqual([single.state, single.liked, single.discussed], ["single", false, false]);
+  assert.equal(readerOverview(model(fixture({ clusters: false })), null), null);
+});
+test("comments narrow by topic, author replies, markers and links; an unknown filter shows all", () => {
+  const wheel = model(fixture(), reading()), all = readerRaw(wheel, "all");
+  assert.deepEqual(all.chips.map(c => [c.key, c.n]), [["all", 4], ["topic:1", 2], ["topic:2", 2], ["op", 2], ["noise", 1], ["link", 1]]);
+  assert.deepEqual(all.ids, ["b", "a", "c", "n"]);
+  assert.deepEqual([all.likeRatios.b, all.likeRatios.a], [1, 10 / 60]);
+  assert.deepEqual(readerRaw(wheel, "topic:1").ids, ["a", "n"]);
+  assert.equal(readerRaw(wheel, "topic:1").likeRatios.a, 1, "bars are scaled to the list in view");
+  assert.deepEqual(readerRaw(wheel, "op").ids, ["o", "o2"]);
+  assert.equal(readerRaw(wheel, "op").parents.o, "Invented material a");
+  assert.deepEqual(readerRaw(wheel, "noise").ids, ["n"]);
+  assert.deepEqual(readerRaw(wheel, "link").ids, ["b"]);
+  assert.equal(readerRaw(wheel, "topic:absent").filter, "all");
+  // One topic needs no topic filter; a link that has its own entry is not offered again here.
+  const source = fixture({ entities: [entity(2)] });
+  source.latestCapture!.analysis!.clusters.splice(0, 1);
+  assert.deepEqual(readerRaw(model(source), "all").chips.map(c => c.key), ["all", "op", "noise"]);
 });
 test("missing coverage, zero likes/shares and no sectors remain finite", () => {
   const source = fixture(); source.descriptor.engagement.comments = null;
@@ -213,7 +253,7 @@ test("missing coverage, zero likes/shares and no sectors remain finite", () => {
   const noSectors = model(fixture({ clusters: false }));
   assert.equal(noSectors.observations.some(o => o.key === "topic"), false);
 });
-test("geometry ports clockwise arcs, padding, sqrt radius, labels and up to seven interior dots", () => {
+test("geometry ports clockwise arcs, padding, sqrt radius and labels", () => {
   const sectors = [.7, .25, .05].map((share, i) => ({ key: String(i), share, likeShare: [1, .25, 0][i] } as WheelSector));
   const geometry = wheelGeometry(sectors, { cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2 });
   assert.ok(Math.abs(geometry.reduce((sum, s) => sum + s.endAngle - s.startAngle, 0) - 348) < 1e-9);
@@ -221,24 +261,30 @@ test("geometry ports clockwise arcs, padding, sqrt radius, labels and up to seve
   assert.match(geometry[0].d, /A130 130 0 1 1/);
   assert.match(geometry[1].d, /A105 105 0 0 1/);
   assert.ok(geometry[0].label); assert.equal(geometry[2].label, null);
-  for (const s of geometry) for (const n of [0, 1, 4, 7, 12]) {
-    const points = s.dots(n); assert.equal(points.length, Math.min(n, 7));
-    for (const p of points) {
-      const dx = p.x - 184, dy = p.y - 148, angle = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
-      assert.ok(angle > s.startAngle && angle < s.endAngle);
-      assert.ok(Math.hypot(dx, dy) > 55 && Math.hypot(dx, dy) < s.outerRadius);
-    }
-  }
   assert.deepEqual(wheelGeometry([], { cx: 0, cy: 0, r0: 1, rmin: 2, rmax: 3, pad: 2 }), []);
   const tiny = wheelGeometry([{ ...sectors[0], share: .001 }], { cx: 0, cy: 0, r0: 1, rmin: 2, rmax: 3, pad: 2 })[0];
   assert.ok(Math.abs(tiny.startAngle - .09) < 1e-9);
 });
 
-test("entity mention ids supplement evidence and unsectorised refs do not create dots", () => {
+test("no sector can leave the drawing: at its largest, pulled out, with its stroke", () => {
+  const w = tokens.panel.wheel, reach = w.rmax + w.shift + w.sectorStroke / 2;
+  assert.ok(reach <= Math.min(w.cx, w.cy, w.width - w.cx, w.height - w.cy), `a selected sector reaches ${reach} from the centre`);
+  assert.ok(w.plotMaxWidth <= w.width, "the drawing is never scaled up");
+  for (const likes of [[1], [0, 0], [5, .2, Number.NaN], [-1, 1], [.9, .05, .03, .01, .005, .005, 0, 0]]) {
+    const sectors = likes.map((likeShare, i) => ({ key: String(i), share: 1 / likes.length, likeShare } as WheelSector));
+    for (const g of wheelGeometry(sectors, w)) {
+      assert.ok(g.outerRadius >= w.rmin && g.outerRadius <= w.rmax, `radius ${g.outerRadius}`);
+      const offset = wheelOffset(g.midAngle, w.shift), points = [...g.d.matchAll(/(-?[\d.]+) (-?[\d.]+)(?=[LAZ])/g)];
+      assert.equal(points.length, 5);
+      for (const [, x, y] of points) assert.ok(Number(x) + offset.x >= 0 && Number(x) + offset.x <= w.width && Number(y) + offset.y >= 0 && Number(y) + offset.y <= w.height, g.d);
+    }
+  }
+});
+test("entity mention ids supplement the link's captured sources", () => {
   const source = fixture({ entities: [{ ...entity(2), comment_ids: ["source_c", "source_continuation", "absent"] }] });
   const wheel = model(source);
-  assert.deepEqual(observationRefs(wheel, "link"), ["b", "c", "continuation"]);
-  assert.deepEqual(dotsBySector(wheel, "link"), { "2": 2 });
+  const link = wheel.observations.find(o => o.key === "link"); assert.ok(link?.key === "link");
+  assert.deepEqual(link.refs, ["b", "c", "continuation"]);
 });
 test("projections do not mutate inputs and comment hrefs use captured locators", () => {
   const source = fixture();
@@ -257,28 +303,10 @@ test("collection reader wires the wheel next to unchanged blocks without a store
   assert.deepEqual(reader.wheel, model(source));
 });
 
-test("wheel selection projects filters, repeated refs, raw counts and parent context", async () => {
-  const { wheelSelection, wheelOffset } = await import("../src/viewmodel/reader-wheel.ts");
-  const wheel = model(fixture(), reading());
-  const selected = wheelSelection(wheel, "split", "2");
-  assert.deepEqual(selected.refs, ["b"]);
-  assert.deepEqual(selected.groups.map(g => g.refs), [[], ["b"]]);
-  assert.equal(selected.spread, false);
-  assert.equal(selected.parents.o, "Invented material a");
-  assert.equal(Object.hasOwn(selected, "verdict"), false);
-  assert.equal(wheelSelection(wheel, "topic", "2").topicLikes, null, "inconsistent membership cannot establish a total");
-  assert.equal(wheelSelection(wheel, "topic", "2").loud?.key, "2");
-  assert.deepEqual(selected.rawChips.map(c => c.key), ["all", "link", "op", "noise"]);
-  assert.deepEqual(wheelSelection(wheel, "topic", "1").topic, ["a", "n"]);
-  assert.equal(wheelSelection(wheel, "qa", "1").questions.length, 1);
-  assert.deepEqual(wheelOffset(90, 9), { x: 9, y: 0 });
-});
-
-test("entity descriptions yield to captured source rows and raw link sources resolve aliases", async () => {
-  const { wheelEntityDescription, wheelSelection } = await import("../src/viewmodel/reader-wheel.ts");
+test("entity descriptions yield to captured source rows", () => {
   const wheel = model();
   const row = wheel.raw.links![0];
   assert.equal(wheelEntityDescription(wheel, { ...row, summary: wheel.comments.b.text }), null);
   assert.equal(wheelEntityDescription(wheel, { ...row, summary: "A separate tool description" }), "A separate tool description");
-  assert.deepEqual(wheelSelection(wheel, null, null).rawLinkRefs, ["b"]);
+  assert.deepEqual(wheelOffset(90, 9), { x: 9, y: 0 });
 });

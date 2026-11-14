@@ -117,6 +117,8 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
   const [fullText,setFullText]=useState(false);
   const [groupLimits,setGroupLimits]=useState<Record<string,number>>({});
   const reading = buildCollectionReaderModel(post, sessions, topics, signals, readings, nowMs, lens as InlineCardEntryKey | null, groupLimits);
+  // The tabbed reading opens under a short source: two lines of the post, with the rest and its images behind 全文.
+  const compactSource = !!reading?.wheel && (reading.blocks?.mode ?? "legacy") !== "legacy";
   const productSignal=source?.session.mode === "product" ? productSignals.find(s=>s.sessionId===source.session.id && s.itemId===source.item.id) : null;
   const product=source?.session.mode === "product" && settings ? buildProductReaderModel(source.item,source.session.id,productSignal?.id ?? null,productAnalyses[productSignal?.id ?? ""],settings,productHasContext,lens,((productLoaded === false && !productErrors?.[source.session.id]) || productPending?.[source.session.id]),productErrors?.[source.session.id]) : null;
   const workspaces = [...new Map(post.memberships.map((membership) => [membership.sessionId, membership])).values()];
@@ -149,9 +151,9 @@ export function CollectionReader({ productAnalyses = {}, productSignals = [], pr
           <span style={{ ...p.type.meta, color: p.ink3, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.author ? `@${post.author.replace(/^@/, "")}` : "作者未記錄"}{post.descriptor.time_token_hint ? ` · ${collectionPanelRelativeTime(post.descriptor.time_token_hint)}` : ""}</span>
           <span style={{ ...p.type.micro, color: p.ink3, display: "inline-flex", alignItems: "center", gap: p.space.xs, flex: "none" }}><i aria-hidden="true" style={{ width: p.size.modeDot, height: p.size.modeDot, borderRadius: p.radius.pill, background: getModeTheme(mode).accent }} />{readerModeLabels[mode]}</span>
         </header>
-        <div data-collection-reader-body="" style={{ ...p.type.body, display: "-webkit-box", WebkitLineClamp: fullText ? undefined : p.reader.sourceLines, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: p.ink }}>{post.body || "未有原文"}</div>
+        <div data-collection-reader-body="" style={{ ...p.type.body, display: "-webkit-box", WebkitLineClamp: fullText ? undefined : compactSource ? p.reader.sourceLinesCompact : p.reader.sourceLines, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: p.ink }}>{post.body || "未有原文"}</div>
         <button type="button" data-reader-full-text="" onClick={() => setFullText(v => !v)} aria-expanded={fullText} style={{ ...quietButton, margin: `${p.space.xs}px 0 ${p.space.sm}px`, paddingLeft: 0 }}>{fullText ? "收起" : "全文 ▾"}</button>
-        {post.imageUrls.length ? <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length > 1 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: p.space.md, alignItems: "start", marginBottom: p.space.lg }}>{post.imageUrls.map((url, index) => <OriginalImage key={url} url={url} index={index} />)}</div> : null}
+        {post.imageUrls.length && (!compactSource || fullText) ? <div style={{ display: "grid", gridTemplateColumns: post.imageUrls.length > 1 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: p.space.md, alignItems: "start", marginBottom: p.space.lg }}>{post.imageUrls.map((url, index) => <OriginalImage key={url} url={url} index={index} />)}</div> : null}
         <div data-reader-source-meta="" style={{ ...p.type.meta, color: p.ink3, display: "flex", alignItems: "center", flexWrap: "wrap", gap: p.space.xs, fontVariantNumeric: "tabular-nums" }}>
           <Heart size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" />{post.descriptor.engagement.likes ?? "—"}<span>·</span><MessageCircle size={p.size.icon} strokeWidth={p.iconStrokeWidth} aria-hidden="true" /><span>{post.descriptor.engagement.comments ?? "—"} 則留言</span><span>· 讀咗 {source ? readInlineCardThread(source.item).comments.length : 0}</span>
         </div>

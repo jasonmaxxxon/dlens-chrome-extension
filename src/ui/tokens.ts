@@ -14,7 +14,7 @@ export const tokens = {
     /* Audience-group colours for share bars, dots and quote bars; `dataRest` is the unassigned remainder. */
     data: ["#E0533C", "#0E8A8C", "#D79A1E", "#7C8BA1"], dataRest: "#DDE3EA",
     iconStrokeWidth: 1.75,
-    reader: { sourceLines: 6, replyClampChars: 180, replyClampLines: 6, refsShown: 3, clusterBar: 3, lensHeight: 44, shareHeight: 8, skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10 },
+    reader: { sourceLines: 6, sourceLinesCompact: 2, replyClampChars: 180, replyClampLines: 6, refsShown: 3, clusterBar: 3, lensHeight: 44, shareHeight: 8, skeletonWidths: ["92%", "78%", "85%", "60%"], skeletonHeight: 10 },
     list: {
       skeletonCount: 4, skeletonWidths: ["40%", "90%", "60%"], skeletonHeights: [12, 10, 10], emptyTop: 48, emptyIcon: 24,
       card: { padding: 12, columnGap: 12, contentGap: 4, titleLines: 2, metaLine: 17, titleLine: 40, summaryLine: 19, statusLine: 19 }
@@ -22,11 +22,11 @@ export const tokens = {
     /* Wheel geometry shares the existing panel palette, typography and spacing. */
     wheel: {
       width: 368, height: 296, plotMaxWidth: 288, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
-      sectorStroke: 5, dotRadius: 5.5, dotStroke: 1.5,
+      sectorStroke: 5,
       shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49,
-      observationColumns: "46px minmax(0, 1fr)", sideColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-      barHeight: 6, barMin: 3, firstTopic: 4, firstSide: 2, firstRaw: 10, clampLines: 4, menuWidth: 200,
-      hairline: 1, leadBar: 3, observationLines: 2
+      sideColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+      barHeight: 6, barMin: 3, firstRaw: 10, firstLink: 4, clampLines: 5, clampChars: 140, menuWidth: 200,
+      hairline: 1, leadBar: 3
     },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",

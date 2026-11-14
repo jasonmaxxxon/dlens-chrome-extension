@@ -87,7 +87,8 @@ export function CollectionAudienceReading({ model, onMore, onLens, onAssign, ass
     {model.stateLine ? <p role="status" data-reader-state="" style={{ ...p.type.meta, ...stateTone, borderRadius: p.radius.xs, padding: `${p.space.xs}px ${p.space.sm}px`, margin: `${p.space.lg}px 0 0` }}>{stateLine}</p> : null}
     {blocks.postType && blocks.mode !== "blocks" ? <div style={{ marginTop: p.space.md }}><PostTypeTag type={blocks.postType} /></div> : null}
     <BlocksNotice model={blocks} />
-    {blocks.mode === "blocks" && model.wheel ? <ReaderWheel key={model.wheelKey} model={model.wheel} onCopy={onCopy} copyStatus={copyStatus} /> : null}
+    {/* Any capture analysed with blocks reads in the tabbed reader, also when no block survived: its topics and comments are still there. */}
+    {blocks.mode !== "legacy" && model.wheel ? <ReaderWheel key={model.wheelKey} model={model.wheel} onCopy={onCopy} copyStatus={copyStatus} /> : null}
     {blocks.mode === "legacy" ? <>
     <ReaderLensBar tabs={tabs} selected={model.selected} onSelect={onLens} accent={() => p.accent} />
     <div data-reader-answer="" data-reader-answer-swap="" key={model.selected ?? "none"} style={{ color: p.ink2 }}>{model.card.phase !== "done" ? null : few ? <div data-reader-few=""><h3 style={h3}>留言未夠歸納，先睇原句。</h3>{model.answer?.kind === "clusters" && model.answer.segments[0]?.measurementLabel && model.answer.segments[0].measurementLabel !== "未能確認則數" ? <p style={{ ...p.type.meta, color: p.ink3 }}>{model.answer.segments[0].measurementLabel}</p> : null}{few.map((row, i) => <div key={i}>{quote(row)}</div>)}</div> : model.answer ? <Answer answer={model.answer} /> : null}</div>
