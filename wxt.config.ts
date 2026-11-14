@@ -17,8 +17,8 @@ export default defineConfig({
   entrypointsDir: "entrypoints",
   manifest: {
     name: isPrOnlyBuild ? "DLens PR Mode" : "DLens",
-    version: "0.5.94",
-    version_name: "0.5.94-wheel",
+    version: "0.5.95",
+    version_name: "0.5.95-wheel",
     description: isPrOnlyBuild
       ? "PR Evidence-only Threads capture client for DLens ingest-core."
       : "Thin Threads capture client for DLens ingest-core.",
