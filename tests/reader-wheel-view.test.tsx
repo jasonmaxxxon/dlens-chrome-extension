@@ -29,15 +29,20 @@ function model(repo = true) {
   const source = fixture(repo);
   return buildReaderWheel(source, { gist: "AI 摘要", clusterNames: { "0": "甲話題" }, methods: [{ name: "方法甲", fit: "場景", quote: { commentId: "c0" } }, { name: "方法乙", fit: "別的場景", quote: { commentId: "c0" } }], split: { agree: "共同點", sides: [{ claim: "甲", why: "甲原因", quote: { commentId: "c0" } }, { claim: "乙", why: "乙原因", quote: { commentId: "c7" } }] } } as never, buildAnalysisBlocks(source))!;
 }
+/** What the tabs behaviour reads from the page beyond the three globals React needs. */
+const PAGE_GLOBALS = ["MouseEvent", "KeyboardEvent", "getComputedStyle", "requestAnimationFrame", "cancelAnimationFrame"];
 async function mounted(run: (doc: Element, click: (selector: string) => Promise<void>, key: (selector: string, key: string) => Promise<void>, copied: string[]) => Promise<void>, repo = true, make: () => ReaderWheelModel = () => model(repo)) {
-  const dom = new JSDOM('<div id="root"></div>');
+  const dom = new JSDOM('<div id="root"></div>', { pretendToBeVisual: true });
   const prior = { window: globalThis.window, document: globalThis.document, HTMLElement: globalThis.HTMLElement, IS_REACT_ACT_ENVIRONMENT: (globalThis as any).IS_REACT_ACT_ENVIRONMENT };
   Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true });
+  for (const name of PAGE_GLOBALS) (globalThis as any)[name] = (dom.window as any)[name];
+  // jsdom has no Web Animations; an entry that leaves has nothing to wait for.
+  (dom.window as any).Element.prototype.getAnimations = () => [];
   const doc = dom.window.document.querySelector("#root")!, root = createRoot(doc), copied: string[] = [];
   const click = async (selector: string) => { const el = doc.querySelector(selector); assert.ok(el, selector); await act(async () => (el as HTMLElement).click()); };
   const key = async (selector: string, value: string) => { await act(async () => doc.querySelector(selector)!.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: value, bubbles: true }))); };
   try { await act(async () => root.render(<ReaderWheel model={make()} onCopy={text => copied.push(text)} />)); await run(doc, click, key, copied); }
-  finally { await act(async () => root.unmount()); Object.assign(globalThis, prior); dom.window.close(); }
+  finally { await act(async () => root.unmount()); Object.assign(globalThis, prior); for (const name of PAGE_GLOBALS) delete (globalThis as any)[name]; dom.window.close(); }
 }
 function unique(doc: Element) {
   const ids = [...doc.querySelectorAll("[data-wheel-comment]")].map(el => el.getAttribute("data-wheel-comment"));
@@ -53,7 +58,8 @@ test("overview: counted headline, AI gist, wheel, pills and one topic in focus",
     assert.equal(doc.querySelector('[data-wheel-tab="overview"]')!.getAttribute("aria-selected"), "true");
     assert.equal(doc.querySelector("[data-wheel-observation]"), null);
     // The headline is counted; the AI sentence follows it, marked, and is not an entry of its own.
-    assert.match(doc.querySelector("[data-wheel-kicker]")!.textContent!, /高讚 ≠ 多數.*由留言數同讚數計出/);
+    assert.equal(doc.querySelector("[data-wheel-kicker]")!.textContent, "高讚 ≠ 多數");
+    assert.equal(doc.querySelector("[data-wheel-kicker]")!.getAttribute("title"), "由留言數同讚數計出");
     assert.match(doc.querySelector("[data-wheel-headline]")!.textContent!, /最多讚嘅話題唔係最多人講嗰個，只佔 50% 留言。/);
     assert.match(doc.querySelector("[data-wheel-gist]")!.textContent!, /AI.*AI 摘要.*未連留言出處/s);
     // The headline's topic opens in focus: lit and pulled out on the wheel, pressed among the pills, one comment in the card.
@@ -83,6 +89,33 @@ test("overview: counted headline, AI gist, wheel, pills and one topic in focus",
     unique(doc);
   });
 });
+test("entries are real tabs: arrow keys move between them, one ink line follows, and nothing is a filled control", async () => {
+  await mounted(async (doc, click, key) => {
+    const tabs = () => [...doc.querySelectorAll("[data-wheel-tab]")] as HTMLElement[];
+    const chosen = () => tabs().filter(el => el.getAttribute("aria-selected") === "true").map(el => el.getAttribute("data-wheel-tab"));
+    const list = doc.querySelector("[data-wheel-tabs]")!;
+    assert.equal(list.getAttribute("role"), "tablist"); assert.equal(list.getAttribute("aria-label"), "閱讀分頁");
+    assert.ok(list.closest("[data-scroll-x]"));
+    assert.deepEqual(tabs().map(el => el.getAttribute("tabindex")), ["0", "-1", "-1", "-1", "-1", "-1"]);
+    await key('[data-wheel-tab="overview"]', "ArrowRight");
+    assert.deepEqual(chosen(), ["split"]); assert.equal(pane(doc), "split");
+    await key('[data-wheel-tab="split"]', "End");
+    assert.deepEqual(chosen(), ["raw"]); assert.equal(pane(doc), "raw");
+    await key('[data-wheel-tab="raw"]', "Home");
+    assert.deepEqual(chosen(), ["overview"]); assert.equal(doc.querySelectorAll("[data-wheel-pane]").length, 1);
+    assert.equal(doc.querySelector("[data-wheel-pane]")!.getAttribute("aria-labelledby"), doc.querySelector('[data-wheel-tab="overview"]')!.id);
+    // One ink line for the whole list, placed by the tabs behaviour; the bar frosts only through its own layer.
+    assert.equal(list.querySelectorAll("[data-wheel-ink]").length, 1);
+    assert.match((list.querySelector("[data-wheel-ink]") as HTMLElement).style.transform, /--active-tab-left/);
+    assert.ok(doc.querySelector("[data-wheel-bar] > [data-wheel-glass]"));
+    assert.equal((doc.querySelector("[data-wheel-bar]") as HTMLElement).style.background, "");
+    assert.match((doc.querySelector("[data-reader-wheel]") as HTMLElement).style.backgroundImage, /radial-gradient/);
+    for (const tab of ["overview", "split", "how", "qa", "link", "raw"]) {
+      await click(`[data-wheel-tab="${tab}"]`);
+      for (const el of doc.querySelectorAll("[data-reader-wheel] button:not([data-block-menu] button)")) assert.equal((el as HTMLElement).style.background, "transparent", `${tab}: ${el.outerHTML.slice(0, 60)}`);
+    }
+  });
+});
 test("split: two claims side by side, the chosen side's comments below at full width", async () => {
   await mounted(async (doc, click) => {
     await click('[data-wheel-tab="split"]');
@@ -96,9 +129,13 @@ test("split: two claims side by side, the chosen side's comments below at full w
     for (const el of doc.querySelectorAll("[data-wheel-side] span")) assert.ok(parseFloat((el as HTMLElement).style.fontSize) >= 12, (el as HTMLElement).style.fontSize);
     assert.equal((sides[0].querySelector("span") as HTMLElement).style.fontSize, "15px");
     assert.deepEqual([sides[0].getAttribute("aria-pressed"), sides[1].getAttribute("aria-pressed")], ["true", "false"]);
-    assert.notEqual(sides[0].style.background, sides[1].style.background);
+    // Neither side is a filled card: the chosen one draws its rule across, the other keeps a short one.
+    const rules = () => sides.map(side => (side.querySelector("[data-wheel-rule]") as HTMLElement).style.transform);
+    for (const side of sides) assert.equal(side.style.background, "transparent");
+    assert.equal(rules()[0], "none"); assert.match(rules()[1], /^scaleX\(/);
     assert.deepEqual(shown(doc), ["c0"]);
     await click('[data-wheel-side="1"]');
+    assert.match(rules()[0], /^scaleX\(/); assert.equal(rules()[1], "none");
     assert.deepEqual(shown(doc), ["c7"]);
     assert.equal((doc.querySelector("[data-wheel-evidence] p") as HTMLElement).style.fontSize, "14px");
     unique(doc);
@@ -219,7 +256,8 @@ test("a post whose blocks all dropped out still reads in the tabbed reader, and 
   const bare = new JSDOM(renderToStaticMarkup(<ReaderWheel model={buildReaderWheel(thin, null, buildAnalysisBlocks(thin))!} />)).window.document;
   assert.deepEqual([...bare.querySelectorAll("[data-wheel-tab]")].map(el => el.getAttribute("data-wheel-tab")), ["raw"]);
   assert.match(bare.querySelector("[data-wheel-pane]")!.textContent!, /未有可顯示嘅觀察，先睇原文。/);
-  assert.equal(bare.querySelector("svg"), null);
+  assert.equal(bare.querySelector("[data-wheel-plot]"), null);
+  assert.equal((bare.querySelector("[data-reader-wheel]") as HTMLElement).style.backgroundImage, "");
 });
 test("topic totals are shown only when the full membership can be verified", () => {
   for (const members of [undefined, ["c0"], ["c0", "c1", "c2", "c3", "c4", "c5", "c6"]]) {
@@ -288,7 +326,9 @@ test("nothing in the reader can push past its box", async () => {
       for (const el of doc.querySelectorAll("[data-wheel-comment] > div")) if ((el as HTMLElement).style.display === "flex") assert.equal((el as HTMLElement).style.flexWrap || "nowrap", el.querySelector("i") && !el.querySelector("a") ? "nowrap" : "wrap");
     }
     const svg = doc.querySelector('[data-wheel-tab="overview"]') && (await click('[data-wheel-tab="overview"]'), doc.querySelector("[data-wheel-plot] svg") as SVGElement);
-    assert.equal((svg as unknown as HTMLElement).style.overflow, "hidden");
+    // Only the chosen sector's glow may fall outside the drawing, and the sheet clips it at its own edge.
+    assert.equal((svg as unknown as HTMLElement).style.overflow, "visible");
+    assert.equal((doc.querySelector("[data-reader-wheel]") as HTMLElement).style.overflow, "clip");
     assert.ok((doc.querySelector("[data-wheel-plot]") as HTMLElement).style.maxWidth);
   });
 });

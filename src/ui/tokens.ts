@@ -21,17 +21,23 @@ export const tokens = {
     },
     /* Wheel geometry shares the existing panel palette, typography and spacing. */
     wheel: {
-      width: 368, height: 296, plotMaxWidth: 288, cx: 184, cy: 148, r0: 55, rmin: 80, rmax: 130, pad: 2.2,
-      sectorStroke: 5,
-      shift: 9, dimOpacity: .26, fullOpacity: 1, hubRadius: 49,
+      width: 368, height: 296, plotMaxWidth: 288, cx: 184, cy: 148, r0: 83, rmin: 94, rmax: 130, pad: 2.2,
+      sectorStroke: 3,
+      shift: 9, dimOpacity: .3, fullOpacity: 1, hubType: { fontSize: 26, lineHeight: "28px", fontWeight: 600 },
       sideColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-      barHeight: 6, barMin: 3, firstRaw: 10, firstLink: 4, clampLines: 5, clampChars: 140, menuWidth: 200,
-      hairline: 1, leadBar: 3
+      barMin: 3, firstRaw: 10, firstLink: 4, clampLines: 5, clampChars: 140, menuWidth: 200,
+      /* 墨線: structure is drawn with a hairline and a slightly heavier ink rule; nothing is filled. */
+      hairline: 1, rule: 2, ruleRest: .15, sideTint: 55,
+      /* A little transparency: faint topic-coloured light behind the top of the sheet, a bar for the entries that frosts once it sticks, a soft glow under the chosen sector. */
+      haze: { height: 340, alpha: 16, fade: 72, spots: ["46% 42% at 16% 10%", "44% 40% at 90% 20%", "40% 36% at 55% 80%"] },
+      glass: "rgba(255, 255, 255, .72)", glassBlur: 14, glassSaturate: 1.6,
+      glow: { y: 6, blur: 12, alpha: 38 }
     },
     visuallyHidden: { position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0 },
     chipCountOn: "rgba(255,255,255,.7)",
     scrollMask: "linear-gradient(to right, #000 calc(100% - 24px), transparent)",
     type: {
+      display: { fontSize: 20, lineHeight: "28px", fontWeight: 600 },
       title: { fontSize: 17, lineHeight: "24px", fontWeight: 600 },
       heading: { fontSize: 15, lineHeight: "22px", fontWeight: 600 },
       cardTitle: { fontSize: 14, lineHeight: "20px", fontWeight: 600 },

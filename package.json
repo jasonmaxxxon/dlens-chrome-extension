@@ -1,6 +1,6 @@
 {
   "name": "dlens-chrome-extension-v0",
-  "version": "0.5.95",
+  "version": "0.5.96",
   "private": true,
   "type": "module",
   "scripts": {
@@ -20,6 +20,8 @@
     "bundle:guard": "node scripts/check-ui-bundle-budget.mjs"
   },
   "dependencies": {
+    "@ui-sdk/core": "0.1.0-beta.3",
+    "@ui-sdk/react": "0.1.0-beta.3",
     "lucide-react": "^0.469.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

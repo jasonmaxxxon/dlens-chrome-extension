@@ -39,7 +39,9 @@ export function CollectionWorkspaceShell({ tab, onTabChange, onSettings, inView,
     triggerRef.current?.focus();
   };
   return (
-    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0, fontFamily: tokens.font.sans, color: p.ink, fontVariantNumeric: "tabular-nums" }}>
+    <div data-collection-workspace-shell="true" style={{ minWidth: 0, display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 0, fontFamily: tokens.font.sans, color: p.ink, fontVariantNumeric: "tabular-nums",
+      // Anything that sticks inside the page sits below the bars this shell keeps on top.
+      ["--dlens-sticky-top" as string]: `${p.size.header + (inView ? p.size.banner : 0)}px` }}>
       <header style={{ position: "sticky", top: 0, zIndex: 3, background: p.bg, height: p.size.header, boxSizing: "border-box", display: "flex", alignItems: "center", gap: p.space.lg, margin: `0 -${p.space.lg}px`, padding: `0 ${p.space.lg}px`, borderBottom: `1px solid ${p.border}` }}>
         <nav aria-label="主要導覽" role="tablist" style={{ position: "relative", display: "flex", gap: p.space.lg, height: "100%", flex: 1, minWidth: 0 }}>
           {([['collection', '收藏'], ['workspaces', '工作區']] as const).filter(([key]) => allowCollection || key !== 'collection').map(([key, label]) => (
