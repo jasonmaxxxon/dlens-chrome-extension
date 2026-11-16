@@ -4,30 +4,45 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-14 23:03:41 HKT
+2026-11-16 13:03:15 HKT
 
 ## Branch
 `feature/blocks-v1`
 
 ## Note from Max
-0.5.95 閱讀頁改成分頁式白底版面（概覽／分歧／做法／問題／連結／原文按內容出現，分歧兩個主張並排、留言全闊 14px，純統計開關，原文加話題篩選）；gate 全綠 1296/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，舊 capture 未接新閱讀頁
+0.5.96-ink：閱讀頁換成 A 墨線質地加一點透明感（紙頂話題色淡光、入口列黏頂後變毛玻璃、選中扇區柔光），入口改用 UI SDK Tabs（方向鍵、滑動墨線、面板由選中方向進入），圖示沿用 lucide；gate 全綠 1292/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，睇淡光同黏頂毛玻璃，舊 capture 未接新閱讀頁
 
 ## Working tree at handoff (`git status --short`, 2 entries)
 ```
  M HANDOFF.md
-?? docs/archive/HANDOFF.md.bak-20261114
+?? docs/archive/HANDOFF.md.bak-20261116
 ```
 
 ## Last 5 commits (before this handoff)
+- 694859f feature: ink-line reader texture with a little transparency and UI SDK tabs, version 0.5.96 (0.5.96-ink) (Your Name, 2026-11-16 13:00)
+- 12e98ba handoff: 0.5.95 閱讀頁改成分頁式白底版面（概覽／分歧／做法／問題／連結／原文按內容出現，分歧兩個主張並排、留言全闊 14px，純統計開關，原文加話題篩選）；gate 全綠 1296/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，舊 capture 未接新閱讀頁 (Your Name, 2026-11-14 23:03)
 - 57eb024 feature: version 0.5.95 (0.5.95-wheel) for the tabbed reader (Your Name, 2026-11-14 23:03)
 - 24bc9c9 feature: tabbed white reader with a counted headline, one topic in focus and readable split sides (Your Name, 2026-11-14 23:01)
 - 5fcf783 handoff: 0.5.94 已修緊湊輪圖與比例分母、移除重複數字及外圈，prompt v7 收緊做法與分歧；1289 tests、0 fail，已同步 Jason combo；下一步 reload、刷新 Threads、驗收 v7 真帖解讀 (Your Name, 2026-11-13 16:54)
-- ba11ed5 bug fix: 釐清輪圖比例並收緊觀眾解讀規則 (Your Name, 2026-11-13 16:53)
-- 7976709 handoff: 修正 Jason Chrome 實際載入路徑；既有 combo 原地同步 0.5.93 並比對一致；下一步：Jason 再按 DLens reload 確認版本及側欄，後續 build 須同步 combo (Your Name, 2026-11-13 16:16)
 
 ## Next steps
 
-- **目前版本：`0.5.95`／`0.5.95-wheel`，分支 `feature/blocks-v1`；inline reading prompt 仍然係 v7；實作 commit `24bc9c9`，版本 commit `57eb024`。** 使用者揀咗 Google Variant B 做視覺方向，睇完真資料版 mockup（B2）之後要求：唔要暖色要白色、分歧頁字太細要重諗、之後直接喺擴充功能做、唔可以再有 render 出界、其他類型嘅帖要用同一套邏輯。
+- **目前版本：`0.5.96`／`0.5.96-ink`，分支 `feature/blocks-v1`；inline reading prompt 仍然係 v7。** 使用者喺三種質地 mockup（本機 `~/developer/dlens-ui-redesign-review/harness/fable/free/variant-b3.html`）揀咗 A 墨線，原話：「a，跟著加入一點透明感，你也可以到一些ui 動態/icon libary 找一些來enhance ux，如果是 vercel ui sdk 應該會有很大幫助」。
+- **0.5.96 只換閱讀頁質地**（`src/ui/ReaderWheel.tsx`、`tokens.ts` 嘅 `panel.wheel`、`tokens-intent.md`；版面、資料規則、viewmodel 冇變）：
+  - **墨線：** 冇底色軌道、實心色塊、卡中卡。入口／話題／原文篩選／綜合·純統計全部係文字，揀中嘅變深加一條線。分歧兩邊中間一條髮絲線，各自頂一條色線（藍／琥珀），揀中嗰邊色線拉滿、字變深；嗰邊嘅留言左邊有同色引線。輪變細環，中心數字放大。「由留言數同讚數計出」由 kicker 文字搬去 `title`（mockup A 冇呢行字）。
+  - **透明感只喺三處：** ① 紙頂話題色淡光（sheet 自己嘅 background layer，`wheel.haze`）；② 入口列 sticky 喺 shell header 下面（`CollectionWorkspaceShell` 提供 `--dlens-sticky-top`），平時透明，黏頂後先變毛玻璃（`wheel.glass`；用 `container-type: scroll-state` 加 `@container scroll-state(stuck: top)`，唔支援嘅 Chrome 會一直係毛玻璃）；③ 選中扇區同色柔光（`wheel.glow`）。
+  - **圖示：** 沿用已有嘅 `lucide-react`（讚、回覆、AI、展開、開原留言、箭嘴），冇加新 icon 庫。
+  - **UI SDK（vercel-labs/ui）：** 佢係冇樣式嘅行為庫（鍵盤、焦點、ARIA），唔係動態或 icon 庫。今次只用咗 `@ui-sdk/react/tabs`（連 `@ui-sdk/core`，兩個都釘死 `0.1.0-beta.3`）取代手寫 tablist：方向鍵／Home／End 喺入口之間移動；`TabsIndicator` 量度選中入口，墨線滑過去；面板憑 `data-activation-direction` 由揀嗰邊滑入。話題 pills、原文篩選、分歧兩邊仲係 `aria-pressed` 按鈕。
+  - **動態限制（改之前要知）：** `src/ui/motion.ts` 嘅 shell 規則用 `!important` 將側欄入面所有 transition 鎖死做 opacity＋transform、`panel.motion.base`、standard easing。所以喺閱讀頁寫 width／left／filter 嘅 transition 或者 spring easing 係唔會生效；今次全部只用位移同透明度。入口內嘅新選擇（話題、分歧邊、原文篩選）用 `@starting-style` 輕微上升；入口啱啱到嗰一格用 `data-wheel-arriving` 擋住，唔會同面板滑入疊埋一齊郁。
+  - **一入一出：** 入：`@ui-sdk/react`、`@ui-sdk/core`、淡光／毛玻璃／柔光 tokens。出：灰色軌道加白色滑塊（兩條）、實心藍／米色主張卡、白卡入面嘅灰卡、輪心白碟同陰影、6px 讚數條、閱讀頁入面嘅 `PostTypeTag` 膠囊、手寫 tablist；tokens 刪咗 `hubRadius`、`barHeight`、`leadBar`。
+- **測試：** `tests/reader-wheel-view.test.tsx` 加咗「entries are real tabs」；UI SDK 喺 jsdom 要 `pretendToBeVisual`、`MouseEvent`／`KeyboardEvent`／`getComputedStyle`／rAF 呢幾個 global 同一個 `getAnimations` stub（都喺該檔嘅 `mounted` 入面）。**版本鎖其實有第六處：** `tests/collection-workspace-shell.test.tsx` 嘅 `/DLens 0.5.96/`。
+- **驗證：** full gate 全綠（1297 tests／1292 pass／5 skip／0 fail；typecheck、兩類邊界、storage seam、build、bundle guard、diff check）。`check-reader.mjs` 216 個狀態 0 出界（script 今次改咗兩處：輪圖改用 `[data-wheel-plot] svg` 搵，之前「第一個 svg」會揀中 icon，令輪圖出界檢查變成空過；輪心文字改同環嘅內徑比）。`harness/fable/probe-motion.mjs` 喺 headless Chrome 開住動態量到：墨線約 180ms 滑到位、面板由左或右入、黏頂後毛玻璃由 0 變 1、方向鍵／Home／End 都得；真滑鼠點擊唔會留焦點環（`probe-focus.mjs`）。截圖喺 `shots/reader-tabs/` 同 `shots/reader-ink/`。**未做真機 QA，未用真模型輸出驗證。**
+- **體積：** side panel chunk 由 669,717 變 724,382 bytes（raw）；content script 冇變。`bundle:guard` 只量 content script。
+- **NewJeans-Comeback 安裝未同步：** repo `output/chrome-mv3` 已經係 `0.5.96-ink`，Jason Chrome 載入嘅 `~/developer/dlens-combo-0.5.90/` 仲係舊版。要使用者自己跑：`rsync -ac --delete ~/developer/dlens-ui-redesign/output/chrome-mv3/ ~/developer/dlens-combo-0.5.90/`，然後喺 `chrome://extensions` reload、刷新 Threads、重開側欄。
+- **下一步：** ① 真機睇 0.5.96：淡光會唔會太搶、入口列喺真側欄捲動時有冇黐住同變毛玻璃、窄側欄入口橫向捲動；② UI SDK 仲係 beta，升版前睇 changelog 再跑 `reader-wheel-view` 測試；③ 舊 capture（冇 blocks）接入新閱讀頁要先處理 `collection-browser.test.tsx`、`f123-qa-fixes.test.tsx`、`task-c-reading-ui.test.tsx` 對舊版嘅斷言；④ 「定位原帖」頁內跳轉同高亮未做。
+
+- **以下係 0.5.95 嗰輪嘅記錄（質地已被 0.5.96 取代，版面同資料規則仍然有效）：**
+- **版本 `0.5.95`／`0.5.95-wheel`，分支 `feature/blocks-v1`；inline reading prompt 仍然係 v7；實作 commit `24bc9c9`，版本 commit `57eb024`。** 使用者揀咗 Google Variant B 做視覺方向，睇完真資料版 mockup（B2）之後要求：唔要暖色要白色、分歧頁字太細要重諗、之後直接喺擴充功能做、唔可以再有 render 出界、其他類型嘅帖要用同一套邏輯。
 - **0.5.95 閱讀頁（有 blocks 嘅 capture）：** `src/ui/ReaderWheel.tsx` 整個重寫做分頁式白底版面，`src/viewmodel/reader-wheel.ts` 加咗 `readerTabs`、`withoutAi`、`readerOverview`、`readerRaw`，刪咗 `observationRefs`、`dotsBySector`、`dotSides`、`wheelSelection`。
   - 成個閱讀放喺一張白底紙上；入口係分頁：概覽 → 有內容先出現嘅 分歧／做法／問題／連結 → 原文。帖子類型決定邊個入口排第一（求助帖開問題，資源帖開連結或做法），其餘開概覽。
   - 概覽：一句由數字計出嘅標題（高讚 ≠ 多數／集中一個話題／冇分話題）→ AI 一句總結（標 AI）→ 輪 → 話題 pills → 一張選中話題嘅卡。獲讚百分比只喺讚數總數可核實（`model.totals.likes` 同 `sector.likeTotal` 都有）先寫入標題；輪中心永遠只讀留言佔比。卡底「睇晒呢個話題」會開原文並保留該話題篩選。
