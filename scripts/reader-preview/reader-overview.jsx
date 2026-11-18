@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, LocateFixed } from 'lucide-react';
+import { ArrowRight, Check, LocateFixed } from 'lucide-react';
 
 function groupStyle(group) {
   return { '--group-color': 'var(--group-' + (group.index % 3) + ')' };
@@ -46,7 +46,7 @@ function Wheel({ groups, selected, count, likes, share }) {
   </>;
 }
 
-export function ReaderOverview({ groups, group, count, likes, missingLikes, groupName, pure, share, formatCount }) {
+export function ReaderOverview({ groups, group, count, likes, missingLikes, groupName, share, formatCount }) {
   if (!group) return <p className="empty-state">這篇貼文尚未有留言分群。</p>;
 
   const leading = [...groups].sort((a,b) => b.likes - a.likes || b.members.length - a.members.length)[0];
@@ -59,7 +59,6 @@ export function ReaderOverview({ groups, group, count, likes, missingLikes, grou
   const concentration = complete && group.likes > 0
     ? ' · 佔組內讚數 ' + (rep.likes * 100 / group.likes).toLocaleString('zh-HK', {maximumFractionDigits: 1}) + '%'
     : '';
-  const dot = <span className="topic-dot" aria-hidden="true" />;
 
   return <div className="overview">
     <div className="insight-intro">
@@ -68,19 +67,22 @@ export function ReaderOverview({ groups, group, count, likes, missingLikes, grou
     </div>
     <Wheel groups={groups} selected={group} count={count} likes={likes} share={share} />
     <div className="topic-chips topic-list" role="group" aria-label="選擇留言群組">
-      {groups.map(item => <button key={item.id} className="topic-chip topic-btn" style={groupStyle(item)}
-        data-action="group" data-value={item.id} aria-pressed={item.id === group.id}>{dot}{groupName(item)}</button>)}
+      {groups.map(item => <button key={item.id} className="topic-chip" data-action="group"
+        data-value={item.id} aria-pressed={item.id === group.id}>
+        {groupName(item)}<Check className="topic-check" size={13} aria-hidden="true"/>
+      </button>)}
     </div>
-    <article className="focus-card" key={group.id} style={groupStyle(group)}>
-      <div className="card-eyebrow">{dot}{pure ? '選取群組' : '話題焦點'}</div>
+    <article className="focus-card" key={group.id}>
       <h3 className="focus-title">{groupName(group, true)}</h3>
-      <p className="focus-metrics">{group.members.length} 則留言 · {group.likes} 個已知讚</p>
-      <div className="focus-actions">
-        <button className="primary-action" data-action="group-evidence">看這組原文 <span>{group.members.length}</span> <ArrowRight className="icon" size={16} aria-hidden="true"/></button>
-        <button className="text-action" data-action="jump" data-value={rep.id}><LocateFixed className="icon" size={16} aria-hidden="true"/> 定位引文</button>
+      <div className="focus-metrics">
+        <button className="text-action" data-action="group-evidence">查看 {group.members.length} 則原文 <ArrowRight size={14} aria-hidden="true"/></button>
+        <span>{group.likes} 個已知讚</span>
       </div>
       <blockquote><p>{rep.text?.trim() ? rep.text : <span className="empty-text">（擷取時沒有文字）</span>}</p>
-        <footer>@{rep.author} · {formatCount(rep.likes)} 讚{concentration}</footer>
+        <footer>
+          <span>@{rep.author} · {formatCount(rep.likes)} 讚{concentration}</span>
+          <button className="text-action" data-action="jump" data-value={rep.id}><LocateFixed size={14} aria-hidden="true"/> 定位引文</button>
+        </footer>
       </blockquote>
     </article>
   </div>;

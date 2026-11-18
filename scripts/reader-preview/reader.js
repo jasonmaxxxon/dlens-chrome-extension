@@ -121,7 +121,7 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
   function overview() {
     return createElement(ReaderOverview, {
       groups, group: current(), count: grouped.length, likes: totalLikes,
-      missingLikes, groupName, pure, share, formatCount,
+      missingLikes, groupName, share, formatCount,
     });
   }
   function methodList() {
