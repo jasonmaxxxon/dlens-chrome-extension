@@ -20,7 +20,10 @@ test("the offline reader preserves the wheel and SDK indicator from topic select
         { comment_id: "r2", author: "reader", text: "乙組留言", like_count: 1 },
       ] },
     },
-    analysis: { clusters: [
+    analysis: { evidence: [{ cluster_key: 1, comments: [{ comment_id: "r2" }, { comment_id: "r1" }] }], blocks: [
+      { type: "qa_pairs", items: [{ question: { comment_id: "r2" }, status: "replies_not_captured", answers: [] }] },
+      { type: "entity_list", items: [{ url: "https://example.org/item", name: "例子", comment_ids: ["r1"] }] },
+    ], clusters: [
       { cluster_key: 0, comment_count: 1, member_comment_ids: ["r1"], top_comment_id: "r1" },
       { cluster_key: 1, comment_count: 1, member_comment_ids: ["r2"], top_comment_id: "r2" },
     ] },
@@ -36,6 +39,8 @@ test("the offline reader preserves the wheel and SDK indicator from topic select
   });
   t.after(() => dom.window.close());
   const doc = dom.window.document;
+  const [post] = JSON.parse(doc.getElementById("capture-data")!.textContent!);
+  assert.deepEqual(post.groups[1].evidenceIds, ["r2"]);
   assert.equal(doc.querySelector("script[src], link[rel=stylesheet]"), null);
   const ink = doc.querySelector("[role=tablist] [data-wheel-ink]");
   assert.ok(ink, "the generated offline page must mount the shared SDK indicator");
@@ -56,4 +61,10 @@ test("the offline reader preserves the wheel and SDK indicator from topic select
   assert.equal(panel?.getAttribute("data-activation-direction"), "right");
   assert.deepEqual([...panel!.querySelectorAll(".evidence-card p")].map(el => el.textContent), ["乙組留言"]);
   assert.equal(doc.querySelector("[data-wheel-ink]"), ink);
+  doc.querySelector<HTMLButtonElement>('[data-action="filter"][data-value="links"]')!.click();
+  assert.equal(doc.querySelector(".source-reference a")?.getAttribute("href"), "https://example.org/item");
+  assert.equal(doc.querySelector<HTMLElement>(".evidence-card")?.dataset.evidenceId, "r1");
+  doc.querySelector<HTMLButtonElement>('[data-wheel-tab="questions"]')!.click();
+  assert.match(doc.querySelector(".questions")!.textContent!, /有回覆，未擷取到原文/);
+  assert.equal(doc.querySelector<HTMLElement>(".questions [data-jump-comment]")?.dataset.value, "r2");
 });

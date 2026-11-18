@@ -17,6 +17,16 @@ POST_TITLES = {
     "DfoQFMIEo3P": "Claude 在香港的使用限制",
     "DfhH6abmnuL": "黃仁勳新聞與存款討論",
 }
+EDITORIAL_READINGS = {
+    "DfoQFMIEo3P": [
+        ("DfoRxpbkuAF", "有人擔心香港可用的服務會繼續減少。"),
+        ("DfoR8XUjGZp", "亦有人推測帳號驗證牽涉多個因素。"),
+    ],
+    "DfhH6abmnuL": [
+        ("DfhTyf9mb-D", "有人追問幾則新聞是否相關。"),
+        ("DfhfraCkWwy", "亦有人追問存款問題涉及香港還是全球。"),
+    ],
+}
 GROUP_LABELS = {
     "DfoXjosEyC5": ("外國身份與香港身份證的驗證問題", "身份驗證"),
     "DfoRxpbkuAF": ("香港面對的服務限制", "地區限制"),
@@ -44,6 +54,54 @@ def threads_url(value):
     return None
 
 
+def known_ids(ids, allowed):
+    return list(dict.fromkeys(value for value in ids if isinstance(value, str) and value in allowed))
+
+
+def comment_ids(items):
+    return (item.get("comment_id") for item in items or [] if isinstance(item, dict))
+
+
+def public_link(value):
+    if not isinstance(value, str) or any(char.isspace() for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme in {"http", "https"} and parsed.hostname and parsed.username is None:
+            return value
+    except ValueError:
+        pass
+    return None
+
+
+def reading_blocks(analysis, reply_ids):
+    blocks = {block["type"]: block.get("items") or [] for block in analysis.get("blocks") or []}
+    questions = []
+    for item in blocks.get("qa_pairs", []):
+        question_id = (item.get("question") or {}).get("comment_id")
+        if question_id in reply_ids:
+            questions.append(dict(
+                id=question_id, status=item.get("status") or "unknown",
+                answerIds=known_ids(comment_ids(item.get("answers")), reply_ids),
+            ))
+
+    links = []
+    for item in blocks.get("entity_list", []):
+        url = public_link(item.get("url"))
+        ids = known_ids(item.get("comment_ids") or [], reply_ids)
+        if url and ids:
+            title = (item.get("enrichment") or {}).get("title") or item.get("name") or url
+            links.append(dict(url=url, title=title, ids=ids))
+
+    low_content = [
+        dict(id=comment_id, flag=item["flag"])
+        for item in blocks.get("noise_summary", []) if item.get("flag")
+        for comment_id in known_ids(item.get("comment_ids") or [], reply_ids)
+    ]
+    top_ids = known_ids(comment_ids(blocks.get("top_comments")), reply_ids)
+    return dict(questions=questions, links=links, lowContent=low_content, topIds=top_ids)
+
+
 def project(capture):
     result = capture["result"]
     post = result["canonical_post"]
@@ -58,6 +116,7 @@ def project(capture):
     membership = {}
     groups = []
     group_ids = set()
+    evidence = {str(row["cluster_key"]): row.get("comments") for row in analysis.get("evidence") or []}
     for index, cluster in enumerate(analysis.get("clusters") or [], 1):
         key = str(cluster["cluster_key"])
         ids = cluster["member_comment_ids"]
@@ -73,7 +132,10 @@ def project(capture):
             raise ValueError(f"{post_id}: representative outside cluster {key}")
         neutral = f"留言組 {index}"
         label, short = GROUP_LABELS.get(representative, (neutral, neutral))
-        groups.append(dict(id=key, label=label, short=short, representativeId=representative))
+        groups.append(dict(
+            id=key, label=label, short=short, representativeId=representative,
+            evidenceIds=known_ids(comment_ids(evidence.get(key)), set(ids)),
+        ))
 
     comments = [
         dict(
@@ -94,18 +156,31 @@ def project(capture):
         if ids:
             methods.append(dict(title=title, ids=ids))
     metrics = post.get("metrics") or {}
+    excluded = (analysis.get("eligibility") or {}).get("excluded") or {}
     return dict(
         id=post_id,
         title=POST_TITLES.get(post_id, post["text"][:32]),
         author=post["author"],
         text=model.get("assembled_content") or post["text"],
+        reading=[
+            dict(text=text, id=comment_id) for comment_id, text in EDITORIAL_READINGS.get(post_id, [])
+            if comment_id in reply_ids
+        ],
         url=threads_url(post.get("url")),
         capturedAt=result.get("fetched_at") or capture.get("captured_at"),
         totalReplies=metrics.get("reply_count"),
         postLikes=metrics.get("likes"),
+        views=metrics.get("views"),
+        shares=metrics.get("share_count"),
+        reposts=metrics.get("repost_count"),
+        excluded={
+            key: excluded[key] for key in ("op", "root", "unknown", "duplicates", "empty_text")
+            if isinstance(excluded.get(key), int) and not isinstance(excluded[key], bool) and excluded[key] >= 0
+        },
         groups=groups,
         comments=comments,
         methods=methods,
+        **reading_blocks(analysis, reply_ids),
     )
 
 
@@ -136,7 +211,7 @@ def main():
     payload = json.dumps(posts, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     template = (HERE / "frame.html").read_text(encoding="utf-8")
     for marker, content in [
-        ("/*__CSS__*/", (HERE / "style.css").read_text(encoding="utf-8")),
+        ("/*__CSS__*/", "\n".join((HERE / name).read_text(encoding="utf-8") for name in ("style.css", "reader-details.css"))),
         ("/*__JS__*/", bundle_reader()),
         ("__CAPTURES__", payload.replace("<", r"\u003c")),
     ]:

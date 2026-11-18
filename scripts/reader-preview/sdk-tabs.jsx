@@ -16,14 +16,16 @@ function ReaderTabs({ items, value, content, onSelect }) {
     <Tabs className="reader-sdk" value={value} onValueChange={select}>
       <div className="reader-scroll reader-body" onScroll={markScroll}>
         <TabsList className="reader-tabs" aria-label="閱讀分頁" data-wheel-tabs="">
-          {items.map(([key, label]) => (
-            <TabsTab key={key} value={key} data-wheel-tab={key}>{label}</TabsTab>
+          {items.map(([key, label, count]) => (
+            <TabsTab key={key} value={key} data-wheel-tab={key} aria-label={count == null ? label : label + '，共 ' + count + ' 項'}>
+              {label}{count != null && <small className="tab-count" aria-hidden="true">{count}</small>}
+            </TabsTab>
           ))}
           <TabsIndicator className="reader-tab-ink" data-wheel-ink="" />
         </TabsList>
         {items.map(([key]) => (
           <TabsPanel key={key} value={key} className="reader-panel" data-wheel-pane={key}>
-            {value === key && (typeof content === 'string' ? <div dangerouslySetInnerHTML={{ __html: content }} /> : content)}
+            {value === key && content}
           </TabsPanel>
         ))}
       </div>

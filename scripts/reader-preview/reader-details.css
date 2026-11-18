@@ -1,0 +1,26 @@
+.reader-details .detail-entry {
+  min-width: 0;
+  margin: 0;
+  padding: 16px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+.reader-details .detail-entry + .detail-entry { border-top: 1px solid var(--soft-line); }
+.reader-details .section-heading { margin-bottom: 4px; }
+.reader-details .filters { margin: 2px 0 8px; }
+.reader-details h4 { font-size: 15px; }
+.reader-details .captured-text { white-space: pre-wrap; margin: 6px 0; font-size: 14px; line-height: 1.65; }
+.detail-meta, .detail-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.detail-meta strong { color: var(--ink); font-size: 13px; }
+.detail-meta span, .detail-entry small, .detail-entry blockquote footer,
+.parent-context, .source-reference > span { color: var(--quiet); font-size: 12px; }
+.detail-entry blockquote { margin: 6px 0; }
+.detail-entry .answer, .parent-context, .source-reference { margin-top: 8px; }
+.detail-entry .answer strong { font-size: 13px; }
+.parent-context { line-height: 1.5; }
+.parent-context a, .source-reference a { color: var(--forest); text-underline-offset: 2px; }
+.source-reference { display: grid; gap: 2px; }
+.source-reference a { font-size: 13px; line-height: 1.5; }
+.source-reference svg { width: 13px; height: 13px; }

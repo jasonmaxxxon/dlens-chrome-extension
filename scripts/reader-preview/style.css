@@ -132,6 +132,7 @@ button, select { -webkit-tap-highlight-color: transparent; }
 }
 .reader-tabs button { padding: 9px 0 11px; color: var(--muted); border: 0; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .reader-tabs button[aria-selected="true"] { color: var(--forest-dark); font-weight: 720; }
+.tab-count { margin-inline-start: 3px; font-size: .8em; color: var(--quiet); font-variant-numeric: tabular-nums; }
 .reader-tab-ink {
   position: absolute; left: 0; bottom: 0; width: var(--active-tab-width); height: 2px;
   border-radius: 2px; background: var(--ink); pointer-events: none; transform: translateX(var(--active-tab-left));
@@ -165,7 +166,6 @@ button, select { -webkit-tap-highlight-color: transparent; }
 .focus-card { min-width: 0; overflow-wrap: anywhere; }
 .method-card, .evidence-card { padding: 16px; border: 1px solid var(--line); background: var(--white); border-radius: 12px; min-width: 0; overflow-wrap: anywhere; }
 .method-card + .method-card, .evidence-card + .evidence-card { margin-top: 8px; }
-.card-eyebrow { font-size: 12px; }
 .focus-title { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .method-card h3, .evidence-card h3 { color: var(--ink); font-size: 17px; margin: 4px 0 8px; font-weight: 700; }
 .method-card p { font-size: 14px; line-height: 1.6; }
@@ -182,6 +182,8 @@ button, select { -webkit-tap-highlight-color: transparent; }
 .reader-heading-row { width: 100%; }
 .reader-header { gap: 3px 12px; }
 .reader-header .coverage { margin: 2px 0 0; }
+.coverage summary { cursor: pointer; }
+.coverage p { margin: 5px 0; }
 .coverage span { padding-inline: 1px; color: #909b90; }
 .replies-heading { padding: 17px 0 5px; }
 .replies-heading h3 { font-size: 15px; }
@@ -200,8 +202,6 @@ button, select { -webkit-tap-highlight-color: transparent; }
 .comment-actions .metric, .evidence-meta .metric, .comment-actions .source-link { display: inline-flex; align-items: center; gap: 4px; color: var(--quiet); font-size: 11px; font-weight: 500; }
 .comment-actions .metric svg, .evidence-meta .metric svg { width: 13px; height: 13px; }
 .comment-actions .source-link svg { width: 11px; height: 11px; }
-.card-eyebrow { display: flex; gap: 6px; align-items: center; color: var(--forest); font-weight: 650; }
-.insight-intro .card-eyebrow { margin: 0 0 6px; }
 .insight-intro .sample-base { margin-top: 7px; }
 .wheel-slice { cursor: pointer; opacity: .55; }
 .wheel-slice:hover, .wheel-slice.is-selected { opacity: 1; }
@@ -264,4 +264,35 @@ button, select { -webkit-tap-highlight-color: transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
+
+.overview-graphic { margin: 13px 0 14px; }
+.overview-graphic.with-reading { display: grid; grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr); gap: 14px; align-items: center; }
+.overview-wheel { min-width: 0; }
+.overview-graphic .wheel-stage { width: min(100%, 161px); margin: 0 auto; }
+.with-reading .wheel-legend { line-height: 1.5; font-size: 10px; }
+.reading-credit, .comparison-head { font-size: 11px; font-weight: 550; color: var(--quiet); }
+.reading-extract p { margin: 5px 0 0; }
+.reading-clause { display: inline; padding: 0; border: 0; color: var(--ink); text-align: start; font-size: 13px; line-height: 1.65; text-decoration: underline dotted #9ca99f; text-underline-offset: .28em; }
+.reading-clause:hover { color: var(--forest-dark); text-decoration-style: solid; }
+.topic-comparison { margin: 0 0 18px; font-variant-numeric: tabular-nums; }
+.topic-comparison .topic-chip, .comparison-head {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(5.2em, auto) 5.2em; align-items: center;
+  gap: 7px; width: 100%; text-align: end;
+}
+.comparison-head { padding-bottom: 3px; }
+.topic-comparison .topic-chip { min-height: 31px; padding-block: 3px; }
+.topic-comparison .topic-chip:first-of-type { margin-top: 1px; }
+.comparison-head > :first-child, .topic-name { text-align: start; }
+.topic-name { display: inline-flex; align-items: center; gap: 4px; }
+.topic-comparison .topic-chip small { margin-right: 8px; color: var(--quiet); font-size: 11px; font-weight: 400; }
+.other-quotes { margin-top: 10px; }
+.other-quotes summary { padding: 5px 0; color: var(--forest); font-size: 13px; width: fit-content; }
+@media (max-width: 430px) {
+  .overview-graphic.with-reading { gap: 10px; }
+}
+
+@media (max-height: 720px) {
+  .overview-graphic { margin-block: 8px; }
+  .topic-comparison { margin-bottom: 9px; }
 }

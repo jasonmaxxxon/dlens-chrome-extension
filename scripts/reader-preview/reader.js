@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { ReaderOverview } from './reader-overview.jsx';
+import { EvidencePanel, MethodsPanel, QuestionsPanel } from './reader-details.jsx';
 import { mountReaderTabs } from './sdk-tabs.jsx';
 
 (() => {
@@ -14,7 +15,6 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
     arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
     external: '<path d="M14 4h6v6m0-6L9 15m1-10H5v14h14v-5"/>',
     back: '<path d="m10 6-6 6 6 6M4 12h15"/>',
-    locate: '<circle cx="12" cy="12" r="6"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>',
   };
   function icon(name) {
     return '<svg class="icon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + iconPaths[name] + '</svg>';
@@ -22,7 +22,13 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const known = value => Number.isFinite(value) && value >= 0;
   const formatCount = value => known(value) ? value.toLocaleString('zh-HK') : '未提供';
-  const share = (value, total) => total > 0 ? Math.round(value * 100 / total) + '%' : '—';
+  function share(value, total) {
+    if (total <= 0) return '—';
+    const percent = Math.round(value * 100 / total);
+    if (percent === 0 && value > 0) return '<1%';
+    if (percent === 100 && value < total) return '>99%';
+    return percent + '%';
+  }
   const visibleText = text => (text || '').trim() ? escape(text) : '<span class="empty-text">（擷取時沒有文字）</span>';
   function sourceLink(url, label) {
     try {
@@ -80,12 +86,15 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
   }
   function feedMarkup() {
     const ordered = [...post.comments].sort((a,b) => (b.likes ?? -1) - (a.likes ?? -1));
+    const otherMetrics = [[post.reposts, '轉發'], [post.shares, '分享'], [post.views, '次瀏覽']]
+      .filter(([value]) => known(value))
+      .map(([value, label]) => '<span>' + formatCount(value) + ' ' + label + '</span>').join('');
     return '<div class="feed-heading"><h2>原帖與留言</h2><button class="text-action mobile-only return-reader" data-action="return">' + icon('back') + ' 返回分析</button></div>' +
       '<div class="feed-scroll"><article class="post-card"><div class="post-meta">' + avatar(post.author, true) +
       '<div><strong>@' + escape(post.author) + '</strong><div class="post-date">擷取於 ' + escape(dated(post.capturedAt)) + '</div></div>' +
       sourceLink(post.url, '開啟原帖') + '</div><p class="post-body">' + visibleText(post.text) +
       '</p><div class="metrics"><span class="metric">' + icon('heart') + ' ' + formatCount(post.postLikes) + ' 讚</span>' +
-      '<span class="metric">' + icon('reply') + ' ' + formatCount(post.totalReplies) + ' 回覆</span></div></article>' +
+      '<span class="metric">' + icon('reply') + ' ' + formatCount(post.totalReplies) + ' 回覆</span>' + otherMetrics + '</div></article>' +
       '<div class="replies-heading"><h3>已擷取留言 <span>' + ordered.length + '</span></h3><small>依讚數排列</small></div>' +
       '<div class="reply-list">' + ordered.map(feedReply).join('') + '</div></div>';
   }
@@ -100,13 +109,35 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
     renderReader();
   }
   function tabs() {
-    return [['overview','概覽'], ...(!pure && methods.length ? [['methods','留言做法']] : []), ['evidence','原文']];
+    const items = [['overview', '概覽']];
+    if (!pure && methods.length) items.push(['methods', '留言做法', methods.length]);
+    if (post.questions.length) items.push(['questions', '問答', post.questions.length]);
+    items.push(['evidence', '原文']);
+    return items;
+  }
+  function coverage(expanded) {
+    const counts = '平台回覆 ' + formatCount(post.totalReplies) + ' · 已擷取 ' + post.comments.length + ' · 已分群 ' + grouped.length;
+    const exclusions = [['op', '樓主回覆'], ['empty_text', '空白留言'], ['duplicates', '重複留言'], ['root', '主帖'], ['unknown', '未能辨認']]
+      .filter(([key]) => post.excluded[key] > 0)
+      .map(([key, label]) => post.excluded[key] + ' 則' + label);
+    if (!exclusions.length) return '<div class="coverage">' + counts + '</div>';
+    return '<details class="coverage"' + (expanded ? ' open' : '') + '><summary>' + counts +
+      '</summary><p>已擷取的留言中，' + exclusions.join('、') + '未納入分群。</p></details>';
+  }
+  function panelContent() {
+    if (tab === 'methods') return createElement(MethodsPanel, { methods, commentsById });
+    if (tab === 'questions') return createElement(QuestionsPanel, { questions: post.questions, commentsById });
+    if (tab === 'evidence') return createElement(EvidencePanel, { post, groups, groupName, filter, from, methods, commentsById });
+    return createElement(ReaderOverview, {
+      groups, group: current(), count: grouped.length, likes: totalLikes, missingLikes,
+      reading: post.reading, pure, groupName, share, formatCount,
+    });
   }
   function renderReader() {
     const head = app.querySelector('.reader-head');
     head.innerHTML = '<div class="reader-heading-row"><h2 class="reader-title">留言分析</h2><div class="layer-switch" role="group" aria-label="顯示內容">' +
       [['full','綜合'],['pure','純統計']].map(([key,label]) => '<button data-action="mode" data-value="' + key + '" aria-pressed="' + ((key === 'pure') === pure) + '">' + label + '</button>').join('') +
-      '</div></div><div class="coverage">平台回覆 ' + formatCount(post.totalReplies) + ' <span>·</span> 已擷取 ' + post.comments.length + ' <span>·</span> 已分群 ' + grouped.length + '</div>' +
+      '</div></div>' + coverage(head.querySelector('details.coverage')?.open) +
       '<button class="mobile-only view-source text-action" data-action="source">查看原帖與留言 ' + icon('arrow') + '</button>';
     const active = current();
     app.querySelector('.reader').style.setProperty('--active-topic-color',
@@ -114,29 +145,9 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
     readerTabs.render({
       items: tabs(),
       value: tab,
-      content: tab === 'overview' ? overview() : tab === 'methods' ? methodList() : evidence(),
+      content: panelContent(),
       onSelect: setTab,
     });
-  }
-  function overview() {
-    return createElement(ReaderOverview, {
-      groups, group: current(), count: grouped.length, likes: totalLikes,
-      missingLikes, groupName, share, formatCount,
-    });
-  }
-  function methodList() {
-    return '<div class="methods"><div class="section-heading"><h3>留言中提到的做法</h3><p>依原留言整理</p></div>' + methods.map((method,index) =>
-      '<article class="method-card"><h3>' + escape(method.title) + '</h3><button class="text-action" data-action="method-evidence" data-value="' + index + '">查看 ' + method.ids.length + ' 則來源 ' + icon('arrow') + '</button></article>').join('') + '</div>';
-  }
-  function evidence() {
-    const method = from?.kind === 'method' ? methods[from.index] : null;
-    const rows = method ? method.ids.map(id => commentsById.get(id)) : filter === 'all' ? post.comments : groups.find(g => g.id === filter)?.members || [];
-    const sorted = [...rows].sort((a,b) => (b.likes ?? -1)-(a.likes ?? -1));
-    return '<div class="evidence">' + (from ? '<button class="text-action back-action" data-action="back-evidence">' + icon('back') + ' 返回' + (method ? '留言做法' : '話題焦點') + '</button>' : '') +
-      '<div class="section-heading"><h3>' + (method ? escape(method.title) : '留言原文') + '</h3><p>' + rows.length + ' 則 · 依讚數排列</p></div>' +
-      (!method ? '<div class="filters" role="group" aria-label="按群組篩選原文">' + [['all','全部'],...groups.map(g => [g.id,groupName(g)])].map(([id,label]) => '<button class="filter-chip" aria-pressed="' + (id === filter) + '" data-action="filter" data-value="' + escape(id) + '">' + escape(label) + '</button>').join('') + '</div>' : '') +
-      sorted.map(c => '<article class="evidence-card"><div class="evidence-meta"><strong>@' + escape(c.author) + '</strong>' + replyStats(c) + '</div><p>' +
-        visibleText(c.text) + '</p><button class="text-action" data-action="jump" data-value="' + escape(c.id) + '">' + icon('locate') + ' 定位留言</button></article>').join('') + '</div>';
   }
   function setTab(next) {
     if (next === 'evidence' && tab !== 'evidence') { filter = tab === 'overview' && selected ? selected : 'all'; from = tab === 'overview' && selected ? {kind:'group'} : null; }
@@ -182,7 +193,12 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
     const {action,value} = node.dataset;
     switch (action) {
       case 'source': revealSource(null); return;
-      case 'jump': revealSource(value); return;
+      case 'jump':
+        if (node.tagName === 'A') {
+          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+        }
+        revealSource(value); return;
       case 'return': returnReader(); return;
       case 'group':
         selected = value; renderReader();
@@ -199,7 +215,7 @@ import { mountReaderTabs } from './sdk-tabs.jsx';
       case 'back-evidence': tab = from?.kind === 'method' ? 'methods' : 'overview'; from = null; break;
       case 'filter':
         filter = value; from = null; renderReader();
-        app.querySelector('.filters [aria-pressed="true"]').focus({preventScroll:true}); return;
+        app.querySelector('.filters [aria-pressed="true"]')?.focus({preventScroll:true}); return;
       default: return;
     }
     renderReader(); app.querySelector('.reader-body').scrollTop = 0;
