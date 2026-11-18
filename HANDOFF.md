@@ -4,13 +4,13 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-18 10:21:32 HKT
+2026-11-18 12:15:12 HKT
 
 ## Branch
 `proto/20261118-google-reader`
 
 ## Note from Max
-完成 Google 側欄雙帖互動原型，已核對分群與來源定位；下一步在 16GB Mac 用既有擷取快照重建並評估納入正式閱讀頁
+已恢復離線閱讀室的 Vercel UI SDK 墨線、方向切頁及輪盤動態；下一步在 16GB Mac 重建並檢視正常與減少動態兩種模式
 
 ## Working tree at handoff (`git status --short`, 1 entries)
 ```
@@ -18,17 +18,19 @@ NewJeans-Comeback (NewJeans Comeback)
 ```
 
 ## Last 5 commits (before this handoff)
+- cf971c3 bug fix: 離線閱讀室改用 SDK 分頁與連續墨線，移除手寫切頁 (Your Name, 2026-11-18 12:15)
+- 6d3edb4 handoff: 完成 Google 側欄雙帖互動原型，已核對分群與來源定位；下一步在 16GB Mac 用既有擷取快照重建並評估納入正式閱讀頁 (Your Name, 2026-11-18 10:21)
 - 5e5c79f feature: 以真實分群與留言定位取代 Google 側欄示例數字 (Your Name, 2026-11-18 10:21)
 - 03b4ab9 handoff: 0.5.96-ink：閱讀頁換成 A 墨線質地加一點透明感（紙頂話題色淡光、入口列黏頂後變毛玻璃、選中扇區柔光），入口改用 UI SDK Tabs（方向鍵、滑動墨線、面板由選中方向進入），圖示沿用 lucide；gate 全綠 1292/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，睇淡光同黏頂毛玻璃，舊 capture 未接新閱讀頁 (Your Name, 2026-11-16 13:03)
 - 694859f feature: ink-line reader texture with a little transparency and UI SDK tabs, version 0.5.96 (0.5.96-ink) (Your Name, 2026-11-16 13:00)
-- 12e98ba handoff: 0.5.95 閱讀頁改成分頁式白底版面（概覽／分歧／做法／問題／連結／原文按內容出現，分歧兩個主張並排、留言全闊 14px，純統計開關，原文加話題篩選）；gate 全綠 1296/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，舊 capture 未接新閱讀頁 (Your Name, 2026-11-14 23:03)
-- 57eb024 feature: version 0.5.95 (0.5.95-wheel) for the tabbed reader (Your Name, 2026-11-14 23:03)
 
 ## Next steps
 
+- 原型現已整合與 0.5.96 閱讀頁相同的 Vercel UI SDK Tabs。16GB Mac 可先在「概覽」按「看這組原文」，再用左方向鍵或 Home 返回，檢視墨線及面板方向。切換輪盤話題可檢視扇區移動；捲動原文可檢視黏頂分頁的毛玻璃。開啟系統的「減少動態效果」後，同一流程應即時切換。
 - 2026-11-18 的 `proto/20261118-google-reader` 是雙帖離線閱讀原型。原始碼在 `scripts/reader-preview/`，Chrome 擴充功能仍沿用 0.5.96。先檢視原型，再決定是否把這版移入正式側欄。
 - 在本機開 `docs/mockups/2026-11-18-google-reader.html`。另一部 Mac 從 Git 取得原始碼，在已匯出兩份 capture 的環境執行以下指令。如該機只有本地 DLens 後端，可將 `GET /captures/{id}` 回應存成同名 JSON。完整原始擷取檔及生成的 HTML 保留在本機。
 ```bash
+npm ci
 capture_dir=../dlens-ui-redesign-review/real-analyses
 python3 scripts/reader-preview/build.py "$capture_dir/17314c61-a875-4b97-bc40-126d2114edef.json" "$capture_dir/8804d6d2-af87-47ee-8100-71667533e81e.json"
 open docs/mockups/2026-11-18-google-reader.html
