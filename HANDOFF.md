@@ -4,28 +4,36 @@
 NewJeans-Comeback (NewJeans Comeback)
 
 ## Time (HKT)
-2026-11-16 13:03:15 HKT
+2026-11-18 10:21:32 HKT
 
 ## Branch
-`feature/blocks-v1`
+`proto/20261118-google-reader`
 
 ## Note from Max
-0.5.96-ink：閱讀頁換成 A 墨線質地加一點透明感（紙頂話題色淡光、入口列黏頂後變毛玻璃、選中扇區柔光），入口改用 UI SDK Tabs（方向鍵、滑動墨線、面板由選中方向進入），圖示沿用 lucide；gate 全綠 1292/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，睇淡光同黏頂毛玻璃，舊 capture 未接新閱讀頁
+完成 Google 側欄雙帖互動原型，已核對分群與來源定位；下一步在 16GB Mac 用既有擷取快照重建並評估納入正式閱讀頁
 
-## Working tree at handoff (`git status --short`, 2 entries)
+## Working tree at handoff (`git status --short`, 1 entries)
 ```
  M HANDOFF.md
-?? docs/archive/HANDOFF.md.bak-20261116
 ```
 
 ## Last 5 commits (before this handoff)
+- 5e5c79f feature: 以真實分群與留言定位取代 Google 側欄示例數字 (Your Name, 2026-11-18 10:21)
+- 03b4ab9 handoff: 0.5.96-ink：閱讀頁換成 A 墨線質地加一點透明感（紙頂話題色淡光、入口列黏頂後變毛玻璃、選中扇區柔光），入口改用 UI SDK Tabs（方向鍵、滑動墨線、面板由選中方向進入），圖示沿用 lucide；gate 全綠 1292/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，睇淡光同黏頂毛玻璃，舊 capture 未接新閱讀頁 (Your Name, 2026-11-16 13:03)
 - 694859f feature: ink-line reader texture with a little transparency and UI SDK tabs, version 0.5.96 (0.5.96-ink) (Your Name, 2026-11-16 13:00)
 - 12e98ba handoff: 0.5.95 閱讀頁改成分頁式白底版面（概覽／分歧／做法／問題／連結／原文按內容出現，分歧兩個主張並排、留言全闊 14px，純統計開關，原文加話題篩選）；gate 全綠 1296/0 fail，216 個版面狀態 0 出界；下一步：同步 combo 資料夾後真機 QA，舊 capture 未接新閱讀頁 (Your Name, 2026-11-14 23:03)
 - 57eb024 feature: version 0.5.95 (0.5.95-wheel) for the tabbed reader (Your Name, 2026-11-14 23:03)
-- 24bc9c9 feature: tabbed white reader with a counted headline, one topic in focus and readable split sides (Your Name, 2026-11-14 23:01)
-- 5fcf783 handoff: 0.5.94 已修緊湊輪圖與比例分母、移除重複數字及外圈，prompt v7 收緊做法與分歧；1289 tests、0 fail，已同步 Jason combo；下一步 reload、刷新 Threads、驗收 v7 真帖解讀 (Your Name, 2026-11-13 16:54)
 
 ## Next steps
+
+- 2026-11-18 的 `proto/20261118-google-reader` 是雙帖離線閱讀原型。原始碼在 `scripts/reader-preview/`，Chrome 擴充功能仍沿用 0.5.96。先檢視原型，再決定是否把這版移入正式側欄。
+- 在本機開 `docs/mockups/2026-11-18-google-reader.html`。另一部 Mac 從 Git 取得原始碼，在已匯出兩份 capture 的環境執行以下指令。如該機只有本地 DLens 後端，可將 `GET /captures/{id}` 回應存成同名 JSON。完整原始擷取檔及生成的 HTML 保留在本機。
+```bash
+capture_dir=../dlens-ui-redesign-review/real-analyses
+python3 scripts/reader-preview/build.py "$capture_dir/17314c61-a875-4b97-bc40-126d2114edef.json" "$capture_dir/8804d6d2-af87-47ee-8100-71667533e81e.json"
+open docs/mockups/2026-11-18-google-reader.html
+```
+- 核對第一篇「地區限制」21/55 則、294/393 讚，@ervat1019 一則 219 讚；切「帳號與工具」後按「看這組原文」應列出 29 則，其首則為 @kaiwood528。到第二篇，覆核 18/22 已擷取、18 則已分群，以及「留言做法」依資料收起。群組歸屬與數字取自 capture，話題名稱與做法標題由編輯依原文整理。
 
 - **目前版本：`0.5.96`／`0.5.96-ink`，分支 `feature/blocks-v1`；inline reading prompt 仍然係 v7。** 使用者喺三種質地 mockup（本機 `~/developer/dlens-ui-redesign-review/harness/fable/free/variant-b3.html`）揀咗 A 墨線，原話：「a，跟著加入一點透明感，你也可以到一些ui 動態/icon libary 找一些來enhance ux，如果是 vercel ui sdk 應該會有很大幫助」。
 - **0.5.96 只換閱讀頁質地**（`src/ui/ReaderWheel.tsx`、`tokens.ts` 嘅 `panel.wheel`、`tokens-intent.md`；版面、資料規則、viewmodel 冇變）：
