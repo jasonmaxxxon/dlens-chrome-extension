@@ -1,3 +1,7 @@
+import { createElement } from 'react';
+import { ReaderOverview } from './reader-overview.jsx';
+import { mountReaderTabs } from './sdk-tabs.jsx';
+
 (() => {
   'use strict';
 
@@ -37,6 +41,8 @@
   let post, groups, grouped, commentsById, methods, totalLikes, missingLikes;
   let selected, tab, pure = false, filter, from, jumpTrigger, mobileSource = false;
 
+  let readerTabs;
+
   function loadPost(value) {
     post = posts.find(item => item.id === value) || posts[0];
     if (!post) {
@@ -60,10 +66,6 @@
   function groupName(group, full = false) {
     return pure ? '群組 ' + (group.index + 1) : (full ? group.label : group.short) || group.label;
   }
-  function groupStyle(group) {
-    return '--group-color:var(--group-' + (group.index % 3) + ');--topic-color:var(--group-color)';
-  }
-  const dot = '<span class="topic-dot" aria-hidden="true"></span>';
   function avatar(author, large = false) {
     return '<span class="avatar' + (large ? ' avatar-large' : '') + '" aria-hidden="true">' + escape((author || '？').slice(0,1).toUpperCase()) + '</span>';
   }
@@ -88,11 +90,13 @@
       '<div class="reply-list">' + ordered.map(feedReply).join('') + '</div></div>';
   }
   function renderShell() {
+    readerTabs?.unmount();
     const options = posts.map(item => '<option value="' + escape(item.id) + '"' + (item.id === post.id ? ' selected' : '') + '>' + escape(item.title || '@' + item.author) + '</option>').join('');
     app.innerHTML = '<header class="topbar"><div class="topbar-inner"><div class="brand"><svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><g fill="none" stroke="#fff" stroke-width="2"><circle cx="16" cy="16" r="9"/><path d="M16 7v9l7 5"/></g></svg><strong>DLens</strong></div>' +
       '<span class="workspace-label work-title">貼文閱讀室</span><label class="post-switch post-picker"><span>切換貼文</span><select aria-label="切換貼文">' + options + '</select></label></div></header>' +
       '<main class="workspace"><section class="feed" aria-label="原帖與留言">' + feedMarkup() + '</section>' +
-      '<aside class="reader" aria-label="留言分析"><div class="reader-header reader-head"></div><div class="reader-tabs" role="tablist" aria-label="閱讀分頁"></div><div class="reader-scroll reader-body" id="reader-pane" role="tabpanel"></div></aside></main>';
+      '<aside class="reader" aria-label="留言分析"><div class="reader-header reader-head"></div><div class="reader-sdk-mount"></div></aside></main>';
+    readerTabs = mountReaderTabs(app.querySelector('.reader-sdk-mount'));
     renderReader();
   }
   function tabs() {
@@ -104,55 +108,21 @@
       [['full','綜合'],['pure','純統計']].map(([key,label]) => '<button data-action="mode" data-value="' + key + '" aria-pressed="' + ((key === 'pure') === pure) + '">' + label + '</button>').join('') +
       '</div></div><div class="coverage">平台回覆 ' + formatCount(post.totalReplies) + ' <span>·</span> 已擷取 ' + post.comments.length + ' <span>·</span> 已分群 ' + grouped.length + '</div>' +
       '<button class="mobile-only view-source text-action" data-action="source">查看原帖與留言 ' + icon('arrow') + '</button>';
-    app.querySelector('.reader-tabs').innerHTML = tabs().map(([key,label]) => '<button id="tab-' + key + '" role="tab" aria-controls="reader-pane" aria-selected="' + (tab === key) + '" tabindex="' + (tab === key ? 0 : -1) + '" data-action="tab" data-value="' + key + '">' + label + '</button>').join('');
-    const panel = app.querySelector('.reader-body');
-    panel.setAttribute('aria-labelledby', 'tab-' + tab);
-    panel.innerHTML = tab === 'overview' ? overview() : tab === 'methods' ? methodList() : evidence();
-  }
-  function wheel(group) {
-    const inner = 44, maximum = 89;
-    let angle = -Math.PI / 2;
-    const point = (r,a) => [100 + r * Math.cos(a), 100 + r * Math.sin(a)].join(' ');
-    const paths = groups.map(g => {
-      const end = angle + 2 * Math.PI * g.members.length / grouped.length;
-      const pad = Math.min(.014, (end-angle)/8), a = angle + pad, z = end - pad;
-      angle = end;
-      // A constant 7-unit band keeps a zero-like group selectable; the extra thickness uses a fixed 0–100% scale.
-      const outer = inner + 7 + (maximum-inner-7) * (totalLikes ? g.likes / totalLikes : 0);
-      const flag = z-a > Math.PI ? 1 : 0;
-      const path = ['M',point(outer,a),'A',outer,outer,0,flag,1,point(outer,z),'L',point(inner,z),'A',inner,inner,0,flag,0,point(inner,a),'Z'].join(' ');
-      return '<path class="wheel-slice' + (g === group ? ' is-selected' : '') + '" fill="var(--group-color)" style="' + groupStyle(g) + '" data-action="group" data-value="' + escape(g.id) + '" d="' + path + '"/>';
-    }).join('');
-    return '<div class="wheel-stage"><svg class="wheel" aria-hidden="true" viewBox="0 0 200 200"><circle cx="100" cy="100" r="89" fill="none" stroke="currentColor" opacity=".2" stroke-dasharray="2 4"/>' + paths +
-      '</svg><div class="wheel-center"><span>留言</span><strong>' + share(group.members.length,grouped.length) + '</strong><small>獲讚 ' + share(group.likes,totalLikes) +
-      '</small></div></div><p class="wheel-legend">弧寬代表留言佔比，環厚代表獲讚佔比</p>';
-  }
-  function groupPills() {
-    return '<div class="topic-chips topic-list" role="group" aria-label="選擇留言群組">' + groups.map(g =>
-      '<button class="topic-chip topic-btn" style="' + groupStyle(g) + '" data-action="group" data-value="' + escape(g.id) + '" aria-pressed="' + (g.id === selected) + '">' + dot + escape(groupName(g)) + '</button>').join('') + '</div>';
+    const active = current();
+    app.querySelector('.reader').style.setProperty('--active-topic-color',
+      active ? 'var(--group-' + (active.index % 3) + ')' : 'var(--forest)');
+    readerTabs.render({
+      items: tabs(),
+      value: tab,
+      content: tab === 'overview' ? overview() : tab === 'methods' ? methodList() : evidence(),
+      onSelect: setTab,
+    });
   }
   function overview() {
-    const group = current();
-    if (!group) return '<p class="empty-state">這篇貼文尚未有留言分群。</p>';
-    const leading = [...groups].sort((a,b) => b.likes-a.likes || b.members.length-a.members.length)[0];
-    const rep = group.members.find(c => c.id === group.representativeId) || [...group.members].sort((a,b) => (b.likes ?? -1)-(a.likes ?? -1))[0];
-    const leadingName = escape(groupName(leading));
-    const commentShare = share(leading.members.length, grouped.length);
-    const headline = totalLikes
-      ? leadingName + '佔 ' + commentShare + ' 留言，獲 ' + share(leading.likes, totalLikes) + ' 讚'
-      : leadingName + '留言最多，佔樣本 ' + commentShare;
-    const fullLikeCounts = group.members.every(c => known(c.likes));
-    const concentration = fullLikeCounts && group.likes > 0 && known(rep.likes)
-      ? ' · 佔組內讚數 ' + new Intl.NumberFormat('zh-HK', {maximumFractionDigits:1}).format(rep.likes * 100 / group.likes) + '%'
-      : '';
-    const note = missingLikes ? ' · ' + missingLikes + ' 則缺少讚數' : '';
-    return '<div class="overview"><div class="insight-intro"><div class="card-eyebrow">分群樣本</div><h3 class="insight-headline">' + headline +
-      '</h3><p class="sample-base">依 ' + grouped.length + ' 則分群留言、' + totalLikes + ' 個已知讚計算' + note + '</p></div>' + wheel(group) + groupPills() +
-      '<article class="focus-card" style="' + groupStyle(group) + '"><div class="card-eyebrow">' + dot + (pure ? '選取群組' : '話題焦點') + '</div>' +
-      '<h3 class="focus-title">' + escape(groupName(group,true)) + '</h3><p class="focus-metrics">' + group.members.length + ' 則留言 · ' + group.likes + ' 個已知讚</p>' +
-      '<div class="focus-actions"><button class="primary-action" data-action="group-evidence">看這組原文 <span>' + group.members.length + '</span> ' + icon('arrow') + '</button>' +
-      '<button class="text-action" data-action="jump" data-value="' + escape(rep.id) + '">' + icon('locate') + ' 定位引文</button></div>' +
-      '<blockquote><p>' + visibleText(rep.text) + '</p><footer>@' + escape(rep.author) + ' · ' + formatCount(rep.likes) + ' 讚' + concentration + '</footer></blockquote></article></div>';
+    return createElement(ReaderOverview, {
+      groups, group: current(), count: grouped.length, likes: totalLikes,
+      missingLikes, groupName, pure, share, formatCount,
+    });
   }
   function methodList() {
     return '<div class="methods"><div class="section-heading"><h3>留言中提到的做法</h3><p>依原留言整理</p></div>' + methods.map((method,index) =>
@@ -173,7 +143,9 @@
     if (next !== 'evidence') from = null;
     tab = next; renderReader();
     app.querySelector('.reader-body').scrollTop = 0;
-    app.querySelector('#tab-' + tab).focus({preventScroll:true});
+  }
+  function selectedTabButton() {
+    return app.querySelector('.reader-tabs [aria-selected="true"]');
   }
   function revealSource(id) {
     const trigger = document.activeElement;
@@ -196,7 +168,7 @@
     mobileSource = false;
     app.querySelector('.workspace').classList.remove('show-source');
     if (jumpTrigger?.isConnected) jumpTrigger.focus();
-    else app.querySelector('#tab-' + tab)?.focus();
+    else selectedTabButton()?.focus();
   }
   app.addEventListener('change', event => {
     if (event.target.matches('.post-switch select')) {
@@ -209,7 +181,6 @@
     if (!node) return;
     const {action,value} = node.dataset;
     switch (action) {
-      case 'tab': setTab(value); return;
       case 'source': revealSource(null); return;
       case 'jump': revealSource(value); return;
       case 'return': returnReader(); return;
@@ -232,14 +203,10 @@
       default: return;
     }
     renderReader(); app.querySelector('.reader-body').scrollTop = 0;
-    app.querySelector('#tab-' + tab).focus({preventScroll:true});
+    selectedTabButton()?.focus({preventScroll:true});
   });
   app.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && mobileSource) { returnReader(); return; }
-    if (!event.target.closest('[role="tab"]')) return;
-    const keys = tabs().map(([key]) => key), index = keys.indexOf(tab);
-    const next = { ArrowRight: (index+1)%keys.length, ArrowLeft: (index+keys.length-1)%keys.length, Home: 0, End: keys.length-1 }[event.key];
-    if (next !== undefined) { event.preventDefault(); setTab(keys[next]); }
+    if (event.key === 'Escape' && mobileSource) returnReader();
   });
   loadPost(posts[0]?.id);
 })();

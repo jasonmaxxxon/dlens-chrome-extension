@@ -2,12 +2,14 @@
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_OUTPUT = HERE.parents[1] / "docs/mockups/2026-11-18-google-reader.html"
+ROOT = HERE.parents[1]
+DEFAULT_OUTPUT = ROOT / "docs/mockups/2026-11-18-google-reader.html"
 
 # These are editorial navigation labels. The backend owns the cluster membership.
 # Key them by representative comment ID so a changed clustering cannot reuse an old label.
@@ -107,6 +109,20 @@ def project(capture):
     )
 
 
+def bundle_reader():
+    esbuild = ROOT / "node_modules/.bin/esbuild"
+    if not esbuild.is_file():
+        raise SystemExit("請先在專案根目錄執行 npm ci，再建立離線閱讀室。")
+    return subprocess.check_output(
+        [
+            str(esbuild), str(HERE / "reader.js"), "--bundle", "--format=iife",
+            "--platform=browser", "--jsx=automatic", "--charset=utf8",
+            "--minify", "--legal-comments=inline", '--define:process.env.NODE_ENV="production"',
+        ],
+        cwd=ROOT, encoding="utf-8",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("captures", type=Path, nargs="+")
@@ -121,7 +137,7 @@ def main():
     template = (HERE / "frame.html").read_text(encoding="utf-8")
     for marker, content in [
         ("/*__CSS__*/", (HERE / "style.css").read_text(encoding="utf-8")),
-        ("/*__JS__*/", (HERE / "reader.js").read_text(encoding="utf-8")),
+        ("/*__JS__*/", bundle_reader()),
         ("__CAPTURES__", payload.replace("<", r"\u003c")),
     ]:
         if template.count(marker) != 1:
