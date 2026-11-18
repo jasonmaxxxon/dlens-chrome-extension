@@ -11,3 +11,4 @@ __pycache__/
 .claude/settings.local.json
 tmp/
 .worktrees/
+/docs/mockups/2026-11-18-google-reader.html
